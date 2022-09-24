@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30104.148
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunscriptToolbox", "FunscriptToolbox\FunscriptToolbox.csproj", "{D38632A2-745C-478F-86B5-FB26B4C00570}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioSynchronization", "AudioSynchronization\AudioSynchronization.csproj", "{EEECF34B-1BB8-4209-AF1D-99AD25A481A4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D38632A2-745C-478F-86B5-FB26B4C00570}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D38632A2-745C-478F-86B5-FB26B4C00570}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D38632A2-745C-478F-86B5-FB26B4C00570}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D38632A2-745C-478F-86B5-FB26B4C00570}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEECF34B-1BB8-4209-AF1D-99AD25A481A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEECF34B-1BB8-4209-AF1D-99AD25A481A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEECF34B-1BB8-4209-AF1D-99AD25A481A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEECF34B-1BB8-4209-AF1D-99AD25A481A4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AF838020-F0AE-4213-A101-A1B24A05622C}
+	EndGlobalSection
+EndGlobal
