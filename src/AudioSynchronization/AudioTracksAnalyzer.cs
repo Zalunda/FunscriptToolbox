@@ -40,7 +40,7 @@ namespace AudioSynchronization
             File.Delete(tempFile + ".wav");
 
             //create a command adding a video file
-            var nbSamplesPerPeak = 100;
+            var nbSamplesPerPeak = 200;
             var command = factory.CreateOutputCommand()
                 .AddInput(filename)
                 .To<Raw>(
@@ -57,8 +57,7 @@ namespace AudioSynchronization
             using (var file = File.Open(tempFile, FileMode.Open, FileAccess.Read))
             {
                 var nbSampleInCurrentPeak = 0;
-                var lowestValue = short.MaxValue;
-                var highestValue = short.MinValue;
+                var maxValue = ushort.MinValue;
 
                 while (true)
                 {
@@ -66,23 +65,24 @@ namespace AudioSynchronization
                     var b2 = file.ReadByte();
                     if (b1 < 0 || b2 < 0)
                     {
-                        yield return (ushort)(highestValue - lowestValue);
+                        if (nbSampleInCurrentPeak > 0)
+                        {
+                            yield return maxValue;
+                        }
                         break;
                     }
                     var value = (short)((b2 << 8) + b1);
 
+                    nbSampleInCurrentPeak++;
                     if (nbSampleInCurrentPeak == nbSamplesPerPeak)
                     {
-                        yield return (ushort)(highestValue - lowestValue);
+                        yield return maxValue;
                         nbSampleInCurrentPeak = 0;
-                        lowestValue = short.MaxValue;
-                        highestValue = short.MinValue;
+                        maxValue = ushort.MinValue;
                     }
                     else
                     {
-                        nbSampleInCurrentPeak++;
-                        lowestValue = Math.Min(value, lowestValue);
-                        highestValue = Math.Max(value, highestValue);
+                        maxValue = Math.Max(maxValue, (ushort)Math.Abs((int)value));
                     }
                 }
             }
