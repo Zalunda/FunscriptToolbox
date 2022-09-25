@@ -9,10 +9,10 @@ namespace FunscriptToolbox.AudioSyncVerbs
 {
     internal class VerbAudioSyncCreateAudioSignature : Verb
     {
-        [Verb("audiosync.createAudioSignature", aliases: new[] { "as.cas" })]
+        [Verb("audiosync.createAudioSignature", aliases: new[] { "as.cas" }, HelpText = "Create audio signature for videos.")]
         public class Options : OptionsBase
         {
-            [Value(0, MetaName = "files", Required = true, HelpText = "files")]
+            [Value(0, MetaName = "files", Required = true, HelpText = "files (.mp4 => will create a .asig file, .funscript => audio signature will be embeded in the original funscript file)")]
             public IEnumerable<string> Files { get; set; }
 
             [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', search recursivly for matches")]
@@ -44,7 +44,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 {
                     var funscript = Funscript.FromFile(file);
                     funscript.AudioSignature = analyzer.ExtractSignature(Path.ChangeExtension(file, r_options.VideoExtension));
-                    funscript.Save(Path.ChangeExtension(file, ".funscript_asig"));
+                    funscript.Save(Path.ChangeExtension(file, ".ft.funscript")); // TODO Save backup of original, save as .funscript
                 }
                 else
                 {

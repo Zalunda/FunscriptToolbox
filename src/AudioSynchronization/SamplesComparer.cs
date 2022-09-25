@@ -67,7 +67,7 @@ namespace AudioSynchronization
             return result.ToArray();
         }
 
-        public List<SamplesSectionDiff> Compare()
+        public AudioOffsetCollection Compare()
         {
             DateTime debut = DateTime.Now;
             var matches = new List<SamplesSectionDiff>();
@@ -81,7 +81,7 @@ namespace AudioSynchronization
             matches.First().ExpendStart(r_samplesA, r_samplesB);
             matches.Last().ExpendEnd(r_samplesA, r_samplesB);
 
-            Console.WriteLine("****** CLEANUP ******");
+            Console.WriteLine("****** FINAL ******");
             double matched = 0;
             foreach (SamplesSectionDiff match in matches)
             {
@@ -91,8 +91,12 @@ namespace AudioSynchronization
             Console.WriteLine("matchA = {0:0.00%}", matched / r_samplesA.Length);
             Console.WriteLine("matchB = {0:0.00%}", matched / r_samplesB.Length);
 
-            Console.Error.WriteLine("TimeSpan = {0}", DateTime.Now - debut);
-            return matches;
+            return new AudioOffsetCollection(
+                matches
+                .Select(m => new AudioOffset(
+                TimeSpan.FromSeconds((double)m.SectionA.StartIndex / r_nbSamplesPerSecond),
+                TimeSpan.FromSeconds((double)m.SectionA.LastIndex / r_nbSamplesPerSecond),
+                TimeSpan.FromSeconds((double)m.Offset / r_nbSamplesPerSecond))));
         }
 
         private void Compare(
@@ -150,7 +154,7 @@ namespace AudioSynchronization
                 sectionA.GetSection(0, bestDiff.SectionA.StartIndex - sectionA.StartIndex),
                 sectionB.GetSection(0, bestDiff.SectionB.StartIndex - sectionB.StartIndex));
 
-            Console.WriteLine("{0}", bestDiff);
+            Console.WriteLine($"{bestDiff}");
             matches.Add(bestDiff);
 
             Compare(
@@ -206,7 +210,7 @@ namespace AudioSynchronization
                     double bestSamplesDifference = currentSamplesDifference;
 
                     // Find the best position (i.e. keep X samples from last, and Y samples from current) to minimize the total samples difference
-                    var indexAForCurrentOffset = previousDiff.SectionA.StartIndex + maxGap;
+                    var indexAForCurrentOffset = Math.Min(previousDiff.SectionA.StartIndex + maxGap, r_samplesA.Length);
                     for (int j = 0; j < gapToFill; j++)
                     {
                         // Remove sample difference for "PreviousOffset" (added in the loop above)
@@ -262,6 +266,13 @@ namespace AudioSynchronization
                 {
                     cleanedMatches.Add(matches.Last());
                 }
+
+                Console.WriteLine($"------- Merging blocks from {matches.Count()} to {cleanedMatches.Count()} ----");
+                foreach (var cleanMatch in cleanedMatches)
+                {
+                    Console.WriteLine(cleanMatch);
+                }
+
                 matches = cleanedMatches;
             } while (needAnotherCleanup);
 

@@ -56,6 +56,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AudioOffset.cs" />
+    <Compile Include="AudioOffsetCollection.cs" />
     <Compile Include="AudioSignature.cs" />
     <Compile Include="AudioTracksAnalyzer.cs" />
     <Compile Include="AudioTracksShiftFile.cs" />

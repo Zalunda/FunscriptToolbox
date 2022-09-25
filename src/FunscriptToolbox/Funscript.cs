@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -29,6 +30,18 @@ namespace AudioSynchronization
         public Funscript(dynamic content = null)
         {
             r_content = content ?? new JObject();
+        }
+
+        public FunscriptActions[] Actions
+        {
+            get
+            {
+                return r_content.actions.ToObject<FunscriptActions[]>();
+            }
+            set
+            {
+                r_content.actions = new JArray(value.Select(f => JObject.FromObject(f)).ToArray());
+            }
         }
 
         public AudioSignature AudioSignature { 

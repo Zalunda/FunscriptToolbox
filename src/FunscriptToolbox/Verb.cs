@@ -20,12 +20,12 @@ namespace FunscriptToolbox
             r_options = options;
         }
 
-        public void WriteInfo(string message)
+        public void WriteInfo(string message = "")
         {
             Console.WriteLine(message);
         }
 
-        public void WriteVerbose(string message)
+        public void WriteVerbose(string message = "")
         {
             if (r_options.Verbose)
             {

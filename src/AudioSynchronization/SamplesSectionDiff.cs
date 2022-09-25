@@ -18,24 +18,28 @@ namespace AudioSynchronization
             }
         }
 
-        internal SamplesSection SectionA { get; private set; }
-        internal SamplesSection SectionB { get; private set; }
+        public SamplesSection SectionA { get; private set; }
+        public SamplesSection SectionB { get; private set; }
         public double TotalError { get; }
 
-        internal int Offset => SectionA.StartIndex - SectionB.StartIndex;
+        public int Offset => SectionA.StartIndex - SectionB.StartIndex;
 
         public int Length => SectionA.Length;
 
         internal void ExpendStart(Sample[] m_completeListA, Sample[] m_completeListB)
         {            
-            var expend = Math.Min(SectionA.StartIndex, SectionB.StartIndex);
+            var expend = Math.Min(
+                SectionA.StartIndex, 
+                SectionB.StartIndex);
             SectionA = new SamplesSection(m_completeListA, SectionA.StartIndex - expend, SectionA.Length + expend);
             SectionB = new SamplesSection(m_completeListB, SectionB.StartIndex - expend, SectionB.Length + expend);
         }
 
         internal void ExpendEnd(Sample[] m_completeListA, Sample[] m_completeListB)
         {
-            var expend = Math.Min(m_completeListA.Length - (SectionA.LastIndex + 1), m_completeListB.Length - (SectionB.LastIndex + 1));
+            var expend = Math.Min(
+                m_completeListA.Length - SectionA.LastIndex, 
+                m_completeListB.Length - SectionB.LastIndex);
             SectionA = new SamplesSection(m_completeListA, SectionA.StartIndex, SectionA.Length + expend);
             SectionB = new SamplesSection(m_completeListB, SectionB.StartIndex, SectionB.Length + expend);
         }
