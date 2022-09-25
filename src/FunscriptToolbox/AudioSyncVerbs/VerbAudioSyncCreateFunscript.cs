@@ -40,7 +40,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             var analyzer = new AudioTracksAnalyzer();
             return string.Equals(Path.GetExtension(filename), ".asig", StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetExtension(filename), ".funscript", StringComparison.OrdinalIgnoreCase)
                 ? Funscript.FromFile(filename).AudioSignature
-                : analyzer.ExtractSignature(r_options.InputAudio);
+                : analyzer.ExtractSignature(filename);
         }
 
 

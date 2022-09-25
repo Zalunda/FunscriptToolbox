@@ -36,10 +36,13 @@ namespace FunscriptToolbox
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive)
         {
             if (filename.Contains("*"))
+            {
+                var parent = Path.GetDirectoryName(filename);
                 return Directory.GetFiles(
-                    Path.GetDirectoryName(filename) ?? ".",
+                    string.IsNullOrEmpty(parent) ? "." : parent,
                     Path.GetFileName(filename),
                     recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+            }
             else
                 return new[] { filename };
         }

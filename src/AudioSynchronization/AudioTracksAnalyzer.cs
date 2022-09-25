@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Hudl.FFmpeg;
 using Hudl.FFmpeg.Attributes;
 using Hudl.FFmpeg.Command;
@@ -17,10 +18,11 @@ namespace AudioSynchronization
     {
         public AudioTracksAnalyzer()
         {
+            var applicationFolder = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             ResourceManagement.CommandConfiguration = CommandConfiguration.Create(
                 @".",
-                @"ffmpeg.exe",
-                @"ffprobe.exe");
+                Path.Combine(applicationFolder, "ffmpeg.exe"),
+                Path.Combine(applicationFolder, "ffprobe.exe"));
         }
 
         public AudioSignature ExtractSignature(string filename, int nbSamplesPerSeconds = 120)
@@ -42,7 +44,7 @@ namespace AudioSynchronization
             //create a command adding a video file
             var nbSamplesPerPeak = 200;
             var command = factory.CreateOutputCommand()
-                .AddInput(filename)
+                .AddInput(Path.GetFullPath(filename))
                 .To<Raw>(
                     tempFile,
                     SettingsCollection.ForOutput(
@@ -54,37 +56,45 @@ namespace AudioSynchronization
             //render the output
             var result = factory.Render();
 
-            using (var file = File.Open(tempFile, FileMode.Open, FileAccess.Read))
+            try
             {
-                var nbSampleInCurrentPeak = 0;
-                var maxValue = ushort.MinValue;
-
-                while (true)
+                using (var file = File.Open(tempFile, FileMode.Open, FileAccess.Read))
                 {
-                    var b1 = file.ReadByte();
-                    var b2 = file.ReadByte();
-                    if (b1 < 0 || b2 < 0)
+                    var nbSampleInCurrentPeak = 0;
+                    var maxValue = ushort.MinValue;
+
+                    while (true)
                     {
-                        if (nbSampleInCurrentPeak > 0)
+                        var b1 = file.ReadByte();
+                        var b2 = file.ReadByte();
+                        if (b1 < 0 || b2 < 0)
+                        {
+                            if (nbSampleInCurrentPeak > 0)
+                            {
+                                yield return maxValue;
+                            }
+                            break;
+                        }
+                        var value = (short)((b2 << 8) + b1);
+
+                        nbSampleInCurrentPeak++;
+                        if (nbSampleInCurrentPeak == nbSamplesPerPeak)
                         {
                             yield return maxValue;
+                            nbSampleInCurrentPeak = 0;
+                            maxValue = ushort.MinValue;
                         }
-                        break;
-                    }
-                    var value = (short)((b2 << 8) + b1);
-
-                    nbSampleInCurrentPeak++;
-                    if (nbSampleInCurrentPeak == nbSamplesPerPeak)
-                    {
-                        yield return maxValue;
-                        nbSampleInCurrentPeak = 0;
-                        maxValue = ushort.MinValue;
-                    }
-                    else
-                    {
-                        maxValue = Math.Max(maxValue, (ushort)Math.Abs((int)value));
+                        else
+                        {
+                            maxValue = Math.Max(maxValue, (ushort)Math.Abs((int)value));
+                        }
                     }
                 }
+            }
+            finally
+            {
+                File.Delete(tempFile);
+                File.Delete(tempFile + ".wav");
             }
         }
 

@@ -17,6 +17,8 @@ namespace FunscriptToolbox.AudioSyncVerbs
         {
 #if DEBUG
             var testFolder = @"C:\Partage\Medias\Adult\Videos VR\TODO\TestFunscriptToolbox";
+            Environment.CurrentDirectory = testFolder;
+
             args = new[]
             {
                 "audiosync.createAudioSignature",
@@ -29,10 +31,15 @@ namespace FunscriptToolbox.AudioSyncVerbs
             };
             args = new[]
             {
+                "audiosync.createAudioSignature",
+                "*.mp4"
+            };
+            args = new[]
+            {
                 "as.cfs",
-                Path.Combine(testFolder, "SalieriXXX - Lucy Li - Blowjob Competition [zalunda].funscript"),
-                Path.Combine(testFolder, "SalieriXXX - Lucy Li - Blowjob Competition [zalunda].mp4"),
-                Path.Combine(testFolder, "SalieriXXX - Lucy Li - Blowjob Competition (spankbang.com) [zalunda].asig")
+                "SalieriXXX - Lucy Li - Blowjob Competition [zalunda].ft.funscript",
+                "SalieriXXX - Lucy Li - Blowjob Competition [zalunda].ft.funscript",
+                "SalieriXXX - Lucy Li - Blowjob Competition (spankbang.com) [zalunda].mp4"
             };
 
 #endif
