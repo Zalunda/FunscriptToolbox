@@ -2,15 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 
 namespace AudioSynchronization
 {
     public class AudioSignature
     {
-        public static AudioSignature FromSamples(ushort[] samples)
+        public static AudioSignature FromSamples(int nbSamplesPerSecond, ushort[] samples)
         {
-            var audioSignature = new AudioSignature(CompressSamples(samples));
+            var audioSignature = new AudioSignature(nbSamplesPerSecond, CompressSamples(samples));
 
             // Validation
             var uncompressedSamples = audioSignature.GetUncompressedSamples();
@@ -34,13 +33,15 @@ namespace AudioSynchronization
             return audioSignature;
         }
 
-        public AudioSignature(byte[] compressedSamples, int format = 1)
+        public AudioSignature(int nbSamplesPerSecond, byte[] compressedSamples, string version = "1.0")
         {
-            Format = format;
+            Version = version;
+            NbSamplesPerSecond = nbSamplesPerSecond;
             CompressedSamples = compressedSamples;        
         }
 
-        public int Format { get; }
+        public string Version { get; }
+        public int NbSamplesPerSecond { get; }
         public byte[] CompressedSamples { get; }
 
         public ushort[] GetUncompressedSamples()

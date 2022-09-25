@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 namespace AudioSynchronization
@@ -9,7 +10,7 @@ namespace AudioSynchronization
         private readonly static JsonSerializer rs_serializer = JsonSerializer
             .Create(new JsonSerializerSettings
                 {
-                    Formatting = Formatting.Indented,
+                    Formatting = Formatting.None,
                     ContractResolver = new CamelCasePropertyNamesContractResolver()
                 });
 
@@ -18,17 +19,34 @@ namespace AudioSynchronization
             using (var reader = File.OpenText(filename))
             using (var jsonReader = new JsonTextReader(reader))
             {
-                return rs_serializer.Deserialize<Funscript>(jsonReader);
+                var content = rs_serializer.Deserialize<dynamic>(jsonReader);
+                return new Funscript(content);
             }
         }
 
-        public AudioSignature AudioSignature { get; set; }
+        public dynamic r_content;
+
+        public Funscript(dynamic content = null)
+        {
+            r_content = content ?? new JObject();
+        }
+
+        public AudioSignature AudioSignature { 
+            get 
+            {
+                return r_content.audioSignature.ToObject<AudioSignature>();
+            }
+            set 
+            {
+                r_content.audioSignature = JObject.FromObject(value);
+            }
+        }
 
         public void Save(string filename)
         {
             using (var writer = File.CreateText(filename))
             {
-                rs_serializer.Serialize(writer, this);
+                rs_serializer.Serialize(writer, r_content);
             }
         }
     }

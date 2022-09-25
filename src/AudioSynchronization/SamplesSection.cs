@@ -62,7 +62,7 @@ namespace AudioSynchronization
 
         public override string ToString()
         {
-            return $"{StartIndex,6}-{LastIndex,6} [{Length,6}][{TimeSpan.FromSeconds((double)StartIndex / 120)}]";
+            return $"{StartIndex,6}-{LastIndex,6} [{Length,6}]";
         }
     }
 }

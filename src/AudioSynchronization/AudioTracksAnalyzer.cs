@@ -18,14 +18,16 @@ namespace AudioSynchronization
         public AudioTracksAnalyzer()
         {
             ResourceManagement.CommandConfiguration = CommandConfiguration.Create(
-                @"C:\!dev\Tools\AutomaticSubtitles\FichiersTest\Temp",
-                @"C:\Program Files (NoInstall)\ffmpeg\bin\ffmpeg.exe",
-                @"C:\Program Files (NoInstall)\ffmpeg\bin\ffprobe.exe");
+                @".",
+                @"ffmpeg.exe",
+                @"ffprobe.exe");
         }
 
-        public AudioSignature ExtractSignature(string filename)
+        public AudioSignature ExtractSignature(string filename, int nbSamplesPerSeconds = 120)
         {
-            return AudioSignature.FromSamples(ExtractSamples(filename, 120).ToArray());
+            return AudioSignature.FromSamples(
+                nbSamplesPerSeconds, 
+                ExtractSamples(filename, nbSamplesPerSeconds).ToArray());
         }
 
         private IEnumerable<ushort> ExtractSamples(string filename, int nbSamplesPerSeconds)

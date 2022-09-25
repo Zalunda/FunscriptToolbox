@@ -6,15 +6,24 @@ namespace AudioSynchronization
 {
     public class SamplesComparer
     {
-        public SamplesComparer(ushort[] samplesA, ushort[] samplesB, CompareOptions options)
+        public SamplesComparer(AudioSignature signatureA, AudioSignature signatureB, CompareOptions options)
         {
-            r_samplesA = ComputeItems(samplesA);
-            r_samplesB = ComputeItems(samplesB);
+            if (signatureA.NbSamplesPerSecond != signatureB.NbSamplesPerSecond)
+            {
+                throw new Exception("NbSamplesPerSecond mismatch"); // TODO
+            }
+
+            r_samplesA = ComputeItems(signatureA.GetUncompressedSamples());
+            r_samplesB = ComputeItems(signatureB.GetUncompressedSamples());
             this.Options = options;
+            r_nbSamplesPerSecond = signatureA.NbSamplesPerSecond;
+            r_minimumMatchLength = (int) (options.MinimumMatchLength.TotalSeconds * r_nbSamplesPerSecond);
         }
 
         private readonly Sample[] r_samplesA;
         private readonly Sample[] r_samplesB;
+        private readonly int r_nbSamplesPerSecond;
+        private readonly int r_minimumMatchLength;
 
         public CompareOptions Options { get; }
 
@@ -91,9 +100,9 @@ namespace AudioSynchronization
             SamplesSection sectionA, 
             SamplesSection sectionB)
         {
-            if (sectionA.Length < this.Options.MinimumMatchLength)
+            if (sectionA.Length < r_minimumMatchLength)
                 return;
-            if (sectionB.Length < this.Options.MinimumMatchLength)
+            if (sectionB.Length < r_minimumMatchLength)
                 return;
 
             SamplesSectionDiff bestDiff = null;
@@ -103,9 +112,9 @@ namespace AudioSynchronization
             {
                 foreach (var indexB in peaksB)
                 {
-                    var candidateSectionA = sectionA.GetSection(indexA, this.Options.MinimumMatchLength);
-                    var candidateSectionB = sectionB.GetSection(indexB, this.Options.MinimumMatchLength);
-                    if (candidateSectionA.Length >= Options.MinimumMatchLength && candidateSectionB.Length >= Options.MinimumMatchLength)
+                    var candidateSectionA = sectionA.GetSection(indexA, r_minimumMatchLength);
+                    var candidateSectionB = sectionB.GetSection(indexB, r_minimumMatchLength);
+                    if (candidateSectionA.Length >= r_minimumMatchLength && candidateSectionB.Length >= r_minimumMatchLength)
                     {
                         var newDiff = new SamplesSectionDiff(candidateSectionA, candidateSectionB);
                         if (bestDiff == null || newDiff.TotalError < bestDiff.TotalError)
@@ -153,10 +162,10 @@ namespace AudioSynchronization
         private int[] FindLargestPeaks(SamplesSection section)
         {
             // TODO Make this better. Really get minimum peaks per minutes, and remove peaks that are close together
-            var nbPeaksMAx = ((section.Length / (120 * 60)) + 1) * Options.NbPeaksPerMinute;
+            var nbPeaksMAx = ((section.Length / (r_nbSamplesPerSecond * 60)) + 1) * Options.NbPeaksPerMinute;
             return section
                 .GetItems()
-                .Where(f => f.Index < section.LastIndex - Options.MinimumMatchLength)
+                .Where(f => f.Index < section.LastIndex - r_minimumMatchLength)
                 .ToArray()
                 .OrderByDescending(f => f.DiffFromPrevious)
                 .Take(nbPeaksMAx)
@@ -223,7 +232,7 @@ namespace AudioSynchronization
                         nbPreviousSamplesToKeep = 0;
                     }
 
-                    if (nbPreviousSamplesToKeep < Options.MinimumMatchLength)
+                    if (nbPreviousSamplesToKeep < r_minimumMatchLength)
                     {
                         // If the number of samples to keep from the previous section is less then the minimum, we fill the whole gap with the currentDiff.Offset 
                         matches[i - 1] = null;

@@ -1,0 +1,62 @@
+﻿using AudioSynchronization;
+using CommandLine;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace FunscriptToolbox.AudioSyncVerbs
+{
+    internal class VerbAudioSyncCreateAudioSignature : Verb
+    {
+        [Verb("audiosync.createAudioSignature", aliases: new[] { "as.cas" })]
+        public class Options : OptionsBase
+        {
+            [Value(0, MetaName = "files", Required = true, HelpText = "files")]
+            public IEnumerable<string> Files { get; set; }
+
+            [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', search recursivly for matches")]
+            public bool Recursive { get; set; } = false;
+
+            [Option('e', "videoextension", Required = false, HelpText = "If a file is a funscript, use this extension to find the corresponding video (default: mp4)")]
+            public string VideoExtension { get; set; } = "mp4";
+        }
+
+        private readonly Options r_options;
+
+        public VerbAudioSyncCreateAudioSignature(Options options)
+            : base(options)
+        {
+            r_options = options;
+        }
+
+        public int Execute()
+        {
+            var analyzer = new AudioTracksAnalyzer();
+
+            foreach (var file in r_options
+                .Files
+                .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive)))
+            {
+                WriteInfo($"Creating audio signature for '{file}'.");
+
+                if (string.Equals(Path.GetExtension(file), ".funscript", StringComparison.OrdinalIgnoreCase))
+                {
+                    var funscript = Funscript.FromFile(file);
+                    funscript.AudioSignature = analyzer.ExtractSignature(Path.ChangeExtension(file, r_options.VideoExtension));
+                    funscript.Save(Path.ChangeExtension(file, ".funscript_asig"));
+                }
+                else
+                {
+                    var funscript = new Funscript
+                    {
+                        AudioSignature = analyzer.ExtractSignature(file)
+                    };
+                    funscript.Save(Path.ChangeExtension(file, ".asig"));
+                }
+            }
+
+            return 0;
+        }
+    }
+}
