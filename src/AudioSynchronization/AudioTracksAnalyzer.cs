@@ -60,7 +60,7 @@ namespace AudioSynchronization
             {
                 using (var file = File.Open(tempFile, FileMode.Open, FileAccess.Read))
                 {
-                    var nbSampleInCurrentPeak = 0;
+                    var nbSampleInCurrentPeak = nbSamplesPerPeak / 2;
                     var maxValue = ushort.MinValue;
 
                     while (true)
@@ -69,19 +69,16 @@ namespace AudioSynchronization
                         var b2 = file.ReadByte();
                         if (b1 < 0 || b2 < 0)
                         {
-                            if (nbSampleInCurrentPeak > 0)
-                            {
-                                yield return maxValue;
-                            }
-                            break;
+                            yield return maxValue;
+                            yield break;
                         }
                         var value = (short)((b2 << 8) + b1);
 
-                        nbSampleInCurrentPeak++;
-                        if (nbSampleInCurrentPeak == nbSamplesPerPeak)
+                        nbSampleInCurrentPeak--;
+                        if (nbSampleInCurrentPeak <= 0)
                         {
                             yield return maxValue;
-                            nbSampleInCurrentPeak = 0;
+                            nbSampleInCurrentPeak = nbSamplesPerPeak;
                             maxValue = ushort.MinValue;
                         }
                         else
@@ -97,7 +94,6 @@ namespace AudioSynchronization
                 File.Delete(tempFile + ".wav");
             }
         }
-
 
         [ContainsStream(Type = typeof(AudioStream))]
         private class Raw : BaseContainer
