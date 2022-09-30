@@ -149,6 +149,14 @@ namespace AudioSynchronization
                 }
             }
 
+            // If the offset is almost 0, force it 0
+            if (Math.Abs(bestDiff.Offset) <= 1)
+            {
+                bestDiff = new SamplesSectionDiff(
+                    bestDiff.SectionA,
+                    bestDiff.SectionB.GetOffsetedSection(bestDiff.Offset));
+            }
+
             Compare(
                 matches,
                 sectionA.GetSection(0, bestDiff.SectionA.StartIndex - sectionA.StartIndex),
@@ -166,7 +174,7 @@ namespace AudioSynchronization
         private int[] FindLargestPeaks(SamplesSection section)
         {
             // TODO Make this better. Really get minimum peaks per minutes, and remove peaks that are close together
-            var nbPeaksMAx = ((section.Length / (r_nbSamplesPerSecond * 60)) + 1) * Options.NbPeaksPerMinute;
+            var nbPeaksMAx = ((section.Length / (r_nbSamplesPerSecond * 60)) + 1) * Options.NbLocationsPerMinute;
             return section
                 .GetItems()
                 .Where(f => f.Index < section.LastIndex - r_minimumMatchLength)
