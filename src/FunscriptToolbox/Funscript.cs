@@ -8,6 +8,9 @@ namespace AudioSynchronization
 {
     public class Funscript
     {
+        public const string AudioSignatureExtension = ".asig";
+        public const string FunscriptExtension = ".funscript";
+
         private readonly static JsonSerializer rs_serializer = JsonSerializer
             .Create(new JsonSerializerSettings
                 {
@@ -36,7 +39,7 @@ namespace AudioSynchronization
         {
             get
             {
-                return r_content.actions.ToObject<FunscriptActions[]>();
+                return r_content.actions?.ToObject<FunscriptActions[]>();
             }
             set
             {
@@ -47,7 +50,7 @@ namespace AudioSynchronization
         public AudioSignature AudioSignature { 
             get 
             {
-                return r_content.audioSignature.ToObject<AudioSignature>();
+                return r_content.audioSignature?.ToObject<AudioSignature>();
             }
             set 
             {

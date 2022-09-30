@@ -13,7 +13,10 @@ namespace FunscriptToolbox
             public bool Verbose { get; set; }
         }
 
+        public static UnParserSettings DefaultUnparserSettings => new UnParserSettings { PreferShortName = true, SkipDefault = true };
+
         private readonly OptionsBase r_options;
+        public int NbErrors { get; private set; }
 
         public Verb(OptionsBase options)
         {
@@ -31,6 +34,12 @@ namespace FunscriptToolbox
             {
                 Console.WriteLine(message);
             }                
+        }
+
+        public void WriteError(string message = "")
+        {
+            Console.Error.WriteLine(message);
+            this.NbErrors++;
         }
 
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive)
