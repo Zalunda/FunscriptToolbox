@@ -67,23 +67,22 @@ namespace AudioSynchronization
             return result.ToArray();
         }
 
-        public AudioOffsetCollection Compare()
+        public AudioOffsetCollection FindAudioOffsets()
         {
-            DateTime debut = DateTime.Now;
-            var matches = new List<SamplesSectionDiff>();
-            Compare(matches,
-                    new SamplesSection(r_samplesA, 0, r_samplesA.Length),
-                    new SamplesSection(r_samplesB, 0, r_samplesB.Length));
-            matches.First().ExpendStart(r_samplesA, r_samplesB);
+            var matches = new List<SamplesSectionMatch>();
+            FindMatches(matches,
+                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, 0, r_samplesA.Length),
+                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, 0, r_samplesB.Length));
+            matches.First().ExpendStart();
             matches.Last().ExpendEnd(r_samplesA, r_samplesB);
 
             matches = Cleanup(matches);
-            matches.First().ExpendStart(r_samplesA, r_samplesB);
+            matches.First().ExpendStart();
             matches.Last().ExpendEnd(r_samplesA, r_samplesB);
 
             Console.WriteLine("****** FINAL ******");
             double matched = 0;
-            foreach (SamplesSectionDiff match in matches)
+            foreach (SamplesSectionMatch match in matches)
             {
                 matched += match.SectionA.Length;
                 Console.WriteLine(match);
@@ -91,16 +90,42 @@ namespace AudioSynchronization
             Console.WriteLine("matchA = {0:0.00%}", matched / r_samplesA.Length);
             Console.WriteLine("matchB = {0:0.00%}", matched / r_samplesB.Length);
 
-            return new AudioOffsetCollection(
-                matches
-                .Select(m => new AudioOffset(
-                TimeSpan.FromSeconds((double)m.SectionA.StartIndex / r_nbSamplesPerSecond),
-                TimeSpan.FromSeconds((double)m.SectionA.LastIndex / r_nbSamplesPerSecond),
-                TimeSpan.FromSeconds((double)m.Offset / r_nbSamplesPerSecond))));
+            // Transform SamplesSectionMatch into AudioOffset, and fill the remaining gap of SectionA with "null offset".
+            var result = new List<AudioOffset>();
+            var currentIndex = 0;
+            foreach (SamplesSectionMatch match in matches)
+            {
+                if (match.SectionA.StartIndex > currentIndex)
+                {
+                    result.Add(
+                        new AudioOffset(
+                            ConvertIndexToTimeSpan(currentIndex),
+                            ConvertIndexToTimeSpan(match.SectionA.StartIndex), 
+                            null));
+                }
+                result.Add(
+                    new AudioOffset(
+                        ConvertIndexToTimeSpan(match.SectionA.StartIndex),
+                        ConvertIndexToTimeSpan(match.SectionA.EndIndex),
+                        ConvertIndexToTimeSpan(match.Offset)));
+                currentIndex = match.SectionA.EndIndex;
+            }
+            if (currentIndex < r_samplesA.Length)
+            {
+                result.Add(
+                    new AudioOffset(
+                        ConvertIndexToTimeSpan(currentIndex),
+                        ConvertIndexToTimeSpan(r_samplesA.Length),
+                        null));
+            }
+
+            return new AudioOffsetCollection(result);
         }
 
-        private void Compare(
-            List<SamplesSectionDiff> matches,
+        private TimeSpan ConvertIndexToTimeSpan(int index) => TimeSpan.FromSeconds((double)index / r_nbSamplesPerSecond);
+
+        private void FindMatches(
+            List<SamplesSectionMatch> matches,
             SamplesSection sectionA, 
             SamplesSection sectionB)
         {
@@ -109,7 +134,7 @@ namespace AudioSynchronization
             if (sectionB.Length < r_minimumMatchLength)
                 return;
 
-            SamplesSectionDiff bestDiff = null;
+            SamplesSectionMatch bestDiff = null;
             var peaksA = FindLargestPeaks(sectionA);
             var peaksB = FindLargestPeaks(sectionB);
             foreach (var indexA in peaksA)
@@ -120,7 +145,7 @@ namespace AudioSynchronization
                     var candidateSectionB = sectionB.GetSection(indexB, r_minimumMatchLength);
                     if (candidateSectionA.Length >= r_minimumMatchLength && candidateSectionB.Length >= r_minimumMatchLength)
                     {
-                        var newDiff = new SamplesSectionDiff(candidateSectionA, candidateSectionB);
+                        var newDiff = new SamplesSectionMatch(candidateSectionA, candidateSectionB);
                         if (bestDiff == null || newDiff.TotalError < bestDiff.TotalError)
                         {
                             bestDiff = newDiff;
@@ -139,7 +164,7 @@ namespace AudioSynchronization
                 var newSectionB = currentBestDiff.SectionB.GetOffsetedSection(offsetB);
                 if (newSectionB != null)
                 {
-                    var newDiff = new SamplesSectionDiff(
+                    var newDiff = new SamplesSectionMatch(
                                     currentBestDiff.SectionA,
                                     newSectionB);
                     if (newDiff.TotalError < bestDiff.TotalError)
@@ -152,20 +177,20 @@ namespace AudioSynchronization
             // If the offset is almost 0, force it 0
             if (Math.Abs(bestDiff.Offset) <= 1)
             {
-                bestDiff = new SamplesSectionDiff(
+                bestDiff = new SamplesSectionMatch(
                     bestDiff.SectionA,
                     bestDiff.SectionB.GetOffsetedSection(bestDiff.Offset));
             }
 
-            Compare(
+            FindMatches(
                 matches,
                 sectionA.GetSection(0, bestDiff.SectionA.StartIndex - sectionA.StartIndex),
                 sectionB.GetSection(0, bestDiff.SectionB.StartIndex - sectionB.StartIndex));
 
-            Console.WriteLine($"{bestDiff}");
+            Console.WriteLine(bestDiff);
             matches.Add(bestDiff);
 
-            Compare(
+            FindMatches(
                 matches,
                 sectionA.GetSection(bestDiff.SectionA.StartIndex - sectionA.StartIndex + bestDiff.SectionA.Length),
                 sectionB.GetSection(bestDiff.SectionB.StartIndex - sectionB.StartIndex + bestDiff.SectionB.Length));
@@ -177,7 +202,7 @@ namespace AudioSynchronization
             var nbPeaksMAx = ((section.Length / (r_nbSamplesPerSecond * 60)) + 1) * Options.NbLocationsPerMinute;
             return section
                 .GetItems()
-                .Where(f => f.Index < section.LastIndex - r_minimumMatchLength)
+                .Where(f => f.Index < section.EndIndex - r_minimumMatchLength)
                 .ToArray()
                 .OrderByDescending(f => f.DiffFromPrevious)
                 .Take(nbPeaksMAx)
@@ -185,20 +210,20 @@ namespace AudioSynchronization
                 .ToArray();
         }
 
-        private List<SamplesSectionDiff> Cleanup(List<SamplesSectionDiff> matches)
+        private List<SamplesSectionMatch> Cleanup(List<SamplesSectionMatch> matches)
         {
             bool needAnotherCleanup;
             do
             {
                 needAnotherCleanup = false;
-                var cleanedMatches = new List<SamplesSectionDiff>();
+                var cleanedMatches = new List<SamplesSectionMatch>();
                 for (var i = 1; i < matches.Count; i++)
                 {
                     var previousDiff = matches[i - 1];
                     var currentDiff = matches[i];
 
-                    var gapA = currentDiff.SectionA.LastIndex - previousDiff.SectionA.StartIndex;
-                    var gapB = currentDiff.SectionB.LastIndex - previousDiff.SectionB.StartIndex;
+                    var gapA = currentDiff.SectionA.EndIndex - previousDiff.SectionA.StartIndex;
+                    var gapB = currentDiff.SectionB.EndIndex - previousDiff.SectionB.StartIndex;
                     var gapToFill = Math.Min(gapA, gapB);
                     var maxGap = Math.Max(gapA, gapB);
                     var isOffsetsTooClose = Math.Abs(previousDiff.Offset - currentDiff.Offset) <= 2;
@@ -248,25 +273,25 @@ namespace AudioSynchronization
                     {
                         // If the number of samples to keep from the previous section is less then the minimum, we fill the whole gap with the currentDiff.Offset 
                         matches[i - 1] = null;
-                        var start = currentDiff.SectionA.LastIndex - gapToFill;
-                        matches[i] = new SamplesSectionDiff(
-                                    new SamplesSection(r_samplesA, start, gapToFill),
-                                    new SamplesSection(r_samplesB, start - currentDiff.Offset, gapToFill));
+                        var start = currentDiff.SectionA.EndIndex - gapToFill;
+                        matches[i] = new SamplesSectionMatch(
+                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, start, gapToFill),
+                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, start - currentDiff.Offset, gapToFill));
                         needAnotherCleanup = true;
                     }
                     else
                     {
                         // We split the "gapToFill" samples according to nbPreviousSamplesToKeep
                         cleanedMatches.Add(
-                            new SamplesSectionDiff(
-                                    new SamplesSection(r_samplesA, previousDiff.SectionA.StartIndex, nbPreviousSamplesToKeep),
-                                    new SamplesSection(r_samplesB, previousDiff.SectionA.StartIndex - previousDiff.Offset, nbPreviousSamplesToKeep)));
+                            new SamplesSectionMatch(
+                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, previousDiff.SectionA.StartIndex, nbPreviousSamplesToKeep),
+                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, previousDiff.SectionA.StartIndex - previousDiff.Offset, nbPreviousSamplesToKeep)));
                         matches[i - 1] = null;
 
-                        var start = currentDiff.SectionA.LastIndex - gapToFill + nbPreviousSamplesToKeep;
-                        matches[i] = new SamplesSectionDiff(
-                                    new SamplesSection(r_samplesA, start, gapToFill - nbPreviousSamplesToKeep),
-                                    new SamplesSection(r_samplesB, start - currentDiff.Offset, gapToFill - nbPreviousSamplesToKeep));
+                        var start = currentDiff.SectionA.EndIndex - gapToFill + nbPreviousSamplesToKeep;
+                        matches[i] = new SamplesSectionMatch(
+                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, start, gapToFill - nbPreviousSamplesToKeep),
+                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, start - currentDiff.Offset, gapToFill - nbPreviousSamplesToKeep));
                     }
                 }
 

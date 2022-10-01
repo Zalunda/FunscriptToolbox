@@ -16,42 +16,52 @@ namespace FunscriptToolbox.AudioSyncVerbs
         static int Main(string[] args)
         {
 #if DEBUG
-            var testFolder = @"C:\Partage\Medias\Adult\Videos VR\TODO\TestFunscriptToolbox";
-            Environment.CurrentDirectory = testFolder;
+            int test = 11;
 
-            args = new[]
+            switch (test)
             {
-                "audiosync.createAudioSignature",
-                Path.Combine(testFolder, "*.mp4")
-            };
-            args = new[]
-            {
-                "audiosync.createAudioSignature",
-                Path.Combine(testFolder, "*.funscript")
-            };
-            args = new[]
-            {
-                "audiosync.createAudioSignature",
-                "*.mp4"
-            };
-            args = new[]
-            {
-                "as.cfs",
-                "SalieriXXX - Lucy Li - Blowjob Competition [zalunda].ft.funscript",
-                "SalieriXXX - Lucy Li - Blowjob Competition [zalunda].ft.funscript",
-                "SalieriXXX - Lucy Li - Blowjob Competition (spankbang.com) [zalunda].mp4"
-            };
+                case 1:
+                    args = new[]
+                    {
+                        "audiosync.createAudioSignature"
+                    };
+                    break;
+                case 2:
+                    args = new[]
+                    {
+                        "audiosync.createAudioSignature",
+                        //"--force",
+                        "*.mp4",
+                        "*.funscript"
+                    };
+                    break;
+                case 10:
+                    args = new[]
+                    {
+                        "as.cfs"
+                    };
+                    break;
+                case 11:
+                    args = new[]
+                    {
+                        "as.cfs",
+                        "-s", "NaughtyAmericaVR - 2017-04-20 - Melissa Moore - Wake and Bake [zalunda].funscript",
+                        "-n", "mygfmelissaseth_vrdesktophd.asig",
+                    };
+                    break;
+            }
 
 #endif
             try
             {
-                return Parser.Default.ParseArguments<
+                var result = Parser.Default.ParseArguments<
                     VerbAudioSyncCreateAudioSignature.Options,
                     VerbAudioSyncCreateFunscript.Options>(args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           errors => HandleParseError(errors));
+                return result;
             }
             catch (Exception ex)
             {

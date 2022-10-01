@@ -2,12 +2,13 @@ using System;
 
 namespace AudioSynchronization
 {
-    public class SamplesSectionDiff
+    public class SamplesSectionMatch
     {
-        public SamplesSectionDiff(SamplesSection sectionA, SamplesSection sectionB)
+        public SamplesSectionMatch(SamplesSection sectionA, SamplesSection sectionB)
         {
             if (sectionA.Length != sectionB.Length)
                 throw new Exception("Length mismatch");
+
             SectionA = sectionA;
             SectionB = sectionB;
 
@@ -22,31 +23,31 @@ namespace AudioSynchronization
         public SamplesSection SectionB { get; private set; }
         public double TotalError { get; }
 
+        public int Length => SectionA.Length;
         public int Offset => SectionA.StartIndex - SectionB.StartIndex;
 
-        public int Length => SectionA.Length;
-
-        internal void ExpendStart(Sample[] m_completeListA, Sample[] m_completeListB)
+        internal void ExpendStart()
         {            
             var expend = Math.Min(
                 SectionA.StartIndex, 
                 SectionB.StartIndex);
-            SectionA = new SamplesSection(m_completeListA, SectionA.StartIndex - expend, SectionA.Length + expend);
-            SectionB = new SamplesSection(m_completeListB, SectionB.StartIndex - expend, SectionB.Length + expend);
+            SectionA = this.SectionA.GetSectionExpendedStart(expend);
+            SectionB = this.SectionB.GetSectionExpendedStart(expend);
         }
 
         internal void ExpendEnd(Sample[] m_completeListA, Sample[] m_completeListB)
         {
             var expend = Math.Min(
-                m_completeListA.Length - SectionA.LastIndex, 
-                m_completeListB.Length - SectionB.LastIndex);
-            SectionA = new SamplesSection(m_completeListA, SectionA.StartIndex, SectionA.Length + expend);
-            SectionB = new SamplesSection(m_completeListB, SectionB.StartIndex, SectionB.Length + expend);
+                m_completeListA.Length - SectionA.EndIndex, 
+                m_completeListB.Length - SectionB.EndIndex);
+                        
+            SectionA = this.SectionA.GetSectionExpendedEnd(expend);
+            SectionB = this.SectionB.GetSectionExpendedEnd(expend);
         }
 
         public override string ToString()
         {
-            return $"{Offset}, {TotalError,9:0.000}, {SectionA}, {SectionB}";
+            return $"{Offset,6:0}, {TotalError,9:0}, {SectionA}, {SectionB}";
         }
     }
 }

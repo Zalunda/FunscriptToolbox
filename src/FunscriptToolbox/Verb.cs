@@ -11,6 +11,18 @@ namespace FunscriptToolbox
         {
             [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
             public bool Verbose { get; set; }
+
+            protected int ValidateMinValue(int value, int minValue)
+            { 
+                return ValidateValue(value, (v) => v < minValue, $"value cannot be lower then {minValue}");
+            }
+
+            protected T ValidateValue<T>(T value, Func<T, bool> func, string message)
+            {
+                if (func(value)) 
+                    throw new ArgumentException(message);
+                return value;
+            }
         }
 
         public static UnParserSettings DefaultUnparserSettings => new UnParserSettings { PreferShortName = true, SkipDefault = true };
@@ -40,6 +52,11 @@ namespace FunscriptToolbox
         {
             Console.Error.WriteLine(message);
             this.NbErrors++;
+        }
+
+        protected string FormatTimeSpan(TimeSpan value)
+        {
+            return value.ToString(@"hh\:mm\:ss\.fff");
         }
 
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive)

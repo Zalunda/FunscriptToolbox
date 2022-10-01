@@ -1,5 +1,6 @@
 ﻿using AudioSynchronization;
 using CommandLine;
+using CommandLine.Text;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,23 +9,47 @@ namespace FunscriptToolbox.AudioSyncVerbs
 {
     internal class VerbAudioSyncCreateFunscript : Verb
     {
-        [Verb("audiosync.createFunscript", aliases: new[] { "as.cfs" }, HelpText = "Take an audio signature and funscript and try to generate a funscript synchronized to a different videos.")]
+        [Verb("audiosync.createfunscript", aliases: new[] { "as.cfs" }, HelpText = "Take an audio signature and funscript and try to generate a funscript synchronized to a different videos.")]
         public class Options : OptionsBase
         {
-            [Value(0, MetaName = "inputFunscript", Required = true, HelpText = "original .funscript file")]
-            public string InputFunscript { get; set; }
+            [Option('s', "source", Required = true, HelpText = "original .funscript file")]
+            public string SourceFunscript { get; set; }
 
-            [Value(1, MetaName = "inputVideoOrAsig", Required = true, HelpText = "original .mp4, .asig or .funscript file")]
-            public string InputAudio { get; set; }
+            [Option('a', "sourceAudio", HelpText = "original .mp4 or .asig file")]
+            public string SourceAudio { get; set; }
 
-            [Value(2, MetaName = "outputVideoOrAsig", Required = true, HelpText = "destination .mp4 or .asig")]
-            public string OutputAudio { get; set; }
+            [Option('n', "newAudio", Required = true, HelpText = "new .mp4 or .asig file")]
+            public string NewAudio { get; set; }
 
-            [Option('m', "minimumMatchLength", Required = false, Hidden = true, HelpText = "Minimum match length in second (default: 10)")]
-            public int MinimumMatchLength { get; set; } = 10;
+            [Option('o', "outputFunscript", HelpText = "(Default: <newaudio-without-extension>.funscript) path to the generated funscript")]
+            public string OutputFunscript { get; set; }
 
-            [Option('p', "nbPeaksPerMinute", Required = false, Hidden = true, HelpText = "Nb peaks to test per minutes of video (default: 10)")]
-            public int NbPeaksPerMinute { get; set; } = 10;
+            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 20)]
+            public int MinimumMatchLength { get => m_minimumMatchLength; set => m_minimumMatchLength = ValidateMinValue(value, 5); }
+            private int m_minimumMatchLength;
+
+            [Option('p', "nbLocationsPerMinute", Required = false, HelpText = "Number of locations to try to match per minute of video (used by the 'matching algorythm')", Default = 10)]
+            public int NbLocationsPerMinute { get => m_nbLocationsPerMinute; set => m_nbLocationsPerMinute = ValidateMinValue(value, 2); }
+            private int m_nbLocationsPerMinute;
+
+            [Option('e', "videoextension", Required = false, HelpText = "If a file is a funscript, use this extension to find the corresponding video", Default = ".mp4")]
+            public string VideoExtension { get; set; }
+
+            [Usage(ApplicationAlias = "FunscriptToolBox")]
+            public static IEnumerable<Example> Examples
+            {
+                get
+                {
+                    yield return new Example(
+                        "Generate a matching funscript from a funscript containing an audio-signature",
+                        DefaultUnparserSettings,
+                        new Options { SourceFunscript = "original-with-audio-signature.funscript", NewAudio = "new-video-version.mp4" });
+                    yield return new Example(
+                        "Generate a funscript from a funscript and an audio signature.",
+                        DefaultUnparserSettings,
+                        new Options { SourceFunscript = "original-without-audio-signature.funscript", SourceAudio = "original.asig", NewAudio = "new-video-version.mp4" });
+                }
+            }
         }
 
         private readonly Options r_options;
@@ -38,17 +63,41 @@ namespace FunscriptToolbox.AudioSyncVerbs
         private AudioSignature GetAudioSignature(string filename)
         {
             var analyzer = new AudioTracksAnalyzer();
-            return string.Equals(Path.GetExtension(filename), ".asig", StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetExtension(filename), ".funscript", StringComparison.OrdinalIgnoreCase)
-                ? Funscript.FromFile(filename).AudioSignature
-                : analyzer.ExtractSignature(filename);
+
+            if (string.Equals(Path.GetExtension(filename), Funscript.AudioSignatureExtension, StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetExtension(filename), Funscript.FunscriptExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                WriteInfo($"Loading audio signature from '{filename}'...");
+                return Funscript.FromFile(filename).AudioSignature;
+            }
+            else
+            {
+                WriteInfo($"Extraction audio signature from '{filename}'...");
+                return analyzer.ExtractSignature(filename);
+            }
         }
 
 
         public int Execute()
         {
-            var inputFunscript = Funscript.FromFile(r_options.InputFunscript);
-            var inputAudioSignature = GetAudioSignature(r_options.InputAudio);
-            var outputAudioSignature = GetAudioSignature(r_options.OutputAudio);
+            WriteInfo($"Loading source funscript '{r_options.SourceFunscript}'...");
+            var inputFunscript = Funscript.FromFile(r_options.SourceFunscript);
+            AudioSignature inputAudioSignature;
+            if (r_options.SourceAudio != null)
+            {
+                inputAudioSignature = GetAudioSignature(r_options.SourceAudio);
+            }
+            else if (inputFunscript.AudioSignature != null)
+            {
+                WriteInfo($"Using audio signature from source funcript...");
+                inputAudioSignature = inputFunscript.AudioSignature;
+            }
+            else
+            {
+                var videoFilename = Path.ChangeExtension(r_options.SourceFunscript, r_options.VideoExtension);
+                inputAudioSignature = GetAudioSignature(videoFilename);
+            }
+
+            var outputAudioSignature = GetAudioSignature(r_options.NewAudio);
 
             SamplesComparer comparer = new SamplesComparer(
                         inputAudioSignature,
@@ -56,21 +105,16 @@ namespace FunscriptToolbox.AudioSyncVerbs
                         new CompareOptions
                         {
                             MinimumMatchLength = TimeSpan.FromSeconds(r_options.MinimumMatchLength),
-                            NbPeaksPerMinute = r_options.NbPeaksPerMinute
+                            NbLocationsPerMinute = r_options.NbLocationsPerMinute
                         });
-            var audioOffsets = comparer.Compare();
-            WriteInfo();
-            WriteInfo();
-            WriteInfo("Offsets:");
-            foreach (var offset in audioOffsets)
-            {
-                WriteInfo($"From {offset.Start} to {offset.End}, substract {offset.Offset}");
-            }
-            WriteInfo();
+            WriteInfo($"Comparing audio signatures...");
+            var audioOffsets = comparer.FindAudioOffsets();
 
+            WriteInfo();
+            WriteInfo();
+            WriteInfo("Generating actions synchronized to the second file...");
             var newActions = new List<FunscriptActions>();
             var originalActions = inputFunscript.Actions;
-            var nbUnmatchedActions = new List<FunscriptActions>();
             foreach (var action in originalActions)
             {
                 var newAt = audioOffsets.TransformPosition(TimeSpan.FromMilliseconds(action.At));
@@ -78,17 +122,22 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 {
                     newActions.Add(new FunscriptActions { At = (int)newAt.Value.TotalMilliseconds, Pos = action.Pos });
                 }
-                else
-                {
-                    nbUnmatchedActions.Add(action);
-                    audioOffsets.TransformPosition(TimeSpan.FromMilliseconds(action.At));
-                }
             }
-            WriteInfo($"{newActions.Count} actions moved, {nbUnmatchedActions.Count} actions ignored");
+
+            foreach (var item in audioOffsets)
+            {
+                if (item.Offset == null)
+                    WriteInfo($"   From {FormatTimeSpan(item.Start)} to {FormatTimeSpan(item.End)}, {item.NbTimesUsed,5} actions have been DROPPED");
+                else if (item.Offset == TimeSpan.Zero)
+                    WriteInfo($"   From {FormatTimeSpan(item.Start)} to {FormatTimeSpan(item.End)}, {item.NbTimesUsed,5} actions copied as is");
+                else
+                    WriteInfo($"   From {FormatTimeSpan(item.Start)} to {FormatTimeSpan(item.End)}, {item.NbTimesUsed,5} actions as been moved by {FormatTimeSpan(-item.Offset.Value)}");
+            }
+            WriteInfo();
 
             inputFunscript.Actions = newActions.ToArray();
             inputFunscript.AudioSignature = outputAudioSignature;
-            inputFunscript.Save(Path.ChangeExtension(r_options.OutputAudio, ".ft_gen.funscript"));
+            inputFunscript.Save(r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension));
             return 0;
         }
     }

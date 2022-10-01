@@ -6,7 +6,7 @@ using System.Linq;
 namespace AudioSynchronization
 {
     public class AudioOffsetCollection : ReadOnlyCollection<AudioOffset>
-    { 
+    {
         public AudioOffsetCollection(IEnumerable<AudioOffset> items)
             : base(items.ToList())
         {
@@ -18,7 +18,10 @@ namespace AudioSynchronization
             {
                 if (oldTime >= item.Start && oldTime < item.End)
                 {
-                    return oldTime - item.Offset;
+                    item.IncrementUsage();
+                    return item.Offset == null 
+                        ? null 
+                        : oldTime - item.Offset;
                 }
             }
 
