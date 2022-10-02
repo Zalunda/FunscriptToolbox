@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox
 {
@@ -56,7 +57,8 @@ namespace FunscriptToolbox
 
         protected string FormatTimeSpan(TimeSpan value)
         {
-            return value.ToString(@"hh\:mm\:ss\.fff");
+            return Regex.Replace(value.ToString(), @"\d{4}$", "");
+                
         }
 
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive)

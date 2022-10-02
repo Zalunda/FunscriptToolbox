@@ -21,7 +21,7 @@ namespace AudioSynchronization
                     item.IncrementUsage();
                     return item.Offset == null 
                         ? null 
-                        : oldTime - item.Offset;
+                        : oldTime + item.Offset;
                 }
             }
 

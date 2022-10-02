@@ -179,7 +179,7 @@ namespace AudioSynchronization
             {
                 bestDiff = new SamplesSectionMatch(
                     bestDiff.SectionA,
-                    bestDiff.SectionB.GetOffsetedSection(bestDiff.Offset));
+                    bestDiff.SectionB.GetOffsetedSection(-bestDiff.Offset));
             }
 
             FindMatches(
@@ -225,7 +225,6 @@ namespace AudioSynchronization
                     var gapA = currentDiff.SectionA.EndIndex - previousDiff.SectionA.StartIndex;
                     var gapB = currentDiff.SectionB.EndIndex - previousDiff.SectionB.StartIndex;
                     var gapToFill = Math.Min(gapA, gapB);
-                    var maxGap = Math.Max(gapA, gapB);
                     var isOffsetsTooClose = Math.Abs(previousDiff.Offset - currentDiff.Offset) <= 2;
 
                     // Compute "Total Samples Difference" using only the Previous Offset
@@ -234,49 +233,49 @@ namespace AudioSynchronization
                     for (int j = 0; j < gapToFill; j++)
                     {
                         // Add sample difference for "PreviousOffset"
-                        var indexBForPreviousOffset = indexAForPreviousOffset - previousDiff.Offset;
+                        var indexBForPreviousOffset = indexAForPreviousOffset + previousDiff.Offset;
                         currentSamplesDifference += Math.Abs(r_samplesA[indexAForPreviousOffset].Value - r_samplesB[indexBForPreviousOffset].Value);
                         indexAForPreviousOffset++;
                     }
 
-                    var nbPreviousSamplesToKeep = gapToFill;
+                    var bestPreviousSamplesToKeep = gapToFill;
                     double bestSamplesDifference = currentSamplesDifference;
 
                     // Find the best position (i.e. keep X samples from last, and Y samples from current) to minimize the total samples difference
-                    var indexAForCurrentOffset = Math.Min(previousDiff.SectionA.StartIndex + maxGap, r_samplesA.Length);
-                    for (int j = 0; j < gapToFill; j++)
+                    var indexAForCurrentOffset = currentDiff.SectionB.EndIndex - currentDiff.Offset;
+                    for (int currentPreviousSamplesToKeep = gapToFill - 1; currentPreviousSamplesToKeep >= 0; currentPreviousSamplesToKeep--)
                     {
                         // Remove sample difference for "PreviousOffset" (added in the loop above)
                         indexAForPreviousOffset--;
-                        var indexBForPreviousOffset = indexAForPreviousOffset - previousDiff.Offset;
+                        var indexBForPreviousOffset = indexAForPreviousOffset + previousDiff.Offset;
                         currentSamplesDifference -= Math.Abs(r_samplesA[indexAForPreviousOffset].Value - r_samplesB[indexBForPreviousOffset].Value);
 
                         // Add sample difference for "CurrentOffset"
                         indexAForCurrentOffset--;
-                        var indexBForCurrentOffset = indexAForCurrentOffset - currentDiff.Offset;
+                        var indexBForCurrentOffset = indexAForCurrentOffset + currentDiff.Offset;
                         currentSamplesDifference += Math.Abs(r_samplesA[indexAForCurrentOffset].Value - r_samplesB[indexBForCurrentOffset].Value);
 
                         if (!isOffsetsTooClose && currentSamplesDifference <= bestSamplesDifference)
                         {
+                            bestPreviousSamplesToKeep = currentPreviousSamplesToKeep;
                             bestSamplesDifference = currentSamplesDifference;
-                            nbPreviousSamplesToKeep = gapToFill - j - 1;
                         }
                     }
 
                     // If the offset are too close (ex. offset 32123 and 32124), we only compare the total error for "keep all previous offset" or "keep all current offset" (we never 'split' the samples)
                     if (isOffsetsTooClose && currentSamplesDifference <= bestSamplesDifference)
                     {
-                        nbPreviousSamplesToKeep = 0;
+                        bestPreviousSamplesToKeep = 0;
                     }
 
-                    if (nbPreviousSamplesToKeep < r_minimumMatchLength)
+                    if (bestPreviousSamplesToKeep < r_minimumMatchLength)
                     {
                         // If the number of samples to keep from the previous section is less then the minimum, we fill the whole gap with the currentDiff.Offset 
                         matches[i - 1] = null;
                         var start = currentDiff.SectionA.EndIndex - gapToFill;
                         matches[i] = new SamplesSectionMatch(
                                     new SamplesSection(r_samplesA, r_nbSamplesPerSecond, start, gapToFill),
-                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, start - currentDiff.Offset, gapToFill));
+                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, start + currentDiff.Offset, gapToFill));
                         needAnotherCleanup = true;
                     }
                     else
@@ -284,14 +283,14 @@ namespace AudioSynchronization
                         // We split the "gapToFill" samples according to nbPreviousSamplesToKeep
                         cleanedMatches.Add(
                             new SamplesSectionMatch(
-                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, previousDiff.SectionA.StartIndex, nbPreviousSamplesToKeep),
-                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, previousDiff.SectionA.StartIndex - previousDiff.Offset, nbPreviousSamplesToKeep)));
+                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, previousDiff.SectionA.StartIndex, bestPreviousSamplesToKeep),
+                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, previousDiff.SectionA.StartIndex + previousDiff.Offset, bestPreviousSamplesToKeep)));
                         matches[i - 1] = null;
 
-                        var start = currentDiff.SectionA.EndIndex - gapToFill + nbPreviousSamplesToKeep;
+                        var start = currentDiff.SectionA.EndIndex - gapToFill + bestPreviousSamplesToKeep;
                         matches[i] = new SamplesSectionMatch(
-                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, start, gapToFill - nbPreviousSamplesToKeep),
-                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, start - currentDiff.Offset, gapToFill - nbPreviousSamplesToKeep));
+                                    new SamplesSection(r_samplesA, r_nbSamplesPerSecond, start, gapToFill - bestPreviousSamplesToKeep),
+                                    new SamplesSection(r_samplesB, r_nbSamplesPerSecond, start + currentDiff.Offset, gapToFill - bestPreviousSamplesToKeep));
                     }
                 }
 

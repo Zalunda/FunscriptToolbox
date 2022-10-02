@@ -24,7 +24,7 @@ namespace AudioSynchronization
         public double TotalError { get; }
 
         public int Length => SectionA.Length;
-        public int Offset => SectionA.StartIndex - SectionB.StartIndex;
+        public int Offset => SectionB.StartIndex - SectionA.StartIndex;
 
         internal void ExpendStart()
         {            

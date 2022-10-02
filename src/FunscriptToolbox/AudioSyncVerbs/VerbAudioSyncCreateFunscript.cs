@@ -127,11 +127,11 @@ namespace FunscriptToolbox.AudioSyncVerbs
             foreach (var item in audioOffsets)
             {
                 if (item.Offset == null)
-                    WriteInfo($"   From {FormatTimeSpan(item.Start)} to {FormatTimeSpan(item.End)}, {item.NbTimesUsed,5} actions have been DROPPED");
+                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions have been DROPPED");
                 else if (item.Offset == TimeSpan.Zero)
-                    WriteInfo($"   From {FormatTimeSpan(item.Start)} to {FormatTimeSpan(item.End)}, {item.NbTimesUsed,5} actions copied as is");
+                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions copied as is");
                 else
-                    WriteInfo($"   From {FormatTimeSpan(item.Start)} to {FormatTimeSpan(item.End)}, {item.NbTimesUsed,5} actions as been moved by {FormatTimeSpan(-item.Offset.Value)}");
+                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions as been moved by {FormatTimeSpan(item.Offset.Value)}");
             }
             WriteInfo();
 
