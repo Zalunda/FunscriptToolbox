@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 
-namespace AudioSynchronization
+namespace FunscriptToolbox
 {
-    public class FunscriptActions
+    public class FunscriptAction
     {
         [JsonProperty("at")]
         public int At { get; set; }

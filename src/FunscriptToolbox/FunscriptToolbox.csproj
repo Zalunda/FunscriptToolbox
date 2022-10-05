@@ -51,7 +51,8 @@
   <ItemGroup>
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="Funscript.cs" />
-    <Compile Include="FunscriptActions.cs" />
+    <Compile Include="FunscriptAction.cs" />
+    <Compile Include="FunscriptVault.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Verb.cs" />

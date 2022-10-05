@@ -29,11 +29,16 @@ namespace FunscriptToolbox
         public static UnParserSettings DefaultUnparserSettings => new UnParserSettings { PreferShortName = true, SkipDefault = true };
 
         private readonly OptionsBase r_options;
+
+        public FunscriptVault FunscriptVault { get; }
         public int NbErrors { get; private set; }
 
         public Verb(OptionsBase options)
         {
             r_options = options;
+
+            var appDataFolder = Environment.ExpandEnvironmentVariables(@"%appdata%\FunscriptToolbox");
+            this.FunscriptVault = new FunscriptVault(Path.Combine(appDataFolder, "Vault"));
         }
 
         public void WriteInfo(string message = "")

@@ -113,14 +113,14 @@ namespace FunscriptToolbox.AudioSyncVerbs
             WriteInfo();
             WriteInfo();
             WriteInfo("Generating actions synchronized to the second file...");
-            var newActions = new List<FunscriptActions>();
+            var newActions = new List<FunscriptAction>();
             var originalActions = inputFunscript.Actions;
             foreach (var action in originalActions)
             {
                 var newAt = audioOffsets.TransformPosition(TimeSpan.FromMilliseconds(action.At));
                 if (newAt != null)
                 {
-                    newActions.Add(new FunscriptActions { At = (int)newAt.Value.TotalMilliseconds, Pos = action.Pos });
+                    newActions.Add(new FunscriptAction { At = (int)newAt.Value.TotalMilliseconds, Pos = action.Pos });
                 }
             }
 
@@ -131,13 +131,15 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 else if (item.Offset == TimeSpan.Zero)
                     WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions copied as is");
                 else
-                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions as been moved by {FormatTimeSpan(item.Offset.Value)}");
+                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions have been MOVED by {FormatTimeSpan(item.Offset.Value)}");
             }
             WriteInfo();
 
             inputFunscript.Actions = newActions.ToArray();
             inputFunscript.AudioSignature = outputAudioSignature;
-            inputFunscript.Save(r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension));
+            this.FunscriptVault.SaveFunscript(
+                inputFunscript, 
+                r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension));
             return 0;
         }
     }

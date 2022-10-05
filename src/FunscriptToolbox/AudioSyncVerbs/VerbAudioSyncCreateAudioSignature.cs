@@ -75,7 +75,9 @@ namespace FunscriptToolbox.AudioSyncVerbs
                                 WriteInfo($"{file}: Extraction audio signature from '{videoFile}'...");
                                 funscript.AudioSignature = analyzer.ExtractSignature(videoFile);
                                 WriteInfo($"{file}: Adding audio signature to file.");
-                                funscript.Save(Path.ChangeExtension(file, Funscript.FunscriptExtension));
+                                this.FunscriptVault.SaveFunscript(
+                                    funscript, 
+                                    Path.ChangeExtension(file, Funscript.FunscriptExtension));
                             }
                             else
                             {
@@ -108,7 +110,9 @@ namespace FunscriptToolbox.AudioSyncVerbs
                                 AudioSignature = analyzer.ExtractSignature(file)
                             };
                             WriteInfo($"{file}: Creating audio signature file '{asigFilename}'.");
-                            asig.Save(asigFilename);
+                            this.FunscriptVault.SaveFunscript(
+                                asig, 
+                                asigFilename);
                         }
                     }
                 }

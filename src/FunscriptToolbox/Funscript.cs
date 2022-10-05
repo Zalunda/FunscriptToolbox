@@ -1,10 +1,11 @@
 ﻿using System.IO;
 using System.Linq;
+using AudioSynchronization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
-namespace AudioSynchronization
+namespace FunscriptToolbox
 {
     public class Funscript
     {
@@ -35,11 +36,11 @@ namespace AudioSynchronization
             r_content = content ?? new JObject();
         }
 
-        public FunscriptActions[] Actions
+        public FunscriptAction[] Actions
         {
             get
             {
-                return r_content.actions?.ToObject<FunscriptActions[]>();
+                return r_content.actions?.ToObject<FunscriptAction[]>();
             }
             set
             {

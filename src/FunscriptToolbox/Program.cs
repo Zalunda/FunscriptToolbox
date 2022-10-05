@@ -1,9 +1,9 @@
 ﻿using CommandLine;
+using FunscriptToolbox.AudioSyncVerbs;
 using System;
 using System.Collections.Generic;
-using System.IO;
 
-namespace FunscriptToolbox.AudioSyncVerbs
+namespace FunscriptToolbox
 {
     class Program
     {
@@ -16,21 +16,21 @@ namespace FunscriptToolbox.AudioSyncVerbs
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 11;
+            int test = 2;
 
             switch (test)
             {
                 case 1:
                     args = new[]
                     {
-                        "audiosync.createAudioSignature"
+                        "audiosync.createaudiosignature"
                     };
                     break;
                 case 2:
                     args = new[]
                     {
-                        "audiosync.createAudioSignature",
-                        //"--force",
+                        "audiosync.createaudiosignature",
+                        "--force",
                         "*.mp4",
                         "*.funscript"
                     };
