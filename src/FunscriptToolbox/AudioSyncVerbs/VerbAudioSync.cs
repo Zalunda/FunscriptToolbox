@@ -1,4 +1,5 @@
 ﻿using AudioSynchronization;
+using log4net;
 using System;
 using System.Collections.Generic;
 
@@ -8,8 +9,8 @@ namespace FunscriptToolbox.AudioSyncVerbs
     {
         protected const string NotesSynchronizedByFunscriptToolbox = "This is not the original funscript file. It's a synchronized version for a different video, done by " + ApplicationName + ".";
 
-        protected VerbAudioSync(OptionsBase options)
-            : base(options)
+        protected VerbAudioSync(ILog log, OptionsBase options)
+            : base(log, options)
         { 
         }
 

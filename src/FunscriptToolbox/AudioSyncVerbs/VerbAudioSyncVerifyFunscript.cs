@@ -1,5 +1,6 @@
 ﻿using AudioSynchronization;
 using CommandLine;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,6 +10,8 @@ namespace FunscriptToolbox.AudioSyncVerbs
 {
     internal class VerbAudioSyncVerifyFunscript : VerbAudioSync
     {
+        private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         [Verb("audiosync.verifyfunscript", aliases: new[] { "as.vfs" }, HelpText = "Verify a funscript.")]
         public class Options : OptionsBase
         {
@@ -52,7 +55,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
         private readonly Options r_options;
 
         public VerbAudioSyncVerifyFunscript(Options options)
-            : base(options)
+            : base(rs_log, options)
         {
             r_options = options;
         }

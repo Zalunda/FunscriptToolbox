@@ -1,5 +1,6 @@
 ﻿using AudioSynchronization;
 using CommandLine;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -31,14 +32,16 @@ namespace FunscriptToolbox
 
         public const string ApplicationName = "FunscriptToolbox";
 
+        private readonly ILog r_log;
         private readonly OptionsBase r_options;
 
         public FunscriptVault FunscriptVault { get; }
         public AudioTracksAnalyzer AudioAnalyzer { get; }
         public int NbErrors { get; private set; }
 
-        public Verb(OptionsBase options)
+        public Verb(ILog log, OptionsBase options)
         {
+            r_log = log;
             r_options = options;
 
             var appDataFolder = Environment.ExpandEnvironmentVariables($@"%appdata%\{ApplicationName}");
@@ -48,6 +51,7 @@ namespace FunscriptToolbox
 
         public void WriteInfo(string message = "", ConsoleColor? color = null)
         {
+            r_log.Info(message);
             if (color != null) Console.ForegroundColor = color.Value;
             Console.WriteLine(message);
             Console.ResetColor();
@@ -55,6 +59,7 @@ namespace FunscriptToolbox
 
         public void WriteVerbose(string message = "")
         {
+            r_log.Debug(message);
             if (r_options.Verbose)
             {
                 Console.WriteLine(message);
@@ -63,6 +68,7 @@ namespace FunscriptToolbox
 
         public void WriteError(string message = "")
         {
+            r_log.Error(message);
             Console.Error.WriteLine(message);
             this.NbErrors++;
         }

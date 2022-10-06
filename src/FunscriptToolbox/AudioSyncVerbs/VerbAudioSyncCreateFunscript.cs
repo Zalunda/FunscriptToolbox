@@ -1,6 +1,7 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using CommandLine.Text;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,6 +10,8 @@ namespace FunscriptToolbox.AudioSyncVerbs
 {
     internal class VerbAudioSyncCreateFunscript : VerbAudioSync
     {
+        private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         [Verb("audiosync.createfunscript", aliases: new[] { "as.cfs" }, HelpText = "Take an audio signature and funscript and try to generate a funscript synchronized to a different videos.")]
         public class Options : OptionsBase
         {
@@ -55,7 +58,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
         private readonly Options r_options;
 
         public VerbAudioSyncCreateFunscript(Options options)
-            : base(options)
+            : base(rs_log, options)
         {
             r_options = options;
         }

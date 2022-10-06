@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
+using log4net;
 using System;
 using System.Collections.Generic;
 
@@ -7,6 +8,8 @@ namespace FunscriptToolbox
 {
     class Program
     {
+        private static readonly ILog rs_log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         static int HandleParseError(IEnumerable<Error> errs)
         {
             //handle errors
@@ -71,6 +74,11 @@ namespace FunscriptToolbox
 #endif
             try
             {
+                rs_log.Info("Application started with arguments:");
+                foreach (var arg in args)
+                {
+                    rs_log.Info($"   {arg}");
+                }
                 var result = Parser.Default.ParseArguments<
                     VerbAudioSyncCreateAudioSignature.Options,
                     VerbAudioSyncCreateFunscript.Options,
@@ -84,6 +92,7 @@ namespace FunscriptToolbox
             }
             catch (Exception ex)
             {
+                rs_log.Error("Exception occured", ex);
                 Console.Error.WriteLine(ex.ToString());
                 return -1;
             }
