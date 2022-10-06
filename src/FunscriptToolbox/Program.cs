@@ -19,7 +19,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 21;
+            int test = 11;
 
             switch (test)
             {
