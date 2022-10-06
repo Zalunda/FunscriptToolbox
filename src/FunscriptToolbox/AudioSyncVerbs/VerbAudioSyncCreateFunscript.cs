@@ -7,7 +7,7 @@ using System.IO;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
-    internal class VerbAudioSyncCreateFunscript : Verb
+    internal class VerbAudioSyncCreateFunscript : VerbAudioSync
     {
         [Verb("audiosync.createfunscript", aliases: new[] { "as.cfs" }, HelpText = "Take an audio signature and funscript and try to generate a funscript synchronized to a different videos.")]
         public class Options : OptionsBase
@@ -35,7 +35,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             [Option('e', "videoextension", Required = false, HelpText = "If a file is a funscript, use this extension to find the corresponding video", Default = ".mp4")]
             public string VideoExtension { get; set; }
 
-            [Usage(ApplicationAlias = "FunscriptToolBox")]
+            [Usage(ApplicationAlias = Verb.ApplicationName)]
             public static IEnumerable<Example> Examples
             {
                 get
@@ -62,8 +62,6 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
         private AudioSignature GetAudioSignature(string filename)
         {
-            var analyzer = new AudioTracksAnalyzer();
-
             if (string.Equals(Path.GetExtension(filename), Funscript.AudioSignatureExtension, StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetExtension(filename), Funscript.FunscriptExtension, StringComparison.OrdinalIgnoreCase))
             {
                 WriteInfo($"Loading audio signature from '{filename}'...");
@@ -72,10 +70,9 @@ namespace FunscriptToolbox.AudioSyncVerbs
             else
             {
                 WriteInfo($"Extraction audio signature from '{filename}'...");
-                return analyzer.ExtractSignature(filename);
+                return this.AudioAnalyzer.ExtractSignature(filename);
             }
         }
-
 
         public int Execute()
         {
@@ -99,6 +96,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
             var outputAudioSignature = GetAudioSignature(r_options.NewAudio);
 
+            WriteInfo($"Comparing audio signatures...");
             SamplesComparer comparer = new SamplesComparer(
                         inputAudioSignature,
                         outputAudioSignature,
@@ -107,39 +105,17 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             MinimumMatchLength = TimeSpan.FromSeconds(r_options.MinimumMatchLength),
                             NbLocationsPerMinute = r_options.NbLocationsPerMinute
                         });
-            WriteInfo($"Comparing audio signatures...");
-            var audioOffsets = comparer.FindAudioOffsets();
+            var audioOffsets = comparer.FindAudioOffsets(WriteVerbose);
 
-            WriteInfo();
             WriteInfo();
             WriteInfo("Generating actions synchronized to the second file...");
-            var newActions = new List<FunscriptAction>();
-            var originalActions = inputFunscript.Actions;
-            foreach (var action in originalActions)
-            {
-                var newAt = audioOffsets.TransformPosition(TimeSpan.FromMilliseconds(action.At));
-                if (newAt != null)
-                {
-                    newActions.Add(new FunscriptAction { At = (int)newAt.Value.TotalMilliseconds, Pos = action.Pos });
-                }
-            }
+            inputFunscript.Actions = TransformsActions(audioOffsets, inputFunscript.Actions);
 
-            foreach (var item in audioOffsets)
-            {
-                if (item.Offset == null)
-                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions have been DROPPED");
-                else if (item.Offset == TimeSpan.Zero)
-                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions copied as is");
-                else
-                    WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions have been MOVED by {FormatTimeSpan(item.Offset.Value)}");
-            }
-            WriteInfo();
-
-            inputFunscript.Actions = newActions.ToArray();
+            var newFilename = r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension);
+            WriteInfo($"Saving synchronized version '{newFilename}'.", ConsoleColor.Green);
             inputFunscript.AudioSignature = outputAudioSignature;
-            this.FunscriptVault.SaveFunscript(
-                inputFunscript, 
-                r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension));
+            inputFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
+            this.FunscriptVault.SaveFunscript(inputFunscript, newFilename);
             return 0;
         }
     }

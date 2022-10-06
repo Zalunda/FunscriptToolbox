@@ -67,28 +67,29 @@ namespace AudioSynchronization
             return result.ToArray();
         }
 
-        public AudioOffsetCollection FindAudioOffsets()
+        public AudioOffsetCollection FindAudioOffsets(Action<string> logFunc)
         {
             var matches = new List<SamplesSectionMatch>();
-            FindMatches(matches,
+            FindMatches(logFunc,
+                    matches,
                     new SamplesSection(r_samplesA, r_nbSamplesPerSecond, 0, r_samplesA.Length),
                     new SamplesSection(r_samplesB, r_nbSamplesPerSecond, 0, r_samplesB.Length));
             matches.First().ExpendStart();
             matches.Last().ExpendEnd(r_samplesA, r_samplesB);
 
-            matches = Cleanup(matches);
+            matches = Cleanup(logFunc, matches);
             matches.First().ExpendStart();
             matches.Last().ExpendEnd(r_samplesA, r_samplesB);
 
-            Console.WriteLine("****** FINAL ******");
+            logFunc?.Invoke("****** FINAL ******");
             double matched = 0;
             foreach (SamplesSectionMatch match in matches)
             {
                 matched += match.SectionA.Length;
-                Console.WriteLine(match);
+                logFunc?.Invoke(match.ToString());
             }
-            Console.WriteLine("matchA = {0:0.00%}", matched / r_samplesA.Length);
-            Console.WriteLine("matchB = {0:0.00%}", matched / r_samplesB.Length);
+            logFunc?.Invoke($"matchA = {matched / r_samplesA.Length:0.00%}");
+            logFunc?.Invoke($"matchB = {matched / r_samplesB.Length:0.00%}");
 
             // Transform SamplesSectionMatch into AudioOffset, and fill the remaining gap of SectionA with "null offset".
             var result = new List<AudioOffset>();
@@ -125,6 +126,7 @@ namespace AudioSynchronization
         private TimeSpan ConvertIndexToTimeSpan(int index) => TimeSpan.FromSeconds((double)index / r_nbSamplesPerSecond);
 
         private void FindMatches(
+            Action<string> logFunc,
             List<SamplesSectionMatch> matches,
             SamplesSection sectionA, 
             SamplesSection sectionB)
@@ -183,14 +185,16 @@ namespace AudioSynchronization
             }
 
             FindMatches(
+                logFunc,
                 matches,
                 sectionA.GetSection(0, bestDiff.SectionA.StartIndex - sectionA.StartIndex),
                 sectionB.GetSection(0, bestDiff.SectionB.StartIndex - sectionB.StartIndex));
 
-            Console.WriteLine(bestDiff);
+            logFunc?.Invoke(bestDiff.ToString());
             matches.Add(bestDiff);
 
             FindMatches(
+                logFunc,
                 matches,
                 sectionA.GetSection(bestDiff.SectionA.StartIndex - sectionA.StartIndex + bestDiff.SectionA.Length),
                 sectionB.GetSection(bestDiff.SectionB.StartIndex - sectionB.StartIndex + bestDiff.SectionB.Length));
@@ -210,7 +214,9 @@ namespace AudioSynchronization
                 .ToArray();
         }
 
-        private List<SamplesSectionMatch> Cleanup(List<SamplesSectionMatch> matches)
+        private List<SamplesSectionMatch> Cleanup(
+            Action<string> logFunc,
+            List<SamplesSectionMatch> matches)
         {
             bool needAnotherCleanup;
             do
@@ -299,10 +305,10 @@ namespace AudioSynchronization
                     cleanedMatches.Add(matches.Last());
                 }
 
-                Console.WriteLine($"------- Merging blocks from {matches.Count()} to {cleanedMatches.Count()} ----");
+                logFunc?.Invoke($"------- Merging blocks from {matches.Count()} to {cleanedMatches.Count()} ----");
                 foreach (var cleanMatch in cleanedMatches)
                 {
-                    Console.WriteLine(cleanMatch);
+                    logFunc?.Invoke(cleanMatch.ToString());
                 }
 
                 matches = cleanedMatches;

@@ -25,7 +25,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             [Option('e', "videoextension", Required = false, HelpText = "If a file is a funscript, use this extension to find the corresponding video", Default = ".mp4")]
             public string VideoExtension { get; set; }
 
-            [Usage(ApplicationAlias = "FunscriptToolBox")]
+            [Usage(ApplicationAlias = Verb.ApplicationName)]
             public static IEnumerable<Example> Examples
             {
                 get
@@ -56,8 +56,6 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
         public int Execute()
         {
-            var analyzer = new AudioTracksAnalyzer();
-
             foreach (var file in r_options
                 .Files
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive)))
@@ -73,7 +71,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             if (File.Exists(videoFile))
                             {
                                 WriteInfo($"{file}: Extraction audio signature from '{videoFile}'...");
-                                funscript.AudioSignature = analyzer.ExtractSignature(videoFile);
+                                funscript.AudioSignature = this.AudioAnalyzer.ExtractSignature(videoFile);
                                 WriteInfo($"{file}: Adding audio signature to file.");
                                 this.FunscriptVault.SaveFunscript(
                                     funscript, 
@@ -107,7 +105,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             WriteInfo($"{file}: Extracting audio signature from file...");
                             var asig = new Funscript
                             {
-                                AudioSignature = analyzer.ExtractSignature(file)
+                                AudioSignature = this.AudioAnalyzer.ExtractSignature(file)
                             };
                             WriteInfo($"{file}: Creating audio signature file '{asigFilename}'.");
                             this.FunscriptVault.SaveFunscript(

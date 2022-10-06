@@ -59,6 +59,19 @@ namespace FunscriptToolbox
             }
         }
 
+        public void AddNotes(string newNote)
+        {
+            var originalNotes = r_content.metadata?.notes;
+            if (string.IsNullOrWhiteSpace(originalNotes?.Value))
+            {
+                r_content.metadata.notes = newNote;
+            }
+            else
+            {
+                r_content.metadata.notes = originalNotes + "\n" + newNote;
+            }
+        }
+
         public void Save(string filename)
         {
             using (var writer = File.CreateText(filename))

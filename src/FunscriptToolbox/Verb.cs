@@ -1,4 +1,5 @@
-﻿using CommandLine;
+﻿using AudioSynchronization;
+using CommandLine;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,22 +29,28 @@ namespace FunscriptToolbox
 
         public static UnParserSettings DefaultUnparserSettings => new UnParserSettings { PreferShortName = true, SkipDefault = true };
 
+        public const string ApplicationName = "FunscriptToolbox";
+
         private readonly OptionsBase r_options;
 
         public FunscriptVault FunscriptVault { get; }
+        public AudioTracksAnalyzer AudioAnalyzer { get; }
         public int NbErrors { get; private set; }
 
         public Verb(OptionsBase options)
         {
             r_options = options;
 
-            var appDataFolder = Environment.ExpandEnvironmentVariables(@"%appdata%\FunscriptToolbox");
+            var appDataFolder = Environment.ExpandEnvironmentVariables($@"%appdata%\{ApplicationName}");
             this.FunscriptVault = new FunscriptVault(Path.Combine(appDataFolder, "Vault"));
+            this.AudioAnalyzer = new AudioTracksAnalyzer();
         }
 
-        public void WriteInfo(string message = "")
+        public void WriteInfo(string message = "", ConsoleColor? color = null)
         {
+            if (color != null) Console.ForegroundColor = color.Value;
             Console.WriteLine(message);
+            Console.ResetColor();
         }
 
         public void WriteVerbose(string message = "")
@@ -60,7 +67,7 @@ namespace FunscriptToolbox
             this.NbErrors++;
         }
 
-        protected string FormatTimeSpan(TimeSpan value)
+        protected static string FormatTimeSpan(TimeSpan value)
         {
             return Regex.Replace(value.ToString(), @"\d{4}$", "");
                 

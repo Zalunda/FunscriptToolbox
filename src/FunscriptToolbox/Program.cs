@@ -16,7 +16,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 2;
+            int test = 21;
 
             switch (test)
             {
@@ -49,6 +49,23 @@ namespace FunscriptToolbox
                         "-n", "mygfmelissaseth_vrdesktophd.asig",
                     };
                     break;
+
+                case 20:
+                    args = new[]
+                    {
+                        "as.vfs"
+                    };
+                    break;
+                case 21:
+                    args = new[]
+                    {
+                        "as.vfs",
+                        // "--verbose",
+                        "--fix",
+                        "*.funscript",
+                    };
+                    break;
+
             }
 
 #endif
@@ -56,10 +73,12 @@ namespace FunscriptToolbox
             {
                 var result = Parser.Default.ParseArguments<
                     VerbAudioSyncCreateAudioSignature.Options,
-                    VerbAudioSyncCreateFunscript.Options>(args)
+                    VerbAudioSyncCreateFunscript.Options,
+                    VerbAudioSyncVerifyFunscript.Options>(args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
+                          (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
                           errors => HandleParseError(errors));
                 return result;
             }
