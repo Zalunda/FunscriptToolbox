@@ -120,6 +120,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 {
                     WriteError($"{file}: An exception occured => {ex}");
                 }
+                WriteInfo();
             }
 
             return NbErrors;

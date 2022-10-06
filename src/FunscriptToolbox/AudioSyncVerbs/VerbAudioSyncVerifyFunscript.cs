@@ -66,85 +66,93 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 .Files
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive)))
             {
-                var asigFilename = Path.ChangeExtension(scripterFunscriptFilename, Funscript.AudioSignatureExtension);
-                var userVideoFilename = Path.ChangeExtension(scripterFunscriptFilename, r_options.VideoExtension);
-
-                WriteInfo($"{scripterFunscriptFilename}: Loading scripter funscript...");
-                var scripterFunscript = Funscript.FromFile(scripterFunscriptFilename);
-
-                AudioSignature scripterAudioSignature;
-                if (scripterFunscript.AudioSignature != null)
+                try
                 {
-                    WriteInfo($"{scripterFunscriptFilename}: Using audio signature from scripter funcript.");
-                    scripterAudioSignature = scripterFunscript.AudioSignature;
-                }
-                else if (File.Exists(asigFilename))
-                {
-                    var scripterAsig = Funscript.FromFile(asigFilename);
-                    WriteInfo($"{scripterFunscriptFilename}: Loading audio signature from scripter file '{asigFilename}'...");
-                    scripterAudioSignature = scripterAsig.AudioSignature;
-                }
-                else
-                {
-                    scripterAudioSignature = null;
-                }
+                    var asigFilename = Path.ChangeExtension(scripterFunscriptFilename, Funscript.AudioSignatureExtension);
+                    var userVideoFilename = Path.ChangeExtension(scripterFunscriptFilename, r_options.VideoExtension);
 
-                if (scripterAudioSignature == null)
-                {
-                    WriteInfo($"{scripterFunscriptFilename}: Skipping because there is no audio signature available for funscript.", ConsoleColor.Yellow);
-                }
-                else if (File.Exists(userVideoFilename))
-                {
-                    WriteInfo($"{scripterFunscriptFilename}: Extracting audio signature from video '{userVideoFilename}'...");
-                    var userAudioSignature = ExtractAudioSignature(userVideoFilename);
+                    WriteInfo($"{scripterFunscriptFilename}: Loading scripter funscript...");
+                    var scripterFunscript = Funscript.FromFile(scripterFunscriptFilename);
 
-                    WriteInfo($"{scripterFunscriptFilename}: Comparing audio signatures...");
-                    SamplesComparer comparer = new SamplesComparer(
-                                scripterAudioSignature,
-                                userAudioSignature,
-                                new CompareOptions
-                                {
-                                    MinimumMatchLength = TimeSpan.FromSeconds(r_options.MinimumMatchLength),
-                                    NbLocationsPerMinute = r_options.NbLocationsPerMinute
-                                });
-                    var audioOffsets = comparer.FindAudioOffsets(WriteVerbose);
-
-                    WriteInfo();
-                    WriteInfo("Generating actions synchronized to the second audio signature...");
-                    var newActions = TransformsActions(audioOffsets, scripterFunscript.Actions);
-
-                    var audioSignatureMismatch = audioOffsets.Any(ao => ao.NbTimesUsed > 0 && ao.Offset != TimeSpan.Zero);
-                    
-                    if (audioSignatureMismatch)
+                    AudioSignature scripterAudioSignature;
+                    if (scripterFunscript.AudioSignature != null)
                     {
-                        if (r_options.FixSynchronization)
+                        WriteInfo($"{scripterFunscriptFilename}: Using audio signature from scripter funcript.");
+                        scripterAudioSignature = scripterFunscript.AudioSignature;
+                    }
+                    else if (File.Exists(asigFilename))
+                    {
+                        var scripterAsig = Funscript.FromFile(asigFilename);
+                        WriteInfo($"{scripterFunscriptFilename}: Loading audio signature from scripter file '{asigFilename}'...");
+                        scripterAudioSignature = scripterAsig.AudioSignature;
+                    }
+                    else
+                    {
+                        scripterAudioSignature = null;
+                    }
+
+                    if (scripterAudioSignature == null)
+                    {
+                        WriteInfo($"{scripterFunscriptFilename}: Skipping because there is no audio signature available for funscript.", ConsoleColor.Yellow);
+                    }
+                    else if (File.Exists(userVideoFilename))
+                    {
+                        WriteInfo($"{scripterFunscriptFilename}: Extracting audio signature from video '{userVideoFilename}'...");
+                        var userAudioSignature = ExtractAudioSignature(userVideoFilename);
+
+                        WriteInfo($"{scripterFunscriptFilename}: Comparing audio signatures...");
+                        SamplesComparer comparer = new SamplesComparer(
+                                    scripterAudioSignature,
+                                    userAudioSignature,
+                                    new CompareOptions
+                                    {
+                                        MinimumMatchLength = TimeSpan.FromSeconds(r_options.MinimumMatchLength),
+                                        NbLocationsPerMinute = r_options.NbLocationsPerMinute
+                                    });
+                        var audioOffsets = comparer.FindAudioOffsets(WriteVerbose);
+
+                        WriteInfo($"{scripterFunscriptFilename}: Generating actions synchronized to the second audio signature...");
+                        var newActions = TransformsActions(audioOffsets, scripterFunscript.Actions);
+
+                        var audioSignatureMismatch = audioOffsets.Any(ao => ao.NbTimesUsed > 0 && ao.Offset != TimeSpan.Zero);
+                    
+                        if (audioSignatureMismatch)
                         {
-                            WriteInfo($"{scripterFunscriptFilename}: Audio signatures are NOT SYNCHRONIZED. Fixing it.");
+                            if (r_options.FixSynchronization)
+                            {
+                                WriteInfo($"{scripterFunscriptFilename}: Audio signatures are NOT SYNCHRONIZED. Fixing it.");
 
-                            var newFilename = scripterFunscriptFilename + ".original";
-                            WriteInfo($"{scripterFunscriptFilename}: Renaming old funscript to '{newFilename}'.");
-                            this.FunscriptVault.SaveFunscript(scripterFunscript, newFilename);
+                                var newFilename = scripterFunscriptFilename + ".original";
+                                WriteInfo($"{scripterFunscriptFilename}: Renaming old funscript to '{newFilename}'.");
+                                this.FunscriptVault.SaveFunscript(scripterFunscript, newFilename);
 
-                            WriteInfo($"{scripterFunscriptFilename}: Creating synchronized version of the funscript.", ConsoleColor.Green);
-                            scripterFunscript.Actions = newActions.ToArray();
-                            scripterFunscript.AudioSignature = userAudioSignature;
-                            scripterFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
-                            this.FunscriptVault.SaveFunscript(scripterFunscript, scripterFunscriptFilename);
+                                WriteInfo($"{scripterFunscriptFilename}: Creating synchronized version of the funscript.", ConsoleColor.Green);
+                                scripterFunscript.Actions = newActions.ToArray();
+                                scripterFunscript.AudioSignature = userAudioSignature;
+                                scripterFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
+                                this.FunscriptVault.SaveFunscript(scripterFunscript, scripterFunscriptFilename);
+                            }
+                            else
+                            {
+                                WriteInfo($"{scripterFunscriptFilename}: Audio signatures are NOT SYNCHRONIZED. Script will not match.", ConsoleColor.Red);
+                            }
                         }
                         else
                         {
-                            WriteInfo($"{scripterFunscriptFilename}: Audio signatures are NOT SYNCHRONIZED. Script will not match.", ConsoleColor.Red);
+                            WriteInfo($"{scripterFunscriptFilename}: Audio signatures are SYNCHRONIZED. Script is GOOD.", ConsoleColor.Green);
                         }
                     }
                     else
                     {
-                        WriteInfo($"{scripterFunscriptFilename}: Audio signatures are SYNCHRONIZED. Script is GOOD.", ConsoleColor.Green);
+                        WriteInfo($"{scripterFunscriptFilename}: Skipping because cannot find video file '{userVideoFilename}'.", ConsoleColor.Yellow);
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    WriteInfo($"{scripterFunscriptFilename}: Skipping because cannot find video file '{userVideoFilename}'.", ConsoleColor.Yellow);
+                    WriteError($"{scripterFunscriptFilename}: An exception occured => {ex}");
                 }
+
+                WriteInfo();
             }
 
             return 0;

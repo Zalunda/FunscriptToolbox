@@ -35,7 +35,6 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 else
                     WriteInfo($"   From {FormatTimeSpan(item.Start),-12} to {FormatTimeSpan(item.End),-12}, {item.NbTimesUsed,5} actions have been MOVED by {FormatTimeSpan(item.Offset.Value)}");
             }
-            WriteInfo();
 
             return newActions.ToArray();
         }
