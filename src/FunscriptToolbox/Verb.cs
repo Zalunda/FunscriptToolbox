@@ -1,9 +1,12 @@
 ﻿using AudioSynchronization;
 using CommandLine;
+using Hudl.FFmpeg.Command;
 using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox
@@ -34,19 +37,65 @@ namespace FunscriptToolbox
 
         private readonly ILog r_log;
         private readonly OptionsBase r_options;
-
+        private readonly string r_ffmpegWorkingFolder;
+        private readonly CommandConfiguration r_ffmpegConfiguration;
+        private readonly AudioTracksAnalyzer r_audioAnalyzer;
+        
         public FunscriptVault FunscriptVault { get; }
-        public AudioTracksAnalyzer AudioAnalyzer { get; }
+
         public int NbErrors { get; private set; }
 
         public Verb(ILog log, OptionsBase options)
         {
+            var appDataFolder = Environment.ExpandEnvironmentVariables($@"%appdata%\{ApplicationName}");
+
             r_log = log;
             r_options = options;
-
-            var appDataFolder = Environment.ExpandEnvironmentVariables($@"%appdata%\{ApplicationName}");
+            r_ffmpegWorkingFolder = Path.Combine(appDataFolder, "ffmpeg");
+            r_ffmpegConfiguration = CommandConfiguration.Create(
+                r_ffmpegWorkingFolder,
+                Path.Combine(r_ffmpegWorkingFolder, "ffmpeg.exe"),
+                Path.Combine(r_ffmpegWorkingFolder, "ffprobe.exe"));
+            r_audioAnalyzer = new AudioTracksAnalyzer(r_ffmpegConfiguration);
             this.FunscriptVault = new FunscriptVault(Path.Combine(appDataFolder, "Vault"));
-            this.AudioAnalyzer = new AudioTracksAnalyzer();
+        }
+
+        protected AudioSignature ExtractAudioSignature(string filename)
+        {
+            UpdateFfmpeg();
+            return r_audioAnalyzer.ExtractSignature(filename);
+        }
+
+        private void UpdateFfmpeg()
+        {
+            if (!File.Exists(r_ffmpegConfiguration.FFmpegPath) || !File.Exists(r_ffmpegConfiguration.FFprobePath))
+            {
+                WriteInfo("ffmpeg/ffprobe missing.");
+                Directory.CreateDirectory(r_ffmpegWorkingFolder);
+                var archiveFilename = Path.Combine(r_ffmpegWorkingFolder, "ffmpeg-release-essentials.zip");
+                var url = $"https://www.gyan.dev/ffmpeg/builds/{Path.GetFileName(archiveFilename)}";
+                WriteInfo($"Downloading ffmpeg/ffprobe from '{url}'...");
+                using (var client = new WebClient())
+                {
+                    client.DownloadFile(url, archiveFilename);
+                }
+                using (var file = ZipFile.Open(archiveFilename, ZipArchiveMode.Read))
+                {
+                    foreach (var e in file.Entries)
+                    {
+                        if (e.Name == "ffmpeg.exe")
+                        {
+                            WriteInfo($"Extraction '{e.FullName}'...");
+                            e.ExtractToFile(r_ffmpegConfiguration.FFmpegPath, true);
+                        }
+                        if (e.Name == "ffprobe.exe")
+                        {
+                            WriteInfo($"Extraction '{e.FullName}'...");
+                            e.ExtractToFile(r_ffmpegConfiguration.FFprobePath, true);
+                        }
+                    }
+                }
+            }
         }
 
         public void WriteInfo(string message = "", ConsoleColor? color = null)

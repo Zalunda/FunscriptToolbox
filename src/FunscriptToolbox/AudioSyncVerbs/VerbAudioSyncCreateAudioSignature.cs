@@ -73,7 +73,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             if (File.Exists(videoFile))
                             {
                                 WriteInfo($"{file}: Extraction audio signature from '{videoFile}'...");
-                                funscript.AudioSignature = this.AudioAnalyzer.ExtractSignature(videoFile);
+                                funscript.AudioSignature = ExtractAudioSignature(videoFile);
                                 WriteInfo($"{file}: Adding audio signature to file.");
                                 this.FunscriptVault.SaveFunscript(
                                     funscript, 
@@ -107,7 +107,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             WriteInfo($"{file}: Extracting audio signature from file...");
                             var asig = new Funscript
                             {
-                                AudioSignature = this.AudioAnalyzer.ExtractSignature(file)
+                                AudioSignature = ExtractAudioSignature(file)
                             };
                             WriteInfo($"{file}: Creating audio signature file '{asigFilename}'.");
                             this.FunscriptVault.SaveFunscript(

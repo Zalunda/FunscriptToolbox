@@ -91,12 +91,12 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
                 if (scripterAudioSignature == null)
                 {
-                    WriteInfo($"{scripterFunscriptFilename}: Skipping because the script scripter's audio signature is not available.", ConsoleColor.Yellow);
+                    WriteInfo($"{scripterFunscriptFilename}: Skipping because there is no audio signature available for funscript.", ConsoleColor.Yellow);
                 }
                 else if (File.Exists(userVideoFilename))
                 {
-                    WriteInfo($"{scripterFunscriptFilename}: Extracting audio signature from your video '{userVideoFilename}'...");
-                    var userAudioSignature = this.AudioAnalyzer.ExtractSignature(userVideoFilename);
+                    WriteInfo($"{scripterFunscriptFilename}: Extracting audio signature from video '{userVideoFilename}'...");
+                    var userAudioSignature = ExtractAudioSignature(userVideoFilename);
 
                     WriteInfo($"{scripterFunscriptFilename}: Comparing audio signatures...");
                     SamplesComparer comparer = new SamplesComparer(
@@ -143,7 +143,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 }
                 else
                 {
-                    WriteInfo($"{scripterFunscriptFilename}: Skipping because cannot find the video file '{userVideoFilename}'.", ConsoleColor.Yellow);
+                    WriteInfo($"{scripterFunscriptFilename}: Skipping because cannot find video file '{userVideoFilename}'.", ConsoleColor.Yellow);
                 }
             }
 

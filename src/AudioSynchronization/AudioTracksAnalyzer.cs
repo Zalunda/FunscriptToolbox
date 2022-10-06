@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Hudl.FFmpeg;
 using Hudl.FFmpeg.Attributes;
 using Hudl.FFmpeg.Command;
@@ -16,13 +15,9 @@ namespace AudioSynchronization
 {
     public class AudioTracksAnalyzer
     {
-        public AudioTracksAnalyzer()
+        public AudioTracksAnalyzer(CommandConfiguration ffmpegConfiguration)
         {
-            var applicationFolder = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            ResourceManagement.CommandConfiguration = CommandConfiguration.Create(
-                @".",
-                Path.Combine(applicationFolder, "ffmpeg.exe"),
-                Path.Combine(applicationFolder, "ffprobe.exe"));
+            ResourceManagement.CommandConfiguration = ffmpegConfiguration;            // TODO: Why is that static property
         }
 
         public AudioSignature ExtractSignature(string filename, int nbSamplesPerSeconds = 120)
