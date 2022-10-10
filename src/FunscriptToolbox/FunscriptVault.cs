@@ -38,7 +38,7 @@ namespace FunscriptToolbox
                     var alreadyExists = Directory.GetFiles(r_baseVaultFolder, $"*.{md5}").Any();
                     if (!alreadyExists)
                     {
-                        File.Move(
+                        File.Copy(
                             filename,
                             Path.Combine(
                                 r_baseVaultFolder,
