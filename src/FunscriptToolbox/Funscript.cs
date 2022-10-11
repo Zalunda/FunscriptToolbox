@@ -61,7 +61,10 @@ namespace FunscriptToolbox
 
         public void AddNotes(string newNote)
         {
-            var originalNotes = r_content.metadata?.notes;
+            if (r_content.metadata == null)
+                r_content.metadata = JObject.FromObject(new { notes = string.Empty });
+
+            var originalNotes = r_content.metadata.notes;
             if (string.IsNullOrWhiteSpace(originalNotes?.Value))
             {
                 r_content.metadata.notes = newNote;
