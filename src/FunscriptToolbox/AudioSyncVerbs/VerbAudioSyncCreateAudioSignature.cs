@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using CommandLine.Text;
+using FunscriptToolbox.Core;
 using log4net;
 using System;
 using System.Collections.Generic;
@@ -73,7 +74,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             if (File.Exists(videoFile))
                             {
                                 WriteInfo($"{file}: Extraction audio signature from '{videoFile}'...");
-                                funscript.AudioSignature = ExtractAudioSignature(videoFile);
+                                funscript.AudioSignature = Convert(ExtractAudioSignature(videoFile));
                                 WriteInfo($"{file}: Adding audio signature to file.");
                                 this.FunscriptVault.SaveFunscript(
                                     funscript, 
@@ -107,7 +108,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             WriteInfo($"{file}: Extracting audio signature from file...");
                             var asig = new Funscript
                             {
-                                AudioSignature = ExtractAudioSignature(file)
+                                AudioSignature = Convert(ExtractAudioSignature(file))
                             };
                             WriteInfo($"{file}: Creating audio signature file '{asigFilename}'.");
                             this.FunscriptVault.SaveFunscript(

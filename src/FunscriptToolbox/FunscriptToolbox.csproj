@@ -68,9 +68,7 @@
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
-    <Compile Include="Funscript.cs" />
-    <Compile Include="FunscriptAction.cs" />
-    <Compile Include="FunscriptVault.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesMerge.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Verb.cs" />
@@ -84,6 +82,10 @@
     <ProjectReference Include="..\AudioSynchronization\AudioSynchronization.csproj">
       <Project>{eeecf34b-1bb8-4209-af1d-99ad25a481a4}</Project>
       <Name>AudioSynchronization</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FunscriptToolbox.Core\FunscriptToolbox.Core.csproj">
+      <Project>{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}</Project>
+      <Name>FunscriptToolbox.Core</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

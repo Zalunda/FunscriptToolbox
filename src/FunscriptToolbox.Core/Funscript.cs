@@ -1,11 +1,10 @@
 ﻿using System.IO;
 using System.Linq;
-using AudioSynchronization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
-namespace FunscriptToolbox
+namespace FunscriptToolbox.Core
 {
     public class Funscript
     {
@@ -48,10 +47,10 @@ namespace FunscriptToolbox
             }
         }
 
-        public AudioSignature AudioSignature { 
+        public FunscriptAudioSignature AudioSignature { 
             get 
             {
-                return r_content.audioSignature?.ToObject<AudioSignature>();
+                return r_content.audioSignature?.ToObject<FunscriptAudioSignature>();
             }
             set 
             {

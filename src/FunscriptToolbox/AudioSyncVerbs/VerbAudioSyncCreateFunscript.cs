@@ -1,6 +1,7 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using CommandLine.Text;
+using FunscriptToolbox.Core;
 using log4net;
 using System;
 using System.Collections.Generic;
@@ -68,7 +69,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             if (string.Equals(Path.GetExtension(filename), Funscript.AudioSignatureExtension, StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetExtension(filename), Funscript.FunscriptExtension, StringComparison.OrdinalIgnoreCase))
             {
                 WriteInfo($"Loading audio signature from '{filename}'...");
-                return Funscript.FromFile(filename).AudioSignature;
+                return Convert(Funscript.FromFile(filename).AudioSignature);
             }
             else
             {
@@ -89,7 +90,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             else if (inputFunscript.AudioSignature != null)
             {
                 WriteInfo($"Using audio signature from source funcript...");
-                inputAudioSignature = inputFunscript.AudioSignature;
+                inputAudioSignature = Convert(inputFunscript.AudioSignature);
             }
             else
             {
@@ -116,7 +117,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
             var newFilename = r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension);
             WriteInfo($"Saving synchronized version '{newFilename}'.", ConsoleColor.Green);
-            inputFunscript.AudioSignature = outputAudioSignature;
+            inputFunscript.AudioSignature = Convert(outputAudioSignature);
             inputFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
             this.FunscriptVault.SaveFunscript(inputFunscript, newFilename);
             return 0;

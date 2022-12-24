@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace FunscriptToolbox
+namespace FunscriptToolbox.Core
 {
     public class FunscriptAction
     {

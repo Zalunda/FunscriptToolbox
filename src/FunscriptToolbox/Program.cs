@@ -3,6 +3,9 @@ using FunscriptToolbox.AudioSyncVerbs;
 using log4net;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Xml;
+using System.Xml.Xsl;
 
 namespace FunscriptToolbox
 {
@@ -19,7 +22,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 11;
+            int test = 30;
 
             switch (test)
             {
@@ -69,6 +72,15 @@ namespace FunscriptToolbox
                     };
                     break;
 
+                case 30:
+                    args = new[]
+                    {
+                        "subtitles.merge",
+                        @"Samples\SubtitleEditSrt",
+                        "-o", "test-merged.srt"
+                    };
+                    break;
+
             }
 
 #endif
@@ -82,11 +94,13 @@ namespace FunscriptToolbox
                 var result = Parser.Default.ParseArguments<
                     VerbAudioSyncCreateAudioSignature.Options,
                     VerbAudioSyncCreateFunscript.Options,
-                    VerbAudioSyncVerifyFunscript.Options>(args)
+                    VerbAudioSyncVerifyFunscript.Options,
+                    VerbSubtitlesMerge.Options>(args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
+                          (VerbSubtitlesMerge.Options options) => new VerbSubtitlesMerge(options).Execute(),
                           errors => HandleParseError(errors));
                 return result;
             }

@@ -33,21 +33,19 @@ namespace AudioSynchronization
             return audioSignature;
         }
 
-        public AudioSignature(int nbSamplesPerSecond, byte[] compressedSamples, string version = "1.0")
+        public AudioSignature(int nbSamplesPerSecond, byte[] compressedSamples)
         {
-            Version = version;
             NbSamplesPerSecond = nbSamplesPerSecond;
-            CompressedSamples = compressedSamples;        
+            CompressedSamples = compressedSamples;
         }
 
-        public string Version { get; }
         public int NbSamplesPerSecond { get; }
         public byte[] CompressedSamples { get; }
 
         public ushort[] GetUncompressedSamples()
         {
             var samples = new List<ushort>();
-            var compressedStream = new MemoryStream(this.CompressedSamples);
+            var compressedStream = new MemoryStream(CompressedSamples);
             using (var gzipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
             {
                 int firstByte;

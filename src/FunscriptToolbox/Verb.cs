@@ -1,5 +1,6 @@
 ﻿using AudioSynchronization;
 using CommandLine;
+using FunscriptToolbox.Core;
 using Hudl.FFmpeg.Command;
 using log4net;
 using System;
@@ -66,6 +67,15 @@ namespace FunscriptToolbox
             return r_audioAnalyzer.ExtractSignature(filename);
         }
 
+        protected FunscriptAudioSignature Convert(AudioSignature signature)
+        {
+            return new FunscriptAudioSignature(signature.NbSamplesPerSecond, signature.CompressedSamples);
+        }
+        protected AudioSignature Convert(FunscriptAudioSignature signature)
+        {
+            return new AudioSignature(signature.NbSamplesPerSecond, signature.CompressedSamples);
+        }
+
         private void UpdateFfmpeg()
         {
             if (!File.Exists(r_ffmpegConfiguration.FFmpegPath) || !File.Exists(r_ffmpegConfiguration.FFprobePath))
@@ -118,6 +128,7 @@ namespace FunscriptToolbox
         public void WriteError(string message = "")
         {
             r_log.Error(message);
+            Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine(message);
             this.NbErrors++;
         }
@@ -128,7 +139,7 @@ namespace FunscriptToolbox
                 
         }
 
-        protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive)
+        protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive = false)
         {
             if (filename.Contains("*"))
             {
@@ -140,6 +151,25 @@ namespace FunscriptToolbox
             }
             else
                 return new[] { filename };
+        }
+
+
+        protected IEnumerable<string> ExpandFolderToFiles(string fileOrFolder, string pattern, bool recursive = false)
+        {
+            if (Directory.Exists(fileOrFolder))
+            {
+                foreach (var file in Directory.GetFiles(
+                    fileOrFolder, 
+                    pattern, 
+                    recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+                {
+                    yield return file;
+                }
+            }
+            else
+            {
+                yield return fileOrFolder;
+            }
         }
     }
 }

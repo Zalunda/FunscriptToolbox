@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 
-namespace FunscriptToolbox
+namespace FunscriptToolbox.Core
 {
     public class FunscriptVault
     {
