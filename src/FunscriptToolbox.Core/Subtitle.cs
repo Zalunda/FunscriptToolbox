@@ -7,6 +7,7 @@ namespace FunscriptToolbox.Core
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }
         public string[] Lines { get; }
+        public TimeSpan Duration => this.EndTime - this.StartTime;
 
         public Subtitle(TimeSpan startTime, TimeSpan endTime, string line)
             : this(startTime, endTime, new[] { line })

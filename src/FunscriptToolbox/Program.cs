@@ -1,11 +1,9 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
+using FunscriptToolbox.SubtitlesVerb;
 using log4net;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Xml;
-using System.Xml.Xsl;
 
 namespace FunscriptToolbox
 {
@@ -75,12 +73,11 @@ namespace FunscriptToolbox
                 case 30:
                     args = new[]
                     {
-                        "subtitles.merge",
-                        @"Samples\SubtitleEditSrt",
-                        "-o", "test-merged.srt"
+                        "subtitles.extractwav",
+                        "--verbose",
+                        "-r", "JAV*zalunda*.mp4",
                     };
                     break;
-
             }
 
 #endif
@@ -95,12 +92,19 @@ namespace FunscriptToolbox
                     VerbAudioSyncCreateAudioSignature.Options,
                     VerbAudioSyncCreateFunscript.Options,
                     VerbAudioSyncVerifyFunscript.Options,
-                    VerbSubtitlesMerge.Options>(args)
+                    VerbSubtitlesExtractWhisperWav.Options
+                    //VerbSubtitlesMergeSrt.Options,
+                    //VerbSubtitlesMergeWav.Options,
+                    //VerbSubtitlesMergedSrtToChatGPT.Options
+                    >(args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
-                          (VerbSubtitlesMerge.Options options) => new VerbSubtitlesMerge(options).Execute(),
+                          (VerbSubtitlesExtractWhisperWav.Options options) => new VerbSubtitlesExtractWhisperWav(options).Execute(),
+                          //(VerbSubtitlesMergeSrt.Options options) => new VerbSubtitlesMergeSrt(options).Execute(),
+                          //(VerbSubtitlesMergeWav.Options options) => new VerbSubtitlesMergeWav(options).Execute(),
+                          //(VerbSubtitlesMergedSrtToChatGPT.Options options) => new VerbSubtitlesMergedSrtToChatGPT(options).Execute(),
                           errors => HandleParseError(errors));
                 return result;
             }

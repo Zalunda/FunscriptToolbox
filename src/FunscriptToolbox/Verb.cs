@@ -1,14 +1,15 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using FunscriptToolbox.Core;
-using Hudl.FFmpeg.Command;
 using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
-using System.Net;
+using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Xabe.FFmpeg;
+using Xabe.FFmpeg.Downloader;
 
 namespace FunscriptToolbox
 {
@@ -38,9 +39,6 @@ namespace FunscriptToolbox
 
         private readonly ILog r_log;
         private readonly OptionsBase r_options;
-        private readonly string r_ffmpegWorkingFolder;
-        private readonly CommandConfiguration r_ffmpegConfiguration;
-        private readonly AudioTracksAnalyzer r_audioAnalyzer;
         
         public FunscriptVault FunscriptVault { get; }
 
@@ -52,19 +50,17 @@ namespace FunscriptToolbox
 
             r_log = log;
             r_options = options;
-            r_ffmpegWorkingFolder = Path.Combine(appDataFolder, "ffmpeg");
-            r_ffmpegConfiguration = CommandConfiguration.Create(
-                r_ffmpegWorkingFolder,
-                Path.Combine(r_ffmpegWorkingFolder, "ffmpeg.exe"),
-                Path.Combine(r_ffmpegWorkingFolder, "ffprobe.exe"));
-            r_audioAnalyzer = new AudioTracksAnalyzer(r_ffmpegConfiguration);
+            FFmpeg.SetExecutablesPath(Path.Combine(appDataFolder, "ffmpeg"));
+
             this.FunscriptVault = new FunscriptVault(Path.Combine(appDataFolder, "Vault"));
         }
 
-        protected AudioSignature ExtractAudioSignature(string filename)
+        protected string GetApplicationFolder(string relativePath = null)
         {
-            UpdateFfmpeg();
-            return r_audioAnalyzer.ExtractSignature(filename);
+            var applicationFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            return relativePath == null
+                ? applicationFolder
+                : Path.Combine(applicationFolder, relativePath);
         }
 
         protected FunscriptAudioSignature Convert(AudioSignature signature)
@@ -76,35 +72,23 @@ namespace FunscriptToolbox
             return new AudioSignature(signature.NbSamplesPerSecond, signature.CompressedSamples);
         }
 
-        private void UpdateFfmpeg()
+        protected void UpdateFfmpeg()
         {
-            if (!File.Exists(r_ffmpegConfiguration.FFmpegPath) || !File.Exists(r_ffmpegConfiguration.FFprobePath))
+            UpdateFfmpegAsync().GetAwaiter().GetResult();
+        }
+
+        protected async Task UpdateFfmpegAsync()
+        {
+            var oldCurrentDirectory = Environment.CurrentDirectory;
+            try
             {
-                WriteInfo("ffmpeg/ffprobe missing.");
-                Directory.CreateDirectory(r_ffmpegWorkingFolder);
-                var archiveFilename = Path.Combine(r_ffmpegWorkingFolder, "ffmpeg-release-essentials.zip");
-                var url = $"https://www.gyan.dev/ffmpeg/builds/{Path.GetFileName(archiveFilename)}";
-                WriteInfo($"Downloading ffmpeg/ffprobe from '{url}'...");
-                using (var client = new WebClient())
-                {
-                    client.DownloadFile(url, archiveFilename);
-                }
-                using (var file = ZipFile.Open(archiveFilename, ZipArchiveMode.Read))
-                {
-                    foreach (var e in file.Entries)
-                    {
-                        if (e.Name == "ffmpeg.exe")
-                        {
-                            WriteInfo($"Extraction '{e.FullName}'...");
-                            e.ExtractToFile(r_ffmpegConfiguration.FFmpegPath, true);
-                        }
-                        if (e.Name == "ffprobe.exe")
-                        {
-                            WriteInfo($"Extraction '{e.FullName}'...");
-                            e.ExtractToFile(r_ffmpegConfiguration.FFprobePath, true);
-                        }
-                    }
-                }
+                Directory.CreateDirectory(FFmpeg.ExecutablesPath);
+                Environment.CurrentDirectory = FFmpeg.ExecutablesPath;
+                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
+            }
+            finally
+            {
+                Environment.CurrentDirectory = oldCurrentDirectory;
             }
         }
 

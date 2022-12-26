@@ -2,54 +2,37 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Hudl.FFmpeg;
-using Hudl.FFmpeg.Attributes;
-using Hudl.FFmpeg.Command;
-using Hudl.FFmpeg.Resources.BaseTypes;
-using Hudl.FFmpeg.Resources.Interfaces;
-using Hudl.FFmpeg.Settings;
-using Hudl.FFmpeg.Settings.BaseTypes;
-using Hudl.FFmpeg.Sugar;
+using Xabe.FFmpeg;
 
 namespace AudioSynchronization
 {
-    public class AudioTracksAnalyzer
+    public static class AudioTracksAnalyzer
     {
-        public AudioTracksAnalyzer(CommandConfiguration ffmpegConfiguration)
-        {
-            ResourceManagement.CommandConfiguration = ffmpegConfiguration;            // TODO: Why is that static property
-        }
-
-        public AudioSignature ExtractSignature(string filename, int nbSamplesPerSeconds = 120)
+        public static AudioSignature ExtractSignature(string filename, int nbSamplesPerSeconds = 120)
         {
             return AudioSignature.FromSamples(
-                nbSamplesPerSeconds, 
+                nbSamplesPerSeconds,
                 ExtractSamples(filename, nbSamplesPerSeconds).ToArray());
         }
 
-        private IEnumerable<ushort> ExtractSamples(string filename, int nbSamplesPerSeconds)
-        {
-            //create a factory 
-            var factory = CommandFactory.Create();
 
-            var tempFile = Path.Combine(ResourceManagement.CommandConfiguration.TempPath, "temp.raw");
+        private static IEnumerable<ushort> ExtractSamples(string filename, int nbSamplesPerSeconds)
+        {
+            var tempFile = Path.GetTempFileName() + ".raw";
             File.Delete(tempFile);
-            File.Delete(tempFile + ".wav");
 
             //create a command adding a video file
             var nbSamplesPerPeak = 200;
-            var command = factory.CreateOutputCommand()
-                .AddInput(Path.GetFullPath(filename))
-                .To<Raw>(
-                    tempFile,
-                    SettingsCollection.ForOutput(
-                        new ChannelOutput(1),
-                        new SampleRate(nbSamplesPerSeconds * nbSamplesPerPeak),
-                        new FormatOutput("s16le"),
-                        new CodecAudio("pcm_s16le")));
 
-            //render the output
-            var result = factory.Render();
+            var mediaInfo = FFmpeg.GetMediaInfo(filename).GetAwaiter().GetResult();
+            var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
+            FFmpeg.Conversions.New()
+                .AddStream(audioStream)
+                .SetOverwriteOutput(true)
+                .AddParameter($"-f s16le -acodec pcm_s16le -ac 1 -ar {nbSamplesPerSeconds * nbSamplesPerPeak}")
+                .SetOutput(tempFile)
+                .Start()
+                .Wait();
 
             try
             {
@@ -86,23 +69,6 @@ namespace AudioSynchronization
             finally
             {
                 File.Delete(tempFile);
-                File.Delete(tempFile + ".wav");
-            }
-        }
-
-        [ContainsStream(Type = typeof(AudioStream))]
-        private class Raw : BaseContainer
-        {
-            private const string FileFormat = ".raw";
-
-            public Raw()
-                : base(FileFormat)
-            {
-            }
-
-            protected override IContainer Clone()
-            {
-                return new Raw();
             }
         }
     }

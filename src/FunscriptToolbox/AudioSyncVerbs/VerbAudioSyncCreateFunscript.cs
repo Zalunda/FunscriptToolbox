@@ -74,7 +74,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             else
             {
                 WriteInfo($"Extraction audio signature from '{filename}'...");
-                return ExtractAudioSignature(filename);
+                return AudioTracksAnalyzer.ExtractSignature(filename);
             }
         }
 

@@ -99,7 +99,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                     else if (File.Exists(userVideoFilename))
                     {
                         WriteInfo($"{scripterFunscriptFilename}: Extracting audio signature from video '{userVideoFilename}'...");
-                        var userAudioSignature = ExtractAudioSignature(userVideoFilename);
+                        var userAudioSignature = AudioTracksAnalyzer.ExtractSignature(userVideoFilename);
 
                         WriteInfo($"{scripterFunscriptFilename}: Comparing audio signatures...");
                         SamplesComparer comparer = new SamplesComparer(
