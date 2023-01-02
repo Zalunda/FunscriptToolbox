@@ -2,6 +2,8 @@
 using CommandLine;
 using FunscriptToolbox.Core;
 using log4net;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,6 +17,13 @@ namespace FunscriptToolbox
 {
     internal class Verb
     {
+        protected readonly static JsonSerializer Serializer = JsonSerializer
+            .Create(new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                ContractResolver = new CamelCasePropertyNamesContractResolver()
+            });
+
         public class OptionsBase
         {
             [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
@@ -114,13 +123,13 @@ namespace FunscriptToolbox
             r_log.Error(message);
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine(message);
+            Console.ResetColor();
             this.NbErrors++;
         }
 
         protected static string FormatTimeSpan(TimeSpan value)
         {
-            return Regex.Replace(value.ToString(), @"\d{4}$", "");
-                
+            return Regex.Replace(value.ToString(), @"\d{4}$", "");                
         }
 
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive = false)
@@ -135,25 +144,6 @@ namespace FunscriptToolbox
             }
             else
                 return new[] { filename };
-        }
-
-
-        protected IEnumerable<string> ExpandFolderToFiles(string fileOrFolder, string pattern, bool recursive = false)
-        {
-            if (Directory.Exists(fileOrFolder))
-            {
-                foreach (var file in Directory.GetFiles(
-                    fileOrFolder, 
-                    pattern, 
-                    recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
-                {
-                    yield return file;
-                }
-            }
-            else
-            {
-                yield return fileOrFolder;
-            }
         }
     }
 }

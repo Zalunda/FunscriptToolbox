@@ -20,7 +20,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 30;
+            int test = 32;
 
             switch (test)
             {
@@ -73,9 +73,45 @@ namespace FunscriptToolbox
                 case 30:
                     args = new[]
                     {
-                        "subtitles.extractwav",
+                        "subtitles.video2vadsrt",
                         "--verbose",
-                        "-r", "JAV*zalunda*.mp4",
+                        "--baseextension", ".temp.vad",
+                        @"*.mp4",
+                    };
+                    break;
+                case 31:
+                    args = new[]
+                    {
+                        "subtitles.srt2vadwav",
+                        "--verbose",
+                        "--gapsound", "audiocheck.net_whitenoisegaussian.wav",
+                        "*.perfect-vad.srt",
+                    };
+                    break;
+                case 32:
+                    args = new[]
+                    {
+                        "subtitles.vadwav2srt",
+                        "--verbose",
+                        "--transcribedlanguage", "jp",
+                        "*.whisper.wav",
+                        "--force",
+                    };
+                    break;
+                case 33:
+                    args = new[]
+                    {
+                        "subtitles.srt2gpt",
+                        "--verbose",
+                        "*.jp.srt",
+                    };
+                    break;
+                case 34:
+                    args = new[]
+                    {
+                        "subtitles.gpt2srt",
+                        "--verbose",
+                        "*.gptresults",
                     };
                     break;
             }
@@ -92,19 +128,32 @@ namespace FunscriptToolbox
                     VerbAudioSyncCreateAudioSignature.Options,
                     VerbAudioSyncCreateFunscript.Options,
                     VerbAudioSyncVerifyFunscript.Options,
-                    VerbSubtitlesExtractWhisperWav.Options
-                    //VerbSubtitlesMergeSrt.Options,
-                    //VerbSubtitlesMergeWav.Options,
-                    //VerbSubtitlesMergedSrtToChatGPT.Options
+
+                    VerbSubtitlesVideo2VADSrt.Options,
+
+                    VerbSubtitlesSrt2VADWav.Options,
+                    VerbSubtitlesVADWav2Srt.Options,
+                    VerbSubtitlesSrt2WavChunks.Options,
+                    VerbSubtitlesWavChunks2Srt.Options,
+
+                    VerbSubtitlesGPT2Srt.Options,
+                    VerbSubtitlesSrt2GPT.Options
                     >(args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
-                          (VerbSubtitlesExtractWhisperWav.Options options) => new VerbSubtitlesExtractWhisperWav(options).Execute(),
-                          //(VerbSubtitlesMergeSrt.Options options) => new VerbSubtitlesMergeSrt(options).Execute(),
-                          //(VerbSubtitlesMergeWav.Options options) => new VerbSubtitlesMergeWav(options).Execute(),
-                          //(VerbSubtitlesMergedSrtToChatGPT.Options options) => new VerbSubtitlesMergedSrtToChatGPT(options).Execute(),
+
+                          (VerbSubtitlesVideo2VADSrt.Options options) => new VerbSubtitlesVideo2VADSrt(options).Execute(),
+
+                          (VerbSubtitlesGPT2Srt.Options options) => new VerbSubtitlesGPT2Srt(options).Execute(),
+                          (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
+
+                          (VerbSubtitlesSrt2VADWav.Options options) => new VerbSubtitlesSrt2VADWav(options).Execute(),
+                          (VerbSubtitlesVADWav2Srt.Options options) => new VerbSubtitlesVADWav2Srt(options).Execute(),
+                          (VerbSubtitlesSrt2WavChunks.Options options) => new VerbSubtitlesSrt2WavChunks(options).Execute(),
+                          (VerbSubtitlesWavChunks2Srt.Options options) => new VerbSubtitlesWavChunks2Srt(options).Execute(),
+
                           errors => HandleParseError(errors));
                 return result;
             }

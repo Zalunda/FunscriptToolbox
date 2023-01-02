@@ -4,18 +4,20 @@ namespace FunscriptToolbox.Core
 {
     public class Subtitle
     {
+        public int? Number { get; }
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }
         public string[] Lines { get; }
         public TimeSpan Duration => this.EndTime - this.StartTime;
 
-        public Subtitle(TimeSpan startTime, TimeSpan endTime, string line)
-            : this(startTime, endTime, new[] { line })
+        public Subtitle(TimeSpan startTime, TimeSpan endTime, string line, int? number = null)
+            : this(startTime, endTime, new[] { line }, number)
         {
         }
 
-        public Subtitle(TimeSpan startTime, TimeSpan endTime, string[] lines)
+        public Subtitle(TimeSpan startTime, TimeSpan endTime, string[] lines, int? number = null)
         {
+            Number = number;
             StartTime = startTime;
             EndTime = endTime;
             Lines = lines;

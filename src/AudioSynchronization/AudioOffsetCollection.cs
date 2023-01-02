@@ -16,7 +16,7 @@ namespace AudioSynchronization
         {
             foreach (var item in this)
             {
-                if (oldTime >= item.Start && oldTime < item.End)
+                if (oldTime >= item.StartTime && oldTime < item.EndTime)
                 {
                     item.IncrementUsage();
                     return item.Offset == null 

@@ -26,7 +26,7 @@ namespace FunscriptToolbox.Core
             var index = 0;
             while (index < lines.Length)
             {
-                index++; // skip subtitle entry number
+                var number = int.Parse(lines[index++]);
                 var times = lines[index++];
                 var match = rs_timesRegex.Match(times);
                 if (!match.Success)
@@ -39,13 +39,17 @@ namespace FunscriptToolbox.Core
                 {
                     texts.Add(lines[index++]);
                 }
-                index++; // skip empty line
+                while (index < lines.Length && string.IsNullOrEmpty(lines[index]))
+                {
+                    index++; // skip empty line
+                }
 
                 var frCulture = CultureInfo.GetCultureInfo("fr-FR"); // fr culture will accept "," for the milliseconds separator
                 yield return new Subtitle(
                     TimeSpan.Parse(match.Groups["StartTime"].Value, frCulture), 
                     TimeSpan.Parse(match.Groups["EndTime"].Value, frCulture), 
-                    texts.ToArray());
+                    texts.ToArray(),
+                    number);
             }
         }
 
@@ -69,7 +73,9 @@ namespace FunscriptToolbox.Core
         private IEnumerable<string> GetSrtLines(List<Subtitle> subtitles)
         {
             int index = 1; 
-            foreach (var subtitle in subtitles.OrderBy(f => f.StartTime))
+            foreach (var subtitle in subtitles
+                .OrderBy(f => f.StartTime)
+                .ThenBy(f => f.EndTime))
             {
                 yield return index++.ToString();
                 yield return $"{FormatTimespan(subtitle.StartTime)} --> {FormatTimespan(subtitle.EndTime)}";

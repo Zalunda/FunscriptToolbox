@@ -28,7 +28,7 @@ speech_timestamps = get_speech_timestamps(
         wav, 
         model, 
         sampling_rate=sampling_rate, 
-        min_silence_duration_ms=500, 
+        min_silence_duration_ms=300, 
         speech_pad_ms=30)
 
 with open(output, 'w') as f:

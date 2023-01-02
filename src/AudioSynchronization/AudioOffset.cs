@@ -1,20 +1,24 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 
 namespace AudioSynchronization
 {
     public class AudioOffset
     {
-        public AudioOffset(TimeSpan start, TimeSpan end, TimeSpan? offset)
+        public AudioOffset(TimeSpan startTime, TimeSpan endTime, TimeSpan? offset)
         {
-            Start = start;
-            End = end;
+            StartTime = startTime;
+            EndTime = endTime;
             Offset = offset;
         }
 
-        public TimeSpan Start { get; }
-        public TimeSpan End { get; }
+        public TimeSpan StartTime { get; }
+        public TimeSpan EndTime { get; }
+        [JsonIgnore]
+        public TimeSpan Duration => this.EndTime - this.StartTime;
         public TimeSpan? Offset { get; }
 
+        [JsonIgnore]
         public int NbTimesUsed { get; private set; }
 
         public void IncrementUsage()
@@ -24,7 +28,7 @@ namespace AudioSynchronization
 
         public override string ToString()
         {
-            return $"{this.Start};{this.End};{this.Offset}";
+            return $"{this.StartTime};{this.EndTime};{this.Offset}";
         }
     }
 }

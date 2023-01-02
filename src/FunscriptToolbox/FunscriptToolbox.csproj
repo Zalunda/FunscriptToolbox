@@ -67,11 +67,16 @@
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesMergedSrtToChatGPT.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesExtractWhisperWav.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesMergeSrt.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesVADWav2Srt.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesWavChunks2Srt.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2WavChunks.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2VADWav.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesVideo2VADSrt.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2GPT.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitles.cs" />
     <Compile Include="Verb.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateFunscript.cs" />
   </ItemGroup>
