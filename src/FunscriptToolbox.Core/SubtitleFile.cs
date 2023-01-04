@@ -35,7 +35,7 @@ namespace FunscriptToolbox.Core
                 }
 
                 var texts = new List<string>();
-                while (!string.IsNullOrEmpty(lines[index]))
+                while (index < lines.Length && !string.IsNullOrEmpty(lines[index]))
                 {
                     texts.Add(lines[index++]);
                 }

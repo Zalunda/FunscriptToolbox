@@ -85,7 +85,7 @@ namespace FunscriptToolbox
                         "subtitles.srt2vadwav",
                         "--verbose",
                         "--gapsound", "audiocheck.net_whitenoisegaussian.wav",
-                        "*.perfect-vad.srt",
+                        "*.perfect-vad.en.srt",
                     };
                     break;
                 case 32:
@@ -114,6 +114,24 @@ namespace FunscriptToolbox
                         "*.gptresults",
                     };
                     break;
+
+                case 40:
+                    args = new[]
+                    {
+                        "subtitles.srt2wavchunks",
+                        "--verbose",
+                        "*.perfect-vad.en.srt",
+                    };
+                    break;
+                case 41:
+                    args = new[]
+                    {
+                        "subtitles.wavchunks2srt",
+                        "--verbose",
+                        "*.perfect-vad.en.srt",
+                    };
+                    break;
+
             }
 
 #endif

@@ -15,7 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerb
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
-        [Verb("subtitles.srtchunks2srt", aliases: new[] { "sub.chk2srt" }, HelpText = "Merge .srt file transcribed by whisper to a single srt")]
+        [Verb("subtitles.wavchunks2srt", aliases: new[] { "sub.wavs2srt" }, HelpText = "Merge .srt file transcribed by whisper to a single srt")]
         public class Options : OptionsBase
         {
             [Value(0, MetaName = "files", Required = true, HelpText = "temp.vad.srt files")]

@@ -77,11 +77,8 @@ namespace FunscriptToolbox.SubtitlesVerb
                                 writer.WriteLine("[1234-R]");
                                 writer.WriteLine("Sample Text In Japanese");
                                 writer.WriteLine();
-                                writer.WriteLine("Here is the texs to translate:");
+                                writer.WriteLine("Here is the texts to translate:");
 
-                                //writer.WriteLine("Can you translate this from japanese to english, considering that it's what a women say to a men.");
-                                //writer.WriteLine("It doesn't include what the men is saying.");
-                                //writer.WriteLine("Please include the separator but add \"-R\" after the number that I included so that I know which line is translated to which text.");
                                 writer.WriteLine();
                             }
 

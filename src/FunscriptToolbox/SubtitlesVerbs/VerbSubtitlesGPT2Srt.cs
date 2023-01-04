@@ -73,6 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     if (gptresults.TryGetValue(transcribedSubtitle.Number.Value, out var translationChoices))
                     {
                         var uniquesChoice = translationChoices
+                            .Select(f => RemoveQuotes(f))
                             .GroupBy(f => string.Join("**", f))
                             .Select(f => f.FirstOrDefault())
                             .ToArray();
@@ -120,6 +121,19 @@ namespace FunscriptToolbox.SubtitlesVerb
                 WriteInfo();
             }
             return base.NbErrors;
+        }
+
+        private string[] RemoveQuotes(string[] lines)
+        {
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (line.StartsWith("\"") && line.EndsWith("\""))
+                {
+                    lines[i] = line.Substring(1, line.Length - 2);
+                }
+            }
+            return lines;
         }
 
         public static IEnumerable<TSource> DistinctBy<TSource, TKey>(IEnumerable<TSource> source,

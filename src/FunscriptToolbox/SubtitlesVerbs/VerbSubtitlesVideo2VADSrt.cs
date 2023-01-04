@@ -71,7 +71,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var watch = Stopwatch.StartNew();
 
                     WriteInfo($"{inputMp4Fullpath}: Extracting .wav file from video...");
-                    ConvertVideoToWav(inputMp4Fullpath, inputMp4Fullpath, r_options.ExtractionParameters);
+                    ConvertVideoToWav(inputMp4Fullpath, outputWavFullpath, r_options.ExtractionParameters);
 
                     WriteInfo($"{inputMp4Fullpath}: Extracting subtitles timing from .wav file, using Voice Activity Detection (silero-VAD)...");
                     var subtitles = ExtractSubtitleTimingWithVAD(outputWavFullpath).ToArray();

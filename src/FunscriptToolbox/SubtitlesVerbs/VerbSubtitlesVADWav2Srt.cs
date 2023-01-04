@@ -126,7 +126,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                             else if (candidates.Count == 1)
                             {
                                 var overlap = candidates.First();
-                                writer.WriteLine($"Adding subtile-{subtitle.Number} in offset {overlap.Offset}");
+                                writer.WriteLine($"Adding subtitle-{subtitle.Number} in offset {overlap.Offset}");
                                 overlap.Offset.Add(subtitle);
                             }
                             else
@@ -146,13 +146,13 @@ namespace FunscriptToolbox.SubtitlesVerb
                                 if (candidates.Count == 1)
                                 {
                                     var overlap = candidates.First();
-                                    writer.WriteLine($"[Multiple-TakeOnlyRemaining] Adding subtile-{subtitle.Number} in offset {overlap.Offset}");
+                                    writer.WriteLine($"[Multiple-TakeOnlyRemaining] Adding subtitle-{subtitle.Number} in offset {overlap.Offset}");
                                     overlap.Offset.Add(subtitle, "[Multiple-TakeOnlyRemaining]");
                                 }
                                 else
                                 {
                                     var overlap = candidates.First();
-                                    writer.WriteLine($"[Multiple-TakeFirst] Adding subtile-{subtitle.Number} in offset {overlap.Offset}");
+                                    writer.WriteLine($"[Multiple-TakeFirst] Adding subtitle-{subtitle.Number} in offset {overlap.Offset}");
                                     overlap.Offset.Add(subtitle, "[Multiple-TakeFirst]");
                                 }
                             }
@@ -261,7 +261,7 @@ namespace FunscriptToolbox.SubtitlesVerb
 
             public override string ToString()
             {
-                return $"{this.GlobalStartTime,-16}-{this.GlobalEndTime,-16}, {this.GlobalStartTime + r_original.Offset.Value,-16}-{this.GlobalEndTime + r_original.Offset.Value,-16}: {this.TempSubtitles.Count} subtitles, {(int)this.PercentageFilled,3}, {this.SpaceLeft}";
+                return $"{this.GlobalStartTime,-16}-{this.GlobalEndTime,-16}, {this.GlobalStartTime + r_original.Offset.Value,-16}-{this.GlobalEndTime + r_original.Offset.Value,-16}: {this.TempSubtitles.Where(f => f.Duration != TimeSpan.Zero).Count()} subtitles, {(int)this.PercentageFilled,3}, {this.SpaceLeft}, {string.Join(" + ", this.TempSubtitles.Where(f => f.Duration != TimeSpan.Zero).Select(f => f.Number))}";
             }
         }
 

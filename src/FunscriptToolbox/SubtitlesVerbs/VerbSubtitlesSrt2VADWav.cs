@@ -81,6 +81,8 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var combinedDuration = TimeSpan.Zero;
                     var audioOffsets = new List<AudioOffset>();
 
+                    var outputSrtFile = new SubtitleFile($"{baseOutput}{r_options.BaseExtension}.newvad.srt");
+
                     var nbBlock = 0;
                     var blockSize = TimeSpan.Zero;
                     var nbSubtitleInBloc = 0;
@@ -96,6 +98,11 @@ namespace FunscriptToolbox.SubtitlesVerb
                                     combinedDuration,
                                     combinedDuration + (subtitle.EndTime - subtitle.StartTime),
                                     subtitle.StartTime - combinedDuration));
+                            outputSrtFile.Subtitles.Add(
+                                new Subtitle(
+                                    combinedDuration,
+                                    combinedDuration + (subtitle.EndTime - subtitle.StartTime),
+                                    subtitle.Lines));
 
                             nbSubtitleInBloc++;
                             if (nextSubtitle?.StartTime - subtitle.EndTime < TimeSpan.FromSeconds(2))
@@ -124,7 +131,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                                 combinedDuration += duration;
                                 blockSize += duration;
 
-                                TimeSpan gapDuration = TimeSpan.FromSeconds(2) + TimeSpan.FromMilliseconds(1000 - combinedDuration.Milliseconds);
+                                TimeSpan gapDuration = TimeSpan.FromSeconds(3) + TimeSpan.FromMilliseconds(1000 - combinedDuration.Milliseconds);
                                 pcmWriter.Write(maximumGapSamples, 0, GetNbSamplesFromDuration(gapDuration));
                                 combinedDuration += gapDuration;
 
@@ -143,6 +150,8 @@ namespace FunscriptToolbox.SubtitlesVerb
                     {
                         Serializer.Serialize(writer, audioOffsets);
                     }
+
+                    outputSrtFile.SaveSrt();
 
                     WriteInfo($"{inputSrtFullpath}: Finished in {watch.Elapsed}.");
                     WriteInfo();
