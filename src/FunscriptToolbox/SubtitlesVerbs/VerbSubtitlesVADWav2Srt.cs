@@ -50,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var inputSrtFullpath = Path.ChangeExtension(inputWavFullpath, ".srt");
                     var inputOffsetFullpath = Path.ChangeExtension(inputWavFullpath, ".offset");
                     var outputSrtFullpath = Path.ChangeExtension(inputWavFullpath, $".{r_options.TranscribedLanguage}.srt");
-                    var debugSrtFullpath = Path.ChangeExtension(inputWavFullpath, $".{r_options.TranscribedLanguage}.debug.txt");
+                    var verboseSrtFullpath = Path.ChangeExtension(inputWavFullpath, $".{r_options.TranscribedLanguage}.verbose.txt");
 
                     if (!r_options.Force && File.Exists(outputSrtFullpath))
                     {
@@ -81,10 +81,8 @@ namespace FunscriptToolbox.SubtitlesVerb
 
                     var temps = whisperOffsets.Select(wo => new WorkingOffset(wo)).ToArray();
                     WorkingOffset lastOffset = null;
-                    using (var writer = File.CreateText(debugSrtFullpath))
+                    using (var writer = r_options.Verbose ? File.CreateText(verboseSrtFullpath) : new StreamWriter(Stream.Null))
                     {
-                        writer.AutoFlush = true;
-
                         foreach (var subtitle in whisperSrtFile.Subtitles)
                         {
                             var candidates = temps
@@ -133,7 +131,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                             {
                                 foreach (var c in candidates.ToArray())
                                 {
-                                    if (c.Offset.Subtitles.Count > 0 && c.Offset.SpaceLeft > TimeSpan.Zero)
+                                    if (c.Offset.Subtitles.Count > 0)
                                     {
                                         var percentage = subtitle.Duration.TotalMilliseconds / c.Offset.SpaceLeft.TotalMilliseconds * 100;
                                         if (percentage > 100)
@@ -147,20 +145,31 @@ namespace FunscriptToolbox.SubtitlesVerb
                                 {
                                     var overlap = candidates.First();
                                     writer.WriteLine($"[Multiple-TakeOnlyRemaining] Adding subtitle-{subtitle.Number} in offset {overlap.Offset}");
-                                    overlap.Offset.Add(subtitle, "[Multiple-TakeOnlyRemaining]");
+                                    overlap.Offset.Add(subtitle);
                                 }
                                 else
                                 {
-                                    var overlap = candidates.First();
-                                    writer.WriteLine($"[Multiple-TakeFirst] Adding subtitle-{subtitle.Number} in offset {overlap.Offset}");
-                                    overlap.Offset.Add(subtitle, "[Multiple-TakeFirst]");
+                                    writer.WriteLine($"[Multiple-Candidate]");
+                                    var firstCandidate = candidates.First().Offset;
+                                    var lastCandidate = candidates.Last().Offset;
+                                    var mergedSubtitle = new Subtitle(
+                                            firstCandidate.GlobalStartTime + firstCandidate.Offset,
+                                            lastCandidate.GlobalEndTime + lastCandidate.Offset,
+                                            subtitle.Lines.Select(f => $"[MERGED]").ToArray());
+                                    firstCandidate.Add(mergedSubtitle);
+                                    lastCandidate.Add(mergedSubtitle);
+
+                                    finalSrt.Subtitles.Add(new Subtitle(
+                                            firstCandidate.GlobalStartTime + firstCandidate.Offset,
+                                            lastCandidate.GlobalEndTime + lastCandidate.Offset,
+                                            subtitle.Lines));
                                 }
                             }
                         }
 
                         foreach (var temp in temps)
                         {
-                            var subtitles = temp.GetFinalSubtitles();
+                            var subtitles = temp.GetFinalSubtitles().Where(f => !f.Lines.Any(line => line.Contains("[MERGED]")));
                             finalSrt.Subtitles.AddRange(subtitles);
                         }
 
@@ -181,13 +190,13 @@ namespace FunscriptToolbox.SubtitlesVerb
             return base.NbErrors;
         }
 
-
         public class WorkingOffset
         {
             private readonly AudioOffset r_original;
 
             public TimeSpan GlobalStartTime => r_original.StartTime;
             public TimeSpan GlobalEndTime => r_original.EndTime;
+            public TimeSpan Offset => r_original.Offset.Value;
 
             public TimeSpan GlobalDuration => r_original.Duration;
 

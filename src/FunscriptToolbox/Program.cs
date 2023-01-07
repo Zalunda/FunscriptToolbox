@@ -20,7 +20,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 32;
+            int test = 33;
 
             switch (test)
             {
@@ -84,8 +84,7 @@ namespace FunscriptToolbox
                     {
                         "subtitles.srt2vadwav",
                         "--verbose",
-                        "--gapsound", "audiocheck.net_whitenoisegaussian.wav",
-                        "*.perfect-vad.en.srt",
+                        "*.temp.perfect-vad.srt"
                     };
                     break;
                 case 32:
@@ -103,7 +102,8 @@ namespace FunscriptToolbox
                     {
                         "subtitles.srt2gpt",
                         "--verbose",
-                        "*.jp.srt",
+                        "*.jp.srt", 
+                        "--force"
                     };
                     break;
                 case 34:

@@ -42,11 +42,13 @@ namespace FunscriptToolbox.SubtitlesVerb
             {
                 try
                 {
-                    var outputGptFullpath = Path.ChangeExtension(inputSrtFullpath, ".gptprompts");
+                    var inputGoogleEnSrtFullPath = Path.ChangeExtension(inputSrtFullpath, ".google.en.srt");
+                    var outputGptPromptsFullpath = Path.ChangeExtension(inputSrtFullpath, ".gptprompts");
+                    var outputGptResultsFullpath = Path.ChangeExtension(inputSrtFullpath, ".gptresults");
 
-                    if (!r_options.Force && File.Exists(outputGptFullpath))
+                    if (!r_options.Force && File.Exists(outputGptPromptsFullpath))
                     {
-                        WriteInfo($"{inputSrtFullpath}: Skipping because file '{Path.GetFileName(outputGptFullpath)}' already exists.  (use --force to override)");
+                        WriteInfo($"{inputSrtFullpath}: Skipping because file '{Path.GetFileName(outputGptPromptsFullpath)}' already exists.  (use --force to override)");
                         continue;
                     }
 
@@ -56,52 +58,20 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var inputSrtFile = SubtitleFile.FromSrtFile(inputSrtFullpath);
 
                     WriteInfo($"{inputSrtFullpath}: Creating prompts for chatgpt...");
-                    using (var writer = File.CreateText(outputGptFullpath))
+                    WriteGtpFile(inputSrtFile, outputGptPromptsFullpath);
+
+                    if (File.Exists(inputGoogleEnSrtFullPath))
                     {
-                        var index = 1;
-                        foreach (var subtitle in inputSrtFile.Subtitles)
-                        {
-                            if (index == 1)
-                            {
-                                writer.WriteLine("Can you translate this from japanese to english, considering that it only include what a women say to a men.");
-                                writer.WriteLine("It doesn't include what the men is saying.");
-                                writer.WriteLine("Please include the separator but add \"-R\" after the number that I included so that I know which line is translated to which text.");
-                                writer.WriteLine();
-                                writer.WriteLine("For example:");
-                                writer.WriteLine();
-                                writer.WriteLine("[1234]");
-                                writer.WriteLine("日本語のサンプルテキスト");
-                                writer.WriteLine();
-                                writer.WriteLine("Should return:");
-                                writer.WriteLine();
-                                writer.WriteLine("[1234-R]");
-                                writer.WriteLine("Sample Text In Japanese");
-                                writer.WriteLine();
-                                writer.WriteLine("Here is the texts to translate:");
-
-                                writer.WriteLine();
-                            }
-
-                            if (subtitle.Lines.Any(f => f.Contains("[")))
-                            {
-                                // Skipping 'comment'
-                            }
-                            else
-                            {
-                                writer.WriteLine($"[{subtitle.Number:D4}]");
-                                foreach (var line in subtitle.Lines)
-                                {
-                                    writer.WriteLine(line);
-                                }
-
-                                if (index % 30 == 0)
-                                {
-                                    writer.WriteLine();
-                                    writer.WriteLine();
-                                }
-                                index++;
-                            }
-                        }
+                        WriteInfo($"{inputSrtFullpath}: Creating .gptresults file from subtitle found in '{Path.GetFileName(inputGoogleEnSrtFullPath)}'...");
+                        WriteGtpFile(
+                            SubtitleFile.FromSrtFile(inputGoogleEnSrtFullPath),
+                            outputGptResultsFullpath,
+                            "-R");
+                    }
+                    else
+                    {
+                        WriteInfo($"{inputSrtFullpath}: No '{Path.GetFileName(inputGoogleEnSrtFullPath)}' file found. Creating empty .gptresults file...");
+                        File.WriteAllText(outputGptResultsFullpath, string.Empty);
                     }
 
                     WriteInfo($"{inputSrtFullpath}: Finished in {watch.Elapsed}.");
@@ -114,6 +84,46 @@ namespace FunscriptToolbox.SubtitlesVerb
                 }
             }
             return base.NbErrors;
+        }
+
+        private static void WriteGtpFile(SubtitleFile srtFile, string outputFullpath, string appendToId = null)
+        {
+            using (var writer = File.CreateText(outputFullpath))
+            {
+                var index = 1;
+                foreach (var subtitle in srtFile.Subtitles)
+                {
+                    if (index == 1)
+                    {
+                        writer.WriteLine("Can you translate this from Japanese to English, considering that it only includes what a woman says to a man.");
+                        writer.WriteLine("Each bloc of lines starts with a label in this format: \"[0000]\". ");
+                        writer.WriteLine("The label is not part of the text to translate. ");
+                        writer.WriteLine("You should start your translation with the same label, followed by \"-R\" (ex. \"[0000]-R\"). ");
+                        writer.WriteLine("Each line needs to be translated by itself.");
+                        writer.WriteLine();
+                    }
+
+                    if (subtitle.Lines.Any(f => f.Contains("[")))
+                    {
+                        // Skipping 'comment'
+                    }
+                    else
+                    {
+                        writer.WriteLine($"[{index:D4}]{appendToId}");
+                        foreach (var line in subtitle.Lines)
+                        {
+                            writer.WriteLine(line);
+                        }
+
+                        if (index % 30 == 0)
+                        {
+                            writer.WriteLine();
+                            writer.WriteLine();
+                        }
+                        index++;
+                    }
+                }
+            }
         }
     }
 }

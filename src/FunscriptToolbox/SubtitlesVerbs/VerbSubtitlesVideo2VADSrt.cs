@@ -35,6 +35,9 @@ namespace FunscriptToolbox.SubtitlesVerb
 
             [Option('p', "extractionparameters", Required = false, HelpText = "Added parameters to pass to ffmpeg when extracting wav")]
             public string ExtractionParameters { get; set; }
+
+            [Option('v', "skipvad", Required = false, HelpText = "Don't use Voice Activity Detection, create an empty .vad file instead", Default = false)]
+            public bool SkipVAD { get; set; }
         }
 
         private readonly Options r_options;
@@ -73,12 +76,21 @@ namespace FunscriptToolbox.SubtitlesVerb
                     WriteInfo($"{inputMp4Fullpath}: Extracting .wav file from video...");
                     ConvertVideoToWav(inputMp4Fullpath, outputWavFullpath, r_options.ExtractionParameters);
 
-                    WriteInfo($"{inputMp4Fullpath}: Extracting subtitles timing from .wav file, using Voice Activity Detection (silero-VAD)...");
-                    var subtitles = ExtractSubtitleTimingWithVAD(outputWavFullpath).ToArray();
+                    if (r_options.SkipVAD)
+                    {
+                        WriteInfo($"{inputMp4Fullpath}: Creating an empty vad subtitle file...");
+                        var emptySrt = new SubtitleFile(outputSrtFullpath);
+                        emptySrt.SaveSrt();
+                    }
+                    else
+                    {
+                        WriteInfo($"{inputMp4Fullpath}: Extracting subtitles timing from .wav file, using Voice Activity Detection (silero-VAD)...");
+                        var subtitles = ExtractSubtitleTimingWithVAD(outputWavFullpath).ToArray();
 
-                    WriteInfo($"{inputMp4Fullpath}: {subtitles.Length} Voice Activities detected, writing vad subtitle...");
-                    var emptySrt = new SubtitleFile(outputSrtFullpath, subtitles);
-                    emptySrt.SaveSrt();
+                        WriteInfo($"{inputMp4Fullpath}: {subtitles.Length} Voice Activities detected, writing vad subtitle...");
+                        var vadSrt = new SubtitleFile(outputSrtFullpath, subtitles);
+                        vadSrt.SaveSrt();
+                    }
 
                     WriteInfo($"{inputMp4Fullpath}: Finished in {watch.Elapsed}.");
                     WriteInfo();

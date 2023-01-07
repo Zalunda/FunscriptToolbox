@@ -29,9 +29,6 @@ namespace FunscriptToolbox.SubtitlesVerb
 
             [Option('e', "baseextension", Required = false, HelpText = "Base file extension for the files produced", Default = ".whisper")]
             public string BaseExtension { get; set; }
-
-            [Option('g', "gapsound", Required = false, HelpText = "Sound to use in gap")]
-            public string GapSound { get; set; }
         }
 
         private readonly Options r_options;
@@ -46,9 +43,7 @@ namespace FunscriptToolbox.SubtitlesVerb
         {
             UpdateFfmpeg();
 
-            var maximumGapSamples = (r_options.GapSound != null) 
-                ? ConvertWavToPcmData(r_options.GapSound)
-                : new byte[GetNbSamplesFromDuration(TimeSpan.FromSeconds(11))];
+            var silenceGapSamples = new byte[GetNbSamplesFromDuration(TimeSpan.FromSeconds(2))];
 
             foreach (var inputSrtFullpath in r_options
                 .Input
@@ -105,40 +100,24 @@ namespace FunscriptToolbox.SubtitlesVerb
                                     subtitle.Lines));
 
                             nbSubtitleInBloc++;
-                            if (nextSubtitle?.StartTime - subtitle.EndTime < TimeSpan.FromSeconds(2))
-                            {
-                                var duration = nextSubtitle.StartTime - subtitle.StartTime;
-                                var startIndex = GetNbSamplesFromDuration(subtitle.StartTime);
-                                var durationIndex = GetNbSamplesFromDuration(duration);
-                                var endIndex = startIndex + durationIndex;
-                                pcmWriter.Write(
-                                    inputPcmSamples,
-                                    startIndex,
-                                    (endIndex > inputPcmSamples.Length) ? inputPcmSamples.Length - startIndex : endIndex - startIndex);
-                                combinedDuration += duration;
-                                blockSize += duration;
-                            }
-                            else
-                            {
-                                var duration = subtitle.EndTime - subtitle.StartTime;
-                                var startIndex = GetNbSamplesFromDuration(subtitle.StartTime);
-                                var durationIndex = GetNbSamplesFromDuration(duration);
-                                var endIndex = startIndex + durationIndex;
-                                pcmWriter.Write(
-                                    inputPcmSamples,
-                                    startIndex,
-                                    (endIndex > inputPcmSamples.Length) ? inputPcmSamples.Length - startIndex : endIndex - startIndex);
-                                combinedDuration += duration;
-                                blockSize += duration;
+                            var duration = subtitle.EndTime - subtitle.StartTime;
+                            var startIndex = GetNbSamplesFromDuration(subtitle.StartTime);
+                            var durationIndex = GetNbSamplesFromDuration(duration);
+                            var endIndex = startIndex + durationIndex;
+                            pcmWriter.Write(
+                                inputPcmSamples,
+                                startIndex,
+                                (endIndex > inputPcmSamples.Length) ? inputPcmSamples.Length - startIndex : endIndex - startIndex);
+                            combinedDuration += duration;
+                            blockSize += duration;
 
-                                TimeSpan gapDuration = TimeSpan.FromSeconds(3) + TimeSpan.FromMilliseconds(1000 - combinedDuration.Milliseconds);
-                                pcmWriter.Write(maximumGapSamples, 0, GetNbSamplesFromDuration(gapDuration));
-                                combinedDuration += gapDuration;
+                            var gapDuration = TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(((combinedDuration.Milliseconds < 500) ? 500 : 1500) - combinedDuration.Milliseconds);
+                            pcmWriter.Write(silenceGapSamples, 0, GetNbSamplesFromDuration(gapDuration));
+                            combinedDuration += gapDuration;
 
-                                nbBlock++;
-                                blockSize = TimeSpan.Zero;
-                                nbSubtitleInBloc = 0;
-                            }
+                            nbBlock++;
+                            blockSize = TimeSpan.Zero;
+                            nbSubtitleInBloc = 0;
                         }
                     }
 
