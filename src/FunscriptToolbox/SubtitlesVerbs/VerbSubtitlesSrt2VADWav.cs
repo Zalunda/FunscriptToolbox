@@ -10,7 +10,6 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerb
 {
-
     class VerbSubtitlesSrt2VADWav : VerbSubtitles
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
@@ -27,8 +26,8 @@ namespace FunscriptToolbox.SubtitlesVerb
             [Option('f', "force", Required = false, HelpText = "Allow to force the execution", Default = false)]
             public bool Force { get; set; }
 
-            [Option('e', "baseextension", Required = false, HelpText = "Base file extension for the files produced", Default = ".whisper")]
-            public string BaseExtension { get; set; }
+            [Option('s', "suffix", Required = false, HelpText = "Suffix for the files produced", Default = "")]
+            public string Suffix { get; set; }
         }
 
         private readonly Options r_options;
@@ -57,12 +56,12 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var parentFolder = Path.GetDirectoryName(inputSrtFullpath) ?? ".";
                     var baseOutput = Path.Combine(parentFolder, Path.GetFileNameWithoutExtension(inputSrtFullpath));
                     var inputWavFullpath = Path.ChangeExtension(inputSrtFullpath, ".wav");
-                    var outputWhisperWavFullpath = $"{baseOutput}{r_options.BaseExtension}.wav";
-                    var outputWhisperOffsetFullpath = $"{baseOutput}{r_options.BaseExtension}.offset";
+                    var outputWhisperWavFullpath = $"{baseOutput}{r_options.Suffix}.wav";
+                    var outputWhisperOffsetFullpath = $"{baseOutput}{r_options.Suffix}.offset";
 
                     if (!r_options.Force && File.Exists(outputWhisperWavFullpath) && File.Exists(outputWhisperOffsetFullpath))
                     {
-                        WriteInfo($"{inputSrtFullpath}: Skipping because file '{Path.GetFileName(outputWhisperWavFullpath)}' and '{Path.GetFileName(outputWhisperOffsetFullpath)}' already exists.  (use --force to override)");
+                        WriteInfo($"{inputSrtFullpath}: Skipping because file '{Path.GetFileName(outputWhisperWavFullpath)}' and '{Path.GetFileName(outputWhisperOffsetFullpath)}' already exists.  (use --force to override)", ConsoleColor.DarkGray);
                         continue;
                     }
 
@@ -76,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var combinedDuration = TimeSpan.Zero;
                     var audioOffsets = new List<AudioOffset>();
 
-                    var outputSrtFile = new SubtitleFile($"{baseOutput}{r_options.BaseExtension}.newvad.srt");
+                    var outputSrtFile = new SubtitleFile($"{baseOutput}{r_options.Suffix}.newvad.srt");
 
                     var nbBlock = 0;
                     var blockSize = TimeSpan.Zero;
@@ -111,7 +110,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                             combinedDuration += duration;
                             blockSize += duration;
 
-                            var gapDuration = TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(((combinedDuration.Milliseconds < 500) ? 500 : 1500) - combinedDuration.Milliseconds);
+                            var gapDuration = TimeSpan.FromSeconds(0.3);
                             pcmWriter.Write(silenceGapSamples, 0, GetNbSamplesFromDuration(gapDuration));
                             combinedDuration += gapDuration;
 

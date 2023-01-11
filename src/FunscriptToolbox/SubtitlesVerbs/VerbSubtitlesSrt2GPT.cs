@@ -42,13 +42,12 @@ namespace FunscriptToolbox.SubtitlesVerb
             {
                 try
                 {
-                    var inputGoogleEnSrtFullPath = Path.ChangeExtension(inputSrtFullpath, ".google.en.srt");
                     var outputGptPromptsFullpath = Path.ChangeExtension(inputSrtFullpath, ".gptprompts");
                     var outputGptResultsFullpath = Path.ChangeExtension(inputSrtFullpath, ".gptresults");
 
                     if (!r_options.Force && File.Exists(outputGptPromptsFullpath))
                     {
-                        WriteInfo($"{inputSrtFullpath}: Skipping because file '{Path.GetFileName(outputGptPromptsFullpath)}' already exists.  (use --force to override)");
+                        WriteInfo($"{inputSrtFullpath}: Skipping because file '{Path.GetFileName(outputGptPromptsFullpath)}' already exists.  (use --force to override)", ConsoleColor.DarkGray);
                         continue;
                     }
 
@@ -58,21 +57,25 @@ namespace FunscriptToolbox.SubtitlesVerb
                     var inputSrtFile = SubtitleFile.FromSrtFile(inputSrtFullpath);
 
                     WriteInfo($"{inputSrtFullpath}: Creating prompts for chatgpt...");
-                    WriteGtpFile(inputSrtFile, outputGptPromptsFullpath);
+                    WriteGtpPromptFile(outputGptPromptsFullpath, inputSrtFile);
 
-                    if (File.Exists(inputGoogleEnSrtFullPath))
+                    var lines = new List<string>();
+                    foreach (var translationService in new[] { "google", "yandex", "deepL", "microsoft" })
                     {
-                        WriteInfo($"{inputSrtFullpath}: Creating .gptresults file from subtitle found in '{Path.GetFileName(inputGoogleEnSrtFullPath)}'...");
-                        WriteGtpFile(
-                            SubtitleFile.FromSrtFile(inputGoogleEnSrtFullPath),
-                            outputGptResultsFullpath,
-                            "-R");
+                        var inputServiceEnSrtFullPath = Path.ChangeExtension(inputSrtFullpath, $".{translationService}.en.srt");
+                        if (File.Exists(inputServiceEnSrtFullPath))
+                        {
+                            WriteInfo($"{inputSrtFullpath}: Loading translations from {translationService} found in '{Path.GetFileName(inputServiceEnSrtFullPath)}'...");
+                            lines.AddRange(ExtractTranslationsFromSrt(SubtitleFile.FromSrtFile(inputServiceEnSrtFullPath)));
+                        }
+                        else
+                        {
+                            WriteInfo($"{inputSrtFullpath}: Skipping translations from {translationService}, no file found...", ConsoleColor.DarkGray);
+                        }
                     }
-                    else
-                    {
-                        WriteInfo($"{inputSrtFullpath}: No '{Path.GetFileName(inputGoogleEnSrtFullPath)}' file found. Creating empty .gptresults file...");
-                        File.WriteAllText(outputGptResultsFullpath, string.Empty);
-                    }
+
+                    WriteInfo($"{inputSrtFullpath}: Creating .gptresults file...");
+                    File.WriteAllLines(outputGptResultsFullpath, lines);
 
                     WriteInfo($"{inputSrtFullpath}: Finished in {watch.Elapsed}.");
                     WriteInfo();
@@ -86,7 +89,27 @@ namespace FunscriptToolbox.SubtitlesVerb
             return base.NbErrors;
         }
 
-        private static void WriteGtpFile(SubtitleFile srtFile, string outputFullpath, string appendToId = null)
+        private static IEnumerable<string> ExtractTranslationsFromSrt(SubtitleFile srtFile)
+        {
+            foreach (var subtitle in srtFile.Subtitles)
+            {
+                if (subtitle.Lines.Any(f => f.Contains("[")))
+                {
+                    // Skipping 'comment'
+                }
+                else
+                {
+                    yield return $"[{subtitle.Number:D4}]-R";
+                    foreach (var line in subtitle.Lines)
+                    {
+                        yield return line;
+                    }
+                    yield return string.Empty;
+                }
+            }
+        }
+
+        private static void WriteGtpPromptFile(string outputFullpath, SubtitleFile srtFile)
         {
             using (var writer = File.CreateText(outputFullpath))
             {
@@ -109,7 +132,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     }
                     else
                     {
-                        writer.WriteLine($"[{index:D4}]{appendToId}");
+                        writer.WriteLine($"[{subtitle.Number:D4}]");
                         foreach (var line in subtitle.Lines)
                         {
                             writer.WriteLine(line);

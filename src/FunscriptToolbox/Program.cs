@@ -20,7 +20,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 33;
+            int test = 34;
 
             switch (test)
             {
@@ -75,11 +75,19 @@ namespace FunscriptToolbox
                     {
                         "subtitles.video2vadsrt",
                         "--verbose",
-                        "--baseextension", ".temp.vad",
+                        "--suffix", ".temp.vad",
                         @"*.mp4",
                     };
                     break;
                 case 31:
+                    args = new[]
+                    {
+                        "subtitles.srt2wavchunks",
+                        "--verbose",
+                        "*.perfect-vad.srt",
+                    };
+                    break;
+                case 32:
                     args = new[]
                     {
                         "subtitles.srt2vadwav",
@@ -87,48 +95,40 @@ namespace FunscriptToolbox
                         "*.temp.perfect-vad.srt"
                     };
                     break;
-                case 32:
-                    args = new[]
-                    {
-                        "subtitles.vadwav2srt",
-                        "--verbose",
-                        "--transcribedlanguage", "jp",
-                        "*.whisper.wav",
-                        "--force",
-                    };
-                    break;
                 case 33:
                     args = new[]
                     {
-                        "subtitles.srt2gpt",
+                        "subtitles.wavchunks2srt",
                         "--verbose",
-                        "*.jp.srt", 
-                        "--force"
+                        "--suffix", ".whisper.chunks",
+                        "*.perfect-vad.srt",
                     };
                     break;
                 case 34:
                     args = new[]
                     {
+                        "subtitles.vadwav2srt",
+                        "--verbose",
+                        "--suffix", ".jp",
+                        "*.whisper.wav",
+                        "--force",
+                    };
+                    break;
+                case 35:
+                    args = new[]
+                    {
+                        "subtitles.srt2gpt",
+                        "--verbose",
+                        "*.whisper.jp.srt", 
+                        "--force"
+                    };
+                    break;
+                case 36:
+                    args = new[]
+                    {
                         "subtitles.gpt2srt",
                         "--verbose",
                         "*.gptresults",
-                    };
-                    break;
-
-                case 40:
-                    args = new[]
-                    {
-                        "subtitles.srt2wavchunks",
-                        "--verbose",
-                        "*.perfect-vad.en.srt",
-                    };
-                    break;
-                case 41:
-                    args = new[]
-                    {
-                        "subtitles.wavchunks2srt",
-                        "--verbose",
-                        "*.perfect-vad.en.srt",
                     };
                     break;
 
@@ -148,12 +148,10 @@ namespace FunscriptToolbox
                     VerbAudioSyncVerifyFunscript.Options,
 
                     VerbSubtitlesVideo2VADSrt.Options,
-
                     VerbSubtitlesSrt2VADWav.Options,
-                    VerbSubtitlesVADWav2Srt.Options,
                     VerbSubtitlesSrt2WavChunks.Options,
                     VerbSubtitlesWavChunks2Srt.Options,
-
+                    VerbSubtitlesVADWav2Srt.Options,
                     VerbSubtitlesGPT2Srt.Options,
                     VerbSubtitlesSrt2GPT.Options
                     >(args)

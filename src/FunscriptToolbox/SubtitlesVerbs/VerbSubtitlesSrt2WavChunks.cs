@@ -50,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerb
 
                     if (Directory.Exists(chunksFolder) && Directory.GetFiles(chunksFolder).Any())
                     {
-                        WriteInfo($"{srtFullpath}: Skipping because folder '{chunksFolder}' already contains files. Please delete/rename the folder.");
+                        WriteInfo($"{srtFullpath}: Skipping because folder '{chunksFolder}' already contains files. Please delete/rename the folder.", ConsoleColor.DarkGray);
                         continue;
                     }
 

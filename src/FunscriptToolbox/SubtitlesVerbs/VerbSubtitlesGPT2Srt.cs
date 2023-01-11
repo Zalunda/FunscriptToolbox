@@ -41,17 +41,18 @@ namespace FunscriptToolbox.SubtitlesVerb
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive)))
             {
-                var transcribedSrtFullPath = Path.ChangeExtension(gtpresultFullPath, ".srt");
-                var translatedSrtFullPath = Path.ChangeExtension(transcribedSrtFullPath, ".en.srt");
+                var inputSrtFullPath = Path.ChangeExtension(gtpresultFullPath, ".srt");
+                var inputConfidenceSrtFullPath = Path.ChangeExtension(gtpresultFullPath, ".confidence.srt");
+                var outputSrtFullPath = Path.ChangeExtension(inputSrtFullPath, ".en.srt");
 
-                if (!r_options.Force && File.Exists(translatedSrtFullPath))
+                if (!r_options.Force && File.Exists(outputSrtFullPath))
                 {
-                    WriteInfo($"{gtpresultFullPath}: Skipping because file '{Path.GetFileName(translatedSrtFullPath)}' already  (use --force to override).");
+                    WriteInfo($"{gtpresultFullPath}: Skipping because file '{Path.GetFileName(outputSrtFullPath)}' already  (use --force to override).", ConsoleColor.DarkGray);
                     continue;
                 }
                 if (!File.Exists(gtpresultFullPath))
                 {
-                    WriteInfo($"{gtpresultFullPath}: Skipping because file '{Path.GetFileName(transcribedSrtFullPath)}' don't exists.");
+                    WriteInfo($"{gtpresultFullPath}: Skipping because file '{Path.GetFileName(inputSrtFullPath)}' don't exists.", ConsoleColor.DarkGray);
                     continue;
                 }
 
@@ -64,12 +65,26 @@ namespace FunscriptToolbox.SubtitlesVerb
                     .ToDictionary(t => t.Key, f => f.Select(k => k.Item2).ToArray());
 
                 WriteInfo($"{gtpresultFullPath}: Loading srt file...");
-                var transcribedSrt = SubtitleFile.FromSrtFile(transcribedSrtFullPath);
+                var transcribedSrt = SubtitleFile.FromSrtFile(inputSrtFullPath);
 
-                WriteInfo($"{gtpresultFullPath}: Creating translated file '{Path.GetFileName(translatedSrtFullPath)}'...");
-                var translatedSrt = new SubtitleFile(translatedSrtFullPath);
+                WriteInfo($"{gtpresultFullPath}: Loading confidence srt file...");
+                var confidenceSrt = SubtitleFile.FromSrtFile(inputConfidenceSrtFullPath);
+
+                WriteInfo($"{gtpresultFullPath}: Creating translated file '{Path.GetFileName(outputSrtFullPath)}'...");
+                var oldGptResults = Path.ChangeExtension(gtpresultFullPath, ".old.gptresults");
+                Dictionary<string, List<string>> oldTranslations = null;
+                if (File.Exists(oldGptResults))
+                {
+                    oldTranslations = GetTranslationsFromOldResult(oldGptResults, "Can you translate this from Japanese");
+                }
+
+                var translatedSrt = new SubtitleFile(outputSrtFullPath);
                 foreach (var transcribedSubtitle in transcribedSrt.Subtitles)
                 {
+                    var confidenceSubtitle = confidenceSrt.Subtitles.FirstOrDefault(f => f.StartTime == transcribedSubtitle.StartTime && f.EndTime == transcribedSubtitle.EndTime);
+                    var confidenceLines = confidenceSubtitle == null ? Array.Empty<string>() : confidenceSubtitle.Lines;
+
+                    var lines = new List<string>();
                     if (gptresults.TryGetValue(transcribedSubtitle.Number.Value, out var translationChoices))
                     {
                         var uniquesChoice = translationChoices
@@ -78,30 +93,25 @@ namespace FunscriptToolbox.SubtitlesVerb
                             .Select(f => f.FirstOrDefault())
                             .ToArray();
 
-                        if (uniquesChoice.Length == 1)
+                        foreach (var choice in uniquesChoice)
                         {
-                            translatedSrt.Subtitles.Add(
-                                new Subtitle(
-                                    transcribedSubtitle.StartTime,
-                                    transcribedSubtitle.EndTime,
-                                    translationChoices.First()));
-                        }
-                        else
-                        {
-                            var lines = new List<string>();
-                            foreach (var choice in uniquesChoice)
+                            if (lines.Count > 0)
                             {
-                                if (lines.Count > 0)
-                                {
-                                    lines.Add("*** OR ***");
-                                }
-                                lines.AddRange(choice);
+                                lines.Add("*** OR ***");
                             }
-                            translatedSrt.Subtitles.Add(
-                                new Subtitle(
-                                    transcribedSubtitle.StartTime,
-                                    transcribedSubtitle.EndTime,
-                                    lines.ToArray()));
+                            lines.AddRange(choice);
+                        }
+                        lines.AddRange(confidenceLines);
+
+                        if (oldTranslations != null)
+                        {
+                            foreach (var line in transcribedSubtitle.Lines)
+                            {
+                                if (oldTranslations.TryGetValue(line, out var translations))
+                                {
+                                    lines.AddRange(RemoveQuotes(translations.ToArray()).Distinct());
+                                }
+                            }
                         }
                     }
                     else
@@ -111,10 +121,21 @@ namespace FunscriptToolbox.SubtitlesVerb
                                 transcribedSubtitle.StartTime,
                                 transcribedSubtitle.EndTime,
                                 "[No translation Found]"));
-                        translatedSrt.Subtitles.Add(
-                            transcribedSubtitle);
+
+                        lines.AddRange(transcribedSubtitle.Lines);
                     }
+                    translatedSrt.Subtitles.Add(
+                        new Subtitle(
+                            transcribedSubtitle.StartTime,
+                            transcribedSubtitle.EndTime,
+                            lines.ToArray()));
                 }
+
+                foreach (var subtitle in confidenceSrt.Subtitles.Where(f => f.Lines.First().Contains("[No Subtitle found in this range]")))
+                {
+                    translatedSrt.Subtitles.Add(subtitle);
+                }    
+
                 translatedSrt.SaveSrt();
 
                 WriteInfo($"{gtpresultFullPath}: Finished in {watch.Elapsed}.");
@@ -128,7 +149,7 @@ namespace FunscriptToolbox.SubtitlesVerb
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
-                if (line.StartsWith("\"") && line.EndsWith("\""))
+                if (line.Length >= 2 && line.StartsWith("\"") && line.EndsWith("\""))
                 {
                     lines[i] = line.Substring(1, line.Length - 2);
                 }
@@ -148,6 +169,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                 }
             }
         }
+
         private IEnumerable<Tuple<int, string[]>> GetTranslations(string gtpresultFullPath)
         {
             string pattern = @"^\s*\[(?<Number>\d+)(-R\]|\]\s*-R)\s*(?<Line>.*)$";
@@ -191,5 +213,58 @@ namespace FunscriptToolbox.SubtitlesVerb
                 }
             }
         }
+
+        private static Dictionary<string, List<string>> GetTranslationsFromOldResult(string filename, string lineThatReset)
+        {
+            var lines = File.ReadAllLines(filename);
+            var translations = new Dictionary<string, List<string>>();
+
+            var currentQuestions = new Dictionary<int, string>();
+            var indexLine = 0;
+            while (indexLine < lines.Length)
+            {
+                var line = lines[indexLine++];
+                if (line.Contains(lineThatReset))
+                {
+                    currentQuestions.Clear();
+                }
+
+                string pattern = @"^\s*\[(?<Number>\d+)\](?<Text>.*)$";
+                var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                var match = regex.Match(line);
+                if (match.Success)
+                {
+                    var number = int.Parse(match.Groups["Number"].Value);
+                    var text = match.Groups["Text"].Value;
+                    if (text.StartsWith("-R"))
+                    {
+                        text = text.Substring(2);
+                        if (text.Trim().Length == 0)
+                        {
+                            text = lines[indexLine++];
+                        }
+                        if (currentQuestions.TryGetValue(number, out string japText))
+                        {
+                            if (!translations.TryGetValue(japText, out var list))
+                            {
+                                list = new List<string>();
+                                translations[japText] = list;
+                            }
+                            list.Add(text);
+                        }
+                    }
+                    else
+                    {
+                        if (text.Trim().Length == 0)
+                        {
+                            text = lines[indexLine++];
+                        }
+                        currentQuestions[number] = text;
+                    }
+                }
+            }
+            return translations;
+        }
+
     }
 }

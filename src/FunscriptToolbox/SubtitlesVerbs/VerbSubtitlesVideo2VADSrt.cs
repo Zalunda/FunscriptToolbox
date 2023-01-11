@@ -30,8 +30,8 @@ namespace FunscriptToolbox.SubtitlesVerb
             [Option('o', "outputfolder", Required = false, HelpText = "Folder to save the files. By default, they are saved in the same folder as the video")]
             public string OutputFolder { get; set; }
 
-            [Option('e', "baseextension", Required = false, HelpText = "Base file extension for the files produced", Default = ".temp.vad")]
-            public string BaseExtension { get; set; }
+            [Option('s', "suffix", Required = false, HelpText = "Suffix for the files produced", Default = "")]
+            public string Suffix { get; set; }
 
             [Option('p', "extractionparameters", Required = false, HelpText = "Added parameters to pass to ffmpeg when extracting wav")]
             public string ExtractionParameters { get; set; }
@@ -62,12 +62,12 @@ namespace FunscriptToolbox.SubtitlesVerb
                 {
                     var parentFolder = r_options.OutputFolder ?? Path.GetDirectoryName(inputMp4Fullpath) ?? ".";
                     var baseOutput = Path.Combine(parentFolder, Path.GetFileNameWithoutExtension(inputMp4Fullpath));
-                    var outputSrtFullpath = $"{baseOutput}{r_options.BaseExtension}.srt";
-                    var outputWavFullpath = $"{baseOutput}{r_options.BaseExtension}.wav";
+                    var outputSrtFullpath = $"{baseOutput}{r_options.Suffix}.srt";
+                    var outputWavFullpath = $"{baseOutput}{r_options.Suffix}.wav";
 
                     if (!r_options.Force && File.Exists(outputSrtFullpath))
                     {
-                        WriteInfo($"{inputMp4Fullpath}: Skipping because file '{Path.GetFileName(outputSrtFullpath)}' already  (use --force to override).");
+                        WriteInfo($"{inputMp4Fullpath}: Skipping because file '{Path.GetFileName(outputSrtFullpath)}' already  (use --force to override).", ConsoleColor.DarkGray);
                         continue;
                     }
 

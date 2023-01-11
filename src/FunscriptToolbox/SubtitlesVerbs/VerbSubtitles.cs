@@ -6,62 +6,6 @@ using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.SubtitlesVerb
 {
-    // @echo off
-    // 
-    // echo --- subtitles.video2vadsrt ---
-    // "C:\!dev\GitHub\FunscriptToolbox\src\FunscriptToolbox\bin\Release\FunscriptToolbox" ^
-    // 		subtitles.video2vadsrt ^
-    // 		--baseextension ".temp.vad" ^
-    // 		--recursive ^
-    // 		"*.mp4"
-    // 		
-    // REM ... Create file .temp.perfect-vad.srt with SubtitleEdit ...
-    // REM ... Rename .temp.vad.wav to .temp.perfect-vad.wav
-    // 
-    // echo --- subtitles.srt2singlewav ---
-    // "C:\!dev\GitHub\FunscriptToolbox\src\FunscriptToolbox\bin\Release\FunscriptToolbox" ^
-    // 		subtitles.srt2vadwav ^
-    // 		--baseextension ".whisper" ^
-    // 		--recursive ^
-    // 		--gapsound "audiocheck.net_whitenoisegaussian.wav" ^
-    // 		"*.perfect-vad.srt"
-    // 
-    // REM ... Use whisper to transcribe the whisper.wav files with the following setting:
-    // REM      Model: large-v2
-    // REM      Language: Japanese (or other)
-    // REM      URL: empty
-    // REM      Upload Files: *.whisper.wav (you can add multiple files)
-    // REM      Task: Transcribe
-    // REM      VAD: none   (it's important to set to None)
-    // 
-    // REM ... Rename .srt files produced by whisper to ".whisper.srt"
-    // 
-    // echo --- subtitles.singlewav2srt ---
-    // "C:\!dev\GitHub\FunscriptToolbox\src\FunscriptToolbox\bin\Release\FunscriptToolbox" ^
-    // 		subtitles.vadwav2srt ^
-    // 		--transcribedlanguage "jp" ^
-    // 		--recursive ^
-    // 		"*.whisper.wav"
-    // 
-    // echo --- subtitles.srt2gpt ---
-    // "C:\!dev\GitHub\FunscriptToolbox\src\FunscriptToolbox\bin\Release\FunscriptToolbox" ^
-    // 		subtitles.srt2gpt ^
-    // 		--recursive ^
-    // 		"*.jp.srt"
-    // 
-    // REM ... Put all prompts to chatgpt (~30 lines per prompt)
-    // 
-    // echo --- subtitles.gpt2srt ---
-    // "C:\!dev\GitHub\FunscriptToolbox\src\FunscriptToolbox\bin\Release\FunscriptToolbox" ^
-    // 		subtitles.gpt2srt ^
-    // 		--recursive ^
-    // 		"*.gptresults" --force
-    // 
-    // pause
-    // 
-    // REM subtitles.srt2singlewav: Add default gaussian inside application
-
-
     class VerbSubtitles : Verb
     {
         protected const int SamplingRate = 16000;

@@ -27,8 +27,8 @@ namespace FunscriptToolbox.SubtitlesVerb
             [Option('f', "force", Required = false, HelpText = "Allow to force the execution", Default = false)]
             public bool Force { get; set; }
 
-            [Option('l', "lang", Required = false, HelpText = "Transcribed langage, will be used for the .<lang>.srt", Default = "jp")]
-            public string TranscribedLanguage { get; set; }
+            [Option('s', "suffix", Required = false, HelpText = "Suffix for the files produced", Default = "")]
+            public string Suffix { get; set; }
 
             [Option('p', "name pattern", HelpText = "Pattern to extract start and times from the name of the file", Default = @"__(?<StartTime>\d+)_(?<Duration>\d+)__")]
             public string NamePattern { get; set; }
@@ -46,7 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerb
 
         public int Execute()
         {
-            foreach (var srtFullpath in r_options
+            foreach (var inputSrtFullPath in r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
                 .Distinct()
@@ -54,38 +54,37 @@ namespace FunscriptToolbox.SubtitlesVerb
             {
                 try
                 {
-                    var parentFolder = Path.GetDirectoryName(srtFullpath) ?? ".";
-                    var baseOutput = Path.Combine(parentFolder, Path.GetFileNameWithoutExtension(srtFullpath));
-                    var fileId = Path.GetFileName(srtFullpath).GetHashCode().ToString("X8");
-                    var chunksFolder = $"{baseOutput}_wav_chunks_{fileId}";
-                    var outputSrtFullpath = baseOutput
-                        .Replace(".temp", string.Empty)
-                        .Replace(".vad", string.Empty) 
-                        + $".{r_options.TranscribedLanguage}.srt";
+                    var parentFolder = Path.GetDirectoryName(inputSrtFullPath) ?? ".";
+                    var baseOutput = Path.Combine(parentFolder, Path.GetFileNameWithoutExtension(inputSrtFullPath));
+                    var fileId = Path.GetFileName(inputSrtFullPath).GetHashCode().ToString("X8");
+                    var inputChunksFolder = $"{baseOutput}_wav_chunks_{fileId}";
+                    var outputSrtFullpath = $"{baseOutput}{r_options.Suffix}.srt";
 
                     if (!r_options.Force && File.Exists(outputSrtFullpath))
                     {
-                        WriteInfo($"{srtFullpath}: Skipping because file '{Path.GetFileName(outputSrtFullpath)}' already  (use --force to override).");
+                        WriteInfo($"{inputSrtFullPath}: Skipping because file '{Path.GetFileName(outputSrtFullpath)}' already  (use --force to override).", ConsoleColor.DarkGray);
                         continue;
                     }
 
-                    if (!Directory.Exists(chunksFolder))
+                    if (!Directory.Exists(inputChunksFolder))
                     {
-                        WriteInfo($"{srtFullpath}: Cannot create transcribed .srt because folder '{chunksFolder}' doesn't exists.");
+                        WriteInfo($"{inputSrtFullPath}: Cannot create transcribed .srt because folder '{inputChunksFolder}' doesn't exists.", ConsoleColor.DarkGray);
                         continue;
                     }
 
-                    var chunkFilepaths = Directory.GetFiles(chunksFolder, "*" + SubtitleFile.SrtExtension);
+                    var chunkFilepaths = Directory.GetFiles(inputChunksFolder, "*" + SubtitleFile.SrtExtension);
                     if (chunkFilepaths.Length == 0)
                     {
-                        WriteInfo($"{srtFullpath}: Cannot create transcribed .srt because there is no .srt files in the folder '{chunksFolder}'.");
+                        WriteInfo($"{inputSrtFullPath}: Cannot create transcribed .srt because there is no .srt files in the folder '{inputChunksFolder}'.", ConsoleColor.DarkGray);
                         continue;
                     }
 
                     var watch = Stopwatch.StartNew();
 
-                    var srtFile = SubtitleFile.FromSrtFile(srtFullpath);
+                    var srtFile = SubtitleFile.FromSrtFile(inputSrtFullPath);
                     var outputSrt = new SubtitleFile(outputSrtFullpath);
+
+                    WriteInfo($"{inputSrtFullPath}: Loading {chunkFilepaths.Length} .srt file from folder {Path.GetFileName(inputChunksFolder)}...");
 
                     foreach (var chunkFilepath in chunkFilepaths)
                     {
@@ -126,13 +125,14 @@ namespace FunscriptToolbox.SubtitlesVerb
                         }
                     }
 
+                    WriteInfo($"{inputSrtFullPath}: Creating a merged .srt file '{Path.GetFileName(outputSrtFullpath)}'...");
                     outputSrt.SaveSrt();
 
-                    WriteInfo($"{srtFullpath}: Finished in {watch.Elapsed}.");
+                    WriteInfo($"{inputSrtFullPath}: Finished in {watch.Elapsed}.");
                 }
                 catch (Exception ex)
                 {
-                    WriteError($"{srtFullpath}: Exception occured: {ex}");
+                    WriteError($"{inputSrtFullPath}: Exception occured: {ex}");
                 }
             }
 
