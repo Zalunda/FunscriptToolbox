@@ -111,7 +111,6 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--suffix", ".jp",
                         "*.whisper.wav",
-                        "--force",
                     };
                     break;
                 case 35:
@@ -120,7 +119,6 @@ namespace FunscriptToolbox
                         "subtitles.srt2gpt",
                         "--verbose",
                         "*.whisper.jp.srt", 
-                        "--force"
                     };
                     break;
                 case 36:

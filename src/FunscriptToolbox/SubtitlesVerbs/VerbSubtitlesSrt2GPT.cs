@@ -24,6 +24,9 @@ namespace FunscriptToolbox.SubtitlesVerb
 
             [Option('f', "force", Required = false, HelpText = "Allow to force the execution", Default = false)]
             public bool Force { get; set; }
+
+            [Option('g', "gptinstructions", Required = false, HelpText = "Put a different instructions in the file")]
+            public string GPTInstructionsFile { get; set; }
         }
 
         private readonly Options r_options;
@@ -56,17 +59,34 @@ namespace FunscriptToolbox.SubtitlesVerb
                     WriteInfo($"{inputSrtFullpath}: Loading input srt...");
                     var inputSrtFile = SubtitleFile.FromSrtFile(inputSrtFullpath);
 
+
+                    var instructions = (r_options.GPTInstructionsFile != null) 
+                        ? File.ReadAllLines(r_options.GPTInstructionsFile)
+                        : new[]
+                            {
+                                "Can you translate this from Japanese to English, considering that it only includes what a woman says to a man.",
+                                "Each bloc of lines starts with a label in this format: \"[0000]\". ",
+                                "The label is not part of the text to translate. ",
+                                "You should start your translation with the same label, followed by \"-R\" (ex. \"[0000]-R\"). ",
+                                "Each line needs to be translated by itself."
+                            };
+
                     WriteInfo($"{inputSrtFullpath}: Creating prompts for chatgpt...");
-                    WriteGtpPromptFile(outputGptPromptsFullpath, inputSrtFile);
+                    WriteGtpPromptFile(outputGptPromptsFullpath, inputSrtFile, instructions);
 
                     var lines = new List<string>();
+                    lines.Add("---- ORIGINAL ----");
+                    lines.AddRange(ExtractTranslationsFromSrt(inputSrtFile));
+                    lines.Add(string.Empty);
                     foreach (var translationService in new[] { "google", "yandex", "deepL", "microsoft" })
                     {
                         var inputServiceEnSrtFullPath = Path.ChangeExtension(inputSrtFullpath, $".{translationService}.en.srt");
                         if (File.Exists(inputServiceEnSrtFullPath))
                         {
                             WriteInfo($"{inputSrtFullpath}: Loading translations from {translationService} found in '{Path.GetFileName(inputServiceEnSrtFullPath)}'...");
+                            lines.Add($"---- {translationService}  ----");
                             lines.AddRange(ExtractTranslationsFromSrt(SubtitleFile.FromSrtFile(inputServiceEnSrtFullPath)));
+                            lines.Add(string.Empty);
                         }
                         else
                         {
@@ -99,17 +119,16 @@ namespace FunscriptToolbox.SubtitlesVerb
                 }
                 else
                 {
-                    yield return $"[{subtitle.Number:D4}]-R";
+                    var index = 0;
                     foreach (var line in subtitle.Lines)
-                    {
-                        yield return line;
+                    {                        
+                        yield return index++ == 0 ? $"[{subtitle.Number:D4}]-R {line}" : line;
                     }
-                    yield return string.Empty;
                 }
             }
         }
 
-        private static void WriteGtpPromptFile(string outputFullpath, SubtitleFile srtFile)
+        private static void WriteGtpPromptFile(string outputFullpath, SubtitleFile srtFile, string[] gptInstructions)
         {
             using (var writer = File.CreateText(outputFullpath))
             {
@@ -118,11 +137,10 @@ namespace FunscriptToolbox.SubtitlesVerb
                 {
                     if (index == 1)
                     {
-                        writer.WriteLine("Can you translate this from Japanese to English, considering that it only includes what a woman says to a man.");
-                        writer.WriteLine("Each bloc of lines starts with a label in this format: \"[0000]\". ");
-                        writer.WriteLine("The label is not part of the text to translate. ");
-                        writer.WriteLine("You should start your translation with the same label, followed by \"-R\" (ex. \"[0000]-R\"). ");
-                        writer.WriteLine("Each line needs to be translated by itself.");
+                        foreach (var instruction in gptInstructions)
+                        {
+                            writer.WriteLine(instruction);
+                        }
                         writer.WriteLine();
                     }
 
@@ -142,6 +160,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                         {
                             writer.WriteLine();
                             writer.WriteLine();
+                            writer.WriteLine("Please continue translating:");
                         }
                         index++;
                     }

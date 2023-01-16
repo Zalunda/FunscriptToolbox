@@ -169,8 +169,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     confidenceSrt.Subtitles.AddRange(offset.GetConfidenceSubtitles(chunkLine));
                 }
 
-                ExpandSubtitleTiming(finalSrt);
-                ExpandSubtitleTiming(confidenceSrt);
+                ExpandSubtitleTiming(finalSrt, confidenceSrt);
 
                 for (int i = 0; i < nb.Length; i++)
                 {
@@ -188,13 +187,14 @@ namespace FunscriptToolbox.SubtitlesVerb
             }
         }
 
-        private void ExpandSubtitleTiming(SubtitleFile finalSrt)
+        private void ExpandSubtitleTiming(SubtitleFile finalSrt, SubtitleFile confidenceSrt)
         {
             var oldSubtitles = finalSrt.Subtitles.ToArray();
             finalSrt.Subtitles.Clear();
             for (int i = 0; i < oldSubtitles.Length; i++)
             {
                 var subtitle = oldSubtitles[i];
+                var confidenceSubtitle = confidenceSrt.Subtitles.FirstOrDefault(f => f.StartTime == subtitle.StartTime && f.EndTime == subtitle.EndTime);
                 var nextSubtitle = (i + 1 < oldSubtitles.Length) ? oldSubtitles[i + 1] : null;
 
                 var newDuration = subtitle.Duration + TimeSpan.FromSeconds(0.5);
@@ -210,6 +210,11 @@ namespace FunscriptToolbox.SubtitlesVerb
                 }
 
                 finalSrt.Subtitles.Add(new Subtitle(subtitle.StartTime, newEndTime, subtitle.Lines));
+                if (confidenceSubtitle != null)
+                {
+                    confidenceSrt.Subtitles.Remove(confidenceSubtitle);
+                    confidenceSrt.Subtitles.Add(new Subtitle(subtitle.StartTime, newEndTime, confidenceSubtitle.Lines));
+                }
             }
         }
 
@@ -340,11 +345,12 @@ namespace FunscriptToolbox.SubtitlesVerb
                 {
                     TimeSpan? lastEndTime = null;
                     var indexInOffset = 0;
+                    var index = 0;
                     foreach (var subtitle in this.Subtitles.OrderBy(f => f.Original.StartTime))
                     {
                         var startTime = lastEndTime ?? this.GlobalStartTime + r_original.Offset.Value;
                         var endTime = startTime + subtitle.Original.Duration;
-                        if (endTime > this.GlobalEndTime + r_original.Offset.Value)
+                        if (endTime > this.GlobalEndTime + r_original.Offset.Value || index++ == this.Subtitles.Count - 1)
                         {
                             endTime = this.GlobalEndTime + r_original.Offset.Value;
                         }
