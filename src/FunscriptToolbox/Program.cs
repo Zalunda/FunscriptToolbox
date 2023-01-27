@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
+using FunscriptToolbox.MotionVectorsVerbs;
 using FunscriptToolbox.SubtitlesVerb;
 using log4net;
 using System;
@@ -20,7 +21,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 34;
+            int test = 42;
 
             switch (test)
             {
@@ -130,6 +131,30 @@ namespace FunscriptToolbox
                     };
                     break;
 
+                case 40:
+                    args = new[]
+                    {
+                        "motionvectors.prepare",
+                        //"--verbose",
+                        "Position-CowGirlUpright-MenLaying-A.mp4",
+                    };
+                    break;
+                case 41:
+                    args = new[]
+                    {
+                        "motionvectors.createfunscript",
+                        //"--verbose",
+                        "Position-CowGirlUpright-MenLaying-A.mvs",
+                    };
+                    break;
+                case 42:
+                    args = new[]
+                    {
+                        "motionvectors.ui",
+                        //"--verbose",
+                        "Position-Doggy-MenStanding-A.mp4",
+                    };
+                    break;
             }
 
 #endif
@@ -151,22 +176,26 @@ namespace FunscriptToolbox
                     VerbSubtitlesWavChunks2Srt.Options,
                     VerbSubtitlesVADWav2Srt.Options,
                     VerbSubtitlesGPT2Srt.Options,
-                    VerbSubtitlesSrt2GPT.Options
-                    >(args)
+                    VerbSubtitlesSrt2GPT.Options,
+
+                    VerbMotionVectorsCreateFunscript.Options,
+                    VerbMotionVectorsPrepareFiles.Options
+                    > (args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
 
                           (VerbSubtitlesVideo2VADSrt.Options options) => new VerbSubtitlesVideo2VADSrt(options).Execute(),
-
+                          (VerbSubtitlesSrt2VADWav.Options options) => new VerbSubtitlesSrt2VADWav(options).Execute(),
+                          (VerbSubtitlesSrt2WavChunks.Options options) => new VerbSubtitlesSrt2WavChunks(options).Execute(),
+                          (VerbSubtitlesWavChunks2Srt.Options options) => new VerbSubtitlesWavChunks2Srt(options).Execute(),
+                          (VerbSubtitlesVADWav2Srt.Options options) => new VerbSubtitlesVADWav2Srt(options).Execute(),
                           (VerbSubtitlesGPT2Srt.Options options) => new VerbSubtitlesGPT2Srt(options).Execute(),
                           (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
 
-                          (VerbSubtitlesSrt2VADWav.Options options) => new VerbSubtitlesSrt2VADWav(options).Execute(),
-                          (VerbSubtitlesVADWav2Srt.Options options) => new VerbSubtitlesVADWav2Srt(options).Execute(),
-                          (VerbSubtitlesSrt2WavChunks.Options options) => new VerbSubtitlesSrt2WavChunks(options).Execute(),
-                          (VerbSubtitlesWavChunks2Srt.Options options) => new VerbSubtitlesWavChunks2Srt(options).Execute(),
+                          (VerbMotionVectorsCreateFunscript.Options options) => new VerbMotionVectorsCreateFunscript(options).Execute(),
+                          (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
 
                           errors => HandleParseError(errors));
                 return result;

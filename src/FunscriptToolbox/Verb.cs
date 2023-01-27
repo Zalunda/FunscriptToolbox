@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -101,25 +102,88 @@ namespace FunscriptToolbox
             }
         }
 
-        public void WriteInfo(string message = "", ConsoleColor? color = null)
+        protected void StartAndHandleFfmpegProgress(IConversion conversion)
         {
-            r_log.Info(message);
-            if (color != null) Console.ForegroundColor = color.Value;
-            Console.WriteLine(message);
-            Console.ResetColor();
+            conversion.OnDataReceived += (sender, args) => WriteVerbose($"[ffmpeg]   {args.Data}", isProgress: args.Data.StartsWith("frame="));
+            var stopwatch = Stopwatch.StartNew();
+            var total = TimeSpan.Zero;
+            conversion.OnProgress += (sender, args) =>
+            {
+                var percent = args.Duration.TotalSeconds / args.TotalLength.TotalSeconds * 100;
+                if (percent > 0)
+                {
+                    var timeLeft = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds / percent * (100 - percent));
+                    if (!r_options.Verbose)
+                    {
+                        var line = $"[ffmpeg]   [{args.Duration} / {args.TotalLength}] {(int)(Math.Round(percent, 2))}% => elapsed : {stopwatch.Elapsed} left: {timeLeft}";
+                        WriteInfo($"{line}{new string(' ', Math.Max(0, Console.WindowWidth - line.Length - 1))}", isProgress: true);
+                    }
+                    total = args.TotalLength;
+                }
+            };
+            conversion.Start().Wait();
+            WriteInfo($"[ffmpeg]   Handling a video of {total} took {stopwatch.Elapsed}.");
         }
 
-        public void WriteVerbose(string message = "")
+        private bool m_lastWriteIsProgress = false;
+
+        public void WriteInfo(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
+            if (m_lastWriteIsProgress)
+            {
+                Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
+            }
+
+            r_log.Info(message);
+            if (color != null) Console.ForegroundColor = color.Value;
+            if (isProgress)
+            {
+                Console.Write($"{message}{new string(' ', Math.Max(0, Console.WindowWidth - message.Length - 1))}\r");
+            }
+            else
+            {
+                Console.WriteLine(message);
+            }
+            Console.ResetColor();
+            m_lastWriteIsProgress = isProgress;
+        }
+
+        public void WriteVerbose(string message = "") => WriteVerbose(message);
+
+        public void WriteVerbose(string message = "", bool isProgress = false)
+        {
+            if (m_lastWriteIsProgress)
+            {
+                Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
+            }
+
             r_log.Debug(message);
             if (r_options.Verbose)
             {
-                Console.WriteLine(message);
-            }                
+                if (isProgress)
+                {
+                    Console.Write($"{message}{new string(' ', Math.Max(0, Console.WindowWidth - message.Length - 1))}\r");
+                }
+                else
+                {
+                    Console.WriteLine(message);
+                }
+            }
+            m_lastWriteIsProgress = isProgress;
+        }
+
+        public void WriteDebug(string message = "")
+        {
+            r_log.Debug(message);
         }
 
         public void WriteError(string message = "")
         {
+            if (m_lastWriteIsProgress)
+            {
+                Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
+            }
+
             r_log.Error(message);
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine(message);
