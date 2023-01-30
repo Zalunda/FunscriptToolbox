@@ -7,11 +7,11 @@ namespace FunscriptToolbox.Core
     public abstract class FrameAnalyser
     {
         public abstract string Name { get; }
-        public List<int> FrameResults { get; }
+        public List<long> FrameResults { get; }
         public List<FunscriptAction> Actions { get; }
         public int Percentage => (100 * m_nbPointsInActions) / this.FrameResults.Count;
 
-        private int? m_lastAction;
+        private long? m_lastAction;
         private TimeSpan m_startTimeFrame;
         private TimeSpan m_endTimeFrame;
         private TimeSpan m_previousTimeFrame;
@@ -20,7 +20,7 @@ namespace FunscriptToolbox.Core
 
         public FrameAnalyser()
         {
-            this.FrameResults = new List<int>();
+            this.FrameResults = new List<long>();
             this.Actions = new List<FunscriptAction>();
             m_lastAction = null;
             m_startTimeFrame = TimeSpan.Zero;
@@ -78,6 +78,6 @@ namespace FunscriptToolbox.Core
             m_previousTimeFrame = frame.FrameTimeInMs;
         }
 
-        protected abstract int ComputeFrameValue(MotionVectorsFrame frame);
+        protected abstract long ComputeFrameValue(MotionVectorsFrame frame);
     }
 }

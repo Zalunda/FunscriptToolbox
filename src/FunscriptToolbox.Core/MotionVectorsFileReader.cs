@@ -8,20 +8,25 @@ namespace FunscriptToolbox.Core
 {
     public class MotionVectorsFileReader : IDisposable
     {
-        private readonly BinaryReader r_reader;
-        private long r_posAfterHeader;
-
         public int FormatVersion { get; }
         public TimeSpan VideoDuration { get; }
         public int NbFrames { get; }
         public decimal VideoFramerate { get; }
         public int VideoWidth { get; }
         public int VideoHeight { get; }
+        public int BlocSize => 16;
         public int NbBlocX { get; }
         public int NbBlocY { get; }
         public int NbBlocTotalPerFrame { get; }
 
-        public MotionVectorsFileReader(string filepath)
+        private readonly BinaryReader r_reader;
+        private readonly long r_maximumMemoryUsage;
+        private long r_posAfterHeader;
+        private int r_frameSize;
+        private List<MotionVectorsFrame> m_framesInMemory;
+        private long m_memoryUsed;
+
+        public MotionVectorsFileReader(string filepath, int maximumMemoryUsageInMB = 1000)
         {
             r_reader = new BinaryReader(File.OpenRead(filepath), Encoding.ASCII);
 
@@ -41,27 +46,85 @@ namespace FunscriptToolbox.Core
             NbBlocY = r_reader.ReadInt32();
             NbBlocTotalPerFrame = NbBlocX * NbBlocY;
 
+            r_maximumMemoryUsage = maximumMemoryUsageInMB * 1024 * 1024;
             r_posAfterHeader = r_reader.BaseStream.Position;
+            r_frameSize = NbBlocTotalPerFrame * 2 + 8; // 8 = 2 * ReadInt32()
+            m_framesInMemory = new List<MotionVectorsFrame>();
+            m_memoryUsed = 0;
         }
 
-        public IEnumerable<MotionVectorsFrame> ReadFrames()
+        public int GetFrameNumberFromTime(TimeSpan time)
         {
-            r_reader.BaseStream.Seek(r_posAfterHeader, SeekOrigin.Begin);
-            var frameNumber = 0;
+            return (int)Math.Round(time.TotalSeconds / (double)(1 / VideoFramerate));
+        }
+
+        public IEnumerable<MotionVectorsFrame> ReadFrames(TimeSpan start, TimeSpan end)
+        {
+            var startFrameNumber = GetFrameNumberFromTime(start);
+            var endFrameNumber = GetFrameNumberFromTime(end);
+            foreach (var frame in ReadFrames(startFrameNumber))
+            {
+                if (frame.FrameNumber >= endFrameNumber)
+                    yield break;
+
+                yield return frame;
+            }
+        }
+
+        public IEnumerable<MotionVectorsFrame> ReadFrames(int startingFrameNumber = 0)
+        {
+            r_reader.BaseStream.Seek(r_posAfterHeader + (long)startingFrameNumber * r_frameSize, SeekOrigin.Begin);
+
+            var currentFrameNumber = startingFrameNumber;
             while (r_reader.BaseStream.Position < r_reader.BaseStream.Length)
             {
-                var frameNumberInFile = r_reader.ReadInt32();
-                var frameTimeInMsInFile = TimeSpan.FromMilliseconds(r_reader.ReadInt32());
-                var motionsX = r_reader.ReadBytes(NbBlocTotalPerFrame);
-                var motionsY = r_reader.ReadBytes(NbBlocTotalPerFrame);
-                var total = motionsX.Sum(f => (sbyte)f) + motionsY.Sum(f => (sbyte)f);
+                var frameFromMemory = GetFrameFromMemory(currentFrameNumber);
+                if (frameFromMemory != null)
+                {
+                    r_reader.BaseStream.Seek(r_frameSize, SeekOrigin.Current);
+                    yield return frameFromMemory;
+                }
+                else
+                {
+                    var frameNumberInFile = r_reader.ReadInt32();
+                    if (frameNumberInFile != currentFrameNumber)
+                    {
+                        throw new Exception($"Wrong frame: Received {frameNumberInFile}, Expected {currentFrameNumber}");
+                    }
+                    var frameTimeInMsInFile = TimeSpan.FromMilliseconds(r_reader.ReadInt32());
+                    var motionsX = r_reader.ReadBytes(NbBlocTotalPerFrame);
+                    var motionsY = r_reader.ReadBytes(NbBlocTotalPerFrame);
+                    var frameFromFile = new MotionVectorsFrame(
+                        frameNumberInFile, 
+                        frameTimeInMsInFile, 
+                        motionsX, 
+                        motionsY);
 
-                yield return new MotionVectorsFrame(frameNumberInFile, frameTimeInMsInFile, motionsX, motionsY);
+                    if (m_memoryUsed + r_frameSize < r_maximumMemoryUsage)
+                    {
+                        var lastFrameInMemory = m_framesInMemory.LastOrDefault();
+                        if (lastFrameInMemory == null || currentFrameNumber == lastFrameInMemory.FrameNumber + 1)
+                        {
+                            m_framesInMemory.Add(frameFromFile);
+                            m_memoryUsed += r_frameSize;
+                        }
+                    }
 
-                // TODO Unneeded, remove it or use it to validate what's in the file
-                var frameTimeInMs = (int)((double)(frameNumber * (1.0 / (double)VideoFramerate)) * 1000);
-                frameNumber++;
+                    yield return frameFromFile;
+                }
+
+                currentFrameNumber++;
             }
+        }
+
+        private MotionVectorsFrame GetFrameFromMemory(int frameNumber)
+        {
+            var firstFrameInMemory = m_framesInMemory.FirstOrDefault()?.FrameNumber ?? -1;
+            var lastFrameInMemory = m_framesInMemory.LastOrDefault()?.FrameNumber ?? -1;
+
+            return (frameNumber >= firstFrameInMemory) && (frameNumber <= lastFrameInMemory)
+                ? m_framesInMemory[frameNumber - firstFrameInMemory]
+                : null;
         }
 
         public void Dispose()

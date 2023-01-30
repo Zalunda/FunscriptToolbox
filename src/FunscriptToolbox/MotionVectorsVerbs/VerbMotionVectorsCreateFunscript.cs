@@ -53,13 +53,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 var reader = new MotionVectorsFileReader(file);
                 var frameAnalysers = new FrameAnalyser[]
                     {
-                        // new FrameAnalyserSimpleNumberOfUpOrDownMotionX(),
-                        //new FrameAnalyserSimpleNumberOfUpOrDownMotionY(),
-                        // new FrameAnalyserSimpleSumMotionX(),
-                        new FrameAnalyserSimpleSumMotionY("SumMotionY", reader.NbBlocX, reader.NbBlocY, 0, 0, 128, 128),
-                        new FrameAnalyserSimpleSumMotionY("SumMotionY-WomenMiddle", reader.NbBlocX, reader.NbBlocY, 44, 28, 30, 60),
-                        new FrameAnalyserSimpleSumMotionY("SumMotionY-MenBottom", reader.NbBlocX, reader.NbBlocY,(128-14)/2, 108, 14, 20),
-                        new FrameAnalyserSimpleSumMotionY("SumMotionY-MenBottomFOV", reader.NbBlocX, reader.NbBlocY,128 + 15, 96, 64 - 30, 32)
                     };
 
                 var stopwatch = Stopwatch.StartNew();

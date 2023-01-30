@@ -61,21 +61,21 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
-    <Reference Include="Xabe.FFmpeg, Version=5.2.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Xabe.FFmpeg.5.2.3\lib\netstandard2.0\Xabe.FFmpeg.dll</HintPath>
+    <Reference Include="Xabe.FFmpeg, Version=5.2.4.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Xabe.FFmpeg.5.2.4\lib\netstandard2.0\Xabe.FFmpeg.dll</HintPath>
     </Reference>
-    <Reference Include="Xabe.FFmpeg.Downloader, Version=5.2.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Xabe.FFmpeg.Downloader.5.2.3\lib\netstandard2.0\Xabe.FFmpeg.Downloader.dll</HintPath>
+    <Reference Include="Xabe.FFmpeg.Downloader, Version=5.2.4.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Xabe.FFmpeg.Downloader.5.2.4\lib\netstandard2.0\Xabe.FFmpeg.Downloader.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
-    <Compile Include="MvCreator\VerbMotionVectorsUI.cs" />
-    <Compile Include="MvCreator\VerbMotionVectorsPrepareFiles.cs" />
-    <Compile Include="MvCreator\VerbMotionVectorsCreateFunscript.cs" />
-    <Compile Include="MvCreator\VerbMotionVectors.cs" />
+    <Compile Include="MotionVectorsVerbs\VerbMotionVectorsUI.cs" />
+    <Compile Include="MotionVectorsVerbs\VerbMotionVectorsPrepareFiles.cs" />
+    <Compile Include="MotionVectorsVerbs\VerbMotionVectorsCreateFunscript.cs" />
+    <Compile Include="MotionVectorsVerbs\VerbMotionVectors.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesVADWav2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesWavChunks2Srt.cs" />
@@ -101,6 +101,10 @@
     <ProjectReference Include="..\FunscriptToolbox.Core\FunscriptToolbox.Core.csproj">
       <Project>{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}</Project>
       <Name>FunscriptToolbox.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FunscriptToolbox.UI\FunscriptToolbox.UI.csproj">
+      <Project>{1662D347-7920-40F8-94BD-8F0FEBD61980}</Project>
+      <Name>FunscriptToolbox.UI</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />

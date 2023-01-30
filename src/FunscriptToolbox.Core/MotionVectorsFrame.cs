@@ -2,7 +2,7 @@
 
 namespace FunscriptToolbox.Core
 {
-    public struct MotionVectorsFrame
+    public class MotionVectorsFrame
     {
         public int FrameNumber { get; }
         public TimeSpan FrameTimeInMs { get; }

@@ -5,6 +5,7 @@ using FunscriptToolbox.SubtitlesVerb;
 using log4net;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FunscriptToolbox
 {
@@ -14,6 +15,7 @@ namespace FunscriptToolbox
 
         static int HandleParseError(IEnumerable<Error> errs)
         {
+            rs_log.Error($"Parse error occured: {string.Join(",", errs.Select(f => f.Tag.ToString()).ToArray())}");
             //handle errors
             return -1;
         }
@@ -152,11 +154,12 @@ namespace FunscriptToolbox
                     {
                         "motionvectors.ui",
                         //"--verbose",
-                        "Position-Doggy-MenStanding-A.mp4",
+                        "--inputparametersfile", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\input_parameters.json"),
+                        "--outputparametersfile", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\output_parameters.json"),
+                        @"Position-CowGirlUpright-MenSitting-B.mvs-visual.mp4"
                     };
                     break;
             }
-
 #endif
             try
             {
@@ -179,7 +182,8 @@ namespace FunscriptToolbox
                     VerbSubtitlesSrt2GPT.Options,
 
                     VerbMotionVectorsCreateFunscript.Options,
-                    VerbMotionVectorsPrepareFiles.Options
+                    VerbMotionVectorsPrepareFiles.Options,
+                    VerbMotionVectorsUI.Options
                     > (args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
@@ -196,6 +200,7 @@ namespace FunscriptToolbox
 
                           (VerbMotionVectorsCreateFunscript.Options options) => new VerbMotionVectorsCreateFunscript(options).Execute(),
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
+                          (VerbMotionVectorsUI.Options options) => new VerbMotionVectorsUI(options).Execute(),
 
                           errors => HandleParseError(errors));
                 return result;
