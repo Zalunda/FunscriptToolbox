@@ -209,6 +209,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Test.cs" />
+    <Compile Include="VirtualCanvas.cs" />
     <Page Include="MotionVectorsEditor.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

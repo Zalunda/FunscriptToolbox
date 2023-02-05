@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
@@ -28,7 +29,7 @@ namespace FunscriptToolbox.UI
 
         private System.Windows.Point m_temporaryStartPoint;
         private System.Windows.Shapes.Rectangle m_temporarySelection;
-        private List<FunscriptAction> m_currentActions;
+        private FunscriptAction[] m_currentActions;
 
         private class Input
         {
@@ -59,11 +60,13 @@ namespace FunscriptToolbox.UI
             PlayerGrid.Height = r_reader.VideoHeight;
             PlayerScreenShot.Width = r_reader.VideoWidth;
             PlayerScreenShot.Height = r_reader.VideoHeight;
+            PlayerKindOfOverlay.Width = r_reader.VideoWidth;
+            PlayerKindOfOverlay.Width = r_reader.VideoHeight;
         }
 
         private void WindowsOnLoaded(object sender, RoutedEventArgs e)
         {
-            r_player.MediaLoaded += (s, arg) => { 
+            r_player.MediaLoaded += (s, arg) => {
                 r_player.Position = TimeSpan.FromMilliseconds(r_input.CurrentTime);
             };
             r_player.Load(r_videoFileName);
@@ -87,10 +90,9 @@ namespace FunscriptToolbox.UI
 
         private void playButton_Click(object sender, RoutedEventArgs e)
         {
-            if (r_player.IsPlaying)
-                FakePause();
-            else
-                r_player.Resume();
+            Player.Visibility = Visibility.Visible;
+            PlayerKindOfOverlay.Visibility = Visibility.Collapsed;
+            r_player.Resume();
         }
 
         private void frameButton_Click(object sender, RoutedEventArgs e)
@@ -102,12 +104,11 @@ namespace FunscriptToolbox.UI
 
         private void PlayerHost_MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
         {
-            FakePause();
+            SwitchToKindOfOverlay();
         }
 
         private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-
             m_temporaryStartPoint = e.GetPosition(PlayerKindOfOverlay);
             m_temporarySelection = new System.Windows.Shapes.Rectangle
             {
@@ -122,20 +123,20 @@ namespace FunscriptToolbox.UI
 
         private void Canvas_MouseMove(object sender, MouseEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
-            {
-                var pos = e.GetPosition(PlayerKindOfOverlay);
-                var x = Math.Min(pos.X, m_temporaryStartPoint.X);
-                var y = Math.Min(pos.Y, m_temporaryStartPoint.Y);
-                var width = Math.Max(pos.X, m_temporaryStartPoint.X) - x;
-                var height = Math.Max(pos.Y, m_temporaryStartPoint.Y) - y;
+            //if (e.LeftButton == MouseButtonState.Pressed)
+            //{
+            //    var pos = e.GetPosition(PlayerKindOfOverlay);
+            //    var x = Math.Min(pos.X, m_temporaryStartPoint.X);
+            //    var y = Math.Min(pos.Y, m_temporaryStartPoint.Y);
+            //    var width = Math.Max(pos.X, m_temporaryStartPoint.X) - x;
+            //    var height = Math.Max(pos.Y, m_temporaryStartPoint.Y) - y;
 
-                m_temporarySelection.Width = width;
-                m_temporarySelection.Height = height;
+            //    m_temporarySelection.Width = width;
+            //    m_temporarySelection.Height = height;
 
-                Canvas.SetLeft(m_temporarySelection, x);
-                Canvas.SetTop(m_temporarySelection, y);
-            }
+            //    Canvas.SetLeft(m_temporarySelection, x);
+            //    Canvas.SetTop(m_temporarySelection, y);
+            //}
         }
 
         private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
@@ -151,7 +152,7 @@ namespace FunscriptToolbox.UI
 
         private void CreateActions(double x, double y, double width, double height)
         {
-            var rules = new List<FrameAnalyserRule>();
+            var rules = new List<BlocAnalyserRule>();
             for (int indexBlocY = 0; indexBlocY < r_reader.NbBlocY; indexBlocY++)
             {
                 var blocY = indexBlocY * r_reader.BlocSize;
@@ -162,23 +163,21 @@ namespace FunscriptToolbox.UI
                         var blocX = indexBlocX * r_reader.BlocSize;
                         if (blocX >= x && blocX < x + width)
                         {
-                            rules.Add(new FrameAnalyserRule(indexBlocY * r_reader.NbBlocX + indexBlocX, MotionVectorDirection.Up));
+                            rules.Add(new BlocAnalyserRule((ushort)(indexBlocY * r_reader.NbBlocX + indexBlocX), 0));
                         }
                     }
                 }
             }
 
-            var frameAnalyser = new FrameAnalyserGeneric(
-                "SumMotionY",
-                rules);
+            var frameAnalyser = new FrameAnalyser(rules.ToArray());
             foreach (var frame in r_reader.ReadFrames(r_player.Position, TimeSpan.FromMilliseconds(r_input.EndTime)))
             {
                 frameAnalyser.AddFrameData(frame);
             }
-            m_currentActions = frameAnalyser.Actions;
+            m_currentActions = frameAnalyser.GetFinalActions();
         }
 
-        private void FakePause()
+        private void SwitchToKindOfOverlay()
         {
             r_player.Pause();
 
@@ -197,9 +196,65 @@ namespace FunscriptToolbox.UI
                                          size,
                                          CopyPixelOperation.SourceCopy);
 
+            var bitmaps = new Bitmap[MotionVectorsHelper.NbBaseAngles];
+            for (int i = 0; i < bitmaps.Length; i++)
+            {
+                var bitmap = new Bitmap(16, 16);
+                using (var graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.Clear(Color.Transparent);
+                    graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    var path = new GraphicsPath();
+                    var pen = new Pen(Color.Green, 0f);
+                    var brush = new SolidBrush(Color.Green);
+                    path.AddPolygon(
+                        new[] {
+                        new PointF(0, 8),
+                        new PointF(7.086f, 2.054f),
+                        new PointF(5.479f, 0.139f),
+                        new PointF(1.5f, 3.688f),
+                        new PointF(1.5f, -8f),
+                        new PointF(-1.5f, -8f),
+                        new PointF(-1.5f, 3.688f),
+                        new PointF(-5.479f, 0.139f),
+                        new PointF(-7.086f, 2.054f),
+                        new PointF(0, 8)
+                        });
+                    var matrix = new Matrix();
+                    matrix.Scale(0.85f, 0.85f, MatrixOrder.Append);
+                    matrix.RotateAt(i * (360 / bitmaps.Length), new PointF(0, 0), MatrixOrder.Append);
+                    matrix.Translate(8, 8, MatrixOrder.Append);
+                    path.Transform(matrix);
+                    graphics.FillPath(brush, path);
+                    graphics.DrawPath(pen, path);
+                }
+                bitmaps[i] = bitmap;
+            }
+
+            var analyse = FrameAnalyserGenerator.CreateFromScriptSequence(r_reader, r_input.Actions);
+
+            var scaledBitmap = new Bitmap(r_reader.VideoWidth, r_reader.VideoHeight);
+            using (var graphics = Graphics.FromImage(scaledBitmap))
+            {
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(bmpScreenshot, 0, 0, r_reader.VideoWidth, r_reader.VideoHeight);
+                for (int y = 0, index = 0; y < r_reader.NbBlocY; y++)
+                {
+                    for (int x = 0; x < r_reader.NbBlocX; x++, index++)
+                    {
+                        var rule = analyse.Rules[index];
+                        if (rule.Activity > 50 && rule.Quality > 85)
+                        {
+                            var smallBitmap = bitmaps[rule.Direction];
+                            graphics.DrawImage(smallBitmap, new Rectangle(x * 16, y * 16, 16, 16));
+                        }
+                    }
+                }
+            }
+
             using (var memory = new MemoryStream())
             {
-                bmpScreenshot.Save(memory, ImageFormat.Png);
+                scaledBitmap.Save(memory, ImageFormat.Png);
                 memory.Position = 0;
                 var bitmapImage = new BitmapImage();
                 bitmapImage.BeginInit();

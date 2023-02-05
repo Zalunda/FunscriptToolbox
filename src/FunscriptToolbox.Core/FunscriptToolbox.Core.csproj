@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,6 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -44,10 +46,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FrameAnalyserGeneric.cs" />
-    <Compile Include="FrameAnalyserRule.cs" />
-    <Compile Include="MotionVectorDirection.cs" />
+    <Compile Include="BlocAnalyserRule.cs" />
     <Compile Include="FrameAnalyser.cs" />
+    <Compile Include="FrameAnalyserGenerator.cs" />
     <Compile Include="FunscriptAudioSignature.cs" />
     <Compile Include="Funscript.cs" />
     <Compile Include="FunscriptAction.cs" />

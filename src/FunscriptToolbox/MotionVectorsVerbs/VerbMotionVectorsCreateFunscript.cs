@@ -1,9 +1,7 @@
 ﻿using CommandLine;
-using FunscriptToolbox.Core;
 using log4net;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -50,29 +48,29 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     continue;
                 }
 
-                var reader = new MotionVectorsFileReader(file);
-                var frameAnalysers = new FrameAnalyser[]
-                    {
-                    };
+                //var reader = new MotionVectorsFileReader(file);
+                //var frameAnalysers = new FrameAnalyser[]
+                //    {
+                //    };
 
-                var stopwatch = Stopwatch.StartNew();
-                foreach (var frame in reader.ReadFrames())
-                {
-                    foreach (var analyser in frameAnalysers)
-                    {
-                        analyser.AddFrameData(frame);
-                    }
-                }
-                stopwatch.Stop();
-                WriteInfo($"{file}: File read in {stopwatch.Elapsed}.");
+                //var stopwatch = Stopwatch.StartNew();
+                //foreach (var frame in reader.ReadFrames())
+                //{
+                //    foreach (var analyser in frameAnalysers)
+                //    {
+                //        analyser.AddFrameData(frame);
+                //    }
+                //}
+                //stopwatch.Stop();
+                //WriteInfo($"{file}: File read in {stopwatch.Elapsed}.");
 
-                foreach (var analyser in frameAnalysers)
-                {
-                    var funscriptFullpath = Path.ChangeExtension(file, $".mvs-visual.{analyser.Name}.funscript");
-                    var funscript = new Funscript();
-                    funscript.Actions = analyser.Actions.ToArray();
-                    funscript.Save(funscriptFullpath);
-                }
+                //foreach (var analyser in frameAnalysers)
+                //{
+                //    var funscriptFullpath = Path.ChangeExtension(file, $".mvs-visual.{analyser.Name}.funscript");
+                //    var funscript = new Funscript();
+                //    funscript.Actions = analyser.GetFinalActions();
+                //    funscript.Save(funscriptFullpath);
+                //}
             }
             return 0;
         }

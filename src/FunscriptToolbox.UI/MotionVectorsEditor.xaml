@@ -18,19 +18,21 @@
                     HorizontalAlignment="Left" VerticalAlignment="Top"
                     Margin="10,10" />
         </StackPanel>
-        <Viewbox Stretch="Uniform">
-            <Grid x:Name="PlayerGrid" Width="10" Height="10">
-                <WindowsFormsHost x:Name="Player">
-                    <windowsForms:Panel x:Name="PlayerHost" 
+        <Grid>
+            <Viewbox Stretch="Uniform">
+                <Grid x:Name="PlayerGrid">
+                    <WindowsFormsHost x:Name="Player">
+                        <windowsForms:Panel x:Name="PlayerHost" 
                                         MouseDown="PlayerHost_MouseDown" />
-                </WindowsFormsHost>
-                <Canvas x:Name="PlayerKindOfOverlay" Visibility="Collapsed" 
-                    MouseDown="Canvas_MouseDown" 
-                    MouseMove="Canvas_MouseMove"
-                    MouseUp="Canvas_MouseUp">
-                    <Image x:Name="PlayerScreenShot" />
-                </Canvas>
-            </Grid>
-        </Viewbox>
+                    </WindowsFormsHost>
+                </Grid>
+            </Viewbox>
+            <local:VirtualCanvas x:Name="PlayerKindOfOverlay"
+                            MouseDown="Canvas_MouseDown" 
+                            MouseMove="Canvas_MouseMove"
+                            MouseUp="Canvas_MouseUp" Width="3072" Height="2048" Background="Azure">
+                <Image x:Name="PlayerScreenShot" />
+            </local:VirtualCanvas>
+        </Grid>
     </DockPanel>
 </Window>
