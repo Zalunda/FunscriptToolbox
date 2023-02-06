@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 
-namespace FunscriptToolbox.Core
+namespace FunscriptToolbox.Core.MotionVectors
 {
     public static class FrameAnalyserGenerator
     {

@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace FunscriptToolbox.Core
+namespace FunscriptToolbox.Core.MotionVectors
 {
     public class MotionVectorsFileReader : IDisposable
     {
@@ -45,6 +45,7 @@ namespace FunscriptToolbox.Core
             NbBlocX = r_reader.ReadInt32();
             NbBlocY = r_reader.ReadInt32();
             NbBlocTotalPerFrame = NbBlocX * NbBlocY;
+            r_reader.ReadBytes(24); // Read "forFutureUse" bytes
 
             r_maximumMemoryUsage = maximumMemoryUsageInMB * 1024 * 1024;
             r_posAfterHeader = r_reader.BaseStream.Position;
@@ -93,6 +94,7 @@ namespace FunscriptToolbox.Core
                     }
                     var frameTimeInMsInFile = TimeSpan.FromMilliseconds(r_reader.ReadInt32());
                     var frameType = r_reader.ReadChar();
+                    r_reader.ReadBytes(11); // Read "forFutureUseBytes" 
                     var motionsX = r_reader.ReadBytes(NbBlocTotalPerFrame);
                     var motionsY = r_reader.ReadBytes(NbBlocTotalPerFrame);
                     var frameFromFile = new MotionVectorsFrame(

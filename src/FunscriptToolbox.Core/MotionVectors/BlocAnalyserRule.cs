@@ -1,4 +1,4 @@
-﻿namespace FunscriptToolbox.Core
+﻿namespace FunscriptToolbox.Core.MotionVectors
 {
     public struct BlocAnalyserRule
     {

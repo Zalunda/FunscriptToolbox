@@ -46,16 +46,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BlocAnalyserRule.cs" />
-    <Compile Include="FrameAnalyser.cs" />
-    <Compile Include="FrameAnalyserGenerator.cs" />
+    <Compile Include="MotionVectors\BlocAnalyserRule.cs" />
+    <Compile Include="MotionVectors\FrameAnalyser.cs" />
+    <Compile Include="MotionVectors\FrameAnalyserGenerator.cs" />
     <Compile Include="FunscriptAudioSignature.cs" />
     <Compile Include="Funscript.cs" />
     <Compile Include="FunscriptAction.cs" />
     <Compile Include="FunscriptVault.cs" />
-    <Compile Include="MotionVectorsFileReader.cs" />
-    <Compile Include="MotionVectorsFrame.cs" />
-    <Compile Include="MotionVectorsHelper.cs" />
+    <Compile Include="MotionVectors\MotionVectorsFileReader.cs" />
+    <Compile Include="MotionVectors\MotionVectorsFrame.cs" />
+    <Compile Include="MotionVectors\MotionVectorsHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SubtitleFile.cs" />
     <Compile Include="Subtitle.cs" />

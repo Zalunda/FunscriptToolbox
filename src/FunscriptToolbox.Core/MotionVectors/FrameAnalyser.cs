@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FunscriptToolbox.Core
+namespace FunscriptToolbox.Core.MotionVectors
 {
 
     public class FrameAnalyser

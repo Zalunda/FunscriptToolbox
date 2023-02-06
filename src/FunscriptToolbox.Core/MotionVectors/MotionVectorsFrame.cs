@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FunscriptToolbox.Core
+namespace FunscriptToolbox.Core.MotionVectors
 {
     public class MotionVectorsFrame
     {
