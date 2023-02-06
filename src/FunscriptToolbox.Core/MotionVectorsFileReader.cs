@@ -92,11 +92,13 @@ namespace FunscriptToolbox.Core
                         throw new Exception($"Wrong frame: Received {frameNumberInFile}, Expected {currentFrameNumber}");
                     }
                     var frameTimeInMsInFile = TimeSpan.FromMilliseconds(r_reader.ReadInt32());
+                    var frameType = r_reader.ReadChar();
                     var motionsX = r_reader.ReadBytes(NbBlocTotalPerFrame);
                     var motionsY = r_reader.ReadBytes(NbBlocTotalPerFrame);
                     var frameFromFile = new MotionVectorsFrame(
                         frameNumberInFile, 
-                        frameTimeInMsInFile, 
+                        frameTimeInMsInFile,
+                        frameType,
                         motionsX, 
                         motionsY);
 
