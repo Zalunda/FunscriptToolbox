@@ -150,7 +150,7 @@ namespace FunscriptToolbox
 
         public void WriteVerbose(string message = "") => WriteVerbose(message);
 
-        public void WriteVerbose(string message = "", bool isProgress = false)
+        public void WriteVerbose(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
             if (m_lastWriteIsProgress)
             {
@@ -160,6 +160,7 @@ namespace FunscriptToolbox
             r_log.Debug(message);
             if (r_options.Verbose)
             {
+                if (color != null) Console.ForegroundColor = color.Value;
                 if (isProgress)
                 {
                     Console.Write($"{message}{new string(' ', Math.Max(0, Console.WindowWidth - message.Length - 1))}\r");
@@ -168,6 +169,7 @@ namespace FunscriptToolbox
                 {
                     Console.WriteLine(message);
                 }
+                Console.ResetColor();
             }
             m_lastWriteIsProgress = isProgress;
         }

@@ -86,12 +86,16 @@ local function encode_table(val, stack)
 
   else
     -- Treat as an object
-    for k, v in pairs(val) do
+	    for k, v in pairs(val) do
       if type(k) ~= "string" then
         error("invalid table: mixed or invalid key types")
       end
-      table.insert(res, encode(k, stack) .. ":" .. encode(v, stack))
+	  table.insert(res, encode(k, stack) .. ":" .. encode(v, stack))
     end
+	
+	-- Sort the table so that $type is always the first item in the json (needed for NewtonJson)
+	table.sort(res)
+	
     stack[val] = nil
     return "{" .. table.concat(res, ",") .. "}"
   end

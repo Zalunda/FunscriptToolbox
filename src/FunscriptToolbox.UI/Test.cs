@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FunscriptToolbox.Core.MotionVectors;
+using System;
 using System.Threading;
 
 namespace FunscriptToolbox.UI
@@ -6,13 +7,13 @@ namespace FunscriptToolbox.UI
     public static class Test
     {
         [STAThread]
-        public static void TestUI(string videoFileName, string inputParametersFileName, string outputParametersFileName)
+        public static FrameAnalyser TestAnalyser(byte[] snapshotContent, TimeSpan videoTime, MotionVectorsFileReader mvsReader, FrameAnalyser frameAnalyser)
         {
             Exception threadEx = null;
             var thread = new Thread(() => {
                 try
                 {
-                    var editor = new MotionVectorsEditor(videoFileName, inputParametersFileName, outputParametersFileName);
+                    var editor = new MotionVectorsEditor(snapshotContent, videoTime, mvsReader, frameAnalyser);
                     editor.ShowDialog();
                 }
                 catch (Exception ex)
@@ -25,6 +26,8 @@ namespace FunscriptToolbox.UI
             thread.Join();
             if (threadEx != null)
                 throw new Exception("Rethrown exception.", threadEx);
+
+            return frameAnalyser; // TODO
         }
     }
 }

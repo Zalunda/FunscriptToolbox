@@ -4,35 +4,40 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FunscriptToolbox.UI"
-        xmlns:windowsForms="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"
         mc:Ignorable="d"
-        Title="MotionVectorsEditor"
-        Loaded="WindowsOnLoaded"
-        Closing="WindowOnClosing">
+        Title="MotionVectorsEditor">
     <DockPanel>
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
-            <Button Content="Play" Name="playButton" Click="playButton_Click" 
-                    HorizontalAlignment="Left" VerticalAlignment="Top"
-                    Margin="10,10" />
-            <Button Content="Frame" Name="frameButton" Click="frameButton_Click" 
-                    HorizontalAlignment="Left" VerticalAlignment="Top"
-                    Margin="10,10" />
-        </StackPanel>
-        <Grid>
-            <Viewbox Stretch="Uniform">
-                <Grid x:Name="PlayerGrid">
-                    <WindowsFormsHost x:Name="Player">
-                        <windowsForms:Panel x:Name="PlayerHost" 
-                                        MouseDown="PlayerHost_MouseDown" />
-                    </WindowsFormsHost>
-                </Grid>
-            </Viewbox>
-            <local:VirtualCanvas x:Name="PlayerKindOfOverlay"
-                            MouseDown="Canvas_MouseDown" 
-                            MouseMove="Canvas_MouseMove"
-                            MouseUp="Canvas_MouseUp" Width="3072" Height="2048" Background="Azure">
+        <StackPanel Orientation="Vertical">
+            <local:VirtualCanvas x:Name="VirtualCanvas"
+                        MouseDown="Canvas_MouseDown" 
+                        MouseMove="Canvas_MouseMove"
+                        MouseUp="Canvas_MouseUp">
                 <Image x:Name="PlayerScreenShot" />
             </local:VirtualCanvas>
-        </Grid>
+            <StackPanel Orientation="Horizontal">
+                <TextBox Name="ActivityTextBox"
+                        Text="{Binding ElementName=ActivitySlider, Path=Value, Mode=TwoWay}"
+                        VerticalAlignment="Center"
+                        Margin="10,0,10,0" Width="40" 
+                        TextChanged="ActivityTextBoxChanged"/>
+                <Slider Name="ActivitySlider"
+                    Minimum="0" Maximum="100" Ticks="10" TickFrequency="1" IsSnapToTickEnabled="true"
+                    SmallChange="5" LargeChange="10"
+                    Value="50"
+                    VerticalAlignment="Center"
+                    Margin="10" Width="300" ValueChanged="ActivitySliderChanged"/>
+                <TextBox Name="QualityTextBox"
+                        Text="{Binding ElementName=QualitySlider, Path=Value, Mode=TwoWay}"
+                        VerticalAlignment="Center"
+                        Margin="10,0,10,0" Width="40" 
+                        TextChanged="QualityTextBoxChanged"/>
+                <Slider Name="QualitySlider"
+                    Minimum="0" Maximum="100" Ticks="10" TickFrequency="1" IsSnapToTickEnabled="true"
+                    SmallChange="5" LargeChange="10"
+                    Value="50"
+                    VerticalAlignment="Center"
+                    Margin="10" Width="300" ValueChanged="QualitySliderChanged"/>
+            </StackPanel>
+        </StackPanel>
     </DockPanel>
 </Window>

@@ -8,6 +8,8 @@ namespace FunscriptToolbox.Core.MotionVectors
 {
     public class MotionVectorsFileReader : IDisposable
     {
+        public string FilePath { get; }
+        public int MaximumMemoryUsageInMB { get; }
         public int FormatVersion { get; }
         public TimeSpan VideoDuration { get; }
         public int NbFrames { get; }
@@ -28,6 +30,8 @@ namespace FunscriptToolbox.Core.MotionVectors
 
         public MotionVectorsFileReader(string filepath, int maximumMemoryUsageInMB = 1000)
         {
+            FilePath = filepath;
+            MaximumMemoryUsageInMB = maximumMemoryUsageInMB;
             r_reader = new BinaryReader(File.OpenRead(filepath), Encoding.ASCII);
 
             // Read the headers
@@ -49,7 +53,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 
             r_maximumMemoryUsage = maximumMemoryUsageInMB * 1024 * 1024;
             r_posAfterHeader = r_reader.BaseStream.Position;
-            r_frameSize = NbBlocTotalPerFrame * 2 + 8; // 8 = 2 * ReadInt32()
+            r_frameSize = NbBlocTotalPerFrame * 2 + 20; // 20 => Taille du headers (int=4, int=4, byte=1, future_use=11)
             m_framesInMemory = new List<MotionVectorsFrame>();
             m_memoryUsed = 0;
         }
@@ -123,6 +127,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 
         private MotionVectorsFrame GetFrameFromMemory(int frameNumber)
         {
+            // TODO: Use dictionnary
             var firstFrameInMemory = m_framesInMemory.FirstOrDefault()?.FrameNumber ?? -1;
             var lastFrameInMemory = m_framesInMemory.LastOrDefault()?.FrameNumber ?? -1;
 

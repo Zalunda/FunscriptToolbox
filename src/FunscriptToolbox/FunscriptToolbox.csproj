@@ -72,9 +72,8 @@
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
-    <Compile Include="MotionVectorsVerbs\VerbMotionVectorsUI.cs" />
+    <Compile Include="MotionVectorsVerbs\VerbMotionVectorsOFSPluginServer.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectorsPrepareFiles.cs" />
-    <Compile Include="MotionVectorsVerbs\VerbMotionVectorsCreateFunscript.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectors.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesVADWav2Srt.cs" />
@@ -92,7 +91,9 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="InstallationFiles\json.lua" />
+    <None Include="InstallationFiles\main.lua" />
     <None Include="InstallationFiles\main.lua.template" />
+    <None Include="InstallationFiles\server_connection.lua" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

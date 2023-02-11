@@ -49,7 +49,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 actions.First().AtAsTimeSpan,
                 actions.Last().AtAsTimeSpan))
             {
-                if (currentAction == null || frame.FrameTimeInMs >= nextAction.AtAsTimeSpan)
+                if (currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan)
                 {
                     currentAction = nextAction;
                     nextAction = actions[indexAction++];
@@ -133,7 +133,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                     rules[i] = new BlocAnalyserRule((ushort)i, (byte)bestMatchAngle, activity, quality, weigth);
                 }
             }
-            return new FrameAnalyser(rules);
+            return new FrameAnalyser(reader.NbBlocX, reader.NbBlocY, rules);
         }
 
         private static void Validate(FrameAnalyser clean, FrameAnalyser optimized)
@@ -167,7 +167,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 actions.First().AtAsTimeSpan,
                 actions.Last().AtAsTimeSpan))
             {
-                if (currentAction == null || frame.FrameTimeInMs >= nextAction.AtAsTimeSpan)
+                if (currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan)
                 {
                     currentAction = nextAction;
                     nextAction = actions[indexAction++];
@@ -230,7 +230,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 var weigth = nbDirection == 0 ? 0 : (float)(bestMatchValue.WeightWhenRight - bestMatchValue.WeightWhenWrong) / nbDirection;
                 rules[i] = new BlocAnalyserRule((ushort)i, (byte)bestMatchAngle, activity, quality, weigth);
             }
-            return new FrameAnalyser(rules);
+            return new FrameAnalyser(reader.NbBlocX, reader.NbBlocY, rules);
         }
     }
 }

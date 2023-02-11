@@ -1,90 +1,82 @@
 -- FunscriptToolbox.MotionVectors.UI LUA Wrappper Version 1.0.0
 json = require "json"
+server_connection = require "server_connection"
 
 -- global var
-processHandleFTMVS = nil
-inputParametersFile = nil
-outputParametersFile = nil
-FTMVSFullPath = "[[PathToFunscriptToolboc]]"
+FTMVSFullPath = "C:\\Partage\\Medias\\Sources\\GitHub.Mine\\FunscriptToolbox\\src\\FunscriptToolbox\\bin\\Release\\FunscriptToolbox.exe"
+status = "FunscriptToolbox.MotionVectors.UI not running"
 updateCounter = 0
 scriptIdx = 1
-status = "FunscriptToolbox.MotionVectors.UI not running"
-enableLogs = false
 
-function exists(file)
-   return os.rename(file, file)
-end
+config = {
+	enableLogs = false,
+	learningZoneDurationInSeconds = 10,
+	durationToGenerateInSeconds = 60,
+	minimumActionDurationInMilliseconds = 170
+}
+
+connection = nil
 
 function init()
     print("OFS Version:", ofs.Version())
-	-- TODO
+	-- TODO cleanup old communicationChannel
+	
+	connection = server_connection:new(FTMVSFullPath, config.enableLogs)
+
+    status = "FunscriptToolbox.MotionVectors.UI running"
+end
+
+function createRequest(service)
+
+    local videoFullPath = player.CurrentVideo()
+	local mvsFullPath = videoFullPath:gsub("-visual.mp4", "")
+ 	return {
+		["$type"] = service,
+		VideoFullPath = videoFullPath,
+		MvsFullPath = mvsFullPath,
+		CurrentVideoTime = math.floor(player.CurrentTime() * 1000)
+	}
 end
 
 function binding.start_funscripttoolbox_motionvectors_ui()
-    if processHandleFTMVS then
-        print('FunscriptToolbox.MotionVectors.UI already running')
-        return
-    end
 
-	print('funscript generator completed import result')
-	inputParametersFile = ofs.ExtensionDir() .. "\\input_parameters.json"
-    outputParametersFile = ofs.ExtensionDir() .. "\\output_parameters.json"	
-     scriptIdx = ofs.ActiveIdx()
-    local video = player.CurrentVideo()
-    local script = ofs.Script(scriptIdx)
-	
-	local currentTime = player.CurrentTime();
-    local next_action = nil
-	next_action, _ = script:closestActionAfter(currentTime)
-	if next_action and next_action.at < (currentTime + 0.5) then
-		next_action, _ = script:closestActionAfter(next_action.at)
+	-- TODO Put stuff in config
+ 	local request = createRequest("ServerRequestCreateRulesFromScriptActions");
+	request.Actions = {}
+	request.DurationToGenerateInSeconds = config.durationToGenerateInSeconds
+	request.MinimumActionDurationInMilliseconds = config.minimumActionDurationInMilliseconds
+	request.ShowUI = false
+
+	scriptIdx = ofs.ActiveIdx()
+	script = ofs.Script(scriptIdx)
+	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - config.learningZoneDurationInSeconds - 0.1)
+	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.1)
+    for _, action in ipairs(script.actions) do
+		if (action.at >= firstAction.at and action.at <= lastAction.at) then
+			table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
+		end
 	end
 
-	local data = {
-	  Actions = {},
-	  EndTime = math.floor(1000 * next_action.at),
-	  CurrentTime = math.floor(1000 * currentTime)
-	}
+	connection:sendRequest(request, handleCreateRulesFromScriptActionsResponse)
+end
 
-	for idx, action in ipairs(script.actions) do
-		table.insert(data.Actions, {at = math.floor(1000 * action.at), pos = math.floor(action.pos)})
-	end
-
-	local encoded_data = json.encode(data)
-	local file = io.open(inputParametersFile, "w")
-	file:write(encoded_data)
-	file:close()	
+function handleCreateRulesFromScriptActionsResponse(response)
+	script = ofs.Script(scriptIdx)
 	
-    local cmd = FTMVSFullPath
-    local args = {}
-    table.insert(args, "motionvectors.ui")
-    if enableLogs then;
-        table.insert(args, "--verbose")
+    for i, action in ipairs(response.Actions) do
+		local new_action = Action.new(action.at / 1000.0, action.pos, true)
+		script.actions:add(new_action)
     end
-    table.insert(args, "--inputparametersfile")
-    table.insert(args, inputParametersFile)
-    table.insert(args, "--outputparametersfile")
-    table.insert(args, outputParametersFile)
-    table.insert(args, video)
 	
-    print("cmd: ", cmd)
-    print("args: ", table.unpack(args))
-
-    processHandleFTMVS = Process.new(cmd, table.unpack(args))
-
-    status = "FunscriptToolbox.MotionVectors.UI running"
+	print('commiting...')
+	script:commit()
+	print('done.')
 end
 
 function update(delta)
     updateCounter = updateCounter + 1
     if math.fmod(updateCounter, 10) == 0 then
-		if processHandleFTMVS and not processHandleFTMVS:alive() then
-			print('FunscriptToolbox.MotionVectors.UI script generation completed.')
-			processHandleFTMVS = nil
-			print('Importing results...')
-			import_funscript_generator_json_result()
-			status = "FunscriptToolbox.MotionVectors.UI not running"
-		end
+		connection:processResponses()
     end
 end
 

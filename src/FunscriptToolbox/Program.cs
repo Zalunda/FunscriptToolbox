@@ -3,15 +3,17 @@ using FunscriptToolbox.AudioSyncVerbs;
 using FunscriptToolbox.MotionVectorsVerbs;
 using FunscriptToolbox.SubtitlesVerb;
 using log4net;
+using log4net.Appender;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox
 {
     class Program
     {
-        private static readonly ILog rs_log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        private static ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
         static int HandleParseError(IEnumerable<Error> errs)
         {
@@ -23,7 +25,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 42;
+            int test = 43;
 
             switch (test)
             {
@@ -156,13 +158,23 @@ namespace FunscriptToolbox
                         //"--verbose",
                         "--inputparametersfile", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\input_parameters.json"),
                         "--outputparametersfile", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\output_parameters.json"),
-                        @"Position-CowGirlUpright-MenSitting-B.mvs-visual.mp4"
+                        @"Position-CowGirl-MenSitting-A.mvs-visual.mp4"
+                    };
+                    break;
+                case 43:
+                    args = new[]
+                    {
+                        "motionvectors.ofspluginserver",
+                        "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\Channel-99-"),
+                        "--timeout", "300"
                     };
                     break;
             }
 #endif
             try
             {
+                UpdateLog4NetFileNameIfAnotherProcessIsRunning();
+
                 rs_log.Info("Application started with arguments:");
                 foreach (var arg in args)
                 {
@@ -181,9 +193,8 @@ namespace FunscriptToolbox
                     VerbSubtitlesGPT2Srt.Options,
                     VerbSubtitlesSrt2GPT.Options,
 
-                    VerbMotionVectorsCreateFunscript.Options,
                     VerbMotionVectorsPrepareFiles.Options,
-                    VerbMotionVectorsUI.Options
+                    VerbMotionVectorsOFSPluginServer.Options
                     > (args)
                     .MapResult(
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
@@ -198,11 +209,11 @@ namespace FunscriptToolbox
                           (VerbSubtitlesGPT2Srt.Options options) => new VerbSubtitlesGPT2Srt(options).Execute(),
                           (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
 
-                          (VerbMotionVectorsCreateFunscript.Options options) => new VerbMotionVectorsCreateFunscript(options).Execute(),
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
-                          (VerbMotionVectorsUI.Options options) => new VerbMotionVectorsUI(options).Execute(),
+                          (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),
 
                           errors => HandleParseError(errors));
+                rs_log.Info($"Application closing with return code: {result}");
                 return result;
             }
             catch (Exception ex)
@@ -210,6 +221,52 @@ namespace FunscriptToolbox
                 rs_log.Error("Exception occured", ex);
                 Console.Error.WriteLine(ex.ToString());
                 return -1;
+            }
+        }
+
+        private static void UpdateLog4NetFileNameIfAnotherProcessIsRunning()
+        {
+            Environment.SetEnvironmentVariable("suffixe", ".startup");
+            log4net.Config.XmlConfigurator.Configure();
+
+            var appender = LogManager.GetRepository().GetAppenders().OfType<FileAppender>().FirstOrDefault();
+            var originalFile = appender.File.Replace(".startup", "");
+
+            var currentFile = originalFile;
+            var index = 2;
+            while (currentFile != null && IsFileLocked(currentFile))
+            {
+                var suffixe = $".{index++}";
+                Environment.SetEnvironmentVariable("suffixe", suffixe);
+                currentFile = Path.ChangeExtension(originalFile, $"{suffixe}.log");
+            }
+
+            appender.File = currentFile;
+            appender.ActivateOptions();
+        }
+
+        private static bool IsFileLocked(string fileName)
+        {
+            try
+            {
+                if (File.Exists(fileName))
+                {
+                    using (var stream = File.Open(fileName, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                    }
+                    if (new FileInfo(fileName).Length == 0)
+                    {
+                        File.Delete(fileName);
+                    }
+                }
+
+                // The file is not locked
+                return false;
+            }
+            catch (IOException)
+            {
+                // The file is locked by another process
+                return true;
             }
         }
     }
