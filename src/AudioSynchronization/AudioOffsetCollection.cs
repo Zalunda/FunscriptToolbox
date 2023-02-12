@@ -12,6 +12,14 @@ namespace AudioSynchronization
         {
         }
 
+        public void ResetUsages()
+        {
+            foreach (var item in this)
+            {
+                item.ResetUsage();
+            }
+        }
+
         public TimeSpan? TransformPosition(TimeSpan oldTime)
         {
             foreach (var item in this)

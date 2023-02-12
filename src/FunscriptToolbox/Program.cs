@@ -47,7 +47,9 @@ namespace FunscriptToolbox
                 case 10:
                     args = new[]
                     {
-                        "as.cfs"
+                        "as.cfs",
+                        "-s", "JAV - 3DSVR-0647-A - Kurea Hasumi - Strip Club [zalunda].funscript", 
+                        "-n", "JAV - 3DSVR-0647 (SLR) - Kurea Hasumi - Strip Club - 20102 [zalunda].mp4"
                     };
                     break;
                 case 11:

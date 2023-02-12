@@ -10,7 +10,7 @@ namespace AudioSynchronization
         {
             if (signatureA.NbSamplesPerSecond != signatureB.NbSamplesPerSecond)
             {
-                throw new Exception("NbSamplesPerSecond mismatch"); // TODO
+                throw new Exception($"NbSamplesPerSecond mismatch. First audio is: {signatureA.NbSamplesPerSecond}, second audio is: {signatureB.NbSamplesPerSecond}");
             }
 
             r_samplesA = ComputeItems(signatureA.GetUncompressedSamples());

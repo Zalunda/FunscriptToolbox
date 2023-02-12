@@ -25,6 +25,10 @@ namespace AudioSynchronization
         {
             NbTimesUsed++;
         }
+        internal void ResetUsage()
+        {
+            NbTimesUsed = 0;
+        }
 
         public override string ToString()
         {

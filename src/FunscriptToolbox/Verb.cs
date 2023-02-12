@@ -148,7 +148,7 @@ namespace FunscriptToolbox
             m_lastWriteIsProgress = isProgress;
         }
 
-        public void WriteVerbose(string message = "") => WriteVerbose(message);
+        public void WriteVerbose(string message = "") => WriteVerbose(message, null, false);
 
         public void WriteVerbose(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {

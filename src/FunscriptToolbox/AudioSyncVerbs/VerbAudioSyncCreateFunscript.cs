@@ -120,6 +120,26 @@ namespace FunscriptToolbox.AudioSyncVerbs
             inputFunscript.AudioSignature = Convert(outputAudioSignature);
             inputFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
             this.FunscriptVault.SaveFunscript(inputFunscript, newFilename);
+
+            var baseFolder = Path.GetDirectoryName(r_options.SourceFunscript);
+            baseFolder = string.IsNullOrWhiteSpace(baseFolder) ? "." : baseFolder;
+            var baseName = Path.GetFileNameWithoutExtension(r_options.SourceFunscript);
+            foreach (var subtitleFullPath in Directory.GetFiles(baseFolder, "*.srt"))
+            {
+                var subtitleFileName = Path.GetFileName(subtitleFullPath);
+                if (subtitleFileName.StartsWith(baseName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var suffixe = subtitleFileName.Substring(baseName.Length);
+
+                    WriteInfo($"Generating and saving subtitles synchronized to the second file '{subtitleFileName}'...");
+                    var originalSubtitle = SubtitleFile.FromSrtFile(subtitleFileName);
+                    var newSubtitle = new SubtitleFile(
+                        Path.ChangeExtension(newFilename, suffixe),
+                        TransformsSubtitles(audioOffsets, originalSubtitle.Subtitles));
+                    newSubtitle.SaveSrt();
+                }
+            }
+
             return 0;
         }
     }
