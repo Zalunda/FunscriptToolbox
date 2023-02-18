@@ -3,41 +3,78 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:FunscriptToolbox.UI"
+        xmlns:local="clr-namespace:FunscriptToolbox.UI" 
+        xmlns:rc="clr-namespace:RichCanvas;assembly=RichCanvas"
         mc:Ignorable="d"
         Title="MotionVectorsEditor">
-    <DockPanel>
-        <StackPanel Orientation="Vertical">
-            <local:VirtualCanvas x:Name="VirtualCanvas"
-                        MouseDown="Canvas_MouseDown" 
-                        MouseMove="Canvas_MouseMove"
-                        MouseUp="Canvas_MouseUp">
-                <Image x:Name="PlayerScreenShot" />
-            </local:VirtualCanvas>
-            <StackPanel Orientation="Horizontal">
-                <TextBox Name="ActivityTextBox"
-                        Text="{Binding ElementName=ActivitySlider, Path=Value, Mode=TwoWay}"
-                        VerticalAlignment="Center"
-                        Margin="10,0,10,0" Width="40" 
-                        TextChanged="ActivityTextBoxChanged"/>
-                <Slider Name="ActivitySlider"
-                    Minimum="0" Maximum="100" Ticks="10" TickFrequency="1" IsSnapToTickEnabled="true"
-                    SmallChange="5" LargeChange="10"
-                    Value="50"
-                    VerticalAlignment="Center"
-                    Margin="10" Width="300" ValueChanged="ActivitySliderChanged"/>
-                <TextBox Name="QualityTextBox"
-                        Text="{Binding ElementName=QualitySlider, Path=Value, Mode=TwoWay}"
-                        VerticalAlignment="Center"
-                        Margin="10,0,10,0" Width="40" 
-                        TextChanged="QualityTextBoxChanged"/>
-                <Slider Name="QualitySlider"
-                    Minimum="0" Maximum="100" Ticks="10" TickFrequency="1" IsSnapToTickEnabled="true"
-                    SmallChange="5" LargeChange="10"
-                    Value="50"
-                    VerticalAlignment="Center"
-                    Margin="10" Width="300" ValueChanged="QualitySliderChanged"/>
-            </StackPanel>
-        </StackPanel>
+    <DockPanel LastChildFill="True">
+        <TabControl DockPanel.Dock="Bottom" Name="tabControl" Margin="10" HorizontalAlignment="Center">
+            <TabItem x:Name="LearnFromScriptTab" Header="Learn From Script">
+                <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="Activity" VerticalAlignment="Center" Width="45" />
+                        <TextBox Name="ActivityTextBox"
+                            Text="{Binding ElementName=ActivitySlider, Path=Value, Mode=TwoWay}"
+                            VerticalAlignment="Center"
+                            Margin="5,0,0,0" Width="30" 
+                            TextChanged="ActivityTextBoxChanged"/>
+                        <TextBlock Text="0" VerticalAlignment="Center" FontSize="9" Margin="10,0,0,0" Width="10" TextAlignment="Right" />
+                        <Slider Name="ActivitySlider"
+                            Minimum="0" Maximum="100"
+                            SmallChange="1" LargeChange="5"
+                            Value="50"
+                            VerticalAlignment="Center"
+                            Width="250" ValueChanged="ActivitySliderChanged"/>
+                        <TextBlock Text="100" VerticalAlignment="Center" FontSize="9" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="Quality" VerticalAlignment="Center" Width="45" />
+                        <TextBox Name="QualityTextBox"
+                            Text="{Binding ElementName=QualitySlider, Path=Value, Mode=TwoWay}"
+                            VerticalAlignment="Center"
+                            Margin="5,0,0,0" Width="30" 
+                            TextChanged="QualityTextBoxChanged"/>
+                        <TextBlock Text="50" VerticalAlignment="Center" FontSize="9" Margin="10,0,0,0" Width="10" TextAlignment="Right" />
+                        <Slider Name="QualitySlider"
+                            Minimum="50" Maximum="100"
+                            SmallChange="1" LargeChange="5"
+                            Value="60"
+                            VerticalAlignment="Center"
+                            Width="250" ValueChanged="QualitySliderChanged"/>
+                        <TextBlock Text="100" VerticalAlignment="Center" FontSize="9" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Right">
+                        <Button x:Name="AcceptLearnFromScript" Click="AcceptLearnFromScript_Click" FontSize="18" FontWeight="Bold">Accept</Button>
+                        <Button x:Name="CancelLearnFromScript" Margin="5,0,0,0" Click="Cancel_Click" FontSize="18">Cancel</Button>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem x:Name="ManualTab" Header="Manual">
+                <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="Angle" VerticalAlignment="Center" Width="45" />
+                        <TextBox Name="AngleTextBox"
+                            Text="0"
+                            VerticalAlignment="Center"
+                            Margin="5,0,0,0" Width="30" 
+                            TextChanged="AngleTextBoxChanged"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" VerticalAlignment="Stretch" HorizontalAlignment="Right">
+                        <Button x:Name="AcceptManual" Click="AcceptManual_Click" FontSize="18" FontWeight="Bold">Accept</Button>
+                        <Button x:Name="CancelManual" Margin="5,0,0,0" Click="Cancel_Click" FontSize="18">Cancel</Button>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+        <rc:RichItemsControl 
+            x:Name="VirtualCanvas" 
+            MinScale="0.2" MaxScale="20.0" 
+            RealTimeSelectionEnabled="True" RealTimeDraggingEnabled="False"
+                PanningKey="LeftCtrl" ZoomKey="LeftCtrl"
+                MouseUp="Canvas_MouseUp">
+            <rc:RichItemContainer IsDraggable="False">
+                <Image x:Name="ScreenShot" />
+            </rc:RichItemContainer>
+        </rc:RichItemsControl>
     </DockPanel>
 </Window>

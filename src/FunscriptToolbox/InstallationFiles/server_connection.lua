@@ -1,4 +1,4 @@
--- FunscriptToolbox.MotionVectors.UI LUA server_connection
+-- FunscriptToolbox.MotionVectors LUA server_connection
 json = require "json"
 
 local server_connection = {}
@@ -20,9 +20,10 @@ function server_connection:setBaseCommunicationFilePath()
     while true do
         local randomId = math.random(1,1000)
 		randomId = 99 -- TODO REMOVE
-        self.channelBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. randomId
+        self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. randomId
+        self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. randomId
 
-        local success, file = pcall(io.open, self.channelBaseFilePath .. ".lock", "w+")
+        local success, file = pcall(io.open, self.requestBaseFilePath .. ".lock", "w+")
         if not success then
             print("Channel file already used: " .. file)
         else
@@ -50,7 +51,7 @@ function server_connection:startServerIfNeeded()
         table.insert(args, "--verbose")
     end
     table.insert(args, "--channelbasefilepath")
-    table.insert(args, self.channelBaseFilePath .. "-")
+    table.insert(args, self.requestBaseFilePath .. "-")
     table.insert(args, "--timeout")
     table.insert(args, 300)
 
@@ -67,8 +68,8 @@ function server_connection:sendRequest(request, callback)
 	local transactionNumber = self.channelCurrentTransactionNumber
 	self.channelCurrentTransactionNumber = self.channelCurrentTransactionNumber + 1
 	
-	local requestFilePath = self.channelBaseFilePath .. '-' .. transactionNumber .. ".json"
-	local responseFilePath = self.channelBaseFilePath .. '-' .. transactionNumber .. ".response.json"
+	local requestFilePath = self.requestBaseFilePath .. '-' .. transactionNumber .. ".json"
+	local responseFilePath = self.responseBaseFilePath .. '-'.. transactionNumber .. ".json"
 	
     print('Sending request #' .. transactionNumber)
 	local encoded_data = json.encode(request)

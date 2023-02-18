@@ -72,9 +72,19 @@
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
+    <Compile Include="InstallationFiles\PluginClient.cs" />
+    <Compile Include="InstallationVerbs\VerbInstallation.cs" />
+    <Compile Include="MotionVectorsVerbs\PluginMessages\CreateRulesFromScriptActionsPluginRequest.cs" />
+    <Compile Include="MotionVectorsVerbs\PluginMessages\CreateRulesFromScriptActionsPluginResponse.cs" />
+    <Compile Include="MotionVectorsVerbs\PluginMessages\PluginRequest.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectorsOFSPluginServer.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectorsPrepareFiles.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectors.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesVADWav2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesWavChunks2Srt.cs" />
@@ -90,10 +100,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="InstallationFiles\json.lua" />
-    <None Include="InstallationFiles\main.lua" />
-    <None Include="InstallationFiles\main.lua.template" />
-    <None Include="InstallationFiles\server_connection.lua" />
+    <EmbeddedResource Include="InstallationFiles\json.lua" />
+    <EmbeddedResource Include="InstallationFiles\--CreateSubtitles.bat" />
+    <EmbeddedResource Include="InstallationFiles\main.lua" />
+    <EmbeddedResource Include="InstallationFiles\server_connection.lua" />
+    <EmbeddedResource Include="InstallationFiles\--PrepareScriptForRelease.bat" />
+    <EmbeddedResource Include="InstallationFiles\--PrepareVideoForOFS.bat" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -110,7 +122,12 @@
       <Name>FunscriptToolbox.UI</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
   <ItemGroup>
     <Content Include="PythonSource\funscripttoolbox-extract-vad.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

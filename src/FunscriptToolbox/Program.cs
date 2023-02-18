@@ -25,10 +25,16 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 43;
+            int test = 41;
 
             switch (test)
             {
+                case 0:
+                    args = new[]
+                    {
+                        "installation"
+                    };
+                    break;
                 case 1:
                     args = new[]
                     {
@@ -148,27 +154,10 @@ namespace FunscriptToolbox
                 case 41:
                     args = new[]
                     {
-                        "motionvectors.createfunscript",
-                        //"--verbose",
-                        "Position-CowGirlUpright-MenLaying-A.mvs",
-                    };
-                    break;
-                case 42:
-                    args = new[]
-                    {
-                        "motionvectors.ui",
-                        //"--verbose",
-                        "--inputparametersfile", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\input_parameters.json"),
-                        "--outputparametersfile", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\output_parameters.json"),
-                        @"Position-CowGirl-MenSitting-A.mvs-visual.mp4"
-                    };
-                    break;
-                case 43:
-                    args = new[]
-                    {
                         "motionvectors.ofspluginserver",
                         "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.UI\Channel-99-"),
-                        "--timeout", "300"
+                        "--timeout", "300",
+                        "--debugmode"
                     };
                     break;
             }
@@ -183,6 +172,8 @@ namespace FunscriptToolbox
                     rs_log.Info($"   {arg}");
                 }
                 var result = Parser.Default.ParseArguments<
+                    VerbInstallation.Options,
+
                     VerbAudioSyncCreateAudioSignature.Options,
                     VerbAudioSyncCreateFunscript.Options,
                     VerbAudioSyncVerifyFunscript.Options,
@@ -199,6 +190,8 @@ namespace FunscriptToolbox
                     VerbMotionVectorsOFSPluginServer.Options
                     > (args)
                     .MapResult(
+                          (VerbInstallation.Options options) => new VerbInstallation(options).Execute(),
+
                           (VerbAudioSyncCreateAudioSignature.Options options) => new VerbAudioSyncCreateAudioSignature(options).Execute(),
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),

@@ -9,11 +9,12 @@ namespace FunscriptToolbox.UI
         [STAThread]
         public static FrameAnalyser TestAnalyser(byte[] snapshotContent, TimeSpan videoTime, MotionVectorsFileReader mvsReader, FrameAnalyser frameAnalyser)
         {
+            MotionVectorsEditor editor = null;
             Exception threadEx = null;
             var thread = new Thread(() => {
                 try
                 {
-                    var editor = new MotionVectorsEditor(snapshotContent, videoTime, mvsReader, frameAnalyser);
+                    editor = new MotionVectorsEditor(snapshotContent, videoTime, mvsReader, frameAnalyser);
                     editor.ShowDialog();
                 }
                 catch (Exception ex)
@@ -27,7 +28,7 @@ namespace FunscriptToolbox.UI
             if (threadEx != null)
                 throw new Exception("Rethrown exception.", threadEx);
 
-            return frameAnalyser; // TODO
+            return editor?.FinalFrameAnalyser ?? frameAnalyser;
         }
     }
 }

@@ -104,6 +104,7 @@ namespace FunscriptToolbox
 
         protected void StartAndHandleFfmpegProgress(IConversion conversion)
         {
+            // TODO kill ffmpeg process and delete file if process is killed mid-creation
             conversion.OnDataReceived += (sender, args) => WriteVerbose($"[ffmpeg]   {args.Data}", isProgress: args.Data.StartsWith("frame="));
             var stopwatch = Stopwatch.StartNew();
             var total = TimeSpan.Zero;

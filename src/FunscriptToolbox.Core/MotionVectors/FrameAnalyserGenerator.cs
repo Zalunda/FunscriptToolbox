@@ -39,8 +39,8 @@ namespace FunscriptToolbox.Core.MotionVectors
             MotionVectorsFileReader reader,
             FunscriptAction[] actions)
         {
-            var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndAngleToWeightTable();
-            var temp = new TempValue[reader.NbBlocTotalPerFrame, MotionVectorsHelper.NbBaseAngles / 2];
+            var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
+            var temp = new TempValue[reader.NbBlocTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
 
             FunscriptAction currentAction = null;
             FunscriptAction nextAction = actions.First();
@@ -71,9 +71,9 @@ namespace FunscriptToolbox.Core.MotionVectors
                     {
                         var motionXAsByte = *(pMotionX + i);
                         var motionYAsByte = *(pMotionY + i);
-                        for (int k = 0; k < MotionVectorsHelper.NbBaseAngles / 2; k++, pCurrentTemp++)
+                        for (int k = 0; k < MotionVectorsHelper.NbBaseDirection / 2; k++, pCurrentTemp++)
                         {
-                            var motionWeight = *(pLookup + ((motionXAsByte * 256 + motionYAsByte) * MotionVectorsHelper.NbBaseAngles + k));
+                            var motionWeight = *(pLookup + ((motionXAsByte * 256 + motionYAsByte) * MotionVectorsHelper.NbBaseDirection + k));
                             var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
                             if (posOrNegInFunscript == posOrNeg)
                             {
@@ -104,7 +104,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 {
                     TempValue bestMatchValue = *pCurrentTemp;
                     var bestMatchAngle = 0;
-                    for (int j = 0; j < MotionVectorsHelper.NbBaseAngles / 2; j++, pCurrentTemp++)
+                    for (int j = 0; j < MotionVectorsHelper.NbBaseDirection / 2; j++, pCurrentTemp++)
                     {
                         if ((pCurrentTemp->NbRightDirection > bestMatchValue.NbRightDirection)
                             || (pCurrentTemp->NbRightDirection == bestMatchValue.NbRightDirection && pCurrentTemp->WeightWhenRight > bestMatchValue.WeightWhenRight))
@@ -157,8 +157,8 @@ namespace FunscriptToolbox.Core.MotionVectors
             MotionVectorsFileReader reader,
             FunscriptAction[] actions)
         {
-            var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndAngleToWeightTable();
-            var temp = new TempValue[reader.NbBlocTotalPerFrame, MotionVectorsHelper.NbBaseAngles];
+            var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
+            var temp = new TempValue[reader.NbBlocTotalPerFrame, MotionVectorsHelper.NbBaseDirection];
 
             FunscriptAction currentAction = null;
             FunscriptAction nextAction = actions.First();
@@ -180,7 +180,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 {
                     var motionXAsByte = frame.MotionsX[i];
                     var motionYAsByte = frame.MotionsY[i];
-                    for (int k = 0; k < MotionVectorsHelper.NbBaseAngles; k++)
+                    for (int k = 0; k < MotionVectorsHelper.NbBaseDirection; k++)
                     {
                         var motionWeight = lookupTable[motionXAsByte, motionYAsByte, k];
                         var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
@@ -211,9 +211,9 @@ namespace FunscriptToolbox.Core.MotionVectors
                 var bestMatchAngle = 0;
 
                 // Complicated way to iterate to be consistent with the way the optimized version works (i.e. 0, 6, 1, 7, 2, 8, ...)
-                for (int jA = 0; jA < MotionVectorsHelper.NbBaseAngles / 2; jA++)
+                for (int jA = 0; jA < MotionVectorsHelper.NbBaseDirection / 2; jA++)
                 {
-                    for (int jB = jA; jB < MotionVectorsHelper.NbBaseAngles; jB += MotionVectorsHelper.NbBaseAngles / 2)
+                    for (int jB = jA; jB < MotionVectorsHelper.NbBaseDirection; jB += MotionVectorsHelper.NbBaseDirection / 2)
                     {
                         if (temp[i, jB].NbRightDirection > bestMatchValue.NbRightDirection || (temp[i, jB].NbRightDirection == bestMatchValue.NbRightDirection && temp[i, jB].WeightWhenRight > bestMatchValue.WeightWhenRight))
                         {

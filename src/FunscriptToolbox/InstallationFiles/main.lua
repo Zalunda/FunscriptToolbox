@@ -1,18 +1,19 @@
--- FunscriptToolbox.MotionVectors.UI LUA Wrappper Version 1.0.0
+-- FunscriptToolbox.MotionVectors LUA Wrappper Version 1.0.0
 json = require "json"
 server_connection = require "server_connection"
 
 -- global var
-FTMVSFullPath = "C:\\Partage\\Medias\\Sources\\GitHub.Mine\\FunscriptToolbox\\src\\FunscriptToolbox\\bin\\Release\\FunscriptToolbox.exe"
-status = "FunscriptToolbox.MotionVectors.UI not running"
+FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
+status = "FunscriptToolbox.MotionVectors not running"
 updateCounter = 0
 scriptIdx = 1
 
 config = {
+	pluginVersion = "[[PluginVersion]]",
 	enableLogs = false,
 	learningZoneDurationInSeconds = 10,
-	durationToGenerateInSeconds = 60,
-	minimumActionDurationInMilliseconds = 170
+	durationToGenerateInSeconds = 200,
+	maximumNbStrokesDetectedPerSecond = 3.0
 }
 
 connection = nil
@@ -23,7 +24,7 @@ function init()
 	
 	connection = server_connection:new(FTMVSFullPath, config.enableLogs)
 
-    status = "FunscriptToolbox.MotionVectors.UI running"
+    status = "FunscriptToolbox.MotionVectors running"
 end
 
 function createRequest(service)
@@ -33,19 +34,20 @@ function createRequest(service)
  	return {
 		["$type"] = service,
 		VideoFullPath = videoFullPath,
+		CurrentVideoTime = math.floor(player.CurrentTime() * 1000),
 		MvsFullPath = mvsFullPath,
-		CurrentVideoTime = math.floor(player.CurrentTime() * 1000)
+		MaximumMemoryUsageInMB = 1000
 	}
 end
 
-function binding.start_funscripttoolbox_motionvectors_ui()
+function binding.start_funscripttoolbox_motionvectors()
 
 	-- TODO Put stuff in config
- 	local request = createRequest("ServerRequestCreateRulesFromScriptActions");
+ 	local request = createRequest("CreateRulesFromScriptActionsPluginRequest");
 	request.Actions = {}
 	request.DurationToGenerateInSeconds = config.durationToGenerateInSeconds
 	request.MinimumActionDurationInMilliseconds = config.minimumActionDurationInMilliseconds
-	request.ShowUI = false
+	request.ShowUI = true
 
 	scriptIdx = ofs.ActiveIdx()
 	script = ofs.Script(scriptIdx)
@@ -103,10 +105,6 @@ function import_funscript_generator_json_result()
 	print('commiting...')
 	script:commit()
 	print('done.')
-end
-
-function is_empty(s)
-  return s == nil or s == ''
 end
 
 -- function gui()

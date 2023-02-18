@@ -28,26 +28,26 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             [Option('s', "suffix", Required = false, HelpText = "Suffix for the files produced", Default = "")]
             public string Suffix { get; set; }
 
-            [Option('p', "keepp", Required = false, HelpText = "Keep the .mvs-p-frames.mp4 file at the end of the process (it's not needed anymore)", Default = true)]
-            public bool KeepPFramesMP4 { get; set; }
-
-            [Option('v', "visual", Required = false, HelpText = "Keep/Need a mvs-visual video, with only I-Frames", Default = true)]
-            public bool KeepMvsVisualVideo { get; set; }
-
             [Option('i', "additionalinputffmpeg", Required = false, HelpText = "Additional parameters for ffmpeg (ex. use hardware codec).", Default = "")]
             public string AdditionnalInputFfmpegParameters { get; set; }
 
-            [Option('f', "ffmpegfilter", Required = false, HelpText = "Filter for ffmpeg. VR1, VR2 or 2D, or a 'real filter' like '-vf ...'", Default = "VR2")]
+            [Option('f', "ffmpegfilter", Required = false, HelpText = "Filter for ffmpeg. VRLeft, VRMosaic or 2D, or a 'real filter' like '-vf ...'", Default = "VRMosaic")]
             public string FfmpegFilter { get; set; }
 
             [Option('h', "ffmpegfilterHeight", Required = false, HelpText = "Only if using a named filter, the height of the produced video.", Default = "2048")]
             public string FfmpegFilterHeight { get; set; }
+
+            [Option('v', "novisual", Required = false, HelpText = "Create a mvs-visual video, with only I-Frames", Default = false)]
+            public bool DontCreateMvsVisualVideo { get; set; }
+
+            [Option('p', "keeppframes", Required = false, HelpText = "Delete the .mvs-p-frames.mp4 file at the end of the process (it's not needed anymore)", Default = false)]
+            public bool KeepPFramesMP4 { get; set; }
         }
 
         private static readonly Dictionary<string, string> rs_namedFFmpegFilter = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                { "VR1", "-filter:v \"crop=in_w/2:in_h:0:0,scale=-1:{HEIGHT}\"" },
-                { "VR2", "-filter_complex \"[0:v]crop=in_w/2:in_h:0:0,scale=-1:{HEIGHT}[A];[0:v]v360=input=he:in_stereo=sbs:pitch=-20:yaw=0:roll=0:output=flat:d_fov=90:w={HEIGHT}/2:h={HEIGHT}/2[B1];[0:v]v360=input=he:in_stereo=sbs:pitch=-55:yaw=0:roll=0:output=flat:d_fov=90:w={HEIGHT}/2:h={HEIGHT}/2[B2];[B1][B2]vstack=inputs=2[B];[A][B]hstack=inputs=2\"" },
+                { "VRLeft", "-filter:v \"crop=in_w/2:in_h:0:0,scale=-1:{HEIGHT}\"" },
+                { "VRMosaic", "-filter_complex \"[0:v]crop=in_w/2:in_h:0:0,scale=-1:{HEIGHT}[A];[0:v]v360=input=he:in_stereo=sbs:pitch=-20:yaw=0:roll=0:output=flat:d_fov=90:w={HEIGHT}/2:h={HEIGHT}/2[B1];[0:v]v360=input=he:in_stereo=sbs:pitch=-55:yaw=0:roll=0:output=flat:d_fov=90:w={HEIGHT}/2:h={HEIGHT}/2[B2];[B1][B2]vstack=inputs=2[B];[A][B]hstack=inputs=2\"" },
                 { "2D", "-filter:v \"scale=-1:{HEIGHT}\"" },
             };
 
@@ -77,7 +77,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 {
                     WriteInfo($"{inputMp4FullPath}: Skipping creating a motion vectors optimized video (i.e. p-frames only file) because '{Path.GetFileName(outputPFramesMp4FullPath)}' already exists.", ConsoleColor.DarkGray);
                 }
-                else if (r_options.KeepPFramesMP4 || !File.Exists(outputMvsFullPath) || (r_options.KeepMvsVisualVideo && !File.Exists(outputMvsFullPath)))
+                else if (!File.Exists(outputMvsFullPath) || (!r_options.DontCreateMvsVisualVideo && !File.Exists(outputMvsFullPath)))
                 {
                     WriteInfo($"{inputMp4FullPath}: Creating a motion vectors optimized video (i.e. p-frames only file) '{Path.GetFileName(outputPFramesMp4FullPath)}'");
                     if (rs_namedFFmpegFilter.TryGetValue(r_options.FfmpegFilter, out var ffmpegFilter))
@@ -123,7 +123,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 {
                     WriteInfo($"{inputMp4FullPath}: Skipping creating a motion vectors optimized video (i.e. only i-frames with motion vectors baked-in) because '{Path.GetFileName(outputVisualMvsMp4FullPath)}' already exists.", ConsoleColor.DarkGray);
                 }
-                else if (r_options.KeepMvsVisualVideo)
+                else if (!r_options.DontCreateMvsVisualVideo)
                 {
                     WriteInfo($"{inputMp4FullPath}: Creating a video with visual motion vector '{Path.GetFileName(outputVisualMvsMp4FullPath)}'...");
                     var stopWatch = Stopwatch.StartNew();
@@ -136,9 +136,10 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     WriteInfo($"{inputMp4FullPath}: Skipping creating a motion vectors optimized video (i.e. only i-frames with motion vectors baked-in) because '{Path.GetFileName(outputVisualMvsMp4FullPath)}' is not needed.", ConsoleColor.DarkGray);
                 }
 
-                if (!r_options.KeepPFramesMP4)
+                if (File.Exists(outputPFramesMp4FullPath) && !r_options.KeepPFramesMP4)
                 {
                     WriteInfo($"{inputMp4FullPath}: Now that the .msv file is created, deleting motion vectors optimized video (i.e. p-frames only file) '{Path.GetFileName(outputPFramesMp4FullPath)}'.");
+                    // TODO Wait for the file not to be locked
                     File.Delete(outputPFramesMp4FullPath);
                 }
             }

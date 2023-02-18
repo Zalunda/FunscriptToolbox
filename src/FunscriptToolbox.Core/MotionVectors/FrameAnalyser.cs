@@ -10,12 +10,16 @@ namespace FunscriptToolbox.Core.MotionVectors
         public int NbBlocX { get; }
         public int NbBlocY { get; }
         public BlocAnalyserRule[] Rules { get; }
+        public int ActivityLevel { get; }
+        public int QualityLevel { get; }
 
-        public FrameAnalyser(int nbBlocX, int nbBlocY, BlocAnalyserRule[] rules = null)
+        public FrameAnalyser(int nbBlocX, int nbBlocY, BlocAnalyserRule[] rules = null, int activityLevel = 0, int qualityLevel = 0)
         {
             this.NbBlocX = nbBlocX;
             this.NbBlocY = nbBlocY;
             this.Rules = rules;
+            this.ActivityLevel = activityLevel;
+            this.QualityLevel = qualityLevel;
         }
 
         public FrameAnalyser Filter(int activityLevel, int qualityLevel)
@@ -26,14 +30,16 @@ namespace FunscriptToolbox.Core.MotionVectors
                 this.Rules
                     .Where(rule => rule.Activity >= activityLevel)
                     .Where(rule => rule.Quality >= qualityLevel)
-                    .ToArray());
+                    .ToArray(),
+                activityLevel,
+                qualityLevel);
         }
 
         public FunscriptAction[] CreateActions(
             MotionVectorsFileReader mvsReader, 
             TimeSpan startingTime, 
             TimeSpan endTime, 
-            TimeSpan minimumActionDuration)
+            double maximumNbStrokesDetectedPerSecond)
         {
             var actions = new List<FunscriptActionWithWeight>();
 
@@ -41,6 +47,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             var currentActionStartTime = TimeSpan.Zero;
             var currentActionEndTime = TimeSpan.Zero;
             var lastFrameTotalWeight = 0L;
+            var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / maximumNbStrokesDetectedPerSecond);
             var actionsWithSameDirectionAccumulator = new List<long>();
 
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
@@ -127,7 +134,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         // TODO: See if unsafe code could be faster here
         protected virtual long ComputeFrameTotalWeight(MotionVectorsFrame frame)
         {
-            var lookup = MotionVectorsHelper.GetLookupMotionXYAndAngleToWeightTable();
+            var lookup = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
 
             // Note: Much faster to loop than using linq\Sum.
             long total = 0;

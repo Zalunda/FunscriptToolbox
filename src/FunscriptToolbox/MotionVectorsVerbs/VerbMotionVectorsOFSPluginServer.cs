@@ -1,7 +1,7 @@
 ﻿using CommandLine;
-using FunscriptToolbox.Core;
 using FunscriptToolbox.Core.MotionVectors;
 using FunscriptToolbox.UI;
+using FunscriptToolbox.MotionVectorsVerbs.PluginMessages;
 using log4net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -20,14 +20,17 @@ namespace FunscriptToolbox.MotionVectorsVerbs
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
-        [Verb("motionvectors.ofspluginserver", aliases: new[] { "mvs.ofss" }, HelpText = "TODO")]
+        [Verb("motionvectors.ofspluginserver", aliases: new[] { "mvs.ofsps" }, HelpText = "Starts a server to respond to plugin request.")]
         public class Options : OptionsBase
         {
-            [Option('c', "channelbasefilepath", Required = true, HelpText = "TODO")]
+            [Option('c', "channelbasefilepath", Required = true, HelpText = "Channel (i.e. file prefix) for the communication.")]
             public string ChannelBaseFilePath { get; set; }
 
-            [Option('t', "timeout", Required = false, HelpText = "Timeout before the server stop byitself", Default = 300)]
+            [Option('t', "timeout", Required = false, HelpText = "Timeout before the server stop byitself. Plugin need to send keepalive to keep it alive if no request is send during that time.", Default = 300)]
             public int TimeOutInSeconds { get; set; }
+
+            [Option('d', "debugmode", Required = false, HelpText = "Debug mode.", Default = false)]
+            public bool DebugMode { get; set; }
 
             public TimeSpan TimeOut => TimeSpan.FromSeconds(this.TimeOutInSeconds);
         }
@@ -35,7 +38,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         private readonly Options r_options;
         private readonly Semaphore r_semaphore;
         private readonly JsonSerializerSettings r_jsonSetting;
-
+        private readonly string r_requestFolder;
+        private readonly string r_responseFolder;
+        private FileSystemWatcher m_watcher;
         private MotionVectorsFileReader m_currentMvsReader;
         private FrameAnalyser m_currentFrameAnalyser;
 
@@ -51,26 +56,34 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 {
                     KnownTypes = new List<Type>
                     {
-                        typeof(ServerRequestCreateRulesFromScriptActions)
+                        typeof(CreateRulesFromScriptActionsPluginRequest)
                     }
                 }
             };
+            r_requestFolder = Path.GetDirectoryName(r_options.ChannelBaseFilePath);
+            r_responseFolder = Path.Combine(r_requestFolder, "Responses");
 
             m_currentMvsReader = null;
             m_currentFrameAnalyser = null;
+            m_watcher = null;
         }
 
         public int Execute()
         {
             UpdateFfmpeg();
 
-            var parentFolder = Path.GetDirectoryName(r_options.ChannelBaseFilePath);
-            var watcher = new FileSystemWatcher();
-            watcher.Path = parentFolder;
-            watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
-            watcher.Created += OnCreated;
-            watcher.Changed += OnCreated;
-            watcher.EnableRaisingEvents = true;
+            Directory.CreateDirectory(r_responseFolder);
+
+            m_watcher = new FileSystemWatcher();
+            m_watcher.Path = r_requestFolder;
+            m_watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
+            m_watcher.Changed += OnCreated;
+            m_watcher.EnableRaisingEvents = true;
+
+            foreach (var file in Directory.GetFiles(r_requestFolder))
+            {
+                OnCreated(m_watcher, new FileSystemEventArgs(WatcherChangeTypes.Created, r_requestFolder, Path.GetFileName(file)));
+            }
 
             while (true)
             {
@@ -89,22 +102,27 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 WriteVerbose($"Server: Received file '{Path.GetFileName(e.FullPath)}', ignoring since it's not starting with our base path '{Path.GetFileName(r_options.ChannelBaseFilePath)}'", ConsoleColor.DarkGray);
                 return;
             }
-            
-            if (File.Exists(e.FullPath))
-            {
-                WaitUntilFileIsReadable(e.FullPath, TimeSpan.FromSeconds(30));
-                var content = File.ReadAllText(e.FullPath);
-                var request = JsonConvert.DeserializeObject<ServerRequest>(content, r_jsonSetting);
-                File.Delete(e.FullPath);
-                if (request is ServerRequestCreateRulesFromScriptActions createRulesFromScriptActions)
-                {
-                    WriteInfo($"Server: Received {createRulesFromScriptActions.GetType().Name}");
-                    var mvsReader = GetMvsReader(createRulesFromScriptActions.MvsFullPath, createRulesFromScriptActions.MaximumMemoryUsageInMB);
 
-                    if (createRulesFromScriptActions.Actions.Length > 0)
+            try
+            {
+                if (File.Exists(e.FullPath))
+                {
+                    WaitUntilFileIsReadable(e.FullPath, TimeSpan.FromSeconds(30));
+                    var content = File.ReadAllText(e.FullPath);
+                    var request = JsonConvert.DeserializeObject<PluginRequest>(content, r_jsonSetting);
+                    if (!r_options.DebugMode)
                     {
+                        File.Delete(e.FullPath);
+                    }
+                    if (request is CreateRulesFromScriptActionsPluginRequest createRulesFromScriptActions)
+                    {
+                        WriteInfo($"Server: Received {createRulesFromScriptActions.GetType().Name} ({e.Name})");
+                        var mvsReader = GetMvsReader(createRulesFromScriptActions.MvsFullPath, createRulesFromScriptActions.MaximumMemoryUsageInMB);
+
                         var snapshotTask = TakeSnapshot(createRulesFromScriptActions.VideoFullPath, createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan);
-                        m_currentFrameAnalyser = FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, createRulesFromScriptActions.Actions);
+                        m_currentFrameAnalyser = (createRulesFromScriptActions.Actions.Length > 0)
+                            ? FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, createRulesFromScriptActions.Actions)
+                            : null;
 
                         if (createRulesFromScriptActions.ShowUI)
                         {
@@ -114,29 +132,30 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                                 mvsReader,
                                 m_currentFrameAnalyser);
                         }
-                        var response = new ServerRequestCreateRulesFromScriptActions.Response
+                        // TODO handle null
+                        var response = new CreateRulesFromScriptActionsPluginRequest.Response
                         {
-                            Actions = m_currentFrameAnalyser.CreateActions(
+                            Actions = m_currentFrameAnalyser?.CreateActions(
                                 mvsReader,
                                 createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan,
                                 createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesFromScriptActions.DurationToGenerateInSeconds),
-                                TimeSpan.FromMilliseconds(createRulesFromScriptActions.MinimumActionDurationInMilliseconds))
+                                createRulesFromScriptActions.MaximumNbStrokesDetectedPerSecond)
                         };
-                        var responseFile = Path.ChangeExtension(e.FullPath, ".response.json");
-                        File.WriteAllText(
-                            responseFile + ".BACKUP.json",
-                            JsonConvert.SerializeObject(response));
-                        File.WriteAllText(
-                            responseFile + ".TEMP",
-                            JsonConvert.SerializeObject(response));
-                        File.Move(responseFile + ".TEMP", responseFile);
-                    }
-                }
-                else
-                {
 
+                        var responseFullPath = Path.Combine(r_responseFolder, e.Name);
+                        File.WriteAllText(responseFullPath, JsonConvert.SerializeObject(response));
+                        WriteInfo($"Server: Saved {createRulesFromScriptActions.GetType().Name}.Response ({e.Name})");
+                    }
+                    else
+                    {
+
+                    }
+                    WriteInfo($"Server: Done.");
                 }
-                WriteInfo($"Server: Done.");
+            }
+            catch(Exception ex)
+            {
+                WriteError(ex.ToString());
             }
 
             r_semaphore.Release();
@@ -162,29 +181,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             return m_currentMvsReader?.FilePath == mvsFullPath && m_currentMvsReader?.MaximumMemoryUsageInMB == maximumMemoryUsageInMB
                 ? m_currentMvsReader
                 : new MotionVectorsFileReader(mvsFullPath, maximumMemoryUsageInMB);
-        }
-
-        internal class ServerRequest
-        {
-            public string VideoFullPath { get; set; }
-            public string MvsFullPath { get; set; }
-            public int CurrentVideoTime { get; set; }
-            public int MaximumMemoryUsageInMB { get; set; }
-
-            public TimeSpan CurrentVideoTimeAsTimeSpan => TimeSpan.FromMilliseconds(CurrentVideoTime);
-        }
-
-        internal class ServerRequestCreateRulesFromScriptActions : ServerRequest
-        {
-            public FunscriptAction[] Actions { get; set; }
-            public int DurationToGenerateInSeconds { get; set; }
-            public int MinimumActionDurationInMilliseconds { get; set; }
-            public bool ShowUI { get; set; }
-
-            public class Response
-            {
-                public FunscriptAction[] Actions { get; set; }
-            }
         }
 
         private bool WaitUntilFileIsReadable(string fullPath, TimeSpan maxWaitDuration)
