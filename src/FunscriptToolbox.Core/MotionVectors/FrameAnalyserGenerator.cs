@@ -95,6 +95,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 }
             }
 
+            // TODO Use: WeightWhenRight vs WeightWhenWrong to get the best ??
             var rules = new BlocAnalyserRule[reader.NbBlocTotalPerFrame];
             fixed (TempValue* pTemp = temp)
             {

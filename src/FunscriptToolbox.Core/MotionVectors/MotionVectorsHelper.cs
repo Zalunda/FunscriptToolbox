@@ -36,7 +36,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 
                                 for (int i = 0; i < NbBaseDirection; i++)
                                 {
-                                    var baseAngle = (i + 9) * (2 * Math.PI / NbBaseDirection); // i + 9 is because we want to have the value 0 represente Up (like a clock)
+                                    var baseAngle = (i + 3) * (2 * Math.PI / NbBaseDirection); // i + 3 is because we want to have the value 0 represente Up (like a clock)
                                     double diff = angle - baseAngle;
                                     rs_lLookupMotionXYAndDirectionToWeight[xAsByte, yAsByte, i] = (short)Math.Round(100 * length * Math.Cos(diff));
                                 }

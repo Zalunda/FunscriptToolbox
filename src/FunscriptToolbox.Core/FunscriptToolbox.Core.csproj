@@ -56,6 +56,10 @@
     <Compile Include="MotionVectors\MotionVectorsFileReader.cs" />
     <Compile Include="MotionVectors\MotionVectorsFrame.cs" />
     <Compile Include="MotionVectors\MotionVectorsHelper.cs" />
+    <Compile Include="MotionVectors\PluginMessages\CreateRulesFromScriptActionsPluginRequest.cs" />
+    <Compile Include="MotionVectors\PluginMessages\CreateRulesFromScriptActionsPluginResponse.cs" />
+    <Compile Include="MotionVectors\PluginMessages\SharedConfig.cs" />
+    <Compile Include="MotionVectors\PluginMessages\PluginRequest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SubtitleFile.cs" />
     <Compile Include="Subtitle.cs" />

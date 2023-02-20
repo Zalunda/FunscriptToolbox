@@ -1,30 +1,59 @@
 -- FunscriptToolbox.MotionVectors LUA Wrappper Version 1.0.0
 json = require "json"
 server_connection = require "server_connection"
+virtual_actions = require "virtual_actions"
 
 -- global var
-FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
+FTMVSFullPath = "C:\\Partage\\Medias\\Sources\\GitHub.Mine\\FunscriptToolbox\\src\\FunscriptToolbox\\bin\\Release\\FunscriptToolbox.exe" --TODO Replace with  [[FunscriptToolboxExePathInLuaFormat]]
 status = "FunscriptToolbox.MotionVectors not running"
 updateCounter = 0
 scriptIdx = 1
 
 config = {
-	pluginVersion = "[[PluginVersion]]",
-	enableLogs = false,
-	learningZoneDurationInSeconds = 10,
-	durationToGenerateInSeconds = 200,
-	maximumNbStrokesDetectedPerSecond = 3.0
+	PluginVersion = "1.0.0", -- TODO Replace with "[[PluginVersion]]",
+	EnableLogs = false,
+	MaximumDurationToGenerateInSeconds = 200,
+	TopPointsOverride = 0,
+	BottomPointsOverride = 0,
+	MinimumPosition = 0,
+	MaximumPosition = 100,
+	MinimumPercentageFilled = 0,
+	AmplitudeCenter = 50,
+}
+
+sharedConfig = {
+	MaximumMemoryUsageInMB = 1000,
+	DefaultLearningDurationInSeconds = 10,
+	MaximumLearningDurationInSeconds = 60,
+	DefaultActivityFilter = 60,
+	DefaultQualityFilter = 75,
+	MaximumNbStrokesDetectedPerSecond = 3.0
 }
 
 connection = nil
 
 function init()
-    print("OFS Version:", ofs.Version())
+    print("Plugin Version:", config.PluginVersion)
 	-- TODO cleanup old communicationChannel
 	
 	connection = server_connection:new(FTMVSFullPath, config.enableLogs)
+	virtualActions = {}
+	-- Check ServerLastestPluginVersion vs PluginVersion
 
     status = "FunscriptToolbox.MotionVectors running"
+end
+
+function getVirtualActions(scriptIdx)
+	if not scriptIdx then
+		scriptIdx = ofs.ActiveIdx()
+	end
+	
+	local va = virtualActions[scriptIdx]
+	if not va then
+		va = virtual_actions:new(scriptIdx, config)
+		virtualActions[scriptIdx] = va
+	end
+	return va
 end
 
 function createRequest(service)
@@ -36,26 +65,43 @@ function createRequest(service)
 		VideoFullPath = videoFullPath,
 		CurrentVideoTime = math.floor(player.CurrentTime() * 1000),
 		MvsFullPath = mvsFullPath,
-		MaximumMemoryUsageInMB = 1000
+		SharedConfig = sharedConfig
 	}
 end
 
 function binding.start_funscripttoolbox_motionvectors()
 
-	-- TODO Put stuff in config
- 	local request = createRequest("CreateRulesFromScriptActionsPluginRequest");
-	request.Actions = {}
-	request.DurationToGenerateInSeconds = config.durationToGenerateInSeconds
-	request.MinimumActionDurationInMilliseconds = config.minimumActionDurationInMilliseconds
-	request.ShowUI = true
+	getVirtualActions():removeVirtualActionsInTimelime()
 
 	scriptIdx = ofs.ActiveIdx()
 	script = ofs.Script(scriptIdx)
-	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - config.learningZoneDurationInSeconds - 0.1)
+	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - sharedConfig.MaximumLearningDurationInSeconds)
 	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.1)
+	local nextAction = script:closestActionAfter(player.CurrentTime() + 0.001);
+
+ 	local request = createRequest("CreateRulesFromScriptActionsPluginRequest");
+	request.Actions = {}
+	request.SelectedActions = {}
+
+	if nextAction then
+		request.DurationToGenerateInSeconds = math.min(config.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
+	else
+		request.DurationToGenerateInSeconds = config.MaximumDurationToGenerateInSeconds
+	end
+	request.ShowUI = true
+
     for _, action in ipairs(script.actions) do
 		if (action.at >= firstAction.at and action.at <= lastAction.at) then
 			table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
+		end
+	end
+	
+	if script:hasSelection() then
+		for _, indice in ipairs(script:selectedIndices()) do
+			print(indice)
+		
+		    local action = script.actions[indice]
+			table.insert(request.SelectedActions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
 		end
 	end
 
@@ -63,143 +109,137 @@ function binding.start_funscripttoolbox_motionvectors()
 end
 
 function handleCreateRulesFromScriptActionsResponse(response)
-	script = ofs.Script(scriptIdx)
-	
-    for i, action in ipairs(response.Actions) do
-		local new_action = Action.new(action.at / 1000.0, action.pos, true)
-		script.actions:add(new_action)
-    end
-	
-	print('commiting...')
-	script:commit()
-	print('done.')
+
+	scriptIdx = ofs.ActiveIdx() -- todo save in request/response
+	local va = getVirtualActions(scriptIdx)	
+	va:init(response.Actions, response.FrameDurationInMs)
 end
 
 function update(delta)
     updateCounter = updateCounter + 1
     if math.fmod(updateCounter, 10) == 0 then
 		connection:processResponses()
+		getVirtualActions():removeActionsBefore(player.CurrentTime())
     end
 end
 
-function import_funscript_generator_json_result()
-    local f = io.open(outputParametersFile)
-    if not f then
-        print('json parameters file not found')
-        return
-    end
-
-    local content = f:read("*a")
-    f:close()
-	print(content)
-    json_body = json.decode(content)
-    actions = json_body.Actions
-	
-	script = ofs.Script(scriptIdx)
-	
-    for i, action in ipairs(actions) do
-		local new_action = Action.new(action.at / 1000.0, action.pos, true)
-		script.actions:add(new_action)
-    end
-	
-	print('commiting...')
-	script:commit()
-	print('done.')
+function binding.top_points_move_to_left()
+	config.TopPointsOverride = config.TopPointsOverride - 5
+	updateVirtualPoints()
+end 
+function binding.top_points_move_to_right()
+	config.TopPointsOverride = config.TopPointsOverride + 5
+	updateVirtualPoints()
+end 
+function binding.bottom_points_move_to_left()
+	config.BottomPointsOverride = config.BottomPointsOverride - 5
+	updateVirtualPoints()
+end 
+function binding.min_position_move_up()
+	config.MinimumPosition = config.MinimumPosition + 5
+	updateVirtualPoints()
+end 
+function binding.min_position_move_down()
+	config.MinimumPosition = config.MinimumPosition - 5
+	updateVirtualPoints()
+end 
+function binding.max_position_move_up()
+	config.MaximumPosition = config.MinimumPosition + 5
+	updateVirtualPoints()
+end 
+function binding.max_position_move_down()
+	config.MaximumPosition = config.MinimumPosition - 5
+	updateVirtualPoints()
+end 
+function binding.min_percentage_filled_move_up()
+	config.MinimumPercentageFilled = config.MinimumPercentageFilled + 10
+	updateVirtualPoints()
+end 
+function binding.min_percentage_filled_move_down()
+	config.MinimumPercentageFilled = config.MinimumPercentageFilled - 10
+	updateVirtualPoints()
+end 
+function binding.center_move_up()
+	config.AmplitudeCenter = config.AmplitudeCenter + 10
+	updateVirtualPoints()
+end 
+function binding.center_move_down()
+	config.AmplitudeCenter = config.AmplitudeCenter - 10
+	updateVirtualPoints()
+end 
+function binding.center_top()
+	config.AmplitudeCenter = 100
+	updateVirtualPoints()
+end 
+function binding.center_bottom()
+	config.AmplitudeCenter = 0
+	updateVirtualPoints()
+end 
+function updateVirtualPoints()
+	print('updateVirtualPoints')
+	config.MinimumPosition = clamp(config.MinimumPosition, 0, 95)
+	config.MaximumPosition = clamp(config.MaximumPosition, config.MinimumPosition + 5, 100)
+	config.MinimumPercentageFilled = clamp(config.MinimumPercentageFilled, 0, 100)
+	config.AmplitudeCenter = clamp(config.AmplitudeCenter, 0, 100)
+	getVirtualActions():update()
 end
 
--- function gui()
---     ofs.Text("Status: "..status)
---     ofs.Text("Version: "..mtfgVersion)
---     ofs.Text("Action:")
--- 
---     ofs.SameLine()
---     if not processHandleMTFG then
--- 
---         if ofs.Button("Start MTFG") then
---             binding.start_funscript_generator()
---         end
---     else
---         if ofs.Button("Kill MTFG") then
---             if platform == "Windows" then
---                 os.execute("taskkill /f /im funscript-editor.exe")
---             else
---                 os.execute("pkill -f funscript-editor.py")
---             end
---         end
---     end
--- 
---     ofs.SameLine()
---     if ofs.Button("Open Config") then
---         if platform == "Windows" then
---             processHandleConfigDir = Process.new("explorer.exe", ofs.ExtensionDir().."\\funscript-editor\\funscript_editor\\config")
---         else
---             local cmd = '/usr/bin/dbus-send --session --print-reply --dest=org.freedesktop.FileManager1 --type=method_call /org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems array:string:"file://'
---                 ..ofs.ExtensionDir()..'/Python-Funscript-Editor/funscript_editor/config/" string:""'
---             -- print("cmd: ", cmd)
---             os.execute(cmd)
---         end
---     end
--- 
---     if logfileExist then
---         if platform == "Windows" then
---             ofs.SameLine()
---             if ofs.Button("Open Log") then
---                  processHandleLogFile = Process.new("notepad.exe", "C:/Temp/funscript_editor.log")
---             end
---         else
---             ofs.SameLine()
---             if ofs.Button("Open Log") then
---                 processHandleLogFile = Process.new("/usr/bin/xdg-open", "/tmp/funscript_editor.log")
---             end
---         end
---     end
--- 
---     if tmpFileExists then
---         ofs.SameLine()
---         if ofs.Button("Force Import") then
---             scriptIdx = ofs.ActiveIdx()
---             import_funscript_generator_json_result()
---         end
---     end
--- 
---     ofs.Separator()
---     ofs.Text("Options:")
---     stopAtNextActionPoint, _ = ofs.Checkbox("Stop tracking at next existing point", stopAtNextActionPoint)
---     enableLogs, _ = ofs.Checkbox("Enable logging", enableLogs)
---     multiaxis, _ = ofs.Checkbox("Enable multiaxis", multiaxis)
--- 
---     if multiaxis then
---         local comboNum = 1
---         for k,v in pairs(scriptAssignment) do
---             ofs.Text("  o "..k.." ->")
---             ofs.SameLine()
---             if v.idx > scriptNamesCount then
---                 v.idx = 1
---             end
---             v.idx, _ = ofs.Combo("#"..tostring(comboNum), v.idx, scriptNames)
---             comboNum = comboNum + 1
---         end
---     end
--- 
---     ofs.Separator()
--- 
---     local enable_post_processing = true
---     if enable_post_processing then
---         ofs.Text("Post-Processing:")
---         ofs.SameLine()
---         if ofs.Button("Invert") then
---             invert_selected()
---         end
--- 
---         ofs.SameLine()
---         if ofs.Button("Align Bottom Points") then
---             align_bottom_points(-1)
---         end
--- 
---         ofs.SameLine()
---         if ofs.Button("Align Top Points") then
---              align_top_points(-1)
---         end
---     end
--- 
--- end
+function gui()
+    ofs.Text("Connection Status: " .. connection:GetStatus())
+	ofs.Separator()
+	
+	if ofs.CollapsingHeader("Virtual Points") then
+		config.TopPointsOverride, topChanged = ofs.InputInt("Top Points At", config.TopPointsOverride, 1)
+		config.BottomPointsOverride, bottomChanged = ofs.InputInt("Bottom Points At", config.BottomPointsOverride, 1)
+		config.MinimumPosition, minChanged = ofs.InputInt("Min Pos", config.MinimumPosition, 5)
+		config.MaximumPosition, maxChanged = ofs.InputInt("Max Pos", config.MaximumPosition, 5)	
+		config.MinimumPercentageFilled, percentageChanged = ofs.InputInt("Min Pos % filled", config.MinimumPercentageFilled, 10)
+		config.AmplitudeCenter, amplitudeChanged = ofs.InputInt("Center Pos %", config.AmplitudeCenter, 10)
+		ofs.SameLine()
+		if ofs.Button("Top") then
+			config.AmplitudeCenter = 100
+			amplitudeChanged = true
+		end
+		ofs.SameLine()
+		if ofs.Button("Bottom") then
+			config.AmplitudeCenter = 0
+			amplitudeChanged = true
+		end
+		
+		if ofs.Button("Reset All") then
+			config.TopPointsOverride = 0
+			config.BottomPointsOverride = 0
+			config.MinimumPosition = 10
+			config.MaximumPosition = 90
+			config.AmplitudeCenter = 50
+			config.MinimumPercentageFilled = 60
+			amplitudeChanged = true
+		end
+
+		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged then
+			updateVirtualPoints()
+		end
+
+		-- TODO Save Preset
+	end	
+
+	if ofs.CollapsingHeader("Learn from script") then
+		sharedConfig.DefaultLearningDurationInSeconds, _ = ofs.InputInt("Default duration", sharedConfig.DefaultLearningDurationInSeconds, 2)
+		sharedConfig.MaximumLearningDurationInSeconds, _ = ofs.InputInt("Maximum duration", sharedConfig.MaximumLearningDurationInSeconds, 10)
+		sharedConfig.MaximumLearningDurationInSeconds = clamp(sharedConfig.MaximumLearningDurationInSeconds, 30, 300)
+		sharedConfig.DefaultLearningDurationInSeconds = clamp(sharedConfig.DefaultLearningDurationInSeconds, 0, sharedConfig.MaximumLearningDurationInSeconds)
+		
+		sharedConfig.DefaultActivityFilter, _ = ofs.InputInt("Default Activity Filter", sharedConfig.DefaultActivityFilter, 5)
+		sharedConfig.DefaultActivityFilter = clamp(sharedConfig.DefaultActivityFilter, 0, 100)
+		sharedConfig.DefaultQualityFilter, _ = ofs.InputInt("Default Quality Filter", sharedConfig.DefaultQualityFilter, 5)
+		sharedConfig.DefaultQualityFilter = clamp(sharedConfig.DefaultQualityFilter, 50, 100)
+	end	
+	if ofs.CollapsingHeader("Actions generation") then
+		sharedConfig.MaximumNbStrokesDetectedPerSecond, _ = ofs.Input("Maximum Strokes per sec", sharedConfig.MaximumNbStrokesDetectedPerSecond, 0.5)
+		sharedConfig.MaximumNbStrokesDetectedPerSecond = clamp(sharedConfig.MaximumNbStrokesDetectedPerSecond, 1.0, 5.0)
+	end
+	if ofs.CollapsingHeader("Others config") then
+		sharedConfig.MaximumMemoryUsageInMB, _ = ofs.InputInt("Maximum Memory Usage (MB)", sharedConfig.MaximumMemoryUsageInMB, 50)
+		sharedConfig.MaximumMemoryUsageInMB = clamp(sharedConfig.MaximumMemoryUsageInMB, 0, 100000)
+	end
+end

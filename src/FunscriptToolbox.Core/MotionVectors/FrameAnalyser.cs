@@ -47,7 +47,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             var currentActionStartTime = TimeSpan.Zero;
             var currentActionEndTime = TimeSpan.Zero;
             var lastFrameTotalWeight = 0L;
-            var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / maximumNbStrokesDetectedPerSecond);
+            var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (maximumNbStrokesDetectedPerSecond * 2) - 20);
             var actionsWithSameDirectionAccumulator = new List<long>();
 
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
@@ -73,12 +73,12 @@ namespace FunscriptToolbox.Core.MotionVectors
                     {
                         if (lastFrameTotalWeight > 0)
                         {
-                            AddActionWithoutDuplicate(actions, (int)currentActionStartTime.TotalMilliseconds, 0);
+                            AddActionWithoutDuplicate(actions, (int)currentActionStartTime.TotalMilliseconds, 0, actionsWithSameDirectionAccumulator);
                             AddActionWithoutDuplicate(actions, (int)currentActionEndTime.TotalMilliseconds, 100, actionsWithSameDirectionAccumulator);
                         }
                         else
                         {
-                            AddActionWithoutDuplicate(actions, (int)currentActionStartTime.TotalMilliseconds, 100);
+                            AddActionWithoutDuplicate(actions, (int)currentActionStartTime.TotalMilliseconds, 100, actionsWithSameDirectionAccumulator);
                             AddActionWithoutDuplicate(actions, (int)currentActionEndTime.TotalMilliseconds, 0, actionsWithSameDirectionAccumulator);
                         }
                     }
@@ -98,14 +98,14 @@ namespace FunscriptToolbox.Core.MotionVectors
                 .Select(f => Math.Abs(f.WeightPerFrame))
                 .OrderBy(w => w)
                 .ToArray();
-            var targetWeigth = (sortedWeight.Length > 0) 
-                ? sortedWeight[sortedWeight.Length * 9 / 10] 
+            var targetWeigth = (sortedWeight.Length > 0)
+                ? sortedWeight[sortedWeight.Length * 9 / 10]
                 : 0;
             return actions.Select((action, i) => new FunscriptAction
             {
                 At = action.At,
                 Pos = (action.Pos == 100)
-                    ? (i == 0) ? 100 : Math.Min(100, (int)((double)100 * Math.Abs(action.WeightPerFrame) / targetWeigth))
+                    ? (i == 0) ? 100 : Math.Max(1, Math.Min(100, (int)((double)100 * Math.Abs(action.WeightPerFrame) / targetWeigth)))
                     : action.Pos
             }).ToArray();
         }
@@ -116,10 +116,6 @@ namespace FunscriptToolbox.Core.MotionVectors
             if (lastAction?.At == at && lastAction?.Pos == pos)
             {
                 // Skip because action already exists
-                if (results?.Count > 0)
-                {
-                    throw new Exception("What?");
-                }
             }
             else if (lastAction?.At == at && lastAction?.Pos != pos)
             {

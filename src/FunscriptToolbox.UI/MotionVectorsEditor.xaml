@@ -6,7 +6,8 @@
         xmlns:local="clr-namespace:FunscriptToolbox.UI" 
         xmlns:rc="clr-namespace:RichCanvas;assembly=RichCanvas"
         mc:Ignorable="d"
-        Title="MotionVectorsEditor">
+        Title="MotionVectorsEditor"
+        Loaded="Window_Loaded">
     <DockPanel LastChildFill="True">
         <TabControl DockPanel.Dock="Bottom" Name="tabControl" Margin="10" HorizontalAlignment="Center">
             <TabItem x:Name="LearnFromScriptTab" Header="Learn From Script">
@@ -17,7 +18,7 @@
                             Text="{Binding ElementName=ActivitySlider, Path=Value, Mode=TwoWay}"
                             VerticalAlignment="Center"
                             Margin="5,0,0,0" Width="30" 
-                            TextChanged="ActivityTextBoxChanged"/>
+                            TextChanged="LearnFromScriptFilterChanged" />
                         <TextBlock Text="0" VerticalAlignment="Center" FontSize="9" Margin="10,0,0,0" Width="10" TextAlignment="Right" />
                         <Slider Name="ActivitySlider"
                             Minimum="0" Maximum="100"
@@ -33,7 +34,7 @@
                             Text="{Binding ElementName=QualitySlider, Path=Value, Mode=TwoWay}"
                             VerticalAlignment="Center"
                             Margin="5,0,0,0" Width="30" 
-                            TextChanged="QualityTextBoxChanged"/>
+                            TextChanged="LearnFromScriptFilterChanged"/>
                         <TextBlock Text="50" VerticalAlignment="Center" FontSize="9" Margin="10,0,0,0" Width="10" TextAlignment="Right" />
                         <Slider Name="QualitySlider"
                             Minimum="50" Maximum="100"
@@ -53,11 +54,11 @@
                 <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
                     <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
                         <TextBlock Text="Angle" VerticalAlignment="Center" Width="45" />
-                        <TextBox Name="AngleTextBox"
-                            Text="0"
+                        <TextBox Name="DirectionTextBox"
+                            Text="6"
                             VerticalAlignment="Center"
                             Margin="5,0,0,0" Width="30" 
-                            TextChanged="AngleTextBoxChanged"/>
+                            TextChanged="DirectionTextBoxChanged"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,5,10,5" VerticalAlignment="Stretch" HorizontalAlignment="Right">
                         <Button x:Name="AcceptManual" Click="AcceptManual_Click" FontSize="18" FontWeight="Bold">Accept</Button>

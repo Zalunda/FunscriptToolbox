@@ -8,10 +8,16 @@ function server_connection:new(FTMVSFullPath, enableLogs)
 		FTMVSFullPath = FTMVSFullPath,
 		enableLogs = enableLogs,
 		serverProcessHandle = nil,
-		requests = {}
+		requests = {},
+		lastTimeTaken = 0,
+		status = ''
 	}
 	setmetatable(o, {__index = server_connection})
 	return o
+end
+
+function server_connection:GetStatus()
+	return self.status
 end
 
 -- Find an available 'channel' to communicate with the server (in case multiple OFS are running at the same time)
@@ -78,7 +84,8 @@ function server_connection:sendRequest(request, callback)
  	requestFile:close()
 	
     table.insert(self.requests, { 
-		transactionNumber = transactionNumber, 
+		transactionNumber = transactionNumber,
+		startTime = os.clock(),
 		request = request, 
 		responseFilePath = responseFilePath, 
 		callback = callback 
@@ -99,20 +106,28 @@ function server_connection:getResponseForRequest(request)
     response_body = json.decode(content)
 	os.remove(request.responseFilePath)
 	
-	return response_body	
+	self.lastTimeTaken = os.clock() - request.startTime
+	return response_body
 end
 
 function server_connection:processResponses()
-	-- Iterate through the requests in reverse order
-	for i = #self.requests, 1, -1 do
-		local request = self.requests[i]
-		local response = self:getResponseForRequest(request)
-		if response then
-			-- Call the callback with the response
-			request.callback(response)
-			-- Remove the handled request from the requests table
-			table.remove(self.requests, i)
+
+	if #self.requests == 0 then
+		self.status = 'Last request took ' .. self.lastTimeTaken .. ' seconds'
+	else
+		local request
+		-- Iterate through the requests in reverse order
+		for i = #self.requests, 1, -1 do
+			request = self.requests[i]
+			local response = self:getResponseForRequest(request)
+			if response then
+				-- Call the callback with the response
+				request.callback(response)
+				-- Remove the handled request from the requests table
+				table.remove(self.requests, i)
+			end
 		end
+		self.status = 'Waiting for response for ' .. (os.clock() - request.startTime) .. ' seconds'
 	end
 	
 	-- TODO add keepalive	

@@ -12,6 +12,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         public int MaximumMemoryUsageInMB { get; }
         public int FormatVersion { get; }
         public TimeSpan VideoDuration { get; }
+        public double FrameDurationInMs => 1000.0 / (double)VideoFramerate;
         public int NbFrames { get; }
         public decimal VideoFramerate { get; }
         public int VideoWidth { get; }

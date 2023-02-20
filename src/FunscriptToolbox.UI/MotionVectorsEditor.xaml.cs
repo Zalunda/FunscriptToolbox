@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Core.MotionVectors;
+using FunscriptToolbox.Core.MotionVectors.PluginMessages;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -29,7 +30,13 @@ namespace FunscriptToolbox.UI
 
         public FrameAnalyser FinalFrameAnalyser { get; private set; }
 
-        public MotionVectorsEditor(byte[] snapshotContent, TimeSpan videoTime, MotionVectorsFileReader mvsReader, FrameAnalyser originalFrameAnalyser)
+        public MotionVectorsEditor(
+            byte[] snapshotContent, 
+            TimeSpan videoTime, 
+            MotionVectorsFileReader mvsReader, 
+            FrameAnalyser originalFrameAnalyser,
+            int activityLevel,
+            int qualityLevel)
         {
             using (MemoryStream ms = new MemoryStream(snapshotContent))
             {
@@ -38,19 +45,55 @@ namespace FunscriptToolbox.UI
             r_videoTime = videoTime;
             r_mvsReader = mvsReader;
             r_originalFrameAnalyser = originalFrameAnalyser ?? new FrameAnalyser(r_mvsReader.NbBlocX, r_mvsReader.NbBlocY, Array.Empty<BlocAnalyserRule>());
-            m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(50, 70); // TODO
             m_currentManualFrameAnalyser = r_originalFrameAnalyser;
             this.FinalFrameAnalyser = null;
 
+            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
+
             InitializeComponent();
+
+            ActivityTextBox.Text = activityLevel.ToString();
+            QualityTextBox.Text = qualityLevel.ToString();
 
             ScreenShot.Width = r_mvsReader.VideoWidth;
             ScreenShot.Height = r_mvsReader.VideoHeight;
             VirtualCanvas.ExtentSize = new System.Windows.Size(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
+        }
+
+        public MotionVectorsEditor(
+            byte[] snapshotContent,
+            MotionVectorsFileReader mvsReader, 
+            CreateRulesFromScriptActionsPluginRequest createRulesFromScriptActions)
+        {
+            using (MemoryStream ms = new MemoryStream(snapshotContent))
+            {
+                r_snapshot = new Bitmap(ms);
+            }
+            r_mvsReader = mvsReader;
+            r_videoTime = createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan;
+
+            var learningActions = createRulesFromScriptActions.SelectedActions.Length > 0
+                ? createRulesFromScriptActions.SelectedActions
+                : createRulesFromScriptActions.Actions.Length > 0
+                    ? createRulesFromScriptActions.Actions // TODO only get last createRulesFromScriptActions.SharedConfig.DefaultLearningDurationInSeconds seconds
+                    : null; 
+            r_originalFrameAnalyser = learningActions == null
+                ? new FrameAnalyser(mvsReader.NbBlocX, mvsReader.NbBlocY)
+                : FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, learningActions);
+
+            m_currentManualFrameAnalyser = r_originalFrameAnalyser;
+            this.FinalFrameAnalyser = null;
 
             r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
-            
-            UpdateImage(m_currentLearnFromScriptFrameAnalyser);
+
+            InitializeComponent();
+
+            ActivitySlider.Value = createRulesFromScriptActions.SharedConfig.DefaultActivityFilter;
+            QualitySlider.Value = createRulesFromScriptActions.SharedConfig.DefaultQualityFilter;
+
+            ScreenShot.Width = r_mvsReader.VideoWidth;
+            ScreenShot.Height = r_mvsReader.VideoHeight;
+            VirtualCanvas.ExtentSize = new System.Windows.Size(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
         }
 
         private static Bitmap[] CreateVectorBitmaps(int blocSize)
@@ -130,38 +173,39 @@ namespace FunscriptToolbox.UI
             }
         }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            this.Activate();
+        }
+
+        private int? GetActivity() => int.TryParse(this.ActivityTextBox.Text, out var value) 
+            ? (int?)value 
+            : null;
+        private int? GetQuality() => int.TryParse(this.QualityTextBox.Text, out var value) 
+            ? (int?)value 
+            : null;
+        private byte? GetDirection() => int.TryParse(this.DirectionTextBox.Text, out var value) 
+            ? (byte?) (value % MotionVectorsHelper.NbBaseDirection)
+            : null;
+
         private void ActivitySliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (ActivitySlider != null)
-            {
-                ActivitySlider.Value = Math.Round(ActivitySlider.Value);
-            }
+            ActivitySlider.Value = Math.Round(ActivitySlider.Value);
+        }
+        private void QualitySliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            QualitySlider.Value = Math.Round(QualitySlider.Value);
         }
 
-        private async void ActivityTextBoxChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private async void LearnFromScriptFilterChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            if (int.TryParse(this.ActivityTextBox.Text, out var value))
+            var activity = GetActivity();
+            var quality = GetQuality();
+            if (activity != null && quality != null)
             {
-                m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(value, m_currentLearnFromScriptFrameAnalyser.QualityLevel);
-                await Task.Run(() =>
-                {
-                    Dispatcher.Invoke(() => UpdateImage(m_currentLearnFromScriptFrameAnalyser));
-                });
-            }
-        }
-        private void QualityTextBoxChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-        {
-            if (QualitySlider != null)
-            {
-                QualitySlider.Value = Math.Round(QualitySlider.Value);
-            }
-        }
-
-        private async void QualitySliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            if (int.TryParse(this.QualityTextBox.Text, out var value))
-            {
-                m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(m_currentLearnFromScriptFrameAnalyser.ActivityLevel, value);
+                m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(
+                    activity.Value, 
+                    quality.Value);
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentLearnFromScriptFrameAnalyser));
@@ -171,7 +215,7 @@ namespace FunscriptToolbox.UI
 
         private async void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            tabControl.SelectedItem = ManualTab;
+            if (tabControl.SelectedItem == ManualTab)
             {
                 var selection = VirtualCanvas.SelectionRectangle;
 
@@ -187,7 +231,10 @@ namespace FunscriptToolbox.UI
                             var blocX = indexBlocX * r_mvsReader.BlocSize;
                             if (blocX >= selection.Left && blocX < selection.Right)
                             {
-                                rules.Add(new BlocAnalyserRule((ushort)(indexBlocY * r_mvsReader.NbBlocX + indexBlocX), 0));
+                                rules.Add(
+                                    new BlocAnalyserRule(
+                                        (ushort)(indexBlocY * r_mvsReader.NbBlocX + indexBlocX), 
+                                        GetDirection().Value));
                             }
                         }
                     }
@@ -201,15 +248,18 @@ namespace FunscriptToolbox.UI
             }
         }
 
-        private async void AngleTextBoxChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private async void DirectionTextBoxChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            if (int.TryParse(this.AngleTextBox.Text, out var value))
+            var direction = GetDirection();
+            if (direction != null)
             {
-                var newDirection = (byte)(value % MotionVectorsHelper.NbBaseDirection);
                 m_currentManualFrameAnalyser = new FrameAnalyser(
                     r_mvsReader.NbBlocX, 
                     r_mvsReader.NbBlocY, 
-                    m_currentManualFrameAnalyser.Rules.Select(r => new BlocAnalyserRule(r.Index, newDirection)).ToArray());
+                    m_currentManualFrameAnalyser
+                        .Rules
+                        .Select(r => new BlocAnalyserRule(r.Index, direction.Value))
+                        .ToArray());
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));

@@ -74,9 +74,6 @@
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
     <Compile Include="InstallationFiles\PluginClient.cs" />
     <Compile Include="InstallationVerbs\VerbInstallation.cs" />
-    <Compile Include="MotionVectorsVerbs\PluginMessages\CreateRulesFromScriptActionsPluginRequest.cs" />
-    <Compile Include="MotionVectorsVerbs\PluginMessages\CreateRulesFromScriptActionsPluginResponse.cs" />
-    <Compile Include="MotionVectorsVerbs\PluginMessages\PluginRequest.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectorsOFSPluginServer.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectorsPrepareFiles.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectors.cs" />
@@ -106,6 +103,7 @@
     <EmbeddedResource Include="InstallationFiles\server_connection.lua" />
     <EmbeddedResource Include="InstallationFiles\--PrepareScriptForRelease.bat" />
     <EmbeddedResource Include="InstallationFiles\--PrepareVideoForOFS.bat" />
+    <None Include="InstallationFiles\virtual_actions.lua" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

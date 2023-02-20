@@ -1,7 +1,7 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core.MotionVectors;
+using FunscriptToolbox.Core.MotionVectors.PluginMessages;
 using FunscriptToolbox.UI;
-using FunscriptToolbox.MotionVectorsVerbs.PluginMessages;
 using log4net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -117,29 +117,24 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     if (request is CreateRulesFromScriptActionsPluginRequest createRulesFromScriptActions)
                     {
                         WriteInfo($"Server: Received {createRulesFromScriptActions.GetType().Name} ({e.Name})");
-                        var mvsReader = GetMvsReader(createRulesFromScriptActions.MvsFullPath, createRulesFromScriptActions.MaximumMemoryUsageInMB);
 
+                        var mvsReader = GetMvsReader(createRulesFromScriptActions.MvsFullPath, createRulesFromScriptActions.SharedConfig.MaximumMemoryUsageInMB);
                         var snapshotTask = TakeSnapshot(createRulesFromScriptActions.VideoFullPath, createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan);
-                        m_currentFrameAnalyser = (createRulesFromScriptActions.Actions.Length > 0)
-                            ? FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, createRulesFromScriptActions.Actions)
-                            : null;
 
-                        if (createRulesFromScriptActions.ShowUI)
-                        {
-                            m_currentFrameAnalyser = Test.TestAnalyser(
-                                snapshotTask.Result,
-                                createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan,
-                                mvsReader,
-                                m_currentFrameAnalyser);
-                        }
+                        m_currentFrameAnalyser = Test.TestAnalyser(
+                            snapshotTask.Result,
+                            mvsReader,
+                            createRulesFromScriptActions);
+
                         // TODO handle null
-                        var response = new CreateRulesFromScriptActionsPluginRequest.Response
+                        var response = new CreateRulesFromScriptActionsPluginResponse
                         {
+                            FrameDurationInMs = mvsReader.FrameDurationInMs,
                             Actions = m_currentFrameAnalyser?.CreateActions(
                                 mvsReader,
                                 createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan,
                                 createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesFromScriptActions.DurationToGenerateInSeconds),
-                                createRulesFromScriptActions.MaximumNbStrokesDetectedPerSecond)
+                                createRulesFromScriptActions.SharedConfig.MaximumNbStrokesDetectedPerSecond)
                         };
 
                         var responseFullPath = Path.Combine(r_responseFolder, e.Name);
