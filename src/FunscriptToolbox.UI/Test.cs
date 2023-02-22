@@ -2,6 +2,7 @@
 using FunscriptToolbox.Core.MotionVectors.PluginMessages;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace FunscriptToolbox.UI
 {
@@ -9,9 +10,9 @@ namespace FunscriptToolbox.UI
     {
         [STAThread]
         public static FrameAnalyser TestAnalyser(
-            byte[] snapshotContent, 
+            Task<byte[]> snapshotContent, 
             MotionVectorsFileReader mvsReader, 
-            CreateRulesFromScriptActionsPluginRequest createRulesFromScriptActions)
+            CreateRulesPluginRequest createRulesFromScriptActions)
         {
             MotionVectorsEditor editor = null;
             Exception threadEx = null;

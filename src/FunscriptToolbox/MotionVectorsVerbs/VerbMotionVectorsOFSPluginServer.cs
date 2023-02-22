@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core.MotionVectors;
 using FunscriptToolbox.Core.MotionVectors.PluginMessages;
+using FunscriptToolbox.InstallationFiles;
 using FunscriptToolbox.UI;
 using log4net;
 using Newtonsoft.Json;
@@ -16,6 +17,9 @@ using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.MotionVectorsVerbs
 {
+    // TODO LATER:
+    // mask in learn from script
+
     internal class VerbMotionVectorsOFSPluginServer : VerbMotionVectors
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
@@ -29,7 +33,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             [Option('t', "timeout", Required = false, HelpText = "Timeout before the server stop byitself. Plugin need to send keepalive to keep it alive if no request is send during that time.", Default = 300)]
             public int TimeOutInSeconds { get; set; }
 
-            [Option('d', "debugmode", Required = false, HelpText = "Debug mode.", Default = false)]
+            [Option('d', "debugmode", Hidden = true, Required = false, HelpText = "Debug mode.", Default = false)]
             public bool DebugMode { get; set; }
 
             public TimeSpan TimeOut => TimeSpan.FromSeconds(this.TimeOutInSeconds);
@@ -56,7 +60,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 {
                     KnownTypes = new List<Type>
                     {
-                        typeof(CreateRulesFromScriptActionsPluginRequest)
+                        typeof(CheckVersionPluginRequest),
+                        typeof(CreateRulesPluginRequest),
+                        typeof(KeepAlivePluginRequest),
                     }
                 }
             };
@@ -114,37 +120,59 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     {
                         File.Delete(e.FullPath);
                     }
-                    if (request is CreateRulesFromScriptActionsPluginRequest createRulesFromScriptActions)
+
+                    PluginResponse response;
+                    if (request is CheckVersionPluginRequest checkVersionRequest)
                     {
-                        WriteInfo($"Server: Received {createRulesFromScriptActions.GetType().Name} ({e.Name})");
+                        response = new CheckVersionPluginResponse()
+                            {
+                                LastestVersion = PluginClient.Version
+                            };
+                    }
+                    else if (request is KeepAlivePluginRequest keepAliveRequest)
+                    {
+                        response = new KeepAlivePluginResponse();
+                    }
+                    else if (request is CreateRulesPluginRequest createRulesRequest)
+                    {
+                        WriteInfo($"Server: Received {createRulesRequest.GetType().Name} ({e.Name})");
 
-                        var mvsReader = GetMvsReader(createRulesFromScriptActions.MvsFullPath, createRulesFromScriptActions.SharedConfig.MaximumMemoryUsageInMB);
-                        var snapshotTask = TakeSnapshot(createRulesFromScriptActions.VideoFullPath, createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan);
+                        var mvsReader = GetMvsReader(createRulesRequest.MvsFullPath, createRulesRequest.SharedConfig.MaximumMemoryUsageInMB);
+                        var snapshotTask = TakeSnapshot(createRulesRequest.VideoFullPath, createRulesRequest.CurrentVideoTimeAsTimeSpan);
 
-                        m_currentFrameAnalyser = Test.TestAnalyser(
-                            snapshotTask.Result,
-                            mvsReader,
-                            createRulesFromScriptActions);
+                        if (createRulesRequest.ShowUI)
+                        {
+                            m_currentFrameAnalyser = Test.TestAnalyser(snapshotTask, mvsReader, createRulesRequest);
+                        }
+                        else
+                        {
+                            m_currentFrameAnalyser = createRulesRequest
+                                .CreateInitialFrameAnalyser(mvsReader)
+                                .Filter(createRulesRequest.SharedConfig.DefaultActivityFilter, createRulesRequest.SharedConfig.DefaultQualityFilter);
+                        }
 
-                        // TODO handle null
-                        var response = new CreateRulesFromScriptActionsPluginResponse
+                        response = new CreateRulesPluginResponse
                         {
                             FrameDurationInMs = mvsReader.FrameDurationInMs,
                             Actions = m_currentFrameAnalyser?.CreateActions(
                                 mvsReader,
-                                createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan,
-                                createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesFromScriptActions.DurationToGenerateInSeconds),
-                                createRulesFromScriptActions.SharedConfig.MaximumNbStrokesDetectedPerSecond)
+                                createRulesRequest.CurrentVideoTimeAsTimeSpan,
+                                createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesRequest.DurationToGenerateInSeconds),
+                                createRulesRequest.SharedConfig.MaximumNbStrokesDetectedPerSecond)
                         };
-
-                        var responseFullPath = Path.Combine(r_responseFolder, e.Name);
-                        File.WriteAllText(responseFullPath, JsonConvert.SerializeObject(response));
-                        WriteInfo($"Server: Saved {createRulesFromScriptActions.GetType().Name}.Response ({e.Name})");
                     }
                     else
                     {
-
+                        WriteInfo($"Server: Unsupport request type '{request.GetType()}'.");
+                        response = null;
                     }
+
+                    if (response != null)
+                    {
+                        var responseFullPath = Path.Combine(r_responseFolder, e.Name);
+                        File.WriteAllText(responseFullPath, JsonConvert.SerializeObject(response));
+                    }
+
                     WriteInfo($"Server: Done.");
                 }
             }

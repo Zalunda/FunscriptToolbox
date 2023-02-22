@@ -10,35 +10,35 @@ function server_connection:new(FTMVSFullPath, enableLogs)
 		serverProcessHandle = nil,
 		requests = {},
 		lastTimeTaken = 0,
+		serverTimeout = 300,
 		status = ''
 	}
 	setmetatable(o, {__index = server_connection})
 	return o
 end
 
-function server_connection:GetStatus()
+function server_connection:getStatus()
 	return self.status
 end
 
 -- Find an available 'channel' to communicate with the server (in case multiple OFS are running at the same time)
 -- The function open a '.lock' file, which is not closed. This will 'reserve' that channel for this process. 
 function server_connection:setBaseCommunicationFilePath()
-    while true do
-        local randomId = math.random(1,1000)
-		randomId = 99 -- TODO REMOVE
-        self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. randomId
-        self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. randomId
+
+	for id = 1, 1000 do
+        self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. id
+        self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. id
 
         local success, file = pcall(io.open, self.requestBaseFilePath .. ".lock", "w+")
         if not success then
             print("Channel file already used: " .. file)
         else
-			print('Channel '.. randomId .. ' locked for this process.')
+			print('Channel '.. id .. ' locked for this process.')
             self.channelBaseFileLock = file
 			self.channelCurrentTransactionNumber = 1
 			return
         end
-    end
+	end
 end
 
 function server_connection:startServerIfNeeded()
@@ -59,7 +59,7 @@ function server_connection:startServerIfNeeded()
     table.insert(args, "--channelbasefilepath")
     table.insert(args, self.requestBaseFilePath .. "-")
     table.insert(args, "--timeout")
-    table.insert(args, 300)
+    table.insert(args, self.serverTimeout)
 
     print("cmd: ", cmd)
     print("args: ", table.unpack(args))
@@ -70,6 +70,7 @@ end
 function server_connection:sendRequest(request, callback)
 
 	self:startServerIfNeeded()
+	self.nextKeepAlive = os.time() + self.serverTimeout / 2	
 
 	local transactionNumber = self.channelCurrentTransactionNumber
 	self.channelCurrentTransactionNumber = self.channelCurrentTransactionNumber + 1
@@ -86,9 +87,9 @@ function server_connection:sendRequest(request, callback)
     table.insert(self.requests, { 
 		transactionNumber = transactionNumber,
 		startTime = os.clock(),
-		request = request, 
+		request = request,
 		responseFilePath = responseFilePath, 
-		callback = callback 
+		callback = callback
 	})
 end
 
@@ -122,15 +123,20 @@ function server_connection:processResponses()
 			local response = self:getResponseForRequest(request)
 			if response then
 				-- Call the callback with the response
-				request.callback(response)
+				if request.callback then
+					request.callback(response)
+				end
 				-- Remove the handled request from the requests table
 				table.remove(self.requests, i)
 			end
 		end
 		self.status = 'Waiting for response for ' .. (os.clock() - request.startTime) .. ' seconds'
 	end
-	
-	-- TODO add keepalive	
+
+	if self.nextKeepAlive and os.time() > self.nextKeepAlive then
+		print('Sending keep alive to server')
+		self:sendRequest({["$type"] = "KeepAlivePluginRequest"});
+	end
 end
 
 return server_connection

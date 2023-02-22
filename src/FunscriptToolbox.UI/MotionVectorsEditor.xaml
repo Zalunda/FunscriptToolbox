@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:FunscriptToolbox.UI" 
         xmlns:rc="clr-namespace:RichCanvas;assembly=RichCanvas"
         mc:Ignorable="d"
-        Title="MotionVectorsEditor"
+        Title="FunscriptToolBox MotionVectors Analyser"
         Loaded="Window_Loaded">
     <DockPanel LastChildFill="True">
         <TabControl DockPanel.Dock="Bottom" Name="tabControl" Margin="10" HorizontalAlignment="Center">

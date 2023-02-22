@@ -155,7 +155,7 @@ namespace FunscriptToolbox
                     args = new[]
                     {
                         "motionvectors.ofspluginserver",
-                        "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors\Channel-99-"),
+                        "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors\Channel-1-"),
                         "--timeout", "300",
                         "--debugmode"
                     };

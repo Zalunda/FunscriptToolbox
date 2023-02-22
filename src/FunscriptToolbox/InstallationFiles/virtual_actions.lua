@@ -15,11 +15,12 @@ end
 
 function virtual_actions:init(actions, frameDurationInMs)
 	self.GeneratedActionsOriginal = {}
-	
 	if #actions > 0 then
+		virtual_actions:removeVirtualActionsInTimelime()
+		
 		script = ofs.Script(scriptIdx)
-		local zoneStartAction = script:closestActionBefore(actions[1].at - 0.001)
-		local zoneEndAction = script:closestActionAfter(actions[1].at + 0.001)
+		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
+		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + 0.001)
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
 		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
 
@@ -37,7 +38,8 @@ function virtual_actions:init(actions, frameDurationInMs)
 			local new_action = { 
 				at = action.at / 1000.0,
 				pos = action.pos,
-				isTop = isTop
+				isTop = isTop,
+				enabled = true
 			}
 
 			if new_action.at > zoneStart and new_action.at < zoneEnd then
@@ -70,6 +72,13 @@ function virtual_actions:removeVirtualActionsInTimelime()
 	end
 end
 
+function virtual_actions:deleteVirtualActions()
+
+	self:removeVirtualActionsInTimelime()
+	self.ActionsInTimeline = {}
+	self.GeneratedActionsOriginal = {}
+end
+
 function virtual_actions:update()
 
 	self:removeVirtualActionsInTimelime()
@@ -78,26 +87,33 @@ function virtual_actions:update()
 
 		script = ofs.Script(scriptIdx)
 
-		local zoneStartAction = script:closestActionBefore(self.GeneratedActionsOriginal[1].at - 0.001)
-		local zoneEndAction = script:closestActionAfter(self.GeneratedActionsOriginal[1].at + 0.001)
-		local zoneStart = zoneStartAction and zoneStartAction.at or 0
-		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
-	
 		self.ActionsInTimeline = {}
 
 		-- Add the points, ajusting the at, if needed
-		for i, action in ipairs(self.GeneratedActionsOriginal) do
-			-- Ajust at
-			local newAt = action.at
-			if action.isTop then
-				newAt = action.at + self.FrameDurationInSec * self.Config.TopPointsOverride
-			else
-				newAt = action.at + self.FrameDurationInSec * self.Config.BottomPointsOverride
-			end
+		local zoneStartAction = nil
+		local zoneEndAction = nil
+		for i, action in ipairs(self.GeneratedActionsOriginal) do	
+			if action.enabled then 
+				if not zoneStartAction then
+					zoneStartAction = script:closestAction(action.at)
+					zoneEndAction = script:closestActionAfter(action.at + self.FrameDurationInSec / 2)
+				end
 			
-			local new_action = Action.new(newAt, action.pos, false)
-			table.insert(self.ActionsInTimeline, new_action)
-		end
+				-- Ajust at
+				local newAt = action.at
+				if action.isTop then
+					newAt = action.at + self.FrameDurationInSec * self.Config.TopPointsOffset
+				else
+					newAt = action.at + self.FrameDurationInSec * self.Config.BottomPointsOffset
+				end
+				
+				local new_action = Action.new(newAt, action.pos, false)
+
+				table.insert(self.ActionsInTimeline, new_action)
+			end
+		end	
+		local zoneStart = zoneStartAction and zoneStartAction.at or 0
+		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
 
 		-- Make sure that point are still in order and don't overlap (because of the top/bottom override)
 		for i = 2, #self.ActionsInTimeline do
@@ -120,15 +136,17 @@ function virtual_actions:update()
 			
 			local distance = math.abs(previousPos - currentPos)
 			if distance > 0 then
-				local finalAmplitude = minAmplitude + distance * amplitudeRange / 100
-				local minPosition = math.max(self.Config.MinimumPosition, centerPosition - finalAmplitude / 2)
-				local maxPosition = minPosition + finalAmplitude
-				if maxPosition > self.Config.MaximumPosition then
-					local diff = maxPosition - self.Config.MaximumPosition
-					maxPosition = maxPosition - diff
-					minPosition = minPosition - diff
-				end			
-				
+				local finalAmplitude = (minAmplitude + distance * amplitudeRange / 100) * (1 + self.Config.ExtraAmplitudePercentage / 100)
+				local minPosition = centerPosition - finalAmplitude / 2
+				local maxPosition = centerPosition + finalAmplitude / 2
+				if minPosition < self.Config.MinimumPosition then
+					minPosition = self.Config.MinimumPosition
+					maxPosition = math.min(self.Config.MaximumPosition, minPosition + finalAmplitude)
+				elseif maxPosition > self.Config.MaximumPosition then
+					maxPosition = self.Config.MaximumPosition
+					minPosition = math.max(self.Config.MinimumPosition, maxPosition - finalAmplitude)
+				end
+
 				if previousPos < currentPos then
 					self.ActionsInTimeline[i - 1].pos = minPosition
 					self.ActionsInTimeline[i].pos = maxPosition
@@ -148,8 +166,10 @@ function virtual_actions:update()
 			end
 		end
 
+		self:debugSameTimestamp(zoneStart, zoneEnd)
+
 		-- Finally, add the points to OFS timeline
-		for i, action in ipairs(self.ActionsInTimeline) do
+		for i, action in ipairs(self.ActionsInTimeline) do		
 			script.actions:add(action)
 		end
 
@@ -157,15 +177,40 @@ function virtual_actions:update()
 	end
 end
 
-function virtual_actions:getNumberOfActions()
-	return #self.ActionsInTimeline
+function virtual_actions:debugSameTimestamp(zoneStart, zoneEnd)
+	
+	print('---debugSameTimestamp---')
+	print('zoneStart ' .. zoneStart)
+	print('zoneEnd ' .. zoneEnd)
+	script = ofs.Script(scriptIdx)
+	for i, action in ipairs(self.ActionsInTimeline) do		
+		local closest = script:closestAction(action.at)
+		if closest and action.at == closest.at then
+			print('bug at ' .. action.at .. ' (' .. i .. ')')
+		end
+	end
+	print('------------------------')
+end
+
+function virtual_actions:getStatus()
+
+	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then
+		local firstAction = self.ActionsInTimeline[1]
+		local lastAction = self.ActionsInTimeline[#self.ActionsInTimeline]
+		return #self.ActionsInTimeline .. ' actions, ' .. lastAction.at - firstAction.at .. ' secs'
+	else
+		return 'empty'
+	end
+
 end
 
 function virtual_actions:removeActionsBefore(time)
  	if self.GeneratedActionsOriginal then
- 		while #self.GeneratedActionsOriginal > 0 and self.GeneratedActionsOriginal[1].at < time do
- 			table.remove(self.GeneratedActionsOriginal, 1)
- 		end
+		for i, action in ipairs(self.GeneratedActionsOriginal) do
+			if action.at < time then
+				action.enabled = false
+			end
+		end
  	end
  	if self.ActionsInTimeline then
  		while #self.ActionsInTimeline > 0 and self.ActionsInTimeline[1].at < time do

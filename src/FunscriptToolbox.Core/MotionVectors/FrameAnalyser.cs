@@ -17,7 +17,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         {
             this.NbBlocX = nbBlocX;
             this.NbBlocY = nbBlocY;
-            this.Rules = rules;
+            this.Rules = rules ?? Array.Empty<BlocAnalyserRule>();
             this.ActivityLevel = activityLevel;
             this.QualityLevel = qualityLevel;
         }

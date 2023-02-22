@@ -20,76 +20,35 @@ namespace FunscriptToolbox.UI
     /// </summary>
     public partial class MotionVectorsEditor : Window
     {
-        private readonly TimeSpan r_videoTime;
         private readonly MotionVectorsFileReader r_mvsReader;
         private readonly FrameAnalyser r_originalFrameAnalyser;
-        private readonly Bitmap r_snapshot;
         private readonly Bitmap[] r_vectorBitmaps;
+        private readonly Bitmap r_snapshot;
         private FrameAnalyser m_currentLearnFromScriptFrameAnalyser;
         private FrameAnalyser m_currentManualFrameAnalyser;
 
         public FrameAnalyser FinalFrameAnalyser { get; private set; }
 
         public MotionVectorsEditor(
-            byte[] snapshotContent, 
-            TimeSpan videoTime, 
+            Task<byte[]> snapshotContent,
             MotionVectorsFileReader mvsReader, 
-            FrameAnalyser originalFrameAnalyser,
-            int activityLevel,
-            int qualityLevel)
+            CreateRulesPluginRequest createRulesRequest)
         {
-            using (MemoryStream ms = new MemoryStream(snapshotContent))
-            {
-                r_snapshot = new Bitmap(ms);
-            }
-            r_videoTime = videoTime;
             r_mvsReader = mvsReader;
-            r_originalFrameAnalyser = originalFrameAnalyser ?? new FrameAnalyser(r_mvsReader.NbBlocX, r_mvsReader.NbBlocY, Array.Empty<BlocAnalyserRule>());
-            m_currentManualFrameAnalyser = r_originalFrameAnalyser;
-            this.FinalFrameAnalyser = null;
-
+            r_originalFrameAnalyser = createRulesRequest.CreateInitialFrameAnalyser(mvsReader);
             r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
-
-            InitializeComponent();
-
-            ActivityTextBox.Text = activityLevel.ToString();
-            QualityTextBox.Text = qualityLevel.ToString();
-
-            ScreenShot.Width = r_mvsReader.VideoWidth;
-            ScreenShot.Height = r_mvsReader.VideoHeight;
-            VirtualCanvas.ExtentSize = new System.Windows.Size(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
-        }
-
-        public MotionVectorsEditor(
-            byte[] snapshotContent,
-            MotionVectorsFileReader mvsReader, 
-            CreateRulesFromScriptActionsPluginRequest createRulesFromScriptActions)
-        {
-            using (MemoryStream ms = new MemoryStream(snapshotContent))
+            using (MemoryStream ms = new MemoryStream(snapshotContent.Result))
             {
                 r_snapshot = new Bitmap(ms);
             }
-            r_mvsReader = mvsReader;
-            r_videoTime = createRulesFromScriptActions.CurrentVideoTimeAsTimeSpan;
-
-            var learningActions = createRulesFromScriptActions.SelectedActions.Length > 0
-                ? createRulesFromScriptActions.SelectedActions
-                : createRulesFromScriptActions.Actions.Length > 0
-                    ? createRulesFromScriptActions.Actions // TODO only get last createRulesFromScriptActions.SharedConfig.DefaultLearningDurationInSeconds seconds
-                    : null; 
-            r_originalFrameAnalyser = learningActions == null
-                ? new FrameAnalyser(mvsReader.NbBlocX, mvsReader.NbBlocY)
-                : FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, learningActions);
 
             m_currentManualFrameAnalyser = r_originalFrameAnalyser;
             this.FinalFrameAnalyser = null;
 
-            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
-
             InitializeComponent();
 
-            ActivitySlider.Value = createRulesFromScriptActions.SharedConfig.DefaultActivityFilter;
-            QualitySlider.Value = createRulesFromScriptActions.SharedConfig.DefaultQualityFilter;
+            ActivitySlider.Value = createRulesRequest.SharedConfig.DefaultActivityFilter;
+            QualitySlider.Value = createRulesRequest.SharedConfig.DefaultQualityFilter;
 
             ScreenShot.Width = r_mvsReader.VideoWidth;
             ScreenShot.Height = r_mvsReader.VideoHeight;

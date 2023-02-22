@@ -24,5 +24,10 @@ namespace FunscriptToolbox.Core
             this.At = at;
             this.Pos = pos;
         }
+
+        public override string ToString()
+        {
+            return $"{At}, {Pos}";
+        }
     }
 }

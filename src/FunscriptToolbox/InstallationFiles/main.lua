@@ -12,21 +12,21 @@ scriptIdx = 1
 config = {
 	PluginVersion = "1.0.0", -- TODO Replace with "[[PluginVersion]]",
 	EnableLogs = false,
-	MaximumDurationToGenerateInSeconds = 200,
-	TopPointsOverride = 0,
-	BottomPointsOverride = 0,
+	TopPointsOffset = 0,
+	BottomPointsOffset = 0,
 	MinimumPosition = 0,
 	MaximumPosition = 100,
 	MinimumPercentageFilled = 0,
 	AmplitudeCenter = 50,
+	ExtraAmplitudePercentage = 0
 }
 
 sharedConfig = {
 	MaximumMemoryUsageInMB = 1000,
-	DefaultLearningDurationInSeconds = 10,
-	MaximumLearningDurationInSeconds = 60,
+	LearningDurationInSeconds = 10,
 	DefaultActivityFilter = 60,
 	DefaultQualityFilter = 75,
+	MaximumDurationToGenerateInSeconds = 60,
 	MaximumNbStrokesDetectedPerSecond = 3.0
 }
 
@@ -38,9 +38,18 @@ function init()
 	
 	connection = server_connection:new(FTMVSFullPath, config.enableLogs)
 	virtualActions = {}
-	-- Check ServerLastestPluginVersion vs PluginVersion
+	
+	sendCheckVersionRequest()
 
     status = "FunscriptToolbox.MotionVectors running"
+end
+
+function update(delta)
+    updateCounter = updateCounter + 1
+    if math.fmod(updateCounter, 10) == 0 then
+		connection:processResponses()
+		getVirtualActions():removeActionsBefore(player.CurrentTime())
+    end
 end
 
 function getVirtualActions(scriptIdx)
@@ -59,7 +68,7 @@ end
 function createRequest(service)
 
     local videoFullPath = player.CurrentVideo()
-	local mvsFullPath = videoFullPath:gsub("-visual.mp4", "")
+	local mvsFullPath = videoFullPath:gsub("-visual.mp4", "") -- TODO Better way to find .mvs
  	return {
 		["$type"] = service,
 		VideoFullPath = videoFullPath,
@@ -69,26 +78,25 @@ function createRequest(service)
 	}
 end
 
-function binding.start_funscripttoolbox_motionvectors()
-
+function sendCreateRulesRequest(showUI)
 	getVirtualActions():removeVirtualActionsInTimelime()
 
 	scriptIdx = ofs.ActiveIdx()
 	script = ofs.Script(scriptIdx)
-	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - sharedConfig.MaximumLearningDurationInSeconds)
-	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.1)
+	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - sharedConfig.LearningDurationInSeconds)
+	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.001)
 	local nextAction = script:closestActionAfter(player.CurrentTime() + 0.001);
 
- 	local request = createRequest("CreateRulesFromScriptActionsPluginRequest");
+ 	local request = createRequest("CreateRulesPluginRequest");
 	request.Actions = {}
 	request.SelectedActions = {}
 
 	if nextAction then
-		request.DurationToGenerateInSeconds = math.min(config.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
+		request.DurationToGenerateInSeconds = math.min(sharedConfig.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
 	else
-		request.DurationToGenerateInSeconds = config.MaximumDurationToGenerateInSeconds
+		request.DurationToGenerateInSeconds = sharedConfig.MaximumDurationToGenerateInSeconds
 	end
-	request.ShowUI = true
+	request.ShowUI = showUI
 
     for _, action in ipairs(script.actions) do
 		if (action.at >= firstAction.at and action.at <= lastAction.at) then
@@ -105,34 +113,51 @@ function binding.start_funscripttoolbox_motionvectors()
 		end
 	end
 
-	connection:sendRequest(request, handleCreateRulesFromScriptActionsResponse)
+	connection:sendRequest(request, handleCreateRulesResponse)
 end
 
-function handleCreateRulesFromScriptActionsResponse(response)
-
-	scriptIdx = ofs.ActiveIdx() -- todo save in request/response
-	local va = getVirtualActions(scriptIdx)	
-	va:init(response.Actions, response.FrameDurationInMs)
+function handleCreateRulesResponse(response)
+	if response.Actions then
+		scriptIdx = ofs.ActiveIdx() -- todo save in request/response
+		local va = getVirtualActions(scriptIdx)
+		va:init(response.Actions, response.FrameDurationInMs)
+	end
 end
 
-function update(delta)
-    updateCounter = updateCounter + 1
-    if math.fmod(updateCounter, 10) == 0 then
-		connection:processResponses()
-		getVirtualActions():removeActionsBefore(player.CurrentTime())
-    end
+function sendCheckVersionRequest()
+
+ 	local request = createRequest("CheckVersionPluginRequest");
+	request.PluginVersion = config.PluginVersion
+	connection:sendRequest(request, handleCheckVersionResponse)
 end
 
+function handleCheckVersionResponse(response)
+	if config.PluginVersion == response.LastestVersion then
+		print('Plugin is up to date.')
+	else
+		print('A new version of the plugin is available. Please rerun "FunscriptToolbox installation" script')
+	end
+end
+
+--------------------------------------------------------------------
+-- BINDINGS
+--------------------------------------------------------------------
+function binding.start_funscripttoolbox_motionvectors_without_ui()
+	sendCreateRulesRequest(false)
+end
+function binding.start_funscripttoolbox_motionvectors_with_ui()
+	sendCreateRulesRequest(true)
+end
 function binding.top_points_move_to_left()
-	config.TopPointsOverride = config.TopPointsOverride - 5
+	config.TopPointsOffset = config.TopPointsOffset - 5
 	updateVirtualPoints()
 end 
 function binding.top_points_move_to_right()
-	config.TopPointsOverride = config.TopPointsOverride + 5
+	config.TopPointsOffset = config.TopPointsOffset + 5
 	updateVirtualPoints()
 end 
 function binding.bottom_points_move_to_left()
-	config.BottomPointsOverride = config.BottomPointsOverride - 5
+	config.BottomPointsOffset = config.BottomPointsOffset - 5
 	updateVirtualPoints()
 end 
 function binding.min_position_move_up()
@@ -176,7 +201,6 @@ function binding.center_bottom()
 	updateVirtualPoints()
 end 
 function updateVirtualPoints()
-	print('updateVirtualPoints')
 	config.MinimumPosition = clamp(config.MinimumPosition, 0, 95)
 	config.MaximumPosition = clamp(config.MaximumPosition, config.MinimumPosition + 5, 100)
 	config.MinimumPercentageFilled = clamp(config.MinimumPercentageFilled, 0, 100)
@@ -184,31 +208,53 @@ function updateVirtualPoints()
 	getVirtualActions():update()
 end
 
+--------------------------------------------------------------------
+-- GUI
+--------------------------------------------------------------------
 function gui()
-    ofs.Text("Connection Status: " .. connection:GetStatus())
+    ofs.Text("Connection: " .. connection:getStatus())
+    ofs.Text("Virtual Actions: " .. getVirtualActions():getStatus())
 	ofs.Separator()
 	
-	if ofs.CollapsingHeader("Virtual Points") then
-		config.TopPointsOverride, topChanged = ofs.InputInt("Top Points At", config.TopPointsOverride, 1)
-		config.BottomPointsOverride, bottomChanged = ofs.InputInt("Bottom Points At", config.BottomPointsOverride, 1)
+	if ofs.CollapsingHeader("Virtual Actions") then
+		config.TopPointsOffset, topChanged = ofs.InputInt("Top Points Offset", config.TopPointsOffset, 1)
+		config.BottomPointsOffset, bottomChanged = ofs.InputInt("Bottom Points Offset", config.BottomPointsOffset, 1)
 		config.MinimumPosition, minChanged = ofs.InputInt("Min Pos", config.MinimumPosition, 5)
 		config.MaximumPosition, maxChanged = ofs.InputInt("Max Pos", config.MaximumPosition, 5)	
-		config.MinimumPercentageFilled, percentageChanged = ofs.InputInt("Min Pos % filled", config.MinimumPercentageFilled, 10)
 		config.AmplitudeCenter, amplitudeChanged = ofs.InputInt("Center Pos %", config.AmplitudeCenter, 10)
-		ofs.SameLine()
-		if ofs.Button("Top") then
-			config.AmplitudeCenter = 100
-			amplitudeChanged = true
-		end
+		config.MinimumPercentageFilled, percentageChanged = ofs.InputInt("Min Pos % filled", config.MinimumPercentageFilled, 10)
 		ofs.SameLine()
 		if ofs.Button("Bottom") then
 			config.AmplitudeCenter = 0
 			amplitudeChanged = true
 		end
+		ofs.SameLine()
+		if ofs.Button("Top") then
+			config.AmplitudeCenter = 100
+			amplitudeChanged = true
+		end
+		config.ExtraAmplitudePercentage, extraAmplitudeChanged = ofs.InputInt("Extra %", config.ExtraAmplitudePercentage, 10)		
+		config.ExtraAmplitudePercentage = clamp(config.ExtraAmplitudePercentage, 0, 1000)
+		ofs.SameLine()
+		if ofs.Button("Reset") then
+			config.ExtraAmplitudePercentage = 0
+			extraAmplitudeChanged = true
+		end
 		
-		if ofs.Button("Reset All") then
-			config.TopPointsOverride = 0
-			config.BottomPointsOverride = 0
+		if ofs.Button("Hide") then
+			getVirtualActions():removeVirtualActionsInTimelime()
+		end
+		ofs.SameLine()
+		if ofs.Button("Show") then
+			updateVirtualPoints()
+		end
+		ofs.SameLine()
+		if ofs.Button("Delete") then
+			getVirtualActions():deleteVirtualActions()
+		end
+		if ofs.Button("Reset Settings") then
+			config.TopPointsOffset = 0
+			config.BottomPointsOffset = 0
 			config.MinimumPosition = 10
 			config.MaximumPosition = 90
 			config.AmplitudeCenter = 50
@@ -216,7 +262,7 @@ function gui()
 			amplitudeChanged = true
 		end
 
-		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged then
+		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged or extraAmplitudeChanged then
 			updateVirtualPoints()
 		end
 
@@ -224,17 +270,17 @@ function gui()
 	end	
 
 	if ofs.CollapsingHeader("Learn from script") then
-		sharedConfig.DefaultLearningDurationInSeconds, _ = ofs.InputInt("Default duration", sharedConfig.DefaultLearningDurationInSeconds, 2)
-		sharedConfig.MaximumLearningDurationInSeconds, _ = ofs.InputInt("Maximum duration", sharedConfig.MaximumLearningDurationInSeconds, 10)
-		sharedConfig.MaximumLearningDurationInSeconds = clamp(sharedConfig.MaximumLearningDurationInSeconds, 30, 300)
-		sharedConfig.DefaultLearningDurationInSeconds = clamp(sharedConfig.DefaultLearningDurationInSeconds, 0, sharedConfig.MaximumLearningDurationInSeconds)
-		
+		sharedConfig.LearningDurationInSeconds, _ = ofs.InputInt("duration (sec)", sharedConfig.DefaultLearningDurationInSeconds, 2)
+		sharedConfig.LearningDurationInSeconds = clamp(sharedConfig.DefaultLearningDurationInSeconds, 0, sharedConfig.MaximumLearningDurationInSeconds)	
 		sharedConfig.DefaultActivityFilter, _ = ofs.InputInt("Default Activity Filter", sharedConfig.DefaultActivityFilter, 5)
 		sharedConfig.DefaultActivityFilter = clamp(sharedConfig.DefaultActivityFilter, 0, 100)
 		sharedConfig.DefaultQualityFilter, _ = ofs.InputInt("Default Quality Filter", sharedConfig.DefaultQualityFilter, 5)
 		sharedConfig.DefaultQualityFilter = clamp(sharedConfig.DefaultQualityFilter, 50, 100)
 	end	
 	if ofs.CollapsingHeader("Actions generation") then
+		sharedConfig.MaximumDurationToGenerateInSeconds, _ = ofs.InputInt("Maximum Generation (sec)", sharedConfig.MaximumDurationToGenerateInSeconds, 10)
+		sharedConfig.MaximumDurationToGenerateInSeconds = clamp(sharedConfig.MaximumDurationToGenerateInSeconds, 20, 100000)
+	
 		sharedConfig.MaximumNbStrokesDetectedPerSecond, _ = ofs.Input("Maximum Strokes per sec", sharedConfig.MaximumNbStrokesDetectedPerSecond, 0.5)
 		sharedConfig.MaximumNbStrokesDetectedPerSecond = clamp(sharedConfig.MaximumNbStrokesDetectedPerSecond, 1.0, 5.0)
 	end
