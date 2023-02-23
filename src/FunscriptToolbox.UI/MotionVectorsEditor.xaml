@@ -9,7 +9,7 @@
         Title="FunscriptToolBox MotionVectors Analyser"
         Loaded="Window_Loaded">
     <DockPanel LastChildFill="True">
-        <TabControl DockPanel.Dock="Bottom" Name="tabControl" Margin="10" HorizontalAlignment="Center">
+        <TabControl DockPanel.Dock="Bottom" Name="TabControl" Margin="10" HorizontalAlignment="Center" SelectionChanged="TabControl_SelectionChanged">
             <TabItem x:Name="LearnFromScriptTab" Header="Learn From Script">
                 <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
                     <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
@@ -42,6 +42,22 @@
                             Value="60"
                             VerticalAlignment="Center"
                             Width="250" ValueChanged="QualitySliderChanged"/>
+                        <TextBlock Text="100" VerticalAlignment="Center" FontSize="9" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="Min %" VerticalAlignment="Center" Width="45" />
+                        <TextBox Name="MinPercentageTextBox"
+                            Text="{Binding ElementName=MinPercentageSlider, Path=Value, Mode=TwoWay}"
+                            VerticalAlignment="Center"
+                            Margin="5,0,0,0" Width="30"
+                            TextChanged="LearnFromScriptFilterChanged"/>
+                        <TextBlock Text="0" VerticalAlignment="Center" FontSize="9" Margin="10,0,0,0" Width="10" TextAlignment="Right" />
+                        <Slider Name="MinPercentageSlider"
+                            Minimum="0" Maximum="100"
+                            SmallChange="1" LargeChange="1"
+                            Value="2"
+                            VerticalAlignment="Center"
+                            Width="250" ValueChanged="MinPercentageChanged"/>
                         <TextBlock Text="100" VerticalAlignment="Center" FontSize="9" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Right">

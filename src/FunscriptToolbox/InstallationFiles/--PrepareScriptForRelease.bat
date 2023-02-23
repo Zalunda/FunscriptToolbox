@@ -1,5 +1,5 @@
 ﻿@echo off
-REM ScriptVersion: 1.0
+REM ScriptVersion:1.0
 
 echo How to use:
 echo 1. Move new-scene.mp4 and new-scene.funscript to this folder.

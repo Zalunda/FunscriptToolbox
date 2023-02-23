@@ -148,7 +148,10 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                         {
                             m_currentFrameAnalyser = createRulesRequest
                                 .CreateInitialFrameAnalyser(mvsReader)
-                                .Filter(createRulesRequest.SharedConfig.DefaultActivityFilter, createRulesRequest.SharedConfig.DefaultQualityFilter);
+                                .Filter(
+                                    createRulesRequest.SharedConfig.DefaultActivityFilter, 
+                                    createRulesRequest.SharedConfig.DefaultQualityFilter,
+                                    createRulesRequest.SharedConfig.DefaultMinimumPercentageFilter);
                         }
 
                         response = new CreateRulesPluginResponse

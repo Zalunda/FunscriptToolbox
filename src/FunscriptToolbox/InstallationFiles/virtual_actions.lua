@@ -89,7 +89,7 @@ function virtual_actions:update()
 
 		self.ActionsInTimeline = {}
 
-		-- Add the points, ajusting the at, if needed
+		-- 1. Add the points, ajusting the at with top/bottom offset
 		local zoneStartAction = nil
 		local zoneEndAction = nil
 		for i, action in ipairs(self.GeneratedActionsOriginal) do	
@@ -99,7 +99,6 @@ function virtual_actions:update()
 					zoneEndAction = script:closestActionAfter(action.at + self.FrameDurationInSec / 2)
 				end
 			
-				-- Ajust at
 				local newAt = action.at
 				if action.isTop then
 					newAt = action.at + self.FrameDurationInSec * self.Config.TopPointsOffset
@@ -108,17 +107,16 @@ function virtual_actions:update()
 				end
 				
 				local new_action = Action.new(newAt, action.pos, false)
-
 				table.insert(self.ActionsInTimeline, new_action)
 			end
 		end	
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
 		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
 
-		-- Make sure that point are still in order and don't overlap (because of the top/bottom override)
+		-- 2. Make sure that actions are still in order and don't overlap (because of the top/bottom offset).
 		for i = 2, #self.ActionsInTimeline do
 			local indexToFix = i
-			while indexToFix > 1 and self.ActionsInTimeline[indexToFix - 1].at >= self.ActionsInTimeline[indexToFix].at do
+			while indexToFix > 1 and self.ActionsInTimeline[indexToFix - 1].at >= self.ActionsInTimeline[indexToFix].at - self.FrameDurationInSec / 2 do
 				self.ActionsInTimeline[indexToFix - 1].at = self.ActionsInTimeline[indexToFix].at - self.FrameDurationInSec
 				indexToFix = indexToFix - 1
 			end
@@ -158,7 +156,7 @@ function virtual_actions:update()
 			end
 		end
 		
-		-- Remove the item that are would outside our 'zone' (i.e. overlap existing actions)
+		-- Remove the item that are would outside our 'zone' (i.e. they might overlap existing actions)
 		for i = #self.ActionsInTimeline, 1, -1 do
 			local action = self.ActionsInTimeline[i]
 			if action.at <= zoneStart or action.at >= zoneEnd then
@@ -213,7 +211,7 @@ function virtual_actions:removeActionsBefore(time)
 		end
  	end
  	if self.ActionsInTimeline then
- 		while #self.ActionsInTimeline > 0 and self.ActionsInTimeline[1].at < time do
+ 		while #self.ActionsInTimeline > 0 and self.ActionsInTimeline[1].at + 5 * self.FrameDurationInSec < time do
  			table.remove(self.ActionsInTimeline, 1)
  		end
  	end

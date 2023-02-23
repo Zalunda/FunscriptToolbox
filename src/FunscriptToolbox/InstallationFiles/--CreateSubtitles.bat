@@ -1,5 +1,5 @@
 @echo off
-REM ScriptVersion: 1.0
+REM ScriptVersion:1.3
 
 echo How to use:
 echo see: https://discuss.eroscripts.com/t/how-to-create-subtitles-for-a-scene-even-if-you-dont-understand-the-language/90168
@@ -12,9 +12,6 @@ echo --- subtitles.video2vadsrt ---
 		subtitles.video2vadsrt ^
 		--suffix ".temp.vad" ^
 		"*.mp4"
-	
-REM ... Create file .temp.perfect-vad.srt with SubtitleEdit ...
-REM ... Rename .temp.vad.wav to .temp.perfect-vad.wav
 
 echo.
 echo --- subtitles.srt2wavchunks ---
@@ -28,16 +25,6 @@ echo --- subtitles.srt2singlewav ---
 		subtitles.srt2vadwav ^
 		--suffix ".whisper" ^
 		"*.perfect-vad.srt"
-
-REM ... Use whisper to transcribe the whisper.wav files with the following setting:
-REM      Model: large-v2
-REM      Language: Japanese (or other)
-REM      URL: empty
-REM      Upload Files: *.whisper.wav (you can add multiple files)
-REM      Task: Transcribe
-REM      VAD: none   (it's important to set to None)
-
-REM ... Rename .srt files produced by whisper to ".whisper.srt"
 
 echo.
 echo --- subtitles.wavchunks2srt ---

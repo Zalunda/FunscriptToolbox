@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 
@@ -49,6 +50,7 @@ namespace FunscriptToolbox.UI
 
             ActivitySlider.Value = createRulesRequest.SharedConfig.DefaultActivityFilter;
             QualitySlider.Value = createRulesRequest.SharedConfig.DefaultQualityFilter;
+            MinPercentageSlider.Value = createRulesRequest.SharedConfig.DefaultMinimumPercentageFilter;
 
             ScreenShot.Width = r_mvsReader.VideoWidth;
             ScreenShot.Height = r_mvsReader.VideoHeight;
@@ -143,6 +145,9 @@ namespace FunscriptToolbox.UI
         private int? GetQuality() => int.TryParse(this.QualityTextBox.Text, out var value) 
             ? (int?)value 
             : null;
+        private int? GetMinPercentage() => int.TryParse(this.MinPercentageTextBox.Text, out var value)
+            ? (int?)value
+            : null;
         private byte? GetDirection() => int.TryParse(this.DirectionTextBox.Text, out var value) 
             ? (byte?) (value % MotionVectorsHelper.NbBaseDirection)
             : null;
@@ -155,16 +160,21 @@ namespace FunscriptToolbox.UI
         {
             QualitySlider.Value = Math.Round(QualitySlider.Value);
         }
-
-        private async void LearnFromScriptFilterChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void MinPercentageChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            MinPercentageSlider.Value = Math.Round(MinPercentageSlider.Value);
+        }
+        private async void LearnFromScriptFilterChanged(object sender, TextChangedEventArgs e)
         {
             var activity = GetActivity();
             var quality = GetQuality();
-            if (activity != null && quality != null)
+            var minPercentage = GetMinPercentage();
+            if (activity != null && quality != null && minPercentage != null)
             {
                 m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(
                     activity.Value, 
-                    quality.Value);
+                    quality.Value,
+                    minPercentage.Value);
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentLearnFromScriptFrameAnalyser));
@@ -174,7 +184,7 @@ namespace FunscriptToolbox.UI
 
         private async void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (tabControl.SelectedItem == ManualTab)
+            if (TabControl.SelectedItem == ManualTab)
             {
                 var selection = VirtualCanvas.SelectionRectangle;
 
@@ -205,6 +215,11 @@ namespace FunscriptToolbox.UI
                     Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));
                 });
             }
+            else if (TabControl.SelectedItem == LearnFromScriptTab)
+            {
+                var selection = VirtualCanvas.SelectionRectangle;
+                // TODO Filter
+            }
         }
 
         private async void DirectionTextBoxChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -219,6 +234,25 @@ namespace FunscriptToolbox.UI
                         .Rules
                         .Select(r => new BlocAnalyserRule(r.Index, direction.Value))
                         .ToArray());
+                await Task.Run(() =>
+                {
+                    Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));
+                });
+            }
+        }
+
+        private async void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            TabItem selectedTab = (TabItem)TabControl.SelectedItem;
+            if (selectedTab == LearnFromScriptTab)
+            {
+                await Task.Run(() =>
+                {
+                    Dispatcher.Invoke(() => UpdateImage(m_currentLearnFromScriptFrameAnalyser));
+                });
+            }
+            else if (selectedTab == ManualTab)
+            {
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));

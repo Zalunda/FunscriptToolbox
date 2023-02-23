@@ -1,16 +1,19 @@
 ﻿using System;
-using System.Linq;
 
 namespace FunscriptToolbox.Core.MotionVectors.PluginMessages
 {
 
     public class CreateRulesPluginRequest : PluginRequest
     {
+        public string VideoFullPath { get; set; }
+        public int CurrentVideoTime { get; set; }
+        public string MvsFullPath { get; set; }
         public FunscriptAction[] Actions { get; set; }
         public FunscriptAction[] SelectedActions { get; set; }
         public double DurationToGenerateInSeconds { get; set; }
         public bool ShowUI { get; set; }
 
+        public TimeSpan CurrentVideoTimeAsTimeSpan => TimeSpan.FromMilliseconds(CurrentVideoTime);
         public FrameAnalyser CreateInitialFrameAnalyser(MotionVectorsFileReader mvsReader)
         {
             var learningActions = this.SelectedActions.Length > 0

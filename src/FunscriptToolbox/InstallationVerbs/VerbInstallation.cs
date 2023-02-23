@@ -2,9 +2,11 @@
 using FunscriptToolbox.InstallationFiles;
 using FunscriptToolbox.Properties;
 using log4net;
+using log4net.Util;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.MotionVectorsVerbs
 {
@@ -30,9 +32,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         public int Execute()
         {
             InstallOFSPlugin();
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles.bat", Resources.CreateSubtitles_bat);
-            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease.bat", Resources.PrepareScriptForRelease_bat);
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS.bat", Resources.PrepareVideoForOFS_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", Resources.CreateSubtitles_bat);
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", Resources.PrepareScriptForRelease_bat);
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", Resources.PrepareVideoForOFS_bat);
             return 0;
         }
 
@@ -60,11 +62,23 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             }
         }
 
-        private void CreateUseCaseFolder(string folderName, string scriptName, string scriptContent)
+        private void CreateUseCaseFolder(string folderName, string baseScriptName, string scriptContent)
         {
             WriteInfo($@"Creating use case folder '{folderName}'.");
             Directory.CreateDirectory(folderName);
-            CreateFileWithReplace(Path.Combine(folderName, scriptName), scriptContent);
+            var scriptVersion = Regex.Match(scriptContent, "ScriptVersion:(?<Version>[0-9.]*)");
+            var finalScriptName = scriptVersion.Success 
+                ? $"{baseScriptName}.{scriptVersion.Groups["Version"].Value}.bat" 
+                : $"{baseScriptName}.bat";
+            var scriptFullPath = Path.Combine(folderName, finalScriptName);
+            if (File.Exists(scriptFullPath))
+            {
+                WriteInfo($@"Skipping '{finalScriptName}', it already exists.", ConsoleColor.DarkGray);
+            }
+            else
+            {
+                CreateFileWithReplace(scriptFullPath, scriptContent);
+            }
         }
 
         private static void CreateFileWithReplace(string path, string content)

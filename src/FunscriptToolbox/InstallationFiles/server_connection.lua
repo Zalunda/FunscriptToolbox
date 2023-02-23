@@ -25,6 +25,8 @@ end
 -- The function open a '.lock' file, which is not closed. This will 'reserve' that channel for this process. 
 function server_connection:setBaseCommunicationFilePath()
 
+	-- TODO cleanup old communicationChannel
+
 	for id = 1, 1000 do
         self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. id
         self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. id
@@ -80,6 +82,9 @@ function server_connection:sendRequest(request, callback)
 	
     print('Sending request #' .. transactionNumber)
 	local encoded_data = json.encode(request)
+	if self.enableLogs then
+		print(encoded_data)
+	end
  	local requestFile = io.open(requestFilePath, "w")
  	requestFile:write(encoded_data)
  	requestFile:close()
@@ -103,7 +108,9 @@ function server_connection:getResponseForRequest(request)
 	print('Reading response #' .. request.transactionNumber)
     local content = f:read("*a")
     f:close()
-	print(content)
+	if self.enableLogs then
+		print(content)
+	end
     response_body = json.decode(content)
 	os.remove(request.responseFilePath)
 	

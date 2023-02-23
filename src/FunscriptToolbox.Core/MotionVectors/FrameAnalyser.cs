@@ -22,15 +22,25 @@ namespace FunscriptToolbox.Core.MotionVectors
             this.QualityLevel = qualityLevel;
         }
 
-        public FrameAnalyser Filter(int activityLevel, int qualityLevel)
+        public FrameAnalyser Filter(int activityLevel, int qualityLevel, int minPercentage)
         {
+            var rules = this.Rules
+                    .Where(rule => rule.Activity >= activityLevel)
+                    .Where(rule => rule.Quality >= qualityLevel)
+                    .ToArray();
+            var minRules = (int)(this.NbBlocX * this.NbBlocY * minPercentage / 100);
+            if (rules.Length < minRules)
+            {
+                rules = this.Rules
+                    .Where(rule => rule.Activity >= activityLevel)
+                    .OrderByDescending(rule => rule.Quality)
+                    .Take(minRules)
+                    .ToArray();
+            }
             return new FrameAnalyser(
                 this.NbBlocX,
                 this.NbBlocY,
-                this.Rules
-                    .Where(rule => rule.Activity >= activityLevel)
-                    .Where(rule => rule.Quality >= qualityLevel)
-                    .ToArray(),
+                rules,
                 activityLevel,
                 qualityLevel);
         }
