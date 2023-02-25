@@ -69,7 +69,7 @@ function update(delta)
 end
 
 function scriptChange(scriptIdx)
-	getVirtualActions(scriptIdx):removeActionsBefore(player.CurrentTime())
+	getVirtualActions(scriptIdx):unvirtualizeActionsBefore(player.CurrentTime())
 end
 
 function getVirtualActions(scriptIdx)
@@ -94,6 +94,7 @@ function createRequest(service)
 end
 
 function sendCreateRulesRequest(showUI)
+	getVirtualActions():unvirtualizeActionsBefore(player.CurrentTime())
 	getVirtualActions():removeVirtualActionsInTimelime()
 
 	local script = ofs.Script(ofs.ActiveIdx())
@@ -349,6 +350,7 @@ function gui()
 		end
 		ofs.SameLine()
 		if ofs.Button("Delete") then
+			getVirtualActions(scriptIdx):unvirtualizeActionsBefore(player.CurrentTime())
 			getVirtualActions():deleteVirtualActions()
 		end
 		

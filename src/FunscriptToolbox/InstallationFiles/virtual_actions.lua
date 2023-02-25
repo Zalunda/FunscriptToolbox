@@ -15,10 +15,8 @@ end
 
 function virtual_actions:init(actions, frameDurationInMs)
 	self.GeneratedActionsOriginal = {}
-	if #actions > 0 then
-		self:removeActionsBefore(player.CurrentTime() - self.FrameDurationInSec / 2)
-		self:removeVirtualActionsInTimelime()
-		
+	self:removeVirtualActionsInTimelime()
+	if #actions > 0 then	
 		local script = ofs.Script(self.ScriptIdx)
 		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
 		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + 0.001)
@@ -59,7 +57,7 @@ end
 function virtual_actions:removeVirtualActionsInTimelime()
 
 	local script = ofs.Script(self.ScriptIdx)
-	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then
+	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then		
 		local firstAction = self.ActionsInTimeline[1]
 		local lastAction = self.ActionsInTimeline[#self.ActionsInTimeline]
 		
@@ -73,7 +71,7 @@ function virtual_actions:removeVirtualActionsInTimelime()
 	end
 end
 
-function virtual_actions:removeActionsBefore(time)
+function virtual_actions:unvirtualizeActionsBefore(time)
  	if self.GeneratedActionsOriginal then
 		for i, action in ipairs(self.GeneratedActionsOriginal) do
 			if action.at <= time then
