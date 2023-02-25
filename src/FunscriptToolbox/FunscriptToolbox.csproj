@@ -69,6 +69,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ApplicationExitHandler.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />

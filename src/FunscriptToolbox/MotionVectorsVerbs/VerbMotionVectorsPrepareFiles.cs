@@ -150,66 +150,63 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         {
             var conversion = FFmpeg.Conversions.New()
                 .SetOverwriteOutput(true)
-                .AddParameter($"{r_options.AdditionnalInputFfmpegParameters.Replace("'", "")} -i \"{mp4FullPath}\" {ffmpegFilter} -bf 0 -g 100000 -c:a copy")
-                .SetOutput(outputPFramesMp4FullPath);
+                .AddParameter($"{r_options.AdditionnalInputFfmpegParameters.Replace("'", "")} -i \"{mp4FullPath}\" {ffmpegFilter} -bf 0 -g 100000 -c:a copy");
             StartAndHandleFfmpegProgress(conversion, outputPFramesMp4FullPath);
         }
 
         private void CreateMvsFile(string outputPFramesMp4FullPath, string outputMvsFullPath)
         {
-            try
-            {
-                var process = new Process();
-                process.StartInfo.FileName = @"MotionVectorsExtractor\MotionVectorsExtractor.exe";
-                process.StartInfo.Arguments = $"\"{outputPFramesMp4FullPath}\" \"{outputMvsFullPath}\"";
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.UseShellExecute = false;
+            var tempFile = outputMvsFullPath + ".tmp";
 
-                var stopwatch = Stopwatch.StartNew();
-                TimeSpan total = TimeSpan.Zero;
-                DateTime nextUpdate = DateTime.MinValue;
-                var errors = new List<string>();
-                process.ErrorDataReceived += (s, e) => errors.Add(e.Data);
-                process.OutputDataReceived += (s, e) => {
-                    if (DateTime.Now > nextUpdate && e.Data != null)
+            var process = new Process();
+            process.StartInfo.FileName = @"MotionVectorsExtractor\MotionVectorsExtractor.exe";
+            process.StartInfo.Arguments = $"\"{outputPFramesMp4FullPath}\" \"{tempFile}\"";
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.UseShellExecute = false;
+
+            var stopwatch = Stopwatch.StartNew();
+            TimeSpan total = TimeSpan.Zero;
+            DateTime nextUpdate = DateTime.MinValue;
+            var errors = new List<string>();
+            process.ErrorDataReceived += (s, e) => errors.Add(e.Data);
+            process.OutputDataReceived += (s, e) => {
+                if (DateTime.Now > nextUpdate && e.Data != null)
+                {
+                    var line = e.Data;
+                    var split = line.Split(',');
+                    if (split.Length > 4)
                     {
-                        var line = e.Data;
-                        var split = line.Split(',');
-                        if (split.Length > 4)
+                        var duration = TimeSpan.FromMilliseconds(int.Parse(split[2]));
+                        total = TimeSpan.FromMilliseconds(int.Parse(split[3]));
+                        var percent = duration.TotalSeconds / total.TotalSeconds * 100;
+                        if (percent > 0)
                         {
-                            var duration = TimeSpan.FromMilliseconds(int.Parse(split[2]));
-                            total = TimeSpan.FromMilliseconds(int.Parse(split[3]));
-                            var percent = duration.TotalSeconds / total.TotalSeconds * 100;
-                            if (percent > 0)
-                            {
-                                var timeLeft = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds / percent * (100 - percent));
-                                WriteInfo($"[MotionVectorsExtractor]   [{duration} / {total}] {(int)(Math.Round(percent, 2))}% => elapsed : {stopwatch.Elapsed} left: {timeLeft}", isProgress: true);
-                            }
+                            var timeLeft = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds / percent * (100 - percent));
+                            WriteInfo($"[MotionVectorsExtractor]   [{duration} / {total}] {(int)(Math.Round(percent, 2))}% => elapsed : {stopwatch.Elapsed} left: {timeLeft}", isProgress: true);
                         }
-                        nextUpdate = DateTime.Now + TimeSpan.FromSeconds(1);
                     }
-                    WriteDebug(e.Data);
-                };
-                process.Start();
-                process.BeginErrorReadLine();
-                process.BeginOutputReadLine();
-                process.WaitForExit();
+                    nextUpdate = DateTime.Now + TimeSpan.FromSeconds(1);
+                }
+                WriteDebug(e.Data);
+            };
+            process.Start();
+            process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+            ApplicationExitHandler.AddKillProcessAction(process);
+            process.WaitForExit();
+            ApplicationExitHandler.RemoveCleanUpAction();
 
-                WriteInfo($"[MotionVectorsExtractor]   Handling a video of {total} took {stopwatch.Elapsed}.");
-            }
-            catch
-            {
-                File.Delete(outputMvsFullPath);
-            }
+            File.Move(tempFile, outputMvsFullPath);
+
+            WriteInfo($"[MotionVectorsExtractor]   Handling a video of {total} took {stopwatch.Elapsed}.");
         }
 
         private void CreateMP4WithVisualMotionVector(string sourceFullPath, string destinationFullPath)
         {
             var conversion = FFmpeg.Conversions.New()
                 .SetOverwriteOutput(true)
-                .AddParameter($"-flags2 +export_mvs -i \"{sourceFullPath}\" -filter:v codecview=mv=pf+bf+bb -g 1 -c:a copy")
-                .SetOutput(destinationFullPath);
+                .AddParameter($"-flags2 +export_mvs -i \"{sourceFullPath}\" -filter:v codecview=mv=pf+bf+bb -g 1 -c:a copy");
             StartAndHandleFfmpegProgress(conversion, destinationFullPath);
         }
     }
