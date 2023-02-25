@@ -129,7 +129,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                     var nbFrames = bestMatchValue.NbRightDirection + bestMatchValue.NbNeutralDirection + bestMatchValue.NbWrongDirection;
                     var nbDirection = bestMatchValue.NbRightDirection + bestMatchValue.NbWrongDirection;
                     var activity = (float)(100f * nbDirection) / nbFrames;
-                    var quality = nbDirection == 0 ? 0 : (float)100f * bestMatchValue.NbRightDirection / nbDirection;
+                    var quality = nbDirection == 0 ? 50 : (float)100f * bestMatchValue.NbRightDirection / nbDirection;
                     var weigth = nbDirection == 0 ? 0 : (float)(bestMatchValue.WeightWhenRight - bestMatchValue.WeightWhenWrong) / nbDirection;
                     rules[i] = new BlocAnalyserRule((ushort)i, (byte)bestMatchAngle, activity, quality, weigth);
                 }
@@ -227,7 +227,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 var nbFrames = bestMatchValue.NbRightDirection + bestMatchValue.NbNeutralDirection + bestMatchValue.NbWrongDirection;
                 var nbDirection = bestMatchValue.NbRightDirection + bestMatchValue.NbWrongDirection;
                 var activity = (float)(100f * nbDirection) / nbFrames;
-                var quality = nbDirection == 0 ? 0 : (float)100f * bestMatchValue.NbRightDirection / nbDirection;
+                var quality = nbDirection == 0 ? 50 : (float)100f * bestMatchValue.NbRightDirection / nbDirection;
                 var weigth = nbDirection == 0 ? 0 : (float)(bestMatchValue.WeightWhenRight - bestMatchValue.WeightWhenWrong) / nbDirection;
                 rules[i] = new BlocAnalyserRule((ushort)i, (byte)bestMatchAngle, activity, quality, weigth);
             }

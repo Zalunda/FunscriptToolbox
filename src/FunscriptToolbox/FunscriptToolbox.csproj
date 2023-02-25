@@ -133,7 +133,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /y "$(SolutionDir)\..\lib\silero-vad\*.py" "$(TargetDir)\PythonSource"
-xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.*" "$(TargetDir)"</PostBuildEvent>
+    <PostBuildEvent>xcopy /y "$(SolutionDir)\..\lib\silero-vad\*.py" "PythonSource\"
+xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.dll" MotionVectorsExtractor\
+xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.exe" MotionVectorsExtractor\</PostBuildEvent>
   </PropertyGroup>
 </Project>

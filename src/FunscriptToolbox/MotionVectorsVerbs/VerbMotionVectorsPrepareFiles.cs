@@ -160,7 +160,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             try
             {
                 var process = new Process();
-                process.StartInfo.FileName = "MotionVectorsExtractor.exe";
+                process.StartInfo.FileName = @"MotionVectorsExtractor\MotionVectorsExtractor.exe";
                 process.StartInfo.Arguments = $"\"{outputPFramesMp4FullPath}\" \"{outputMvsFullPath}\"";
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;

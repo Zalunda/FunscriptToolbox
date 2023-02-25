@@ -28,7 +28,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                     .Where(rule => rule.Activity >= activityLevel)
                     .Where(rule => rule.Quality >= qualityLevel)
                     .ToArray();
-            var minRules = (int)(this.NbBlocX * this.NbBlocY * minPercentage / 100);
+            var minRules = this.NbBlocX * this.NbBlocY * minPercentage / 100;
             if (rules.Length < minRules)
             {
                 rules = this.Rules

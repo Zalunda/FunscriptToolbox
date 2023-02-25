@@ -52,8 +52,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     var extensionFolder = Path.Combine(ofsVersionFullPath, "extensions", extensionName);
                     Directory.CreateDirectory(extensionFolder);
                     CreateFileWithReplace(Path.Combine(extensionFolder, "json.lua"), Resources.json_lua);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "server_connection.lua"), Resources.server_connection_lua);
                     CreateFileWithReplace(Path.Combine(extensionFolder, "main.lua"), Resources.main_lua);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "server_connection.lua"), Resources.server_connection_lua);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "virtual_actions.lua"), Resources.virtual_actions_lua);
                 }
             }
             else

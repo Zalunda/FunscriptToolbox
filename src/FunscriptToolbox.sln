@@ -16,6 +16,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MotionVectorsExtractor", "M
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunscriptToolbox.UI", "FunscriptToolbox.UI\FunscriptToolbox.UI.csproj", "{1662D347-7920-40F8-94BD-8F0FEBD61980}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateZipRelease", "CreateZipRelease\CreateZipRelease.csproj", "{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F} = {0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -86,6 +91,18 @@ Global
 		{1662D347-7920-40F8-94BD-8F0FEBD61980}.Release|x64.Build.0 = Release|Any CPU
 		{1662D347-7920-40F8-94BD-8F0FEBD61980}.Release|x86.ActiveCfg = Release|Any CPU
 		{1662D347-7920-40F8-94BD-8F0FEBD61980}.Release|x86.Build.0 = Release|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Debug|x64.Build.0 = Debug|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Debug|x86.Build.0 = Debug|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Release|x64.ActiveCfg = Release|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Release|x64.Build.0 = Release|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Release|x86.ActiveCfg = Release|Any CPU
+		{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

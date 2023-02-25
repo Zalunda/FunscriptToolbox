@@ -18,7 +18,7 @@ set "path=[[FunscriptToolboxFolder]];%path%"
 echo --- motionvectors.prepare ---
 FunscriptToolbox.exe ^
 		motionvectors.prepare ^
-        --ffmpegfilter=VRMosaic ^
+		--ffmpegfilter=VRMosaic ^
 		--ffmpegfilterHeight=2048 ^
 		*.mp4
 

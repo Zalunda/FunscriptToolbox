@@ -123,10 +123,10 @@ function virtual_actions:update()
 		end
 			
 		-- Adjust position, according to the user preference
-		local ratio = (self.Config.MaximumPosition - self.Config.MinimumPosition) / 100
-		local minAmplitude = self.Config.MinimumPercentageFilled * ratio
+		local totalAmplitude = self.Config.MaximumPosition - self.Config.MinimumPosition
+		local ratio = totalAmplitude / 100
+		local minAmplitude = self.Config.MinimumPercentageFilled * ratio		
 		local amplitudeRange = (100 - self.Config.MinimumPercentageFilled) * ratio
-		local centerPosition = self.Config.MinimumPosition + self.Config.AmplitudeCenter * ratio
 
 		local previousPos = self.ActionsInTimeline[1].pos
 		for i = 2, #self.ActionsInTimeline do
@@ -135,22 +135,20 @@ function virtual_actions:update()
 			local distance = math.abs(previousPos - currentPos)
 			if distance > 0 then
 				local finalAmplitude = (minAmplitude + distance * amplitudeRange / 100) * (1 + self.Config.ExtraAmplitudePercentage / 100)
-				local minPosition = centerPosition - finalAmplitude / 2
-				local maxPosition = centerPosition + finalAmplitude / 2
-				if minPosition < self.Config.MinimumPosition then
-					minPosition = self.Config.MinimumPosition
-					maxPosition = math.min(self.Config.MaximumPosition, minPosition + finalAmplitude)
-				elseif maxPosition > self.Config.MaximumPosition then
-					maxPosition = self.Config.MaximumPosition
-					minPosition = math.max(self.Config.MinimumPosition, maxPosition - finalAmplitude)
+				local unusedAmplitude = totalAmplitude - finalAmplitude
+				minPosition = self.Config.MinimumPosition
+				maxPosition = self.Config.MaximumPosition
+				if unusedAmplitude > 0 then									
+					minPosition = minPosition + unusedAmplitude * self.Config.AmplitudeCenter / 100
+					maxPosition = minPosition + finalAmplitude
 				end
-
+				
 				if previousPos < currentPos then
-					self.ActionsInTimeline[i - 1].pos = minPosition
-					self.ActionsInTimeline[i].pos = maxPosition
+				 	self.ActionsInTimeline[i - 1].pos = minPosition
+				 	self.ActionsInTimeline[i].pos = maxPosition
 				else
-					self.ActionsInTimeline[i - 1].pos = maxPosition
-					self.ActionsInTimeline[i].pos = minPosition
+				 	self.ActionsInTimeline[i - 1].pos = maxPosition
+				 	self.ActionsInTimeline[i].pos = minPosition
 				end
 				previousPos = currentPos
 			end
@@ -164,7 +162,7 @@ function virtual_actions:update()
 			end
 		end
 
-		self:debugSameTimestamp(zoneStart, zoneEnd)
+		-- self:debugSameTimestamp(zoneStart, zoneEnd)
 
 		-- Finally, add the points to OFS timeline
 		for i, action in ipairs(self.ActionsInTimeline) do		

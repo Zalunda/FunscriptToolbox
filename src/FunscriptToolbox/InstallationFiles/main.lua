@@ -4,8 +4,8 @@ server_connection = require "server_connection"
 virtual_actions = require "virtual_actions"
 
 -- global var
-FTMVSFullPath = "C:\\Partage\\Medias\\Sources\\GitHub.Mine\\FunscriptToolbox\\src\\FunscriptToolbox\\bin\\Release\\FunscriptToolbox.exe"
-PluginVersion = "1.0.1"
+FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
+PluginVersion = "[[PluginVersion]]"
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
 updateCounter = 0
 scriptIdx = 1
@@ -38,7 +38,7 @@ function loadOrCreateConfig()
 		loaded_config = { config = {}, sharedConfig = {}}
     end
 
-	config.EnableLogs 								= loaded_config.config.EnableLogs								or true
+	config.EnableLogs 								= loaded_config.config.EnableLogs == nil and true or loaded_config.config.EnableLogs
 	config.TopPointsOffset 							= loaded_config.config.TopPointsOffset 							or 0
 	config.BottomPointsOffset 						= loaded_config.config.BottomPointsOffset 						or 0
 	config.MinimumPosition 							= loaded_config.config.MinimumPosition 							or 0
@@ -46,13 +46,14 @@ function loadOrCreateConfig()
 	config.MinimumPercentageFilled 					= loaded_config.config.MinimumPercentageFilled 					or 0
 	config.AmplitudeCenter 							= loaded_config.config.AmplitudeCenter 							or 50
 	config.ExtraAmplitudePercentage 				= loaded_config.config.ExtraAmplitudePercentage 				or 0
+	config.ShowUIOnCreate							= loaded_config.config.ShowUIOnCreate == nil and true or loaded_config.config.ShowUIOnCreate
 
 	sharedConfig.MaximumMemoryUsageInMB 			= loaded_config.sharedConfig.MaximumMemoryUsageInMB 			or 1000
 	sharedConfig.LearningDurationInSeconds 			= loaded_config.sharedConfig.LearningDurationInSeconds 			or 10
 	sharedConfig.DefaultActivityFilter 				= loaded_config.sharedConfig.DefaultActivityFilter 				or 60
 	sharedConfig.DefaultQualityFilter 				= loaded_config.sharedConfig.DefaultQualityFilter 				or 90
 	sharedConfig.DefaultMinimumPercentageFilter 	= loaded_config.sharedConfig.DefaultMinimumPercentageFilter 	or 5
-	sharedConfig.MaximumDurationToGenerateInSeconds = loaded_config.sharedConfig.MaximumDurationToGenerateInSeconds	or 60
+	sharedConfig.MaximumDurationToGenerateInSeconds = loaded_config.sharedConfig.MaximumDurationToGenerateInSeconds	or 120
 	sharedConfig.MaximumNbStrokesDetectedPerSecond 	= loaded_config.sharedConfig.MaximumNbStrokesDetectedPerSecond  or 3.0
 end
 
@@ -286,11 +287,20 @@ function binding.center_bottom()
 	config.AmplitudeCenter = 0
 	updateVirtualPoints()
 end 
+function binding.extraamplitude_move_up()
+	config.ExtraAmplitudePercentage = config.ExtraAmplitudePercentage + 10
+	updateVirtualPoints()
+end 
+function binding.extraamplitude_move_down()
+	config.ExtraAmplitudePercentage = config.ExtraAmplitudePercentage - 10
+	updateVirtualPoints()
+end 
 function updateVirtualPoints()
 	config.MinimumPosition = clamp(config.MinimumPosition, 0, 95)
 	config.MaximumPosition = clamp(config.MaximumPosition, config.MinimumPosition + 5, 100)
 	config.MinimumPercentageFilled = clamp(config.MinimumPercentageFilled, 0, 100)
 	config.AmplitudeCenter = clamp(config.AmplitudeCenter, 0, 100)
+	config.ExtraAmplitudePercentage = clamp(config.ExtraAmplitudePercentage, 0, 1000)
 	getVirtualActions():update(player.CurrentTime())
 	saveConfig()
 end
@@ -317,10 +327,13 @@ function gui()
     ofs.Text("Virtual Actions: " .. getVirtualActions():getStatus())
 	ofs.Separator()
 	
+	local showUIOnCreateChanged = false
 	if ofs.CollapsingHeader("Virtual Actions") then
-		if ofs.Button("Create") then
-			sendCreateRulesRequest(true)
+		if ofs.Button("Create") then			
+			sendCreateRulesRequest(config.ShowUIOnCreate)
 		end
+		ofs.SameLine()
+		config.ShowUIOnCreate, showUIOnCreateChanged = ofs.Checkbox('UI', config.ShowUIOnCreate)
 		ofs.SameLine()
 		if ofs.Button("Hide") then
 			getVirtualActions():removeVirtualActionsInTimelime()
@@ -351,7 +364,6 @@ function gui()
 		end
 		config.MinimumPercentageFilled, percentageChanged = ofs.InputInt("Min % filled", config.MinimumPercentageFilled, 10)
 		config.ExtraAmplitudePercentage, extraAmplitudeChanged = ofs.InputInt("Extra %", config.ExtraAmplitudePercentage, 10)		
-		config.ExtraAmplitudePercentage = clamp(config.ExtraAmplitudePercentage, 0, 1000)
 		ofs.SameLine()
 		if ofs.Button("Reset") then
 			config.ExtraAmplitudePercentage = 0
@@ -364,7 +376,7 @@ function gui()
 			config.MinimumPosition = 10
 			config.MaximumPosition = 90
 			config.AmplitudeCenter = 50
-			config.MinimumPercentageFilled = 60
+			config.MinimumPercentageFilled = 0
 			amplitudeChanged = true
 		end
 
@@ -398,7 +410,7 @@ function gui()
 		config.EnableLogs, changed07 = ofs.Checkbox("Enable Logs", config.EnableLogs)
 	end
 	
-	if changed00 or changed01 or changed02 or changed03 or changed04 or changed05 or changed06 or changed07 then
+	if showUIOnCreateChanged or changed00 or changed01 or changed02 or changed03 or changed04 or changed05 or changed06 or changed07 then
 		saveConfig()
 	end
 end
