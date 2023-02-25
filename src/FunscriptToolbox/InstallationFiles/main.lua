@@ -7,8 +7,6 @@ virtual_actions = require "virtual_actions"
 FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
 PluginVersion = "[[PluginVersion]]"
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
-updateCounter = 0
-scriptIdx = 1
 
 config = {}
 sharedConfig = {}
@@ -66,11 +64,11 @@ end
 
 
 function update(delta)
-    updateCounter = updateCounter + 1
-    if math.fmod(updateCounter, 10) == 0 then
-		connection:processResponses()
-		getVirtualActions():removeActionsBefore(player.CurrentTime())
-    end
+	connection:processResponses()
+end
+
+function scriptChange(scriptIdx)
+	getVirtualActions(scriptIdx):removeActionsBefore(player.CurrentTime())
 end
 
 function getVirtualActions(scriptIdx)
@@ -97,8 +95,7 @@ end
 function sendCreateRulesRequest(showUI)
 	getVirtualActions():removeVirtualActionsInTimelime()
 
-	scriptIdx = ofs.ActiveIdx()
-	script = ofs.Script(scriptIdx)
+	local script = ofs.Script(ofs.ActiveIdx())
 	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - sharedConfig.LearningDurationInSeconds)
 	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.001)
 	local nextAction = script:closestActionAfter(player.CurrentTime() + 0.001);
@@ -169,7 +166,7 @@ end
 
 function handleCreateRulesResponse(response)
 	if response.Actions then
-		scriptIdx = ofs.ActiveIdx() -- todo save in request/response
+		local scriptIdx = ofs.ActiveIdx() -- todo save in request/response
 		local va = getVirtualActions(scriptIdx)
 		va:init(response.Actions, response.FrameDurationInMs)
 	end
@@ -198,9 +195,14 @@ end
 function binding.start_funscripttoolbox_motionvectors_with_ui()
 	sendCreateRulesRequest(true)
 end
+function binding.go_back_to_start()
+	local start = getVirtualActions():getStartTime()
+	if start then
+		player.Seek(start)
+	end
+end
 function isClosestActionTop()
-	scriptIdx = ofs.ActiveIdx()
-	script = ofs.Script(scriptIdx)
+	local script = ofs.Script(ofs.ActiveIdx())
 	local firstAction, indexBefore = script:closestAction(player.CurrentTime())
 	local nextAction = firstAction and script:closestActionAfter(firstAction.at)
 	if firstAction and nextAction then
@@ -296,6 +298,8 @@ function binding.extraamplitude_move_down()
 	updateVirtualPoints()
 end 
 function updateVirtualPoints()
+	config.TopPointsOffset = clamp(config.TopPointsOffset, -10, 10)
+	config.BottomPointsOffset = clamp(config.BottomPointsOffset, -10, 10)
 	config.MinimumPosition = clamp(config.MinimumPosition, 0, 95)
 	config.MaximumPosition = clamp(config.MaximumPosition, config.MinimumPosition + 5, 100)
 	config.MinimumPercentageFilled = clamp(config.MinimumPercentageFilled, 0, 100)
@@ -346,45 +350,73 @@ function gui()
 		if ofs.Button("Delete") then
 			getVirtualActions():deleteVirtualActions()
 		end
+		
+		if ofs.Button("Go back to start") then
+			binding.go_back_to_start()
+		end
+		
 		ofs.Text('Adjust:')
 		config.TopPointsOffset, topChanged = ofs.InputInt("Top Points Offset", config.TopPointsOffset, 1)
+		ofs.SameLine()
+		if ofs.Button("0##TPO0") then
+			config.TopPointsOffset = 0
+			topChanged = true
+		end
+		
 		config.BottomPointsOffset, bottomChanged = ofs.InputInt("Bottom Points Offset", config.BottomPointsOffset, 1)
+		ofs.SameLine()
+		if ofs.Button("0##BPO0") then
+			config.BottomPointsOffset = 0
+			bottomChanged = true
+		end
+
 		config.MinimumPosition, minChanged = ofs.InputInt("Min Pos", config.MinimumPosition, 5)
+		ofs.SameLine()
+		if ofs.Button("0##MP0") then
+			config.MinimumPosition = 0
+			minChanged = true
+		end
+
 		config.MaximumPosition, maxChanged = ofs.InputInt("Max Pos", config.MaximumPosition, 5)	
+		ofs.SameLine()
+		if ofs.Button("100##MP100") then
+			config.MaximumPosition = 100
+			maxChanged = true
+		end
+
 		config.AmplitudeCenter, amplitudeChanged = ofs.InputInt("Center Pos %", config.AmplitudeCenter, 10)
 		ofs.SameLine()
-		if ofs.Button("Bottom") then
+		if ofs.Button("0##AC0") then
 			config.AmplitudeCenter = 0
 			amplitudeChanged = true
 		end
 		ofs.SameLine()
-		if ofs.Button("Top") then
+		if ofs.Button("50##AC50") then
+			config.AmplitudeCenter = 50
+			amplitudeChanged = true
+		end
+		ofs.SameLine()
+		if ofs.Button("100##AC100") then
 			config.AmplitudeCenter = 100
 			amplitudeChanged = true
 		end
 		config.MinimumPercentageFilled, percentageChanged = ofs.InputInt("Min % filled", config.MinimumPercentageFilled, 10)
+		ofs.SameLine()
+		if ofs.Button("0##MPF0") then
+			config.MinimumPercentageFilled = 0
+			percentageChanged = true
+		end	
+		
 		config.ExtraAmplitudePercentage, extraAmplitudeChanged = ofs.InputInt("Extra %", config.ExtraAmplitudePercentage, 10)		
 		ofs.SameLine()
-		if ofs.Button("Reset") then
+		if ofs.Button("0##EAP0") then
 			config.ExtraAmplitudePercentage = 0
 			extraAmplitudeChanged = true
-		end
-		
-		if ofs.Button("Reset Settings") then
-			config.TopPointsOffset = 0
-			config.BottomPointsOffset = 0
-			config.MinimumPosition = 10
-			config.MaximumPosition = 90
-			config.AmplitudeCenter = 50
-			config.MinimumPercentageFilled = 0
-			amplitudeChanged = true
 		end
 
 		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged or extraAmplitudeChanged then
 			updateVirtualPoints()
 		end
-
-		-- TODO Save Preset
 	end	
 
 	if ofs.CollapsingHeader("Learn from script") then

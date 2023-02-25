@@ -8,8 +8,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
@@ -102,9 +104,8 @@ namespace FunscriptToolbox
             }
         }
 
-        protected void StartAndHandleFfmpegProgress(IConversion conversion)
+        protected void StartAndHandleFfmpegProgress(IConversion conversion, string outputFile)
         {
-            // TODO kill ffmpeg process and delete file if process is killed mid-creation
             conversion.OnDataReceived += (sender, args) => WriteVerbose($"[ffmpeg]   {args.Data}", isProgress: args.Data.StartsWith("frame="));
             var stopwatch = Stopwatch.StartNew();
             var total = TimeSpan.Zero;
@@ -122,7 +123,26 @@ namespace FunscriptToolbox
                     total = args.TotalLength;
                 }
             };
-            conversion.Start().Wait();
+
+            // Wait for the end, but if Ctrl-C is used, stop ffmpeg, delete partial file, then quit
+            var flag = false;
+            var cancellationTokenSource = new CancellationTokenSource();
+            Console.CancelKeyPress += (s, e) => { flag = true; e.Cancel = true; };
+
+            var conversionResult = conversion
+                .Start(cancellationTokenSource.Token);
+            while (conversionResult.Status != TaskStatus.RanToCompletion)
+            {
+                if (flag)
+                {
+                    WriteInfo($"Ctrl-C called. Stopping ffmpeg process, deleting partial file, quitting.");
+                    cancellationTokenSource.Cancel();
+                    Thread.Sleep(TimeSpan.FromSeconds(2));
+                    File.Delete(outputFile);
+                    throw new Exception("Ctrl-C cancelled");
+                }
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
             WriteInfo($"[ffmpeg]   Handling a video of {total} took {stopwatch.Elapsed}.");
         }
 

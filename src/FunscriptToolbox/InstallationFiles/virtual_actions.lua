@@ -16,9 +16,10 @@ end
 function virtual_actions:init(actions, frameDurationInMs)
 	self.GeneratedActionsOriginal = {}
 	if #actions > 0 then
-		virtual_actions:removeVirtualActionsInTimelime()
+		self:removeActionsBefore(player.CurrentTime() - self.FrameDurationInSec / 2)
+		self:removeVirtualActionsInTimelime()
 		
-		script = ofs.Script(scriptIdx)
+		local script = ofs.Script(self.ScriptIdx)
 		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
 		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + 0.001)
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
@@ -57,7 +58,7 @@ end
 
 function virtual_actions:removeVirtualActionsInTimelime()
 
-	script = ofs.Script(scriptIdx)
+	local script = ofs.Script(self.ScriptIdx)
 	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then
 		local firstAction = self.ActionsInTimeline[1]
 		local lastAction = self.ActionsInTimeline[#self.ActionsInTimeline]
@@ -72,11 +73,34 @@ function virtual_actions:removeVirtualActionsInTimelime()
 	end
 end
 
+function virtual_actions:removeActionsBefore(time)
+ 	if self.GeneratedActionsOriginal then
+		for i, action in ipairs(self.GeneratedActionsOriginal) do
+			if action.at <= time then
+				action.enabled = false
+			end
+		end
+ 	end
+ 	if self.ActionsInTimeline then
+ 		while #self.ActionsInTimeline > 0 and self.ActionsInTimeline[1].at <= time do
+ 			table.remove(self.ActionsInTimeline, 1)
+ 		end
+ 	end
+end
+
 function virtual_actions:deleteVirtualActions()
 
 	self:removeVirtualActionsInTimelime()
 	self.ActionsInTimeline = {}
 	self.GeneratedActionsOriginal = {}
+end
+
+function virtual_actions:getStartTime()
+	if #self.ActionsInTimeline > 0 then
+		return self.ActionsInTimeline[1].at
+	else
+		return nil
+	end
 end
 
 function virtual_actions:update()
@@ -85,7 +109,7 @@ function virtual_actions:update()
 
 	if self.GeneratedActionsOriginal and #self.GeneratedActionsOriginal > 0 then
 
-		script = ofs.Script(scriptIdx)
+		local script = ofs.Script(self.ScriptIdx)
 
 		self.ActionsInTimeline = {}
 
@@ -178,7 +202,7 @@ function virtual_actions:debugSameTimestamp(zoneStart, zoneEnd)
 	print('---debugSameTimestamp---')
 	print('zoneStart ' .. zoneStart)
 	print('zoneEnd ' .. zoneEnd)
-	script = ofs.Script(scriptIdx)
+	local script = ofs.Script(self.ScriptIdx)
 	for i, action in ipairs(self.ActionsInTimeline) do		
 		local closest = script:closestAction(action.at)
 		if closest and action.at == closest.at then
@@ -198,21 +222,6 @@ function virtual_actions:getStatus()
 		return 'empty'
 	end
 
-end
-
-function virtual_actions:removeActionsBefore(time)
- 	if self.GeneratedActionsOriginal then
-		for i, action in ipairs(self.GeneratedActionsOriginal) do
-			if action.at < time then
-				action.enabled = false
-			end
-		end
- 	end
- 	if self.ActionsInTimeline then
- 		while #self.ActionsInTimeline > 0 and self.ActionsInTimeline[1].at + 5 * self.FrameDurationInSec < time do
- 			table.remove(self.ActionsInTimeline, 1)
- 		end
- 	end
 end
 
 return virtual_actions

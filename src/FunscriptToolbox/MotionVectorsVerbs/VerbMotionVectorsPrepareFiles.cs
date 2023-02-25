@@ -152,7 +152,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 .SetOverwriteOutput(true)
                 .AddParameter($"{r_options.AdditionnalInputFfmpegParameters.Replace("'", "")} -i \"{mp4FullPath}\" {ffmpegFilter} -bf 0 -g 100000 -c:a copy")
                 .SetOutput(outputPFramesMp4FullPath);
-            StartAndHandleFfmpegProgress(conversion);
+            StartAndHandleFfmpegProgress(conversion, outputPFramesMp4FullPath);
         }
 
         private void CreateMvsFile(string outputPFramesMp4FullPath, string outputMvsFullPath)
@@ -210,7 +210,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 .SetOverwriteOutput(true)
                 .AddParameter($"-flags2 +export_mvs -i \"{sourceFullPath}\" -filter:v codecview=mv=pf+bf+bb -g 1 -c:a copy")
                 .SetOutput(destinationFullPath);
-            StartAndHandleFfmpegProgress(conversion);
+            StartAndHandleFfmpegProgress(conversion, destinationFullPath);
         }
     }
 }
