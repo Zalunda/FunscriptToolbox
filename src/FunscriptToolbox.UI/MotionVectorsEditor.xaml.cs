@@ -51,6 +51,7 @@ namespace FunscriptToolbox.UI
             ActivitySlider.Value = createRulesRequest.SharedConfig.DefaultActivityFilter;
             QualitySlider.Value = createRulesRequest.SharedConfig.DefaultQualityFilter;
             MinPercentageSlider.Value = createRulesRequest.SharedConfig.DefaultMinimumPercentageFilter;
+            this.Topmost = createRulesRequest.SharedConfig.TopMostUI;
 
             ScreenShot.Width = r_mvsReader.VideoWidth;
             ScreenShot.Height = r_mvsReader.VideoHeight;

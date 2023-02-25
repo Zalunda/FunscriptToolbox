@@ -53,6 +53,7 @@ function loadOrCreateConfig()
 	sharedConfig.DefaultMinimumPercentageFilter 	= loaded_config.sharedConfig.DefaultMinimumPercentageFilter 	or 5
 	sharedConfig.MaximumDurationToGenerateInSeconds = loaded_config.sharedConfig.MaximumDurationToGenerateInSeconds	or 120
 	sharedConfig.MaximumNbStrokesDetectedPerSecond 	= loaded_config.sharedConfig.MaximumNbStrokesDetectedPerSecond  or 3.0
+	sharedConfig.TopMostUI							= loaded_config.sharedConfig.TopMostUI == nil and true or loaded_config.sharedConfig.TopMostUI
 end
 
 function saveConfig()
@@ -141,7 +142,7 @@ function sendCreateRulesRequest(showUI)
 			request.DurationToGenerateInSeconds = sharedConfig.MaximumDurationToGenerateInSeconds
 		end
 		request.ShowUI = showUI
-
+			
 		for _, action in ipairs(script.actions) do
 			if (action.at >= firstAction.at and action.at <= lastAction.at) then
 				table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
@@ -437,12 +438,13 @@ function gui()
 		sharedConfig.MaximumNbStrokesDetectedPerSecond = clamp(sharedConfig.MaximumNbStrokesDetectedPerSecond, 1.0, 5.0)
 	end
 	if ofs.CollapsingHeader("Others config") then
+		sharedConfig.TopMostUI, topMostUIChanged = ofs.Checkbox('TopMost UI', sharedConfig.TopMostUI)
 		sharedConfig.MaximumMemoryUsageInMB, changed06 = ofs.InputInt("Maximum Memory Usage (MB)", sharedConfig.MaximumMemoryUsageInMB, 50)
 		sharedConfig.MaximumMemoryUsageInMB = clamp(sharedConfig.MaximumMemoryUsageInMB, 0, 100000)
-		config.EnableLogs, changed07 = ofs.Checkbox("Enable Logs", config.EnableLogs)
+		config.EnableLogs, changed07 = ofs.Checkbox("Enable Logs", config.EnableLogs)		
 	end
 	
-	if showUIOnCreateChanged or changed00 or changed01 or changed02 or changed03 or changed04 or changed05 or changed06 or changed07 then
+	if showUIOnCreateChanged or changed00 or changed01 or changed02 or changed03 or changed04 or changed05 or changed06 or changed07 or topMostUIChanged then
 		saveConfig()
 	end
 end
