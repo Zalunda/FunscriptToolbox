@@ -83,10 +83,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     if (rs_namedFFmpegFilter.TryGetValue(r_options.FfmpegFilter, out var ffmpegFilter))
                     {
                         int.TryParse(r_options.FfmpegFilterHeight, out var height);
-                        if (height % 16 != 0)
-                        {
-                            throw new Exception($"Height ({r_options.FfmpegFilterHeight}) need to be divisible by 16.");
-                        }
                         ffmpegFilter = ffmpegFilter.Replace("{HEIGHT}", height.ToString());
                         WriteInfo($"{inputMp4FullPath}:     using named filter '{r_options.FfmpegFilter}': {ffmpegFilter}...");
                     }
