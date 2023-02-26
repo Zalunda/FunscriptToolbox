@@ -121,6 +121,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                         File.Delete(e.FullPath);
                     }
 
+                    WriteInfo($"Server: Received {request.GetType().Name} ({e.Name})");
                     PluginResponse response;
                     if (request is CheckVersionPluginRequest checkVersionRequest)
                     {
@@ -135,14 +136,14 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     }
                     else if (request is CreateRulesPluginRequest createRulesRequest)
                     {
-                        WriteInfo($"Server: Received {createRulesRequest.GetType().Name} ({e.Name})");
-
                         var mvsReader = GetMvsReader(createRulesRequest.MvsFullPath, createRulesRequest.SharedConfig.MaximumMemoryUsageInMB);
-                        var snapshotTask = TakeSnapshot(createRulesRequest.VideoFullPath, createRulesRequest.CurrentVideoTimeAsTimeSpan);
 
                         if (createRulesRequest.ShowUI)
                         {
-                            m_currentFrameAnalyser = Test.TestAnalyser(snapshotTask, mvsReader, createRulesRequest);
+                            m_currentFrameAnalyser = Test.TestAnalyser(
+                                TakeSnapshot(createRulesRequest.VideoFullPath, createRulesRequest.CurrentVideoTimeAsTimeSpan), 
+                                mvsReader, 
+                                createRulesRequest);
                         }
                         else
                         {
@@ -187,6 +188,20 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             r_semaphore.Release();
         }
 
+        private MotionVectorsFileReader GetMvsReader(string mvsFullPath, int maximumMemoryUsageInMB)
+        {
+            if (m_currentMvsReader?.FilePath == mvsFullPath && m_currentMvsReader?.MaximumMemoryUsageInMB == maximumMemoryUsageInMB)
+            {
+                return m_currentMvsReader;
+            }
+            else
+            {
+                m_currentMvsReader?.Dispose();
+                m_currentMvsReader = new MotionVectorsFileReader(mvsFullPath, maximumMemoryUsageInMB);
+                return m_currentMvsReader;
+            }
+        }
+
         private async Task<byte[]> TakeSnapshot(string videoFullPath, TimeSpan time)
         {
             var tempFile = Path.GetTempFileName() + ".png";
@@ -200,13 +215,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             {
                 File.Delete(tempFile);
             }
-        }
-
-        private MotionVectorsFileReader GetMvsReader(string mvsFullPath, int maximumMemoryUsageInMB)
-        {
-            return m_currentMvsReader?.FilePath == mvsFullPath && m_currentMvsReader?.MaximumMemoryUsageInMB == maximumMemoryUsageInMB
-                ? m_currentMvsReader
-                : new MotionVectorsFileReader(mvsFullPath, maximumMemoryUsageInMB);
         }
 
         private bool WaitUntilFileIsReadable(string fullPath, TimeSpan maxWaitDuration)
