@@ -152,8 +152,6 @@ function sendCreateRulesRequest(showUI)
 		
 		if script:hasSelection() then
 			for _, indice in ipairs(script:selectedIndices()) do
-				print(indice)
-			
 				local action = script.actions[indice]
 				table.insert(request.SelectedActions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
 			end

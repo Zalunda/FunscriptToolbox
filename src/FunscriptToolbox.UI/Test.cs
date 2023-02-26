@@ -8,7 +8,6 @@ namespace FunscriptToolbox.UI
 {
     public static class Test
     {
-        [STAThread]
         public static FrameAnalyser TestAnalyser(
             Task<byte[]> snapshotContent, 
             MotionVectorsFileReader mvsReader, 

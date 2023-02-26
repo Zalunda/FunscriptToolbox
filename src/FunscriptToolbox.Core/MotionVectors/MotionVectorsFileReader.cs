@@ -85,7 +85,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 
             var startFrameNumber = GetFrameNumberFromTime(start);
             var endFrameNumber = GetFrameNumberFromTime(end);
-            foreach (var frame in ReadFrames(startFrameNumber, dateTimeForFrameInMemory))
+            foreach (var frame in ReadFrames(startFrameNumber, dateTimeForFrameInMemory)) 
             {
                 if (frame.FrameNumber >= endFrameNumber)
                     yield break;
@@ -150,7 +150,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 m_framesThatCanBeDelete = r_framesInMemory
                     .Values
                     .Where(f => f.LastTimeRead != dateTimeForFrameInMemory)
-                    .OrderByDescending(f => f.Frame.FrameNumber)
+                    .OrderBy(f => f.Frame.FrameNumber)
                     .ToList();
             }
             if (m_framesThatCanBeDelete?.Count > 0)

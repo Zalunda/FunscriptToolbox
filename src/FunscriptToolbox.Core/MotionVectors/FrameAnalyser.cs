@@ -4,7 +4,6 @@ using System.Linq;
 
 namespace FunscriptToolbox.Core.MotionVectors
 {
-
     public class FrameAnalyser
     {
         public int NbBlocX { get; }
@@ -81,16 +80,16 @@ namespace FunscriptToolbox.Core.MotionVectors
                     // Direction has changed...
                     if (currentActionEndTime - currentActionStartTime >= minimumActionDuration)
                     {
-                        if (lastFrameTotalWeight > 0)
-                        {
-                            AddActionWithoutDuplicate(actions, (int)currentActionStartTime.TotalMilliseconds, 0, actionsWithSameDirectionAccumulator);
-                            AddActionWithoutDuplicate(actions, (int)currentActionEndTime.TotalMilliseconds, 100, actionsWithSameDirectionAccumulator);
-                        }
-                        else
-                        {
-                            AddActionWithoutDuplicate(actions, (int)currentActionStartTime.TotalMilliseconds, 100, actionsWithSameDirectionAccumulator);
-                            AddActionWithoutDuplicate(actions, (int)currentActionEndTime.TotalMilliseconds, 0, actionsWithSameDirectionAccumulator);
-                        }
+                        AddActionWithoutDuplicate(
+                            actions, 
+                            (int)currentActionStartTime.TotalMilliseconds, 
+                            (lastFrameTotalWeight > 0) ? 0 : 100, 
+                            actionsWithSameDirectionAccumulator);
+                        AddActionWithoutDuplicate(
+                            actions, 
+                            (int)currentActionEndTime.TotalMilliseconds, 
+                            (lastFrameTotalWeight > 0) ? 100 : 0, 
+                            actionsWithSameDirectionAccumulator);
                     }
 
                     lastFrameTotalWeight = currentFrameTotalWeight;
@@ -115,7 +114,9 @@ namespace FunscriptToolbox.Core.MotionVectors
             {
                 At = action.At,
                 Pos = (action.Pos == 100)
-                    ? (i == 0) ? 100 : Math.Max(1, Math.Min(100, (int)((double)100 * Math.Abs(action.WeightPerFrame) / targetWeigth)))
+                    ? (i == 0) 
+                        ? 100
+                        : Math.Max(1, Math.Min(100, (int)((double)100 * Math.Abs(action.WeightPerFrame) / targetWeigth)))
                     : action.Pos
             }).ToArray();
         }
@@ -170,7 +171,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 {
                     NbResults = results.Count;
                     TotalWeight = results.Sum(f => f);
-                    WeightPerFrame = results.Count == 0 ? 0 : TotalWeight / results.Count;
+                    WeightPerFrame = results.Count == 0 ? 0 : TotalWeight / results.Count; // TODO Should I use an average like that?
                 }
             }
 

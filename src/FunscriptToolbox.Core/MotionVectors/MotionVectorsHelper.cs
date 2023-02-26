@@ -23,8 +23,8 @@ namespace FunscriptToolbox.Core.MotionVectors
                 {
                     if (rs_lLookupMotionXYAndDirectionToWeight == null)
                     {
-                        // Note: If the dimensions of this is ever changed, check the usages because, for performance, it's often hardcoded.
-                        rs_lLookupMotionXYAndDirectionToWeight = new short[byte.MaxValue + 1, byte.MaxValue + 1, NbBaseDirection];
+                        // Note: If the dimensions of this is ever changed, check the usages because, for performance reason, it's often hardcoded in the code.
+                        var lookup = new short[byte.MaxValue + 1, byte.MaxValue + 1, NbBaseDirection];
                         for (int xAsByte = 0; xAsByte <= byte.MaxValue; xAsByte++)
                         {
                             var x = (sbyte)xAsByte;
@@ -38,10 +38,11 @@ namespace FunscriptToolbox.Core.MotionVectors
                                 {
                                     var baseAngle = (i + 3) * (2 * Math.PI / NbBaseDirection); // i + 3 is because we want to have the value 0 represente Up (like a clock)
                                     double diff = angle - baseAngle;
-                                    rs_lLookupMotionXYAndDirectionToWeight[xAsByte, yAsByte, i] = (short)Math.Round(100 * length * Math.Cos(diff));
+                                    lookup[xAsByte, yAsByte, i] = (short)Math.Round(100 * length * Math.Cos(diff));
                                 }
                             }
                         }
+                        rs_lLookupMotionXYAndDirectionToWeight = lookup;
                     }
                 }
             }

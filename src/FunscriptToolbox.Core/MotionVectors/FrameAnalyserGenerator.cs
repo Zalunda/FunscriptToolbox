@@ -14,7 +14,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             var optimized = AnalyseActionsOptimized(reader, actions);
             watchload.Stop();
 
-            // To be able to make sure that the optimized version works as expected
+            // Set to true to make sure that the optimized version works as expected
             var validate = false;
             if (validate)
             {
