@@ -61,6 +61,7 @@
     <Compile Include="MotionVectors\PluginMessages\CreateRulesPluginRequest.cs" />
     <Compile Include="MotionVectors\PluginMessages\CreateRulesPluginResponse.cs" />
     <Compile Include="MotionVectors\PluginMessages\KeepAlivePluginRequest.cs" />
+    <Compile Include="MotionVectors\PluginMessages\ErrorPluginResponse.cs" />
     <Compile Include="MotionVectors\PluginMessages\KeepAlivePluginResponse.cs" />
     <Compile Include="MotionVectors\PluginMessages\PluginResponse.cs" />
     <Compile Include="MotionVectors\PluginMessages\SharedConfig.cs" />

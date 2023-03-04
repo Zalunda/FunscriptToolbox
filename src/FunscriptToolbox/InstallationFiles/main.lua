@@ -144,9 +144,11 @@ function sendCreateRulesRequest(showUI)
 		end
 		request.ShowUI = showUI
 			
-		for _, action in ipairs(script.actions) do
-			if (action.at >= firstAction.at and action.at <= lastAction.at) then
-				table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
+		if firstAction and lastAction then	
+			for _, action in ipairs(script.actions) do
+				if (action.at >= firstAction.at and action.at <= lastAction.at) then
+					table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
+				end
 			end
 		end
 		
@@ -327,12 +329,20 @@ function gui()
 		ofs.Separator()
 		ofs.Separator()
 	end
-    ofs.Text("Connection: " .. connection:getStatus())
-    ofs.Text("Virtual Actions: " .. getVirtualActions():getStatus())
+	local connectionStatus, connectionStatusTooltip = connection:getStatus()
+    ofs.Text("Connection: " .. connectionStatus)
+	if connectionStatusTooltip then
+		ofs.Tooltip(connectionStatusTooltip)
+	end
+	local virtualActionsStatus, virtualActionsStatusTooltip = getVirtualActions():getStatus()
+    ofs.Text("Virtual Actions: " .. virtualActionsStatus)
+	if virtualActionsStatusTooltip then
+		ofs.Tooltip(virtualActionsStatusTooltip)
+	end
 	ofs.Separator()
 	
 	local showUIOnCreateChanged = false
-	if ofs.CollapsingHeader("Virtual Actions") then
+	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Virtual Actions") then
 		if ofs.Button("Create") then			
 			sendCreateRulesRequest(config.ShowUIOnCreate)
 		end
@@ -418,9 +428,10 @@ function gui()
 		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged or extraAmplitudeChanged then
 			updateVirtualPoints()
 		end
+		ofs.Separator()
 	end	
 
-	if ofs.CollapsingHeader("Learn from script") then
+	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Learn from script") then
 		sharedConfig.LearningDurationInSeconds, changed00 = ofs.InputInt("Script Duration (sec)", sharedConfig.LearningDurationInSeconds, 2)
 		sharedConfig.LearningDurationInSeconds = clamp(sharedConfig.LearningDurationInSeconds, 0, 1000)	
 		sharedConfig.DefaultActivityFilter, changed01 = ofs.InputInt("Default Activity Filter", sharedConfig.DefaultActivityFilter, 5)
@@ -429,19 +440,22 @@ function gui()
 		sharedConfig.DefaultQualityFilter = clamp(sharedConfig.DefaultQualityFilter, 50, 100)
 		sharedConfig.DefaultMinimumPercentageFilter, changed03 = ofs.InputInt("Default Min % Filter", sharedConfig.DefaultMinimumPercentageFilter, 1)
 		sharedConfig.DefaultMinimumPercentageFilter = clamp(sharedConfig.DefaultMinimumPercentageFilter, 0, 100)
+		ofs.Separator()
 	end	
-	if ofs.CollapsingHeader("Actions generation") then
+	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Actions generation") then
 		sharedConfig.MaximumDurationToGenerateInSeconds, changed04 = ofs.InputInt("Maximum Generation (sec)", sharedConfig.MaximumDurationToGenerateInSeconds, 10)
 		sharedConfig.MaximumDurationToGenerateInSeconds = clamp(sharedConfig.MaximumDurationToGenerateInSeconds, 20, 100000)
 	
 		sharedConfig.MaximumNbStrokesDetectedPerSecond, changed05 = ofs.Input("Maximum Strokes per sec", sharedConfig.MaximumNbStrokesDetectedPerSecond, 0.5)
 		sharedConfig.MaximumNbStrokesDetectedPerSecond = clamp(sharedConfig.MaximumNbStrokesDetectedPerSecond, 1.0, 5.0)
+		ofs.Separator()
 	end
-	if ofs.CollapsingHeader("Others config") then
+	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Others config") then
 		sharedConfig.TopMostUI, topMostUIChanged = ofs.Checkbox('TopMost UI', sharedConfig.TopMostUI)
 		sharedConfig.MaximumMemoryUsageInMB, changed06 = ofs.InputInt("Maximum Memory Usage (MB)", sharedConfig.MaximumMemoryUsageInMB, 50)
 		sharedConfig.MaximumMemoryUsageInMB = clamp(sharedConfig.MaximumMemoryUsageInMB, 0, 100000)
 		config.EnableLogs, changed07 = ofs.Checkbox("Enable Logs", config.EnableLogs)		
+		ofs.Separator()
 	end
 	
 	if showUIOnCreateChanged or changed00 or changed01 or changed02 or changed03 or changed04 or changed05 or changed06 or changed07 or topMostUIChanged then

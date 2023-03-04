@@ -109,9 +109,11 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 return;
             }
 
-            try
+            if (File.Exists(e.FullPath))
             {
-                if (File.Exists(e.FullPath))
+                PluginResponse response;
+
+                try
                 {
                     WaitUntilFileIsReadable(e.FullPath, TimeSpan.FromSeconds(30));
                     var content = File.ReadAllText(e.FullPath);
@@ -122,13 +124,12 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     }
 
                     WriteInfo($"Server: Received {request.GetType().Name} ({e.Name})");
-                    PluginResponse response;
                     if (request is CheckVersionPluginRequest checkVersionRequest)
                     {
                         response = new CheckVersionPluginResponse()
-                            {
-                                LastestVersion = PluginClient.Version
-                            };
+                        {
+                            LastestVersion = PluginClient.Version
+                        };
                     }
                     else if (request is KeepAlivePluginRequest keepAliveRequest)
                     {
@@ -141,8 +142,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                         if (createRulesRequest.ShowUI)
                         {
                             m_currentFrameAnalyser = Test.TestAnalyser(
-                                TakeSnapshot(createRulesRequest.VideoFullPath, createRulesRequest.CurrentVideoTimeAsTimeSpan), 
-                                mvsReader, 
+                                TakeSnapshot(createRulesRequest.VideoFullPath, createRulesRequest.CurrentVideoTimeAsTimeSpan),
+                                mvsReader,
                                 createRulesRequest);
                         }
                         else
@@ -150,7 +151,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                             m_currentFrameAnalyser = createRulesRequest
                                 .CreateInitialFrameAnalyser(mvsReader)
                                 .Filter(
-                                    createRulesRequest.SharedConfig.DefaultActivityFilter, 
+                                    createRulesRequest.SharedConfig.DefaultActivityFilter,
                                     createRulesRequest.SharedConfig.DefaultQualityFilter,
                                     createRulesRequest.SharedConfig.DefaultMinimumPercentageFilter);
                         }
@@ -170,19 +171,20 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                         WriteInfo($"Server: Unsupport request type '{request.GetType()}'.");
                         response = null;
                     }
-
-                    if (response != null)
-                    {
-                        var responseFullPath = Path.Combine(r_responseFolder, e.Name);
-                        File.WriteAllText(responseFullPath, JsonConvert.SerializeObject(response));
-                    }
-
-                    WriteInfo($"Server: Done.");
                 }
-            }
-            catch(Exception ex)
-            {
-                WriteError(ex.ToString());
+                catch (Exception ex)
+                {
+                    WriteError(ex.ToString());
+                    response = new ErrorPluginResponse(ex);
+                }
+
+                if (response != null)
+                {
+                    var responseFullPath = Path.Combine(r_responseFolder, e.Name);
+                    File.WriteAllText(responseFullPath, JsonConvert.SerializeObject(response));
+                }
+
+                WriteInfo($"Server: Done.");
             }
 
             r_semaphore.Release();

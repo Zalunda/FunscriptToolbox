@@ -215,9 +215,9 @@ function virtual_actions:getStatus()
 	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then
 		local firstAction = self.ActionsInTimeline[1]
 		local lastAction = self.ActionsInTimeline[#self.ActionsInTimeline]
-		return #self.ActionsInTimeline .. ' actions, ' .. lastAction.at - firstAction.at .. ' secs'
+		return #self.ActionsInTimeline .. ' actions, ' .. lastAction.at - firstAction.at .. ' secs', nil
 	else
-		return 'empty'
+		return 'empty', nil
 	end
 
 end
