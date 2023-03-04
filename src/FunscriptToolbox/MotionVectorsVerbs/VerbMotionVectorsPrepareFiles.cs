@@ -161,6 +161,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.UseShellExecute = false;
 
+            rs_log.Info($"Starting process: \"{Path.GetFullPath(process.StartInfo.FileName)}\" {process.StartInfo.Arguments}");
+
             var stopwatch = Stopwatch.StartNew();
             TimeSpan total = TimeSpan.Zero;
             DateTime nextUpdate = DateTime.MinValue;

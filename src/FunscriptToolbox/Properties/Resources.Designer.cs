@@ -85,58 +85,31 @@ namespace FunscriptToolbox.Properties {
         ///echo.
         ///echo --- sub [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string CreateSubtitles_bat {
+        internal static string FSTB_CreateSubtitles_bat {
             get {
-                return ResourceManager.GetString("CreateSubtitles_bat", resourceCulture);
+                return ResourceManager.GetString("FSTB-CreateSubtitles_bat", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to --
-        ///-- json.lua
-        ///--
-        ///-- Copyright (c) 2020 rxi
-        ///--
-        ///-- Permission is hereby granted, free of charge, to any person obtaining a copy of
-        ///-- this software and associated documentation files (the &quot;Software&quot;), to deal in
-        ///-- the Software without restriction, including without limitation the rights to
-        ///-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-        ///-- of the Software, and to permit persons to whom the Software is furnished to do
-        ///-- so, subject to the following conditions:
-        ///--
-        /// [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to @echo off
+        ///REM ScriptVersion:1.0
+        ///
+        ///echo How to use:
+        ///echo 1. Move new-scene.mp4 and new-scene.funscript to this folder.
+        ///echo 2. Start this script.
+        ///echo 3. It will extracts the audio from new-scene.mp4 and add the audio signature to the new-scene.funscript.
+        ///echo 4. It will allows user to synchronize your .funscript to a different version of the video 
+        ///echo    (with the audiosync.createfunscript or audiosync.verifyfunscript).
+        ///echo.
+        ///
+        ///set &quot;path=C:\Partage\Medias\Adult\Tools\FunscriptToolbox;%path%&quot;
+        ///
+        ///F [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string json_lua {
+        internal static string FSTB_GenericCmd_bat {
             get {
-                return ResourceManager.GetString("json_lua", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to -- FunscriptToolbox.MotionVectors LUA Wrappper Version 1.0.0
-        ///json = require &quot;json&quot;
-        ///server_connection = require &quot;server_connection&quot;
-        ///virtual_actions = require &quot;virtual_actions&quot;
-        ///
-        ///-- global var
-        ///FTMVSFullPath = &quot;[[FunscriptToolboxExePathInLuaFormat]]&quot;
-        ///PluginVersion = &quot;[[PluginVersion]]&quot;
-        ///configFullPath = ofs.ExtensionDir() .. &quot;\\config.json&quot;
-        ///updateCounter = 0
-        ///scriptIdx = 1
-        ///
-        ///config = {}
-        ///sharedConfig = {}
-        ///connection = nil
-        ///virtualActions = {}
-        ///lastVideoFullPath = nil
-        ///lastMvsFullPath = nil
-        ///
-        ///function [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string main_lua {
-            get {
-                return ResourceManager.GetString("main_lua", resourceCulture);
+                return ResourceManager.GetString("FSTB_GenericCmd_bat", resourceCulture);
             }
         }
         
@@ -156,9 +129,9 @@ namespace FunscriptToolbox.Properties {
         ///
         ///echo --- audiosync.cr [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string PrepareScriptForRelease_bat {
+        internal static string FSTB_PrepareScriptForRelease_bat {
             get {
-                return ResourceManager.GetString("PrepareScriptForRelease_bat", resourceCulture);
+                return ResourceManager.GetString("FSTB-PrepareScriptForRelease_bat", resourceCulture);
             }
         }
         
@@ -174,9 +147,74 @@ namespace FunscriptToolbox.Properties {
         ///echo    This step is using the ffmpegFilter (value: VRLeft, VRMosaic, 2D or a custom filter) and ffmpegHeight parameters.
         ///echo 4. It will then extracts the motion vector from the video and create scene-to-s [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string PrepareVideoForOFS_bat {
+        internal static string FSTB_PrepareVideoForOFS_bat {
             get {
-                return ResourceManager.GetString("PrepareVideoForOFS_bat", resourceCulture);
+                return ResourceManager.GetString("FSTB-PrepareVideoForOFS_bat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to @echo off
+        ///REM ScriptVersion:1.0
+        ///
+        ///echo How to use:
+        ///echo 1. Move scene-to-script.mp4 to this folder.
+        ///echo 2. Start this script.
+        ///echo 3. It will starts by creating a scene-to-script.mvs-p-frames.mp4, which is a
+        ///echo    version of the video optimized to get stable motionvectors (i.e. only P-frames).
+        ///echo    This step is using the ffmpegFilter (value: VRLeft, VRMosaic, 2D or a custom filter) and ffmpegHeight parameters.
+        ///echo 4. It will then extracts the motion vector from the video and create scene-to-s [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string FSTB_VerifyDownloadedScripts_bat {
+            get {
+                return ResourceManager.GetString("FSTB_VerifyDownloadedScripts_bat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to --
+        ///-- json.lua
+        ///--
+        ///-- Copyright (c) 2020 rxi
+        ///--
+        ///-- Permission is hereby granted, free of charge, to any person obtaining a copy of
+        ///-- this software and associated documentation files (the &quot;Software&quot;), to deal in
+        ///-- the Software without restriction, including without limitation the rights to
+        ///-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+        ///-- of the Software, and to permit persons to whom the Software is furnished to do
+        ///-- so, subject to the following conditions:
+        ///--        /// [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string json_lua {
+            get {
+                return ResourceManager.GetString("json_lua", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to -- FunscriptToolbox.MotionVectors LUA Wrappper Version 1.0.0
+        ///json = require &quot;json&quot;
+        ///server_connection = require &quot;server_connection&quot;
+        ///virtual_actions = require &quot;virtual_actions&quot;
+        ///
+        ///-- global var
+        ///FTMVSFullPath = &quot;[[FunscriptToolboxExePathInLuaFormat]]&quot;
+        ///PluginVersion = &quot;[[PluginVersion]]&quot;
+        ///configFullPath = ofs.ExtensionDir() .. &quot;\\config.json&quot;
+        ///
+        ///config = {}
+        ///sharedConfig = {}
+        ///connection = nil
+        ///virtualActions = {}
+        ///lastVideoFullPath = nil
+        ///lastMvsFullPath = nil
+        ///
+        ///function init()
+        ///    print(&quot;Plugin Version [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string main_lua {
+            get {
+                return ResourceManager.GetString("main_lua", resourceCulture);
             }
         }
         
@@ -189,22 +227,18 @@ namespace FunscriptToolbox.Properties {
         ///function server_connection:new(FTMVSFullPath, enableLogs)
         ///	local o = { 
         ///		FTMVSFullPath = FTMVSFullPath,
+        ///		cantFindFTMVSFullPath = false,
         ///		enableLogs = enableLogs,
         ///		serverProcessHandle = nil,
         ///		requests = {},
         ///		lastTimeTaken = 0,
         ///		serverTimeout = 300,
-        ///		status = &apos;&apos;
+        ///		status = &apos;&apos;,
+        ///		statusTooltip = nil
         ///	}
-        ///	setmetatable(o, {__index = server_connection})
-        ///	return o
-        ///end
-        ///
-        ///function server_connection:getStatus()
-        ///	return self.status
-        ///end
-        ///
-        ///-- Find an ava [rest of string was truncated]&quot;;.
+        ///	if not fileExist(o.FTMVSFullPath) then
+        ///		local message = &apos;missing &apos; .. o.FTMVSFullPath
+        ///	 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string server_connection_lua {
             get {
@@ -230,8 +264,8 @@ namespace FunscriptToolbox.Properties {
         ///
         ///function virtual_actions:init(actions, frameDurationInMs)
         ///	self.GeneratedActionsOriginal = {}
-        ///	if #actions &gt; 0 then
-        ///		virtual_actions:removeVirtualAction [rest of string was truncated]&quot;;.
+        ///	self:removeVirtualActionsInTimelime()
+        ///	if #actions &gt; 0 the [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string virtual_actions_lua {
             get {

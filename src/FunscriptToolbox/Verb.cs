@@ -127,8 +127,10 @@ namespace FunscriptToolbox
                     Path.GetDirectoryName(outputFile) ?? ".",
                     $"{Path.GetFileName(outputFile)}.temp{Path.GetExtension(outputFile)}");
 
-            var conversionResult = conversion
-                .SetOutput(tempFile)
+            var conversionCommand = conversion
+                .SetOutput(tempFile);
+            r_log.Info($"Starting process: ffmpeg {conversionCommand.Build()}");
+            var conversionResult = conversionCommand
                 .Start();
             ApplicationExitHandler.AddKillProcessAction("ffmpeg", TimeSpan.FromSeconds(15));
             conversionResult.Wait();

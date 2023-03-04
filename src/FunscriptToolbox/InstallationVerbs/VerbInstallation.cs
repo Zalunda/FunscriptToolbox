@@ -32,9 +32,17 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         public int Execute()
         {
             InstallOFSPlugin();
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", Resources.CreateSubtitles_bat);
-            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", Resources.PrepareScriptForRelease_bat);
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", Resources.PrepareVideoForOFS_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", Resources.FSTB_CreateSubtitles_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", Resources.FSTB_PrepareScriptForRelease_bat);
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", Resources.FSTB_PrepareVideoForOFS_bat);
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+
+            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-VerifyDownloadedScripts", Resources.FSTB_VerifyDownloadedScripts_bat);
+            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
             return 0;
         }
 
@@ -65,8 +73,11 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         private void CreateUseCaseFolder(string folderName, string baseScriptName, string scriptContent)
         {
-            WriteInfo($@"Creating use case folder '{folderName}'.");
-            Directory.CreateDirectory(folderName);
+            if (!Directory.Exists(folderName))
+            {
+                WriteInfo($@"Creating use case folder '{folderName}'.");
+                Directory.CreateDirectory(folderName);
+            }
             var scriptVersion = Regex.Match(scriptContent, "ScriptVersion:(?<Version>[0-9.]*)");
             var finalScriptName = scriptVersion.Success 
                 ? $"{baseScriptName}.{scriptVersion.Groups["Version"].Value}.bat" 
@@ -78,6 +89,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             }
             else
             {
+                WriteInfo($@"Creating '{finalScriptName}'.");
                 CreateFileWithReplace(scriptFullPath, scriptContent);
             }
         }

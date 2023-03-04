@@ -99,11 +99,13 @@
   <ItemGroup>
     <None Include="App.config" />
     <EmbeddedResource Include="InstallationFiles\json.lua" />
-    <EmbeddedResource Include="InstallationFiles\--CreateSubtitles.bat" />
+    <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />
     <EmbeddedResource Include="InstallationFiles\main.lua" />
     <EmbeddedResource Include="InstallationFiles\server_connection.lua" />
-    <EmbeddedResource Include="InstallationFiles\--PrepareScriptForRelease.bat" />
-    <EmbeddedResource Include="InstallationFiles\--PrepareVideoForOFS.bat" />
+    <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareScriptForRelease.bat" />
+    <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareVideoForOFS.bat" />
+    <EmbeddedResource Include="InstallationFiles\--FSTB-GenericCmd.bat" />
+    <None Include="InstallationFiles\--FSTB-VerifyDownloadedScripts.bat" />
     <None Include="InstallationFiles\virtual_actions.lua" />
     <None Include="packages.config" />
   </ItemGroup>
@@ -125,6 +127,7 @@
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

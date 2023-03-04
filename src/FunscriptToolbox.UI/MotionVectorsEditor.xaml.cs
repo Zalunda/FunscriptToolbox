@@ -38,9 +38,18 @@ namespace FunscriptToolbox.UI
             r_mvsReader = mvsReader;
             r_originalFrameAnalyser = createRulesRequest.CreateInitialFrameAnalyser(mvsReader);
             r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
-            using (MemoryStream ms = new MemoryStream(snapshotContent.Result))
+            
+            var snapshotContentResult = snapshotContent.Result;
+            if (snapshotContentResult != null)
             {
-                r_snapshot = new Bitmap(ms);
+                using (MemoryStream ms = new MemoryStream(snapshotContent.Result))
+                {
+                    r_snapshot = new Bitmap(ms);
+                }
+            }
+            else
+            {
+                r_snapshot = new Bitmap(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
             }
 
             m_currentManualFrameAnalyser = r_originalFrameAnalyser;
