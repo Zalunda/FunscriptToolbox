@@ -119,6 +119,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             WriteInfo($"Saving synchronized version '{newFilename}'.", ConsoleColor.Green);
             inputFunscript.AudioSignature = Convert(outputAudioSignature);
             inputFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
+            inputFunscript.TransformChaptersTime((time) => audioOffsets.TransformPosition(time) ?? time);
             this.FunscriptVault.SaveFunscript(inputFunscript, newFilename);
 
             var baseFolder = Path.GetDirectoryName(r_options.SourceFunscript);

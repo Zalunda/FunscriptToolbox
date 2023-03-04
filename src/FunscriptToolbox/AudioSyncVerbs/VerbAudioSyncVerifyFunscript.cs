@@ -131,6 +131,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                                 scripterFunscript.Actions = newActions.ToArray();
                                 scripterFunscript.AudioSignature = Convert(userAudioSignature);
                                 scripterFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
+                                scripterFunscript.TransformChaptersTime((time) => audioOffsets.TransformPosition(time) ?? time);
                                 this.FunscriptVault.SaveFunscript(scripterFunscript, scripterFunscriptFilename);
                             }
                             else

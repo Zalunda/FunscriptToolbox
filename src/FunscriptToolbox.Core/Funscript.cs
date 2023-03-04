@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -71,6 +72,27 @@ namespace FunscriptToolbox.Core
             else
             {
                 r_content.metadata.notes = originalNotes + "\n" + newNote;
+            }
+        }
+
+        public void TransformChaptersTime(Func<TimeSpan, TimeSpan> transformTimeFunc)
+        {
+            var chapters = r_content?.metadata?.chapters;
+            if (chapters?.HasValues == true)
+            {
+                foreach (var item in chapters)
+                {
+                    if (TimeSpan.TryParse((string)item.startTime, out var startTime))
+                    {
+                        var newStartTime = transformTimeFunc(startTime);
+                        item.startTime = $"{newStartTime:hh}:{newStartTime:mm}:{newStartTime:ss}.{newStartTime:fff}";
+                    }
+                    if (TimeSpan.TryParse((string)item.endTime, out var endTime))
+                    {
+                        var newEndTime = transformTimeFunc(endTime);
+                        item.endTime = $"{newEndTime:hh}:{newEndTime:mm}:{newEndTime:ss}.{newEndTime:fff}";
+                    }
+                }
             }
         }
 
