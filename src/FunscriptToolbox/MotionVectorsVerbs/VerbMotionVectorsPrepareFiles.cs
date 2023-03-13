@@ -80,15 +80,15 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 else if (!File.Exists(outputMvsFullPath) || (!r_options.DontCreateMvsVisualVideo && !File.Exists(outputMvsFullPath)))
                 {
                     WriteInfo($"{inputMp4FullPath}: Creating a motion vectors optimized video (i.e. p-frames only file) '{Path.GetFileName(outputPFramesMp4FullPath)}'");
+                    int.TryParse(r_options.FfmpegFilterHeight, out var height);
                     if (rs_namedFFmpegFilter.TryGetValue(r_options.FfmpegFilter, out var ffmpegFilter))
                     {
-                        int.TryParse(r_options.FfmpegFilterHeight, out var height);
                         ffmpegFilter = ffmpegFilter.Replace("{HEIGHT}", height.ToString());
                         WriteInfo($"{inputMp4FullPath}:     using named filter '{r_options.FfmpegFilter}': {ffmpegFilter}...");
                     }
                     else
                     {
-                        ffmpegFilter = r_options.FfmpegFilter;
+                        ffmpegFilter = r_options.FfmpegFilter.Replace("{HEIGHT}", height.ToString());
                         WriteInfo($"{inputMp4FullPath}:     using provied filter: {ffmpegFilter}...");
                     }
 

@@ -25,7 +25,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 41;
+            int test = 40;
 
             switch (test)
             {
@@ -148,7 +148,8 @@ namespace FunscriptToolbox
                     {
                         "motionvectors.prepare",
                         //"--verbose",
-                        "Position-CowGirlUpright-MenLaying-A.mp4",
+                        "--ffmpegfilterHeight", "-1",
+                        "Position-Doggy-MenStanding-C.mp4",
                     };
                     break;
                 case 41:

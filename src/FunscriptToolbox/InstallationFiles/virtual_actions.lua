@@ -13,16 +13,19 @@ function virtual_actions:new(scriptIdx, config)
 	return o
 end
 
-function virtual_actions:init(actions, frameDurationInMs)
+function virtual_actions:init(userAction, actions, frameDurationInMs)
 	self.GeneratedActionsOriginal = {}
-	self:removeVirtualActionsInTimelime()
+	self:removeAllVirtualActionsInTimelime(userAction .. ' init')
 	if #actions > 0 then	
 		local script = ofs.Script(self.ScriptIdx)
 		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
 		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + 0.001)
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
 		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
+		if config.EnableLogs then printWithTime(userAction, 'init', 'zoneStart', getFormattedTime(zoneStart)) end
+		if config.EnableLogs then printWithTime(userAction, 'init', 'zoneEnd', getFormattedTime(zoneEnd)) end
 
+		local logsInfo = ''
 		local previousAction = nil
 		local previousIsTop = nil
 		for i, action in ipairs(actions) do	
@@ -43,52 +46,69 @@ function virtual_actions:init(actions, frameDurationInMs)
 
 			if new_action.at > zoneStart and new_action.at < zoneEnd then
 				table.insert(self.GeneratedActionsOriginal, new_action)
+				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(new_action.at) .. ', ' end
+			else
+				if config.EnableLogs then logsInfo = logsInfo .. 'SKIP:' .. getFormattedTime(new_action.at) .. ', ' end
 			end
 
 			previousIsTop = isTop
 			previousAction = action
 		end
+		if config.EnableLogs then printWithTime(userAction, 'init.insert', #self.GeneratedActionsOriginal, logsInfo) end
 		
 		self.FrameDurationInSec = frameDurationInMs / 1000
-		self:update()
+		self:update(userAction .. ' init')
 	end
 end
 
-function virtual_actions:removeVirtualActionsInTimelime()
+function virtual_actions:removeAllVirtualActionsInTimelime(userAction)
 
 	local script = ofs.Script(self.ScriptIdx)
 	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then		
 		local firstAction = self.ActionsInTimeline[1]
 		local lastAction = self.ActionsInTimeline[#self.ActionsInTimeline]
 		
+		local logsInfo = ''
 		for idx, action in ipairs(script.actions) do
 			if action.at >= firstAction.at and action.at <= lastAction.at then
 				script:markForRemoval(idx)
+				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(action.at) .. ', ' end
 			end
 		end
 		script:removeMarked()
 		script:commit()
+		
+		if config.EnableLogs and #logsInfo > 0 then printWithTime(userAction, 'removeAllVirtualActionsInTimelime', #self.ActionsInTimeline .. '=>0', logsInfo) end
 	end
 end
 
-function virtual_actions:unvirtualizeActionsBefore(time)
+function virtual_actions:unvirtualizeActionsBefore(userAction, time)
+	
  	if self.GeneratedActionsOriginal then
+		local logsInfo = ''
 		for i, action in ipairs(self.GeneratedActionsOriginal) do
-			if action.at <= time then
+			if action.at <= time and action.enabled then
+				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(action.at) .. ', ' end
 				action.enabled = false
 			end
 		end
+		if config.EnableLogs and #logsInfo > 0 then printWithTime(userAction, 'unvirtualizeActionsBefore.GeneratedActionsOriginal', #self.GeneratedActionsOriginal, logsInfo) end
  	end
+
  	if self.ActionsInTimeline then
+		local logsInfo = ''
  		while #self.ActionsInTimeline > 0 and self.ActionsInTimeline[1].at <= time do
+			if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(self.ActionsInTimeline[1].at) .. ', ' end
  			table.remove(self.ActionsInTimeline, 1)
  		end
+		if config.EnableLogs and #logsInfo > 0 then printWithTime(userAction, 'unvirtualizeActionsBefore.ActionsInTimeline', #self.ActionsInTimeline, logsInfo) end
  	end
 end
 
-function virtual_actions:deleteVirtualActions()
+function virtual_actions:deleteAllVirtualActions(userAction)
 
-	self:removeVirtualActionsInTimelime()
+	if config.EnableLogs then printWithTime(userAction, 'deleteAllVirtualActions') end
+	self:removeAllVirtualActionsInTimelime(userAction .. ' deleteAllVirtualActions')
 	self.ActionsInTimeline = {}
 	self.GeneratedActionsOriginal = {}
 end
@@ -101,9 +121,9 @@ function virtual_actions:getStartTime()
 	end
 end
 
-function virtual_actions:update()
+function virtual_actions:update(userAction)
 
-	self:removeVirtualActionsInTimelime()
+	self:removeAllVirtualActionsInTimelime(userAction .. ' update')
 
 	if self.GeneratedActionsOriginal and #self.GeneratedActionsOriginal > 0 then
 
@@ -134,11 +154,14 @@ function virtual_actions:update()
 		end	
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
 		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
+		if config.EnableLogs then printWithTime(userAction, 'update', 'zoneStart', getFormattedTime(zoneStart)) end
+		if config.EnableLogs then printWithTime(userAction, 'update', 'zoneEnd', getFormattedTime(zoneEnd)) end
 
 		-- 2. Make sure that actions are still in order and don't overlap (because of the top/bottom offset).
 		for i = 2, #self.ActionsInTimeline do
 			local indexToFix = i
 			while indexToFix > 1 and self.ActionsInTimeline[indexToFix - 1].at >= self.ActionsInTimeline[indexToFix].at - self.FrameDurationInSec / 2 do
+				if config.EnableLogs then printWithTime(userAction, 'update', 'fixing', self.ActionsInTimeline[indexToFix - 1].at, 'to', self.ActionsInTimeline[indexToFix].at - self.FrameDurationInSec) end
 				self.ActionsInTimeline[indexToFix - 1].at = self.ActionsInTimeline[indexToFix].at - self.FrameDurationInSec
 				indexToFix = indexToFix - 1
 			end
@@ -177,17 +200,26 @@ function virtual_actions:update()
 		end
 		
 		-- Remove the item that are would outside our 'zone' (i.e. they might overlap existing actions)
+		local logsInfo = ''
 		for i = #self.ActionsInTimeline, 1, -1 do
 			local action = self.ActionsInTimeline[i]
+			local closestAction = script:closestAction(action.at)
 			if action.at <= zoneStart or action.at >= zoneEnd then
+				if config.EnableLogs then logsInfo = logsInfo .. '[SKIP-zone] ' .. getFormattedTime(action.at) .. ', ' end
 				table.remove(self.ActionsInTimeline, i)
+			elseif closestAction and math.abs(closestAction.at - action.at) < self.FrameDurationInSec / 2 then
+				if config.EnableLogs then logsInfo = logsInfo .. '[SKIP-too-close] ' .. getFormattedTime(action.at) .. ', ' end
+			    table.remove(self.ActionsInTimeline, i)
+			else
+				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(action.at) .. ', ' end
 			end
 		end
+		if config.EnableLogs and #logsInfo > 0 then printWithTime(userAction, 'update', #self.ActionsInTimeline, logsInfo) end
 
 		-- self:debugSameTimestamp(zoneStart, zoneEnd)
 
 		-- Finally, add the points to OFS timeline
-		for i, action in ipairs(self.ActionsInTimeline) do		
+		for i, action in ipairs(self.ActionsInTimeline) do
 			script.actions:add(action)
 		end
 
@@ -197,27 +229,33 @@ end
 
 function virtual_actions:debugSameTimestamp(zoneStart, zoneEnd)
 	
-	print('---debugSameTimestamp---')
-	print('zoneStart ' .. zoneStart)
-	print('zoneEnd ' .. zoneEnd)
+	printWithTime('---debugSameTimestamp---')
+	printWithTime('zoneStart ' .. zoneStart)
+	printWithTime('zoneEnd ' .. zoneEnd)
 	local script = ofs.Script(self.ScriptIdx)
 	for i, action in ipairs(self.ActionsInTimeline) do		
 		local closest = script:closestAction(action.at)
 		if closest and action.at == closest.at then
-			print('bug at ' .. action.at .. ' (' .. i .. ')')
+			printWithTime('bug at ' .. action.at .. ' (' .. i .. ')')
 		end
 	end
-	print('------------------------')
+	printWithTime('------------------------')
 end
 
-function virtual_actions:getStatus()
+function virtual_actions:getStatus(time)
 
 	if self.ActionsInTimeline and #self.ActionsInTimeline > 0 then
 		local firstAction = self.ActionsInTimeline[1]
 		local lastAction = self.ActionsInTimeline[#self.ActionsInTimeline]
 		return #self.ActionsInTimeline .. ' actions, ' .. lastAction.at - firstAction.at .. ' secs', nil
 	else
-		return 'empty', nil
+		local script = ofs.Script(self.ScriptIdx)
+		local closestAction = script:closestActionAfter(time)
+		if closestAction then
+			return 'empty, next action in ' .. closestAction.at - time .. ' secs', nil
+		else
+			return 'empty', nil
+		end
 	end
 
 end

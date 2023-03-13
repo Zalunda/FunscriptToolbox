@@ -16,7 +16,7 @@ lastVideoFullPath = nil
 lastMvsFullPath = nil
 
 function init()
-    print("Plugin Version:", PluginVersion)
+    printWithTime("Plugin Version:", PluginVersion)
 
 	loadOrCreateConfig()
 	connection = server_connection:new(FTMVSFullPath, config.EnableLogs)
@@ -69,7 +69,7 @@ function update(delta)
 end
 
 function scriptChange(scriptIdx)
-	getVirtualActions(scriptIdx):unvirtualizeActionsBefore(player.CurrentTime())
+	getVirtualActions(scriptIdx):unvirtualizeActionsBefore('scriptChange', player.CurrentTime())
 end
 
 function getVirtualActions(scriptIdx)
@@ -94,8 +94,8 @@ function createRequest(service)
 end
 
 function sendCreateRulesRequest(showUI)
-	getVirtualActions():unvirtualizeActionsBefore(player.CurrentTime())
-	getVirtualActions():removeVirtualActionsInTimelime()
+	getVirtualActions():unvirtualizeActionsBefore('sendCreateRulesRequest', player.CurrentTime())
+	getVirtualActions():removeAllVirtualActionsInTimelime('sendCreateRulesRequest')
 
 	local script = ofs.Script(ofs.ActiveIdx())
 	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - sharedConfig.LearningDurationInSeconds)
@@ -110,18 +110,18 @@ function sendCreateRulesRequest(showUI)
 	if lastVideoFullPath == videoFullPath then
 		mvsFullPath = lastMvsFullPath
 	else
-		print('Trying to find .mvs file from videoFullPath...')
+		printWithTime('Trying to find .mvs file from videoFullPath...')
 		local combinedPart = nil
 		for part in string.gmatch(videoFullPath, "[^.]+") do
 			combinedPart = combinedPart and combinedPart .. "." .. part or part
 			potentialMvsFullPath = combinedPart .. ".mvs"
 			local file = io.open(potentialMvsFullPath, "r")
 			if file then
-				print('   FOUND ' .. potentialMvsFullPath)
+				printWithTime('   FOUND ' .. potentialMvsFullPath)
 				io.close(file)
 				mvsFullPath = potentialMvsFullPath
 			else
-				print('   ' .. potentialMvsFullPath)
+				printWithTime('   ' .. potentialMvsFullPath)
 			end
 		end
 	end
@@ -169,8 +169,7 @@ end
 function handleCreateRulesResponse(response)
 	if response.Actions then
 		local scriptIdx = ofs.ActiveIdx() -- todo save in request/response
-		local va = getVirtualActions(scriptIdx)
-		va:init(response.Actions, response.FrameDurationInMs)
+		getVirtualActions(scriptIdx):init('handleCreateRulesResponse', response.Actions, response.FrameDurationInMs)
 	end
 end
 
@@ -184,8 +183,25 @@ end
 function handleCheckVersionResponse(response)
 	if PluginVersion ~= response.LastestVersion then
 		updateVersionMessage = 'NEW PLUGIN VERSION AVAILABLE! ' .. PluginVersion .. ' => ' .. response.LastestVersion
-		print(updateVersionMessage)
+		printWithTime(updateVersionMessage)
 	end
+end
+
+function printWithTime(...)
+	local localtime = os.date("*t", time) -- get local date and time table
+	local formattedTime = string.format("%02d:%02d:%02d", localtime.hour, localtime.min, localtime.sec)
+
+	local args = {...}
+	table.insert(args, 1, formattedTime)
+	print(table.unpack(args))
+end
+
+function getFormattedTime(timestamp)
+	local secondsWithMilliseconds = timestamp % 60
+	local seconds = math.floor(secondsWithMilliseconds)
+	local minutes = math.floor(timestamp / 60) % 60
+	local milliseconds = math.floor((secondsWithMilliseconds - seconds) * 1000)
+	return string.format("%d:%02d.%03d", minutes, seconds, milliseconds)
 end
 
 --------------------------------------------------------------------
@@ -307,7 +323,8 @@ function updateVirtualPoints()
 	config.MinimumPercentageFilled = clamp(config.MinimumPercentageFilled, 0, 100)
 	config.AmplitudeCenter = clamp(config.AmplitudeCenter, 0, 100)
 	config.ExtraAmplitudePercentage = clamp(config.ExtraAmplitudePercentage, 0, 1000)
-	getVirtualActions():update(player.CurrentTime())
+	getVirtualActions():unvirtualizeActionsBefore('updateVirtualPoints', player.CurrentTime())
+	getVirtualActions():update('updateVirtualPoints')
 	saveConfig()
 end
 
@@ -329,12 +346,12 @@ function gui()
 		ofs.Separator()
 		ofs.Separator()
 	end
-	local connectionStatus, connectionStatusTooltip = connection:getStatus()
+	local connectionStatus, connectionStatusTooltip = connection:getStatus(player.CurrentTime())
     ofs.Text("Connection: " .. connectionStatus)
 	if connectionStatusTooltip then
 		ofs.Tooltip(connectionStatusTooltip)
 	end
-	local virtualActionsStatus, virtualActionsStatusTooltip = getVirtualActions():getStatus()
+	local virtualActionsStatus, virtualActionsStatusTooltip = getVirtualActions():getStatus(player.CurrentTime())
     ofs.Text("Virtual Actions: " .. virtualActionsStatus)
 	if virtualActionsStatusTooltip then
 		ofs.Tooltip(virtualActionsStatusTooltip)
@@ -350,7 +367,7 @@ function gui()
 		config.ShowUIOnCreate, showUIOnCreateChanged = ofs.Checkbox('UI', config.ShowUIOnCreate)
 		ofs.SameLine()
 		if ofs.Button("Hide") then
-			getVirtualActions():removeVirtualActionsInTimelime()
+			getVirtualActions():removeAllVirtualActionsInTimelime('gui')
 		end
 		ofs.SameLine()
 		if ofs.Button("Show") then
@@ -358,8 +375,8 @@ function gui()
 		end
 		ofs.SameLine()
 		if ofs.Button("Delete") then
-			getVirtualActions(scriptIdx):unvirtualizeActionsBefore(player.CurrentTime())
-			getVirtualActions():deleteVirtualActions()
+			getVirtualActions():unvirtualizeActionsBefore('gui', player.CurrentTime())
+			getVirtualActions():deleteAllVirtualActions('gui')
 		end
 		
 		if ofs.Button("Go back to start") then
