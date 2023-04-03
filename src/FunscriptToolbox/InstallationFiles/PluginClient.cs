@@ -2,6 +2,6 @@
 {
     internal static class PluginClient
     {
-        public static string Version => "1.2.3";
+        public static string Version => "1.2.4";
     }
 }
