@@ -111,6 +111,7 @@ namespace FunscriptToolbox.UI
         private void UpdateImage(FrameAnalyser analyser)
         {
             // TODO Allow to cancel update if they are pilled up in threads.
+            if (analyser == null) return;
 
             var scaledBitmap = new Bitmap(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
             using (var graphics = Graphics.FromImage(scaledBitmap))
@@ -121,8 +122,8 @@ namespace FunscriptToolbox.UI
                 foreach (var rule in analyser.Rules)
                 {
                     var vectorBitmap = r_vectorBitmaps[rule.Direction];
-                    var y = rule.Index / r_originalFrameAnalyser.NbBlocX;
-                    var x = rule.Index % r_originalFrameAnalyser.NbBlocX;
+                    var y = rule.Index / analyser.NbBlocX;
+                    var x = rule.Index % analyser.NbBlocX;
                     graphics.DrawImage(
                         vectorBitmap, 
                         new Rectangle(x * vectorBitmap.Width, y * vectorBitmap.Height, vectorBitmap.Width, vectorBitmap.Height));
@@ -155,8 +156,8 @@ namespace FunscriptToolbox.UI
         private int? GetQuality() => int.TryParse(this.QualityTextBox.Text, out var value) 
             ? (int?)value 
             : null;
-        private int? GetMinPercentage() => int.TryParse(this.MinPercentageTextBox.Text, out var value)
-            ? (int?)value
+        private double? GetMinPercentage() => double.TryParse(this.MinPercentageTextBox.Text, out var value)
+            ? (double?)value
             : null;
         private byte? GetDirection() => int.TryParse(this.DirectionTextBox.Text, out var value) 
             ? (byte?) (value % MotionVectorsHelper.NbBaseDirection)
@@ -172,7 +173,8 @@ namespace FunscriptToolbox.UI
         }
         private void MinPercentageChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            MinPercentageSlider.Value = Math.Round(MinPercentageSlider.Value);
+            MinPercentageSlider.Value = Math.Round(MinPercentageSlider.Value, 2);
+            MinPercentageSlider.SmallChange = (MinPercentageSlider.Value <= 2) ? 0.1 : 1.0;
         }
         private async void LearnFromScriptFilterChanged(object sender, TextChangedEventArgs e)
         {
@@ -182,7 +184,7 @@ namespace FunscriptToolbox.UI
             if (activity != null && quality != null && minPercentage != null)
             {
                 m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(
-                    activity.Value, 
+                    activity.Value,
                     quality.Value,
                     minPercentage.Value);
                 await Task.Run(() =>
@@ -286,6 +288,21 @@ namespace FunscriptToolbox.UI
         {
             this.FinalFrameAnalyser = null;
             this.Close();
+        }
+
+        private void TestA_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void TestB_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void AcceptMotionVectors_Click(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }

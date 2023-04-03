@@ -30,6 +30,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             [Option('c', "channelbasefilepath", Required = true, HelpText = "Channel (i.e. file prefix) for the communication.")]
             public string ChannelBaseFilePath { get; set; }
 
+            [Option('l', "channellockfilepath", Required = true, HelpText = "Channel Lock for the communication.")]
+            public string ChannelLockFilePath { get; set; }            
+
             [Option('t', "timeout", Required = false, HelpText = "Timeout before the server stop byitself. Plugin need to send keepalive to keep it alive if no request is send during that time.", Default = 300)]
             public int TimeOutInSeconds { get; set; }
 
@@ -80,23 +83,26 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
             Directory.CreateDirectory(r_responseFolder);
 
-            m_watcher = new FileSystemWatcher();
-            m_watcher.Path = r_requestFolder;
-            m_watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
-            m_watcher.Changed += OnCreated;
-            m_watcher.EnableRaisingEvents = true;
-
-            foreach (var file in Directory.GetFiles(r_requestFolder))
+            using (var channelLock = new FileStream(r_options.ChannelLockFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                OnCreated(m_watcher, new FileSystemEventArgs(WatcherChangeTypes.Created, r_requestFolder, Path.GetFileName(file)));
-            }
+                m_watcher = new FileSystemWatcher();
+                m_watcher.Path = r_requestFolder;
+                m_watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size;
+                m_watcher.Changed += OnCreated;
+                m_watcher.EnableRaisingEvents = true;
 
-            while (true)
-            {
-                if (!r_semaphore.WaitOne(r_options.TimeOut))
+                foreach (var file in Directory.GetFiles(r_requestFolder))
                 {
-                    WriteInfo($"Server: Time out reached ({r_options.TimeOut}). Server is closing down.");
-                    return 0;
+                    OnCreated(m_watcher, new FileSystemEventArgs(WatcherChangeTypes.Created, r_requestFolder, Path.GetFileName(file)));
+                }
+
+                while (true)
+                {
+                    if (!r_semaphore.WaitOne(r_options.TimeOut))
+                    {
+                        WriteInfo($"Server: Time out reached ({r_options.TimeOut}). Server is closing down.");
+                        return 0;
+                    }
                 }
             }
         }
@@ -184,7 +190,12 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 if (response != null)
                 {
                     var responseFullPath = Path.Combine(r_responseFolder, e.Name);
-                    File.WriteAllText(responseFullPath, JsonConvert.SerializeObject(response));
+
+                    using (var stream = new FileStream(responseFullPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    using (var writer = new StreamWriter(stream))
+                    {
+                        writer.Write(JsonConvert.SerializeObject(response));
+                    }
                 }
 
                 WriteInfo($"Server: Done.");

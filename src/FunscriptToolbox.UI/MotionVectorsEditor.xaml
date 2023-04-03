@@ -66,6 +66,20 @@
                     </StackPanel>
                 </StackPanel>
             </TabItem>
+            <!--
+            <TabItem x:Name="LearnFromMotionVectorsTab" Header="Learn From Motion Vectors">
+                <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Left">
+                        <Button x:Name="TestA" Click="TestA_Click" FontSize="18">Test A</Button>
+                        <Button x:Name="TestB" Click="TestB_Click" Margin="5,0,0,0" FontSize="18">Test B</Button>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Right">
+                        <Button x:Name="AcceptLearnFromMotionVectors" Click="AcceptMotionVectors_Click" FontSize="18" FontWeight="Bold">Accept</Button>
+                        <Button x:Name="CancelLearnFromMotionVectors" Margin="5,0,0,0" Click="Cancel_Click" FontSize="18">Cancel</Button>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+            -->            
             <TabItem x:Name="ManualTab" Header="Manual">
                 <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
                     <StackPanel Orientation="Horizontal" Margin="10,5,10,5">

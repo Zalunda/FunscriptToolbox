@@ -25,7 +25,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 40;
+            int test = 41;
 
             switch (test)
             {
@@ -157,6 +157,7 @@ namespace FunscriptToolbox
                     {
                         "motionvectors.ofspluginserver",
                         "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors\Channel-1-"),
+                        "--channellockfilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors\Channel-1.lock"),
                         "--timeout", "300",
                         "--debugmode"
                     };

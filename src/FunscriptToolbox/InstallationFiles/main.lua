@@ -27,33 +27,83 @@ end
 function loadOrCreateConfig()
 
 	local f = io.open(configFullPath)
-	local loaded_config
+	local loaded
     if f then
 		local content = f:read("*a")
 		f:close()
-		loaded_config = json.decode(content)
+		loaded = json.decode(content)
 	else
-		loaded_config = { config = {}, sharedConfig = {}}
+		loaded = {}
     end
 
-	config.EnableLogs 								= loaded_config.config.EnableLogs == nil and true or loaded_config.config.EnableLogs
-	config.TopPointsOffset 							= loaded_config.config.TopPointsOffset 							or 0
-	config.BottomPointsOffset 						= loaded_config.config.BottomPointsOffset 						or 0
-	config.MinimumPosition 							= loaded_config.config.MinimumPosition 							or 0
-	config.MaximumPosition 							= loaded_config.config.MaximumPosition 							or 100
-	config.MinimumPercentageFilled 					= loaded_config.config.MinimumPercentageFilled 					or 0
-	config.AmplitudeCenter 							= loaded_config.config.AmplitudeCenter 							or 50
-	config.ExtraAmplitudePercentage 				= loaded_config.config.ExtraAmplitudePercentage 				or 0
-	config.ShowUIOnCreate							= loaded_config.config.ShowUIOnCreate == nil and true or loaded_config.config.ShowUIOnCreate
+	if not config.adjustVps then config.adjustVps = {} end
+	
+	if not loaded.config then loaded.config = {} end
+	if not loaded.config.adjustVps then loaded.config.adjustVps = {} end
+	if not loaded.config.sharedConfig then loaded.sharedConfig = {} end
 
-	sharedConfig.MaximumMemoryUsageInMB 			= loaded_config.sharedConfig.MaximumMemoryUsageInMB 			or 1000
-	sharedConfig.LearningDurationInSeconds 			= loaded_config.sharedConfig.LearningDurationInSeconds 			or 10
-	sharedConfig.DefaultActivityFilter 				= loaded_config.sharedConfig.DefaultActivityFilter 				or 60
-	sharedConfig.DefaultQualityFilter 				= loaded_config.sharedConfig.DefaultQualityFilter 				or 90
-	sharedConfig.DefaultMinimumPercentageFilter 	= loaded_config.sharedConfig.DefaultMinimumPercentageFilter 	or 5
-	sharedConfig.MaximumDurationToGenerateInSeconds = loaded_config.sharedConfig.MaximumDurationToGenerateInSeconds	or 120
-	sharedConfig.MaximumNbStrokesDetectedPerSecond 	= loaded_config.sharedConfig.MaximumNbStrokesDetectedPerSecond  or 3.0
-	sharedConfig.TopMostUI							= loaded_config.sharedConfig.TopMostUI == nil and true or loaded_config.sharedConfig.TopMostUI
+	config.EnableLogs 								= loaded.config.EnableLogs == nil and true or loaded.config.EnableLogs
+	config.ShowUIOnCreate							= loaded.config.ShowUIOnCreate == nil and true or loaded.config.ShowUIOnCreate
+	
+	config.adjustVps.TopPointsOffset 				= loaded.config.adjustVps.TopPointsOffset 				or 0
+	config.adjustVps.TopPointsOffsetReset			= loaded.config.adjustVps.TopPointsOffsetReset == nil and true or loaded.config.adjustVps.TopPointsOffsetReset
+	config.adjustVps.BottomPointsOffset 			= loaded.config.adjustVps.BottomPointsOffset 			or 0
+	config.adjustVps.BottomPointsOffsetReset		= loaded.config.adjustVps.BottomPointsOffsetReset == nil and true or loaded.config.adjustVps.BottomPointsOffsetReset
+	config.adjustVps.MinimumPosition 				= loaded.config.adjustVps.MinimumPosition 				or 0
+	config.adjustVps.MinimumPositionReset			= loaded.config.adjustVps.MinimumPositionReset == nil and true or loaded.config.adjustVps.MinimumPositionReset
+	config.adjustVps.MaximumPosition 				= loaded.config.adjustVps.MaximumPosition 				or 100
+	config.adjustVps.MaximumPositionReset			= loaded.config.adjustVps.MaximumPositionReset == nil and true or loaded.config.adjustVps.MaximumPositionReset
+	config.adjustVps.MinimumPercentageFilled 		= loaded.config.adjustVps.MinimumPercentageFilled 		or 0
+	config.adjustVps.MinimumPercentageFilledReset	= loaded.config.adjustVps.MinimumPercentageFilledReset == nil and true or loaded.config.adjustVps.MinimumPercentageFilledReset
+	config.adjustVps.AmplitudeCenter 				= loaded.config.adjustVps.AmplitudeCenter 				or 50
+	config.adjustVps.AmplitudeCenterReset			= loaded.config.adjustVps.AmplitudeCenterReset == nil and true or loaded.config.adjustVps.AmplitudeCenterReset
+	config.adjustVps.ExtraAmplitudePercentage 		= loaded.config.adjustVps.ExtraAmplitudePercentage 		or 0
+	config.adjustVps.ExtraAmplitudePercentageReset	= loaded.config.adjustVps.ExtraAmplitudePercentageReset == nil and true or loaded.config.adjustVps.ExtraAmplitudePercentageReset
+
+	sharedConfig.MaximumMemoryUsageInMB 			= loaded.sharedConfig.MaximumMemoryUsageInMB 				or 1000
+	sharedConfig.LearningDurationInSeconds 			= loaded.sharedConfig.LearningDurationInSeconds 			or 10
+	sharedConfig.DefaultActivityFilter 				= loaded.sharedConfig.DefaultActivityFilter 				or 60
+	sharedConfig.DefaultQualityFilter 				= loaded.sharedConfig.DefaultQualityFilter 					or 90
+	sharedConfig.DefaultMinimumPercentageFilter 	= loaded.sharedConfig.DefaultMinimumPercentageFilter 		or 5
+	sharedConfig.MaximumDurationToGenerateInSeconds = loaded.sharedConfig.MaximumDurationToGenerateInSeconds	or 120
+	sharedConfig.MaximumNbStrokesDetectedPerSecond 	= loaded.sharedConfig.MaximumNbStrokesDetectedPerSecond		or 3.0
+	sharedConfig.TopMostUI							= loaded.sharedConfig.TopMostUI == nil and true or loaded.sharedConfig.TopMostUI
+	
+	fullResetAdjustConfigToDefault()
+end
+
+function fullResetAdjustConfigToDefault()
+	config.TopPointsOffset 							= config.adjustVps.TopPointsOffset
+	config.BottomPointsOffset 						= config.adjustVps.BottomPointsOffset
+	config.MinimumPosition 							= config.adjustVps.MinimumPosition
+	config.MaximumPosition 							= config.adjustVps.MaximumPosition
+	config.MinimumPercentageFilled 					= config.adjustVps.MinimumPercentageFilled
+	config.AmplitudeCenter 							= config.adjustVps.AmplitudeCenter
+	config.ExtraAmplitudePercentage 				= config.adjustVps.ExtraAmplitudePercentage
+end
+
+function partialResetAdjustConfigToDefault()
+	if config.adjustVps.TopPointsOffsetReset then
+		config.TopPointsOffset 						= config.adjustVps.TopPointsOffset
+	end
+	if config.adjustVps.BottomPointsOffsetReset then
+		config.BottomPointsOffset 					= config.adjustVps.BottomPointsOffset
+	end
+	if config.adjustVps.MinimumPositionReset then
+		config.MinimumPosition 						= config.adjustVps.MinimumPosition
+	end
+	if config.adjustVps.MaximumPositionReset then
+		config.MaximumPosition 						= config.adjustVps.MaximumPosition
+	end
+	if config.adjustVps.MinimumPercentageFilledReset then
+		config.MinimumPercentageFilled 				= config.adjustVps.MinimumPercentageFilled
+	end
+	if config.adjustVps.AmplitudeCenterReset then
+		config.AmplitudeCenter 						= config.adjustVps.AmplitudeCenter
+	end
+	if config.adjustVps.ExtraAmplitudePercentageReset then
+		config.ExtraAmplitudePercentage 			= config.adjustVps.ExtraAmplitudePercentage
+	end
 end
 
 function saveConfig()
@@ -168,6 +218,8 @@ end
 
 function handleCreateRulesResponse(response)
 	if response.Actions then
+		partialResetAdjustConfigToDefault()
+		
 		local scriptIdx = ofs.ActiveIdx() -- todo save in request/response
 		getVirtualActions(scriptIdx):init('handleCreateRulesResponse', response.Actions, response.FrameDurationInMs)
 	end
@@ -315,6 +367,10 @@ function binding.extraamplitude_move_down()
 	config.ExtraAmplitudePercentage = config.ExtraAmplitudePercentage - 10
 	updateVirtualPoints()
 end 
+function binding.reset_to_default()
+	fullResetAdjustConfigToDefault()
+	updateVirtualPoints()
+end 
 function updateVirtualPoints()
 	config.TopPointsOffset = clamp(config.TopPointsOffset, -10, 10)
 	config.BottomPointsOffset = clamp(config.BottomPointsOffset, -10, 10)
@@ -384,6 +440,8 @@ function gui()
 		end
 		
 		ofs.Text('Adjust:')
+		config.adjustVps.TopPointsOffsetReset, resetTopChanged = ofs.Checkbox("R##TPO", config.adjustVps.TopPointsOffsetReset)
+		ofs.SameLine()
 		config.TopPointsOffset, topChanged = ofs.InputInt("Top Points Offset", config.TopPointsOffset, 1)
 		ofs.SameLine()
 		if ofs.Button("0##TPO0") then
@@ -391,6 +449,8 @@ function gui()
 			topChanged = true
 		end
 		
+		config.adjustVps.BottomPointsOffsetReset, resetBottomChanged = ofs.Checkbox("R##BPO", config.adjustVps.BottomPointsOffsetReset)
+		ofs.SameLine()
 		config.BottomPointsOffset, bottomChanged = ofs.InputInt("Bottom Points Offset", config.BottomPointsOffset, 1)
 		ofs.SameLine()
 		if ofs.Button("0##BPO0") then
@@ -398,6 +458,8 @@ function gui()
 			bottomChanged = true
 		end
 
+		config.adjustVps.MinimumPositionReset, resetMinChanged = ofs.Checkbox("R##MinP", config.adjustVps.MinimumPositionReset)
+		ofs.SameLine()
 		config.MinimumPosition, minChanged = ofs.InputInt("Min Pos", config.MinimumPosition, 5)
 		ofs.SameLine()
 		if ofs.Button("0##MP0") then
@@ -405,6 +467,8 @@ function gui()
 			minChanged = true
 		end
 
+		config.adjustVps.MaximumPositionReset, resetMaxChanged = ofs.Checkbox("R##MaxP", config.adjustVps.MaximumPositionReset)
+		ofs.SameLine()
 		config.MaximumPosition, maxChanged = ofs.InputInt("Max Pos", config.MaximumPosition, 5)	
 		ofs.SameLine()
 		if ofs.Button("100##MP100") then
@@ -412,6 +476,8 @@ function gui()
 			maxChanged = true
 		end
 
+		config.adjustVps.AmplitudeCenterReset, resetAmplitudeChanged = ofs.Checkbox("R##CP", config.adjustVps.AmplitudeCenterReset)
+		ofs.SameLine()
 		config.AmplitudeCenter, amplitudeChanged = ofs.InputInt("Center Pos %", config.AmplitudeCenter, 10)
 		ofs.SameLine()
 		if ofs.Button("0##AC0") then
@@ -428,6 +494,8 @@ function gui()
 			config.AmplitudeCenter = 100
 			amplitudeChanged = true
 		end
+		config.adjustVps.MinimumPercentageFilledReset, resetPercentageChanged = ofs.Checkbox("R##MF", config.adjustVps.MinimumPercentageFilledReset)
+		ofs.SameLine()
 		config.MinimumPercentageFilled, percentageChanged = ofs.InputInt("Min % filled", config.MinimumPercentageFilled, 10)
 		ofs.SameLine()
 		if ofs.Button("0##MPF0") then
@@ -435,6 +503,8 @@ function gui()
 			percentageChanged = true
 		end	
 		
+		config.adjustVps.ExtraAmplitudePercentageReset, resetExtraAmplitudeChanged = ofs.Checkbox("R##Ext", config.adjustVps.ExtraAmplitudePercentageReset)
+		ofs.SameLine()
 		config.ExtraAmplitudePercentage, extraAmplitudeChanged = ofs.InputInt("Extra %", config.ExtraAmplitudePercentage, 10)		
 		ofs.SameLine()
 		if ofs.Button("0##EAP0") then
@@ -442,7 +512,35 @@ function gui()
 			extraAmplitudeChanged = true
 		end
 
-		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged or extraAmplitudeChanged then
+		local isDiffFromDefault = config.adjustVps.TopPointsOffset ~= config.TopPointsOffset or
+		    config.adjustVps.BottomPointsOffset ~= config.BottomPointsOffset or
+		    config.adjustVps.MinimumPosition ~= config.MinimumPosition or
+		    config.adjustVps.MaximumPosition ~= config.MaximumPosition or
+		    config.adjustVps.MinimumPercentageFilled ~= config.MinimumPercentageFilled or
+		    config.adjustVps.AmplitudeCenter ~= config.AmplitudeCenter or
+		    config.adjustVps.ExtraAmplitudePercentage ~= config.ExtraAmplitudePercentage
+
+		ofs.Text('Default:')
+		ofs.BeginDisabled(not isDiffFromDefault)
+		ofs.SameLine()
+		if ofs.Button("Set") then		
+			config.adjustVps.TopPointsOffset 							= config.TopPointsOffset
+			config.adjustVps.BottomPointsOffset 						= config.BottomPointsOffset
+			config.adjustVps.MinimumPosition 							= config.MinimumPosition
+			config.adjustVps.MaximumPosition 							= config.MaximumPosition
+			config.adjustVps.MinimumPercentageFilled 					= config.MinimumPercentageFilled
+			config.adjustVps.AmplitudeCenter 							= config.AmplitudeCenter
+			config.adjustVps.ExtraAmplitudePercentage 					= config.ExtraAmplitudePercentage
+			saveConfig()
+		end
+		ofs.SameLine()
+		if ofs.Button("Reset") then
+			fullResetAdjustConfigToDefault()
+			updateVirtualPoints()
+		end
+		ofs.EndDisabled()
+	
+		if topChanged or bottomChanged or minChanged or maxChanged or percentageChanged or amplitudeChanged or 	extraAmplitudeChanged then
 			updateVirtualPoints()
 		end
 		ofs.Separator()
@@ -455,7 +553,11 @@ function gui()
 		sharedConfig.DefaultActivityFilter = clamp(sharedConfig.DefaultActivityFilter, 0, 100)
 		sharedConfig.DefaultQualityFilter, changed02 = ofs.InputInt("Default Quality Filter", sharedConfig.DefaultQualityFilter, 5)
 		sharedConfig.DefaultQualityFilter = clamp(sharedConfig.DefaultQualityFilter, 50, 100)
-		sharedConfig.DefaultMinimumPercentageFilter, changed03 = ofs.InputInt("Default Min % Filter", sharedConfig.DefaultMinimumPercentageFilter, 1)
+		local increment = 1
+		if sharedConfig.DefaultMinimumPercentageFilter <= 2 then
+			increment = 0.1
+		end
+		sharedConfig.DefaultMinimumPercentageFilter, changed03 = ofs.Input("Default Min % Filter", sharedConfig.DefaultMinimumPercentageFilter, increment)
 		sharedConfig.DefaultMinimumPercentageFilter = clamp(sharedConfig.DefaultMinimumPercentageFilter, 0, 100)
 		ofs.Separator()
 	end	
@@ -475,7 +577,24 @@ function gui()
 		ofs.Separator()
 	end
 	
-	if showUIOnCreateChanged or changed00 or changed01 or changed02 or changed03 or changed04 or changed05 or changed06 or changed07 or topMostUIChanged then
+	if showUIOnCreateChanged or 
+		changed00 or 
+		changed01 or 
+		changed02 or 
+		changed03 or 
+		changed04 or 
+		changed05 or 
+		changed06 or 
+		changed07 or 
+		topMostUIChanged or 
+		resetTopChanged or 
+		resetBottomChanged or 
+		resetMinChanged or 
+		resetMaxChanged or 
+		resetPercentageChanged or 
+		resetAmplitudeChanged or 
+		resetExtraAmplitudeChanged then
+		
 		saveConfig()
 	end
 end

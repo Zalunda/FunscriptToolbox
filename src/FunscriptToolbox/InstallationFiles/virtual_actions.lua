@@ -19,7 +19,7 @@ function virtual_actions:init(userAction, actions, frameDurationInMs)
 	if #actions > 0 then	
 		local script = ofs.Script(self.ScriptIdx)
 		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
-		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + 0.001)
+		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + self.FrameDurationInSec / 2)
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
 		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
 		if config.EnableLogs then printWithTime(userAction, 'init', 'zoneStart', getFormattedTime(zoneStart)) end

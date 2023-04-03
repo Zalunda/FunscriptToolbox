@@ -51,12 +51,14 @@ function server_connection:setBaseCommunicationFilePath()
         self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. id
         self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. id
 
-        local success, file = pcall(io.open, self.requestBaseFilePath .. ".lock", "w+")
-        if not success then
-            print("Channel file already used: " .. file)
+		local f, message, errno = io.open(self.requestBaseFilePath .. ".lock", "w+")
+        if not f then
+            printWithTime("Channel file already used: " .. id)
+            printWithTime("Message: " .. message)
+            printWithTime("errno: " .. errno)
         else
-			print('Channel '.. id .. ' locked for this process.')
-            self.channelBaseFileLock = file
+			printWithTime('Channel '.. id .. ' locked for this process.')
+			f:close() -- FunscriptToolbox will acquire the actual lock
 			self.channelCurrentTransactionNumber = 1
 			return
         end
@@ -69,7 +71,7 @@ function server_connection:startServerIfNeeded()
         return true
     end
 	if self.cantFindFTMVSFullPath then
-		print('Cannot send request when .exe is missing')
+		printWithTime('Cannot send request when .exe is missing')
 		return false
 	end
 
@@ -84,11 +86,13 @@ function server_connection:startServerIfNeeded()
     end
     table.insert(args, "--channelbasefilepath")
     table.insert(args, self.requestBaseFilePath .. "-")
+    table.insert(args, "--channellockfilepath")
+    table.insert(args, self.requestBaseFilePath .. ".lock")
     table.insert(args, "--timeout")
     table.insert(args, self.serverTimeout)
 
-    print("cmd: ", cmd)
-    print("args: ", table.unpack(args))
+    printWithTime("cmd: ", cmd)
+    printWithTime("args: ", table.unpack(args))
 
     self.serverProcessHandle = Process.new(cmd, table.unpack(args))
 	return true
@@ -105,10 +109,10 @@ function server_connection:sendRequest(request, callback)
 		local requestFilePath = self.requestBaseFilePath .. '-' .. transactionNumber .. ".json"
 		local responseFilePath = self.responseBaseFilePath .. '-'.. transactionNumber .. ".json"
 	
-		print('Sending request #' .. transactionNumber)
+		printWithTime('Sending request #' .. transactionNumber)
 		local encoded_data = json.encode(request)
 		if self.enableLogs then
-			print(encoded_data)
+			printWithTime(encoded_data)
 		end
  		local requestFile = io.open(requestFilePath, "w")
  		requestFile:write(encoded_data)
@@ -127,16 +131,18 @@ end
 
 function server_connection:getResponseForRequest(request)
 
-	local f = io.open(request.responseFilePath)
+	local f, message, errno = io.open(request.responseFilePath)
     if not f then
+        -- print("message: ", message)
+        -- print("errno: ", errno)
         return false
     end
 
-	print('Reading response #' .. request.transactionNumber)
+	printWithTime('Reading response #' .. request.transactionNumber)
     local content = f:read("*a")
     f:close()
 	if self.enableLogs then
-		print(content)
+		printWithTime(content)
 	end
     response_body = json.decode(content)
 	os.remove(request.responseFilePath)
@@ -144,10 +150,10 @@ function server_connection:getResponseForRequest(request)
 	self.lastTimeTaken = os.clock() - request.startTime
 	
 	if response_body.ErrorMessage then
-		print('---------------------------------')
-		print('Error received from the server:')
-		print(response_body.ErrorMessage)		
-		print('---------------------------------')
+		printWithTime('---------------------------------')
+		printWithTime('Error received from the server:')
+		printWithTime(response_body.ErrorMessage)		
+		printWithTime('---------------------------------')
 		self.status = 'ERROR RECEIVED (see tooltip)'
 		self.statusTooltip = response_body.ErrorMessage
 		
@@ -157,6 +163,7 @@ function server_connection:getResponseForRequest(request)
 		self.statusTooltip = nil
 	end
 
+	printWithTime('Response READ')
 	return true
 end
 
@@ -177,7 +184,7 @@ function server_connection:processResponses()
 	end
 
 	if self.nextKeepAlive and os.time() > self.nextKeepAlive then
-		self:sendRequest({["$type"] = "KeepAlivePluginRequest"});
+		self:sendRequest({["$type"] = "KeepAlivePluginRequest"})
 	end
 end
 
