@@ -1,6 +1,7 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using FunscriptToolbox.Core;
+using FunscriptToolbox.Properties;
 using log4net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -8,12 +9,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xabe.FFmpeg;
-using Xabe.FFmpeg.Downloader;
 
 namespace FunscriptToolbox
 {
@@ -30,6 +32,8 @@ namespace FunscriptToolbox
         {
             [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
             public bool Verbose { get; set; }
+
+            public bool ForceFfmpegUpdate { get; set; } = false;
 
             protected int ValidateMinValue(int value, int minValue)
             { 
@@ -50,6 +54,7 @@ namespace FunscriptToolbox
 
         private readonly ILog r_log;
         private readonly OptionsBase r_options;
+        private readonly string r_ffmpegFolder;
 
         public FunscriptVault FunscriptVault { get; }
 
@@ -61,9 +66,12 @@ namespace FunscriptToolbox
 
             r_log = log;
             r_options = options;
-            FFmpeg.SetExecutablesPath(Path.Combine(appDataFolder, "ffmpeg"));
+            r_ffmpegFolder = Path.Combine(appDataFolder, "ffmpeg");
+            FFmpeg.SetExecutablesPath(r_ffmpegFolder);
 
             this.FunscriptVault = new FunscriptVault(Path.Combine(appDataFolder, "Vault"));
+
+            UpdateFfmpeg(r_options.ForceFfmpegUpdate);
         }
 
         protected string GetApplicationFolder(string relativePath = null)
@@ -83,23 +91,31 @@ namespace FunscriptToolbox
             return new AudioSignature(signature.NbSamplesPerSecond, signature.CompressedSamples);
         }
 
-        protected void UpdateFfmpeg()
+        private void UpdateFfmpeg(bool forceUpdate = false)
         {
-            UpdateFfmpegAsync().GetAwaiter().GetResult();
-        }
-
-        protected async Task UpdateFfmpegAsync()
-        {
-            var oldCurrentDirectory = Environment.CurrentDirectory;
-            try
+            var neededFiles = new[] { "ffmpeg.exe", "ffprobe.exe" };
+            if (forceUpdate || !neededFiles.All(f => File.Exists(Path.Combine(r_ffmpegFolder, f))))
             {
-                Directory.CreateDirectory(FFmpeg.ExecutablesPath);
-                Environment.CurrentDirectory = FFmpeg.ExecutablesPath;
-                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
-            }
-            finally
-            {
-                Environment.CurrentDirectory = oldCurrentDirectory;
+                if (!forceUpdate)
+                    WriteInfo("ffmpeg/ffprobe missing.");
+                Directory.CreateDirectory(r_ffmpegFolder);
+                var url = Settings.Default.FfmpegSourceUrl;
+                var archiveFilename = Path.Combine(r_ffmpegFolder, url.Substring(url.LastIndexOf("/") + 1));
+                WriteInfo($"Downloading ffmpeg/ffprobe from '{url}'...");
+                using (var client = new WebClient())
+                {
+                    client.DownloadFile(url, archiveFilename);
+                }
+                using (var file = ZipFile.Open(archiveFilename, ZipArchiveMode.Read))
+                {
+                    foreach (var neededFile in neededFiles)
+                    {
+                        var zipEntry = file.Entries.FirstOrDefault(ze => ze.Name.Equals(neededFile, StringComparison.OrdinalIgnoreCase))
+                            ?? throw new Exception($"Can't find '{neededFile}' in archive '{url}'.");
+                        WriteInfo($"Extraction '{zipEntry.FullName}'...");
+                        zipEntry.ExtractToFile(Path.Combine(r_ffmpegFolder, zipEntry.Name), true);
+                    }
+                }
             }
         }
 

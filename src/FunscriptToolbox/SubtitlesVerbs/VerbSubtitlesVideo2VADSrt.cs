@@ -50,8 +50,6 @@ namespace FunscriptToolbox.SubtitlesVerb
 
         public int Execute()
         {
-            UpdateFfmpeg();
-
             foreach (var inputMp4Fullpath in r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))

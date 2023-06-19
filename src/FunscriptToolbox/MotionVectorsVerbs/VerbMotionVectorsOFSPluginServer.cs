@@ -79,8 +79,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         public int Execute()
         {
-            UpdateFfmpeg();
-
             Directory.CreateDirectory(r_responseFolder);
 
             using (var channelLock = new FileStream(r_options.ChannelLockFilePath, FileMode.Create, FileAccess.Write, FileShare.None))

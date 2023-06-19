@@ -40,8 +40,6 @@ namespace FunscriptToolbox.SubtitlesVerb
 
         public int Execute()
         {
-            UpdateFfmpeg();
-
             var silenceGapSamples = new byte[GetNbSamplesFromDuration(TimeSpan.FromSeconds(2))];
 
             foreach (var inputSrtFullpath in r_options
