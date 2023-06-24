@@ -17,11 +17,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         [Verb("installation", aliases: new[] { "inst" }, HelpText = "Installation of the OFSPlugin, creation of multiples 'use-case' folder.")]
         public class Options : OptionsBase
         {
-            public Options()
-            {
-                this.ForceFfmpegUpdate = true;
-            }
-
             [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', allow to search recursivly for matches", Default = false)]
             public bool Recursive { get; set; }
         }
