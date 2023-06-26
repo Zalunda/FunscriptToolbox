@@ -70,9 +70,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ApplicationExitHandler.cs" />
+    <Compile Include="AudioSyncVerbs\AudioSignatureWithLinkedFiles.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
+    <Compile Include="AudioSyncVerbs\VirtualMergedFile.cs" />
     <Compile Include="InstallationFiles\PluginClient.cs" />
     <Compile Include="InstallationVerbs\VerbInstallation.cs" />
     <Compile Include="MotionVectorsVerbs\VerbMotionVectorsOFSPluginServer.cs" />

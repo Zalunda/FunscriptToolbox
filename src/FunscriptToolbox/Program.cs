@@ -25,7 +25,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 0;
+            int test = 10;
 
             switch (test)
             {
@@ -54,16 +54,19 @@ namespace FunscriptToolbox
                     args = new[]
                     {
                         "as.cfs",
-                        "-s", "JAV - 3DSVR-0647-A - Kurea Hasumi - Strip Club [zalunda].funscript", 
-                        "-n", "JAV - 3DSVR-0647 (SLR) - Kurea Hasumi - Strip Club - 20102 [zalunda].mp4"
+                        "--verbose",
+                        "--minimumMatchLength", "20",
+                        "--nbLocationsPerMinute", "3",
+                        "-i", "JAV - 3DSVR-0628-* - Sarina Kurokawa - Mirror Massage [zalunda].mp4", 
+                        "-o", "JAV - 3DSVR-0628 (SLR) - Magic Mirror Couple’s Room Cuckold Massage - 19512 [zalunda].mp4"
                     };
                     break;
                 case 11:
                     args = new[]
                     {
                         "as.cfs",
-                        "-s", "NaughtyAmericaVR - 2017-04-20 - Melissa Moore - Wake and Bake [zalunda].funscript",
-                        "-n", "mygfmelissaseth_vrdesktophd.asig",
+                        "-i", "NaughtyAmericaVR - 2017-04-20 - Melissa Moore - Wake and Bake [zalunda].funscript",
+                        "-o", "mygfmelissaseth_vrdesktophd.asig",
                     };
                     break;
 
@@ -148,8 +151,7 @@ namespace FunscriptToolbox
                     {
                         "motionvectors.prepare",
                         //"--verbose",
-                        "--ffmpegfilterHeight", "-1",
-                        "Position-Doggy-MenStanding-C.mp4",
+                        @"Position-Doggy-MenStanding-C.mp4",
                     };
                     break;
                 case 41:

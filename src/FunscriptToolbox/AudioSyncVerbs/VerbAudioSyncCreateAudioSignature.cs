@@ -53,7 +53,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
         private readonly Options r_options;
 
         public VerbAudioSyncCreateAudioSignature(Options options)
-            : base(rs_log, options)
+            : base(rs_log, options, options.VideoExtension)
         {
             r_options = options;
         }

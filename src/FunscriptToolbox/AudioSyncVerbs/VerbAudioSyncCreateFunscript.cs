@@ -1,11 +1,10 @@
 ﻿using AudioSynchronization;
 using CommandLine;
-using CommandLine.Text;
-using FunscriptToolbox.Core;
 using log4net;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Diagnostics;
+using System.Linq;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
@@ -16,131 +15,125 @@ namespace FunscriptToolbox.AudioSyncVerbs
         [Verb("audiosync.createfunscript", aliases: new[] { "as.cfs" }, HelpText = "Take an audio signature and funscript and try to generate a funscript synchronized to a different videos.")]
         public class Options : OptionsBase
         {
-            [Option('s', "source", Required = true, HelpText = "original .funscript file")]
-            public string SourceFunscript { get; set; }
+            [Option('i', "input", Required = true, HelpText = "original .funscript file")]
+            public IEnumerable<string> Inputs { get; set; }
 
-            [Option('a', "sourceAudio", HelpText = "original .mp4 or .asig file")]
-            public string SourceAudio { get; set; }
-
-            [Option('n', "newAudio", Required = true, HelpText = "new .mp4 or .asig file")]
-            public string NewAudio { get; set; }
-
-            [Option('o', "outputFunscript", HelpText = "(Default: <newaudio-without-extension>.funscript) path to the generated funscript")]
-            public string OutputFunscript { get; set; }
+            [Option('o', "output", Required = true, HelpText = "new .mp4 or .asig file")]
+            public IEnumerable<string> Outputs { get; set; }
 
             [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 20)]
             public int MinimumMatchLength { get => m_minimumMatchLength; set => m_minimumMatchLength = ValidateMinValue(value, 5); }
             private int m_minimumMatchLength;
 
-            [Option('p', "nbLocationsPerMinute", Required = false, HelpText = "Number of locations to try to match per minute of video (used by the 'matching algorythm')", Default = 10)]
+            [Option('p', "nbLocationsPerMinute", Required = false, HelpText = "Number of locations to try to match per minute of video (used by the 'matching algorythm')", Default = 5)]
             public int NbLocationsPerMinute { get => m_nbLocationsPerMinute; set => m_nbLocationsPerMinute = ValidateMinValue(value, 2); }
             private int m_nbLocationsPerMinute;
 
             [Option('e', "videoextension", Required = false, HelpText = "If a file is a funscript, use this extension to find the corresponding video", Default = ".mp4")]
             public string VideoExtension { get; set; }
 
-            [Usage(ApplicationAlias = Verb.ApplicationName)]
-            public static IEnumerable<Example> Examples
-            {
-                get
-                {
-                    yield return new Example(
-                        "Generate a matching funscript from a funscript containing an audio-signature",
-                        DefaultUnparserSettings,
-                        new Options { SourceFunscript = "original-with-audio-signature.funscript", NewAudio = "new-video-version.mp4" });
-                    yield return new Example(
-                        "Generate a funscript from a funscript and an audio signature.",
-                        DefaultUnparserSettings,
-                        new Options { SourceFunscript = "original-without-audio-signature.funscript", SourceAudio = "original.asig", NewAudio = "new-video-version.mp4" });
-                }
-            }
+            [Option('d', "dontaddsignature", Required = false, HelpText = "Don't add the audio signature in generated funscript", Default = false)]
+            public bool DontAddAudioSignature { get; internal set; }
+
+            [Option('c', "alwayscreate", Required = false, HelpText = "Always create funscript even if empty", Default = false)]
+            public bool AlwaysCreate { get; internal set; }
         }
 
         private readonly Options r_options;
 
         public VerbAudioSyncCreateFunscript(Options options)
-            : base(rs_log, options)
+            : base(rs_log, options, options.VideoExtension)
         {
             r_options = options;
         }
 
-        private AudioSignature GetAudioSignature(string filename)
-        {
-            if (string.Equals(Path.GetExtension(filename), Funscript.AudioSignatureExtension, StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetExtension(filename), Funscript.FunscriptExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                WriteInfo($"Loading audio signature from '{filename}'...");
-                return Convert(Funscript.FromFile(filename).AudioSignature);
-            }
-            else
-            {
-                WriteInfo($"Extraction audio signature from '{filename}'...");
-                return AudioTracksAnalyzer.ExtractSignature(filename);
-            }
-        }
-
         public int Execute()
         {
-            WriteInfo($"Loading source funscript '{r_options.SourceFunscript}'...");
-            var inputFunscript = Funscript.FromFile(r_options.SourceFunscript);
-            AudioSignature inputAudioSignature;
-            if (r_options.SourceAudio != null)
+            var inputFiles = r_options
+                .Inputs
+                .SelectMany(file => HandleStarAndRecusivity(file)
+                .Select((mainFilename, index) => LoadAudioSignatureWithExtras($"Input-{index + 1:D2}", mainFilename)))
+                .ToArray();
+            if (inputFiles.Length == 0)
             {
-                inputAudioSignature = GetAudioSignature(r_options.SourceAudio);
-            }
-            else if (inputFunscript.AudioSignature != null)
-            {
-                WriteInfo($"Using audio signature from source funcript...");
-                inputAudioSignature = Convert(inputFunscript.AudioSignature);
-            }
-            else
-            {
-                var videoFilename = Path.ChangeExtension(r_options.SourceFunscript, r_options.VideoExtension);
-                inputAudioSignature = GetAudioSignature(videoFilename);
+                throw new Exception($"No input files found.");
             }
 
-            var outputAudioSignature = GetAudioSignature(r_options.NewAudio);
+            var outputFiles = r_options
+                .Outputs
+                .SelectMany(file => HandleStarAndRecusivity(file)
+                .Select((mainFilename, index) => LoadAudioSignature($"Output-{index + 1:D2}", mainFilename)))
+                .ToArray();
+            if (outputFiles.Length == 0)
+            {
+                throw new Exception($"No output files found.");
+            }
 
+            var virtualInput = new VirtualMergedFile("MergedInput", inputFiles);
+            var virtualOutput = new VirtualMergedFile("MergedOutput", outputFiles);
+
+            WriteInfo();
             WriteInfo($"Comparing audio signatures...");
             SamplesComparer comparer = new SamplesComparer(
-                        inputAudioSignature,
-                        outputAudioSignature,
+                        virtualInput.MergedAudioSignature,
+                        virtualOutput.MergedAudioSignature,
                         new CompareOptions
                         {
                             MinimumMatchLength = TimeSpan.FromSeconds(r_options.MinimumMatchLength),
                             NbLocationsPerMinute = r_options.NbLocationsPerMinute
                         });
+            var watchFindMatches = Stopwatch.StartNew();
             var audioOffsets = comparer.FindAudioOffsets(WriteVerbose);
+            WriteInfo($"Time to compare: {watchFindMatches.Elapsed}");
 
-            WriteInfo();
-            WriteInfo("Generating actions synchronized to the second file...");
-            inputFunscript.Actions = TransformsActions(audioOffsets, inputFunscript.Actions);
-
-            var newFilename = r_options.OutputFunscript ?? Path.ChangeExtension(r_options.NewAudio, Funscript.FunscriptExtension);
-            WriteInfo($"Saving synchronized version '{newFilename}'.", ConsoleColor.Green);
-            inputFunscript.AudioSignature = Convert(outputAudioSignature);
-            inputFunscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
-            inputFunscript.TransformChaptersTime((time) => audioOffsets.TransformPosition(time) ?? time);
-            this.FunscriptVault.SaveFunscript(inputFunscript, newFilename);
-
-            var baseFolder = Path.GetDirectoryName(r_options.SourceFunscript);
-            baseFolder = string.IsNullOrWhiteSpace(baseFolder) ? "." : baseFolder;
-            var baseName = Path.GetFileNameWithoutExtension(r_options.SourceFunscript);
-            foreach (var subtitleFullPath in Directory.GetFiles(baseFolder, "*.srt"))
+            foreach (var item in virtualInput.MergedFunscriptFiles)
             {
-                var subtitleFileName = Path.GetFileName(subtitleFullPath);
-                if (subtitleFileName.StartsWith(baseName, StringComparison.OrdinalIgnoreCase))
-                {
-                    var suffixe = subtitleFileName.Substring(baseName.Length);
-
-                    WriteInfo($"Generating and saving subtitles synchronized to the second file '{subtitleFileName}'...");
-                    var originalSubtitle = SubtitleFile.FromSrtFile(subtitleFileName);
-                    var newSubtitle = new SubtitleFile(
-                        Path.ChangeExtension(newFilename, suffixe),
-                        TransformsSubtitles(audioOffsets, originalSubtitle.Subtitles));
-                    newSubtitle.SaveSrt();
-                }
+                virtualOutput.AddFunscriptFile(item.Key, item.Value, audioOffsets.TransformPosition);
             }
 
+            foreach (var item in virtualInput.MergedSubtitleFiles)
+            {
+                virtualOutput.AddSubtitleFile(item.Key, item.Value, audioOffsets.TransformPosition);
+            }
+
+            WriteInfo();
+            WriteInfo($"Stats (from VirtualInput to VirtualOutput)");
+            foreach (var item in audioOffsets)
+            {
+                if (item.Offset == null)
+                    WriteInfo($"   From {FormatTimeSpan(item.StartTime),-12} to {FormatTimeSpan(item.EndTime),-12}, {item.NbTimesUsed,5} actions, chapters or subtitles have been DROPPED");
+                else if (item.Offset == TimeSpan.Zero)
+                    WriteInfo($"   From {FormatTimeSpan(item.StartTime),-12} to {FormatTimeSpan(item.EndTime),-12}, {item.NbTimesUsed,5} actions, chapters or subtitles copied as is");
+                else
+                    WriteInfo($"   From {FormatTimeSpan(item.StartTime),-12} to {FormatTimeSpan(item.EndTime),-12}, {item.NbTimesUsed,5} actions, chapters or subtitles have been MOVED by {FormatTimeSpan(item.Offset.Value)}");
+            }
+
+            WriteInfo();
+            foreach (var file in virtualOutput.Files)
+            {
+                foreach (var item in file.Funscripts)
+                {
+                    if (r_options.AlwaysCreate || item.Value.Actions.Length > 0 || item.Value.GetClonedChapters().Count() > 0)
+                    {
+                        var funscript = item.Value;
+                        funscript.AddNotes(NotesSynchronizedByFunscriptToolbox);
+                        if (!r_options.DontAddAudioSignature)
+                            funscript.AudioSignature = Convert(file.AudioSignature);
+                        funscript.Duration = (int)file.Duration.TotalSeconds;
+                        WriteInfo($"Saving '{file.BaseFullPath + item.Key}'...");
+                        funscript.Save(file.BaseFullPath + item.Key);
+
+                    }
+                }
+                foreach (var item in file.Subtitles)
+                {
+                    if (r_options.AlwaysCreate || item.Value.Subtitles.Count > 0)
+                    {
+                        item.Value.SaveSrt(file.BaseFullPath + item.Key);
+                        WriteInfo($"Saving '{file.BaseFullPath + item.Key}'...");
+                    }
+                }
+            }
             return 0;
         }
     }

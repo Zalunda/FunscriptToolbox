@@ -35,28 +35,12 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
             [Option('e', "videoextension", Required = false, HelpText = "If a file is a funscript, use this extension to find the corresponding video", Default = ".mp4")]
             public string VideoExtension { get; set; }
-
-            //[Usage(ApplicationAlias = "FunscriptToolBox")]
-            //public static IEnumerable<Example> Examples
-            //{
-            //    get
-            //    {
-            //        yield return new Example(
-            //            "Generate a matching funscript from a funscript containing an audio-signature",
-            //            DefaultUnparserSettings,
-            //            new Options { SourceFunscript = "original-with-audio-signature.funscript", NewAudio = "new-video-version.mp4" });
-            //        yield return new Example(
-            //            "Generate a funscript from a funscript and an audio signature.",
-            //            DefaultUnparserSettings,
-            //            new Options { SourceFunscript = "original-without-audio-signature.funscript", SourceAudio = "original.asig", NewAudio = "new-video-version.mp4" });
-            //    }
-            //}
         }
 
         private readonly Options r_options;
 
         public VerbAudioSyncVerifyFunscript(Options options)
-            : base(rs_log, options)
+            : base(rs_log, options, options.VideoExtension)
         {
             r_options = options;
         }

@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -257,9 +258,10 @@ namespace FunscriptToolbox
             {
                 var parent = Path.GetDirectoryName(filename);
                 return Directory.GetFiles(
-                    string.IsNullOrEmpty(parent) ? "." : parent,
-                    Path.GetFileName(filename),
-                    recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+                        string.IsNullOrEmpty(parent) ? "." : parent,
+                        Path.GetFileName(filename),
+                        recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                    .OrderBy(f => f);
             }
             else
                 return new[] { filename };
