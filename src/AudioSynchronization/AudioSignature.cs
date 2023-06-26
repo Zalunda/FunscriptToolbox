@@ -12,7 +12,7 @@ namespace AudioSynchronization
             var audioSignature = new AudioSignature(nbSamplesPerSecond, CompressSamples(samples));
 
             // Validation
-            var uncompressedSamples = audioSignature.GetUncompressedSamples();
+            var uncompressedSamples = audioSignature.UncompressedSamples;
             var validationErrors = 0;
             if (uncompressedSamples.Length != samples.Length)
             {
@@ -37,15 +37,18 @@ namespace AudioSynchronization
         {
             NbSamplesPerSecond = nbSamplesPerSecond;
             CompressedSamples = compressedSamples;
+            UncompressedSamples = UncompressSamples(compressedSamples);
         }
 
         public int NbSamplesPerSecond { get; }
         public byte[] CompressedSamples { get; }
+        public ushort[] UncompressedSamples { get; }
+        public TimeSpan Duration => TimeSpan.FromSeconds((double)UncompressedSamples.Length / NbSamplesPerSecond);
 
-        public ushort[] GetUncompressedSamples()
+        private static ushort[] UncompressSamples(byte[] compressedSamples)
         {
             var samples = new List<ushort>();
-            var compressedStream = new MemoryStream(CompressedSamples);
+            var compressedStream = new MemoryStream(compressedSamples);
             using (var gzipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
             {
                 int firstByte;

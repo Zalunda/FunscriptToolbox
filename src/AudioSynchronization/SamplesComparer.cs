@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace AudioSynchronization
@@ -13,67 +14,40 @@ namespace AudioSynchronization
                 throw new Exception($"NbSamplesPerSecond mismatch. First audio is: {signatureA.NbSamplesPerSecond}, second audio is: {signatureB.NbSamplesPerSecond}");
             }
 
-            r_samplesA = ComputeItems(signatureA.GetUncompressedSamples());
-            r_samplesB = ComputeItems(signatureB.GetUncompressedSamples());
-            this.Options = options;
             r_nbSamplesPerSecond = signatureA.NbSamplesPerSecond;
-            r_minimumMatchLength = (int) (options.MinimumMatchLength.TotalSeconds * r_nbSamplesPerSecond);
+            var nbSamplesOffsetForDiff = Math.Min(1, r_nbSamplesPerSecond / 20);
+            r_samplesA = ComputeItems(nbSamplesOffsetForDiff, signatureA.UncompressedSamples);
+            r_samplesB = ComputeItems(nbSamplesOffsetForDiff, signatureB.UncompressedSamples);
+            r_minimumMatchLength = (int)(options.MinimumMatchLength.TotalSeconds * r_nbSamplesPerSecond);
+            this.Options = options;
         }
 
+        private readonly int r_nbSamplesPerSecond;
         private readonly Sample[] r_samplesA;
         private readonly Sample[] r_samplesB;
-        private readonly int r_nbSamplesPerSecond;
         private readonly int r_minimumMatchLength;
 
         public CompareOptions Options { get; }
 
-        private Sample[] ComputeItems(ushort[] samples)
+        private static Sample[] ComputeItems(int nbSamplesOffsetForDiff, ushort[] samples)
         {
-            var result = new List<Sample>();
-
-            // Compute Average Values
-            var nbAdditionnalSamplesInAverage = 0;
-            var i = 0;
-            double previousValue = 0;
-            foreach (var sample in samples)
-            {
-                double totalValue = sample;
-                var nbValues = 1;
-                for (var k = 1; k <= nbAdditionnalSamplesInAverage; k++)
+            return samples.Select(
+                (sample, index) => new Sample
                 {
-                    if (i - k > 0)
-                    {
-                        totalValue += samples[i - k];
-                        nbValues++;
-                    }
-                    if (i + k < samples.Length)
-                    {
-                        totalValue += samples[i + k];
-                        nbValues++;
-                    }
-                }
-                var currentValue = totalValue / nbValues;
-                result.Add(new Sample
-                    {
-                        Value = currentValue,
-                        DiffFromPrevious = Math.Abs(currentValue - previousValue),
-                        Index = i
-                    });
-                previousValue = currentValue;
-
-                i++;
-            }
-
-            return result.ToArray();
+                    Value = sample,
+                    DiffFromPrevious = (index < nbSamplesOffsetForDiff) ? 0 : sample - samples[index - nbSamplesOffsetForDiff],
+                    Index = index
+                }).ToArray();
         }
 
         public AudioOffsetCollection FindAudioOffsets(Action<string> logFunc)
         {
-            var matches = new List<SamplesSectionMatch>();
+            var unsortedMatches = new List<SamplesSectionMatch>();
             FindMatches(logFunc,
-                    matches,
+                    unsortedMatches,
                     new SamplesSection(r_samplesA, r_nbSamplesPerSecond, 0, r_samplesA.Length),
                     new SamplesSection(r_samplesB, r_nbSamplesPerSecond, 0, r_samplesB.Length));
+            var matches = unsortedMatches.OrderBy(f => f.SectionA.StartIndex).ToList();
             matches.First().ExpendStart();
             matches.Last().ExpendEnd(r_samplesA, r_samplesB);
 
@@ -176,13 +150,8 @@ namespace AudioSynchronization
                 }
             }
 
-            // If the offset is almost 0, force it 0
-            if (Math.Abs(bestDiff.Offset) <= 1)
-            {
-                bestDiff = new SamplesSectionMatch(
-                    bestDiff.SectionA,
-                    bestDiff.SectionB.GetOffsetedSection(-bestDiff.Offset));
-            }
+            matches.Add(bestDiff);
+            var matchCount = matches.Count;
 
             FindMatches(
                 logFunc,
@@ -190,8 +159,7 @@ namespace AudioSynchronization
                 sectionA.GetSection(0, bestDiff.SectionA.StartIndex - sectionA.StartIndex),
                 sectionB.GetSection(0, bestDiff.SectionB.StartIndex - sectionB.StartIndex));
 
-            logFunc?.Invoke(bestDiff.ToString());
-            matches.Add(bestDiff);
+            logFunc?.Invoke($"{matchCount,-3} {bestDiff}");
 
             FindMatches(
                 logFunc,
@@ -202,16 +170,50 @@ namespace AudioSynchronization
 
         private int[] FindLargestPeaks(SamplesSection section)
         {
-            // TODO Make this better. Really get minimum peaks per minutes, and remove peaks that are close together
-            var nbPeaksMAx = ((section.Length / (r_nbSamplesPerSecond * 60)) + 1) * Options.NbLocationsPerMinute;
-            return section
+            var nbMinutesInSection = (section.Length / (r_nbSamplesPerSecond * 60)) + 1;
+            int nbReturn;
+            int offsetForDiff;
+            if (nbMinutesInSection > 15)
+            {
+                nbReturn = Options.NbLocationsPerMinute;
+                offsetForDiff = r_nbSamplesPerSecond;
+            }
+            else if (nbMinutesInSection >= 3)
+            {
+                nbReturn = Options.NbLocationsPerMinute * 2;
+                offsetForDiff = r_nbSamplesPerSecond / 2;
+            }
+            else
+            {
+                nbReturn = Options.NbLocationsPerMinute * 3;
+                offsetForDiff = r_nbSamplesPerSecond / 3;
+            }
+            var k = section
                 .GetItems()
-                .Where(f => f.Index < section.EndIndex - r_minimumMatchLength)
-                .ToArray()
-                .OrderByDescending(f => f.DiffFromPrevious)
-                .Take(nbPeaksMAx)
+                .GroupBy(f => f.Index / (r_nbSamplesPerSecond * 60))
+                .Select(itemsPerMinute => FindLargestPeaksInGroup(itemsPerMinute, nbReturn, offsetForDiff))
+                .SelectMany(batch => batch)
                 .Select(f => f.Index - section.StartIndex)
+                .OrderBy(f => f)
                 .ToArray();
+            return k;
+        }
+
+        private static IEnumerable<Sample> FindLargestPeaksInGroup(IGrouping<int, Sample> itemsPerMinute, int nbToReturn, int offsetForDiff)
+        {
+            var result = new List<Sample>();
+            foreach (var item in itemsPerMinute.OrderByDescending(f => f.DiffFromPrevious))
+            {
+                if (!result.Any(f => Math.Abs(f.Index - item.Index) < offsetForDiff))
+                {
+                    yield return item;
+                    result.Add(item);
+                    if (result.Count == nbToReturn)
+                    {
+                        yield break;
+                    }
+                }
+            }
         }
 
         private List<SamplesSectionMatch> Cleanup(
