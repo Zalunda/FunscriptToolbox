@@ -1,5 +1,5 @@
 @echo off
-REM ScriptVersion:1.0
+REM ScriptVersion:1.1
 
 echo How to use:
 echo 1. Move new-scene.mp4 and new-scene.funscript to this folder.
@@ -9,7 +9,7 @@ echo 4. It will allows user to synchronize your .funscript to a different versio
 echo    (with the audiosync.createfunscript or audiosync.verifyfunscript).
 echo.
 
-set "path=C:\Partage\Medias\Adult\Tools\FunscriptToolbox;%path%"
+set "path=[[FunscriptToolboxFolder]];%path%"
 
 FunscriptToolbox
 echo.
