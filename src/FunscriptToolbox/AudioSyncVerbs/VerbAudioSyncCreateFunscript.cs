@@ -15,13 +15,13 @@ namespace FunscriptToolbox.AudioSyncVerbs
         [Verb("audiosync.createfunscript", aliases: new[] { "as.cfs" }, HelpText = "Take an audio signature and funscript and try to generate a funscript synchronized to a different videos.")]
         public class Options : OptionsBase
         {
-            [Option('i', "input", Required = true, HelpText = "original .funscript file")]
+            [Option('i', "input", Required = true, HelpText = "original .funscript file", Separator = ';')]
             public IEnumerable<string> Inputs { get; set; }
 
-            [Option('o', "output", Required = true, HelpText = "new .mp4 or .asig file")]
+            [Option('o', "output", Required = true, HelpText = "new .mp4 or .asig file", Separator = ';')]
             public IEnumerable<string> Outputs { get; set; }
 
-            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 20)]
+            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 30)]
             public int MinimumMatchLength { get => m_minimumMatchLength; set => m_minimumMatchLength = ValidateMinValue(value, 5); }
             private int m_minimumMatchLength;
 
@@ -49,20 +49,22 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
         public int Execute()
         {
+            var index = 1;
             var inputFiles = r_options
                 .Inputs
                 .SelectMany(file => HandleStarAndRecusivity(file)
-                .Select((mainFilename, index) => LoadAudioSignatureWithExtras($"Input-{index + 1:D2}", mainFilename)))
+                .Select((mainFilename) => LoadAudioSignatureWithExtras($"Input-{index++:D2}", mainFilename)))
                 .ToArray();
             if (inputFiles.Length == 0)
             {
                 throw new Exception($"No input files found.");
             }
 
+            index = 1;
             var outputFiles = r_options
                 .Outputs
                 .SelectMany(file => HandleStarAndRecusivity(file)
-                .Select((mainFilename, index) => LoadAudioSignature($"Output-{index + 1:D2}", mainFilename)))
+                .Select((mainFilename) => LoadAudioSignature($"Output-{index++:D2}", mainFilename)))
                 .ToArray();
             if (outputFiles.Length == 0)
             {
@@ -73,7 +75,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             var virtualOutput = new VirtualMergedFile("MergedOutput", outputFiles);
 
             WriteInfo();
-            WriteInfo($"Comparing audio signatures...");
+            WriteInfo($"Comparing audio signatures (Merged Inputs vs. Merged Outputs)...");
             SamplesComparer comparer = new SamplesComparer(
                         virtualInput.MergedAudioSignature,
                         virtualOutput.MergedAudioSignature,
@@ -97,7 +99,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             }
 
             WriteInfo();
-            WriteInfo($"Stats (from VirtualInput to VirtualOutput)");
+            WriteInfo($"Differences (Merged Inputs vs. Merged Outputs)");
             foreach (var item in audioOffsets)
             {
                 if (item.Offset == null)
