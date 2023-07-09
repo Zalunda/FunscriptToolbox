@@ -1,6 +1,7 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using FunscriptToolbox.Core;
+using FunscriptToolbox.Properties;
 using log4net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -58,7 +59,7 @@ namespace FunscriptToolbox
 
         public Verb(ILog log, OptionsBase options)
         {
-            var appDataFolder = Environment.ExpandEnvironmentVariables($@"%appdata%\{ApplicationName}");
+            var appDataFolder = Environment.ExpandEnvironmentVariables(Settings.Default.AppDataSettings);
 
             r_log = log;
             r_options = options;
