@@ -32,6 +32,9 @@ namespace FunscriptToolbox
             [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
             public bool Verbose { get; set; }
 
+            [Option("skipupdate", Required = false, HelpText = "Skip ffmpeg download/update.")]
+            public bool SkipFfmpegUpdate { get; set; }
+
             protected int ValidateMinValue(int value, int minValue)
             { 
                 return ValidateValue(value, (v) => v < minValue, $"value cannot be lower then {minValue}");
@@ -90,7 +93,10 @@ namespace FunscriptToolbox
 
         protected void UpdateFfmpeg()
         {
-            UpdateFfmpegAsync().GetAwaiter().GetResult();
+            if (!r_options.SkipFfmpegUpdate)
+            {
+                UpdateFfmpegAsync().GetAwaiter().GetResult();
+            }
         }
 
         protected async Task UpdateFfmpegAsync()
