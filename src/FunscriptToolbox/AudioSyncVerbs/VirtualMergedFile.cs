@@ -146,7 +146,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             {
                 var startTime = Funscript.FromChapterTime(chapter.startTime);
                 var chapterDuration = Funscript.FromChapterTime(chapter.endTime) - startTime;
-                TimeSpan newStartTime = transformFunc(startTime);
+                var newStartTime = transformFunc(startTime);
                 if (newStartTime != null)
                 {
                     foreach (var file in this.Files)
