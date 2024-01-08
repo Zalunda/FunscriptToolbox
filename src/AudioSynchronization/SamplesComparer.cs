@@ -233,7 +233,6 @@ namespace AudioSynchronization
                     var gapA = currentDiff.SectionA.EndIndex - previousDiff.SectionA.StartIndex;
                     var gapB = currentDiff.SectionB.EndIndex - previousDiff.SectionB.StartIndex;
                     var gapToFill = Math.Min(gapA, gapB);
-                    var isOffsetsTooClose = Math.Abs(previousDiff.Offset - currentDiff.Offset) <= 2;
 
                     // Compute "Total Samples Difference" using only the Previous Offset
                     var currentSamplesDifference = 0.0;
@@ -247,6 +246,7 @@ namespace AudioSynchronization
                     }
 
                     var bestPreviousSamplesToKeep = gapToFill;
+                    var bestLargestBlock = gapToFill;
                     double bestSamplesDifference = currentSamplesDifference;
 
                     // Find the best position (i.e. keep X samples from last, and Y samples from current) to minimize the total samples difference
@@ -263,22 +263,19 @@ namespace AudioSynchronization
                         var indexBForCurrentOffset = indexAForCurrentOffset + currentDiff.Offset;
                         currentSamplesDifference += Math.Abs(r_samplesA[indexAForCurrentOffset].Value - r_samplesB[indexBForCurrentOffset].Value);
 
-                        if (!isOffsetsTooClose && currentSamplesDifference <= bestSamplesDifference)
+                        // Check if it's better then the previous best. If it equal, we use the one that create the biggest block.
+                        var newLargestBlock = Math.Max(currentPreviousSamplesToKeep, gapToFill - currentPreviousSamplesToKeep);
+                        if (currentSamplesDifference < bestSamplesDifference 
+                            || (currentSamplesDifference == bestSamplesDifference && newLargestBlock > bestLargestBlock))
                         {
                             bestPreviousSamplesToKeep = currentPreviousSamplesToKeep;
+                            bestLargestBlock = newLargestBlock;
                             bestSamplesDifference = currentSamplesDifference;
                         }
                     }
 
-                    // If the offset are too close (ex. offset 32123 and 32124), we only compare the total error for "keep all previous offset" or "keep all current offset" (we never 'split' the samples)
-                    if (isOffsetsTooClose && currentSamplesDifference <= bestSamplesDifference)
+                    if (bestPreviousSamplesToKeep == 0 || previousDiff.Offset == currentDiff.Offset)
                     {
-                        bestPreviousSamplesToKeep = 0;
-                    }
-
-                    if (bestPreviousSamplesToKeep < r_minimumMatchLength)
-                    {
-                        // If the number of samples to keep from the previous section is less then the minimum, we fill the whole gap with the currentDiff.Offset 
                         matches[i - 1] = null;
                         var start = currentDiff.SectionA.EndIndex - gapToFill;
                         matches[i] = new SamplesSectionMatch(
