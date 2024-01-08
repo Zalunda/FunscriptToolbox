@@ -90,7 +90,9 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="SubtitlesVerbs\AlpacaData.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2Training.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesVADWav2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesWavChunks2Srt.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2WavChunks.cs" />

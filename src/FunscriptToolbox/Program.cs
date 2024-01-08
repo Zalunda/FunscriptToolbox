@@ -25,7 +25,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 10;
+            int test = 32;
 
             switch (test)
             {
@@ -164,6 +164,17 @@ namespace FunscriptToolbox
                         "--debugmode"
                     };
                     break;
+
+                case 51:
+                    args = new[]
+                    {
+                        "subtitles.srt2train",
+                        "--verbose",
+                        "--output", "JAVTranslator.data.json",
+                        "--force",
+                        "*.context",
+                    };
+                    break;
             }
 #endif
             try
@@ -190,6 +201,8 @@ namespace FunscriptToolbox
                     VerbSubtitlesGPT2Srt.Options,
                     VerbSubtitlesSrt2GPT.Options,
 
+                    VerbSubtitlesSrt2Training.Options,
+
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
                     > (args)
@@ -207,6 +220,8 @@ namespace FunscriptToolbox
                           (VerbSubtitlesVADWav2Srt.Options options) => new VerbSubtitlesVADWav2Srt(options).Execute(),
                           (VerbSubtitlesGPT2Srt.Options options) => new VerbSubtitlesGPT2Srt(options).Execute(),
                           (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
+
+                          (VerbSubtitlesSrt2Training.Options options) => new VerbSubtitlesSrt2Training(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),
