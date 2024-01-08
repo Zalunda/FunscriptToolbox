@@ -26,7 +26,11 @@ namespace FunscriptToolbox.Core
             var index = 0;
             while (index < lines.Length)
             {
-                var number = int.Parse(lines[index++]);
+                var numberLine = lines[index++];
+                if (!int.TryParse(numberLine, out var number))
+                {
+                    throw new Exception($"{index}: Invalid number format on line: {numberLine}");
+                }
                 var times = lines[index++];
                 var match = rs_timesRegex.Match(times);
                 if (!match.Success)
@@ -35,13 +39,11 @@ namespace FunscriptToolbox.Core
                 }
 
                 var texts = new List<string>();
-                while (index < lines.Length && !string.IsNullOrEmpty(lines[index]))
+                while (index < lines.Length && !int.TryParse(lines[index], out var _))
                 {
-                    texts.Add(lines[index++]);
-                }
-                while (index < lines.Length && string.IsNullOrEmpty(lines[index]))
-                {
-                    index++; // skip empty line
+                    var line = lines[index++];
+                    if (!string.IsNullOrWhiteSpace(line))
+                        texts.Add(line);
                 }
 
                 var frCulture = CultureInfo.GetCultureInfo("fr-FR"); // fr culture will accept "," for the milliseconds separator
