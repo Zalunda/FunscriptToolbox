@@ -142,7 +142,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                     WriteError($"An exception occured while running the following python script: {process.StartInfo.FileName} {process.StartInfo.Arguments}");
                     WriteError($"    Make sure that 'Python' is installed (https://www.python.org/downloads/) with the 'Add Path' selected.");
                     WriteError($"    If python is installed, make sure to run the following command in a command prompt:");
-                    WriteError($"    pip3 install torch torchvision torchaudio soundfile --extra-index-url https://download.pytorch.org/whl/cu116");
+                    WriteError($"    pip3 install torch torchvision torchaudio soundfile IPython --extra-index-url https://download.pytorch.org/whl/cu116");
                     WriteError();
                     if (scriptMessages.Count > 0)
                     {
