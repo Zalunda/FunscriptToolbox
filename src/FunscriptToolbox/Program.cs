@@ -1,13 +1,16 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
+using FunscriptToolbox.Core;
 using FunscriptToolbox.MotionVectorsVerbs;
 using FunscriptToolbox.SubtitlesVerb;
+using FunscriptToolbox.SubtitlesVerbV2;
 using log4net;
 using log4net.Appender;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox
 {
@@ -25,7 +28,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 32;
+            int test = 61;
 
             switch (test)
             {
@@ -175,6 +178,30 @@ namespace FunscriptToolbox
                         "*.context",
                     };
                     break;
+
+                case 60:
+                    args = new[]
+                    {
+                        "subtitlesv2.video2test",
+                        "--verbose",
+                        "--suffix", ".draft",
+                        "--runwhispervad",
+                        "EBVR-038-A.mp4",
+                    };
+                    break;
+
+                case 61:
+                    args = new[]
+                    {
+                        "subtitlesv2.video2test",
+                        "--verbose",
+                        "--suffix", ".final",
+                        "--importvad", ".temp.perfect-vad.srt",
+                        "--transcribe", "LargeV2", // LargeV2/3,LargeV1,Medium/2,Small/2,Base/2,Tiny/2,
+                        "--sourcelanguage", "ja",
+                        "vrkm-809-1.mp4",
+                    };
+                    break;
             }
 #endif
             try
@@ -203,6 +230,8 @@ namespace FunscriptToolbox
 
                     VerbSubtitlesSrt2Training.Options,
 
+                    VerbSubtitlesV2Video2Test.Options,
+
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
                     > (args)
@@ -222,6 +251,8 @@ namespace FunscriptToolbox
                           (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
 
                           (VerbSubtitlesSrt2Training.Options options) => new VerbSubtitlesSrt2Training(options).Execute(),
+
+                          (VerbSubtitlesV2Video2Test.Options options) => new VerbSubtitlesV2Video2Test(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),
