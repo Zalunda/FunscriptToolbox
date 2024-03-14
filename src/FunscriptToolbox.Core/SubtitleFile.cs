@@ -64,6 +64,32 @@ namespace FunscriptToolbox.Core
             this.Subtitles = subtitles == null ? new List<Subtitle>() : subtitles.ToList();
         }
 
+        public void ExpandTiming(TimeSpan durationAdded, TimeSpan minDuration)
+        {
+            var oldSubtitles = this.Subtitles.ToArray();
+            this.Subtitles.Clear();
+            for (int i = 0; i < oldSubtitles.Length; i++)
+            {
+                var subtitle = oldSubtitles[i];
+                var nextSubtitle = (i + 1 < oldSubtitles.Length) ? oldSubtitles[i + 1] : null;
+
+                var newDuration = subtitle.Duration + durationAdded;
+                if (newDuration < minDuration)
+                {
+                    newDuration = minDuration;
+                }
+
+                var newEndTime = subtitle.StartTime + newDuration;
+                if (newEndTime > nextSubtitle?.StartTime)
+                {
+                    newEndTime = nextSubtitle.StartTime;
+                }
+
+                this.Subtitles.Add(new Subtitle(subtitle.StartTime, newEndTime, subtitle.Lines));
+            }
+        }
+
+
         public void SaveSrt(string filepath = null)
         {
             File.WriteAllLines(

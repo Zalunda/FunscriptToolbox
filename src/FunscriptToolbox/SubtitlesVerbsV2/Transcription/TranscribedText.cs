@@ -1,8 +1,9 @@
-﻿using System;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.Translation;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
 {
     internal class TranscribedText
     {
@@ -14,9 +15,15 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public double NoSpeechProbability { get; }
         public TranscribedWord[] Words { get; }
 
-        public string Translation { get; set; } // TODO Remove this
+        public List<TranslatedText> Translations { get; }
 
-        public TranscribedText(TimeSpan startTime, TimeSpan endTime, string text, double noSpeechProbability, IEnumerable<TranscribedWord> words, string translation = null)
+        public TranscribedText(
+            TimeSpan startTime, 
+            TimeSpan endTime, 
+            string text, 
+            double noSpeechProbability, 
+            IEnumerable<TranscribedWord> words, 
+            IEnumerable<TranslatedText> translations = null)
         {
             StartTime = startTime;
             EndTime = endTime;
@@ -25,7 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             NoSpeechProbability = noSpeechProbability;
             Words = words.ToArray();
 
-            Translation = translation;
+            Translations = translations == null ? new List<TranslatedText>() : translations.ToList();
         }
     }
 }

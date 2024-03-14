@@ -1,5 +1,8 @@
-﻿using CommandLine;
+﻿using AudioSynchronization;
+using CommandLine;
 using FunscriptToolbox.Core;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcription;
+using FunscriptToolbox.SubtitlesVerbsV2.Translation;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -7,6 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
@@ -46,8 +50,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             [Option("sourcelanguage", Required = false, HelpText = "")]
             public string SourceLanguage { get; set; }
 
-            [Option("destinationlanguage", Required = false, HelpText = "", Default = "en")]
-            public string DestinationLanguage { get; set; }
+            [Option("targetlanguage", Required = false, HelpText = "", Default = "en")]
+            public string TargetLanguage { get; set; }
         }
 
         private readonly Options r_options;
@@ -63,7 +67,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             return Task.Run<int>(() => ExecuteAsync()).Result;
         }
 
-
         public async Task<int> ExecuteAsync()
         {
             foreach (var inputMp4Fullpath in r_options
@@ -76,49 +79,131 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 {
                     var watch = Stopwatch.StartNew();
                     var ffmpegAudioHelper = new FfmpegAudioHelper();
-                    var whisperHelper = new WhisperHelper(ffmpegAudioHelper, @"Purfview-Whisper-Faster\whisper-faster.exe");
+                    var whisperHelper = new WhisperHelper(ffmpegAudioHelper, @"D:\OthersPrograms\AI\Purfview-Whisper-Faster\whisper-faster.exe");
 
                     var wipsubFullpath = Path.ChangeExtension(
                         inputMp4Fullpath,
                         r_options.Suffix + WorkInProgressSubtitles.Extension);
 
-                    var wipsub = File.Exists(wipsubFullpath) 
-                        ? WorkInProgressSubtitles.FromFile(wipsubFullpath) 
+                    var wipsub = File.Exists(wipsubFullpath)
+                        ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                         : new WorkInProgressSubtitles(wipsubFullpath);
 
                     wipsub.PcmAudio ??= ffmpegAudioHelper.ExtractPcmAudio(inputMp4Fullpath, extractionParameters: r_options.ExtractionParameters);
                     wipsub.Save();
 
-                    wipsub.VoiceDetectionFile ??= ImportVad(inputMp4Fullpath);
+                    wipsub.FinalSubtitlesLocation ??= ImportVad(inputMp4Fullpath);
                     wipsub.Save();
 
                     // if (DoFull)
                     wipsub.Transcriptions.AddIfMissing(
                         "f",
-                        () => new Transcription(
+                        (id) => new FullTranscription(
+                            id,
                             whisperHelper.TranscribeAudio(
-                                new[] { wipsub.PcmAudio }, 
+                                new[] { wipsub.PcmAudio },
                                 language: r_options.SourceLanguage)));
                     wipsub.Save();
 
-                    wipsub.Transcriptions.AddIfMissing(
-                        "sv",
-                        () => new Transcription(
-                                whisperHelper.TranscribeAudio(
-                                    wipsub.VoiceDetectionFile.Select(
-                                        vad => wipsub.PcmAudio.ExtractSnippet(vad.Start, vad.End))
-                                    .ToArray(),
-                                    language: r_options.SourceLanguage)));
-                    wipsub.Save();
-
-                    var translator = new GoogleTranslate();
-
-                    foreach (var transcribedText in wipsub.Transcriptions.Values.SelectMany(f => f))
+                    if (wipsub.FinalSubtitlesLocation != null)
                     {
-                        transcribedText.Translation ??= translator.Translate(transcribedText.Text, r_options.SourceLanguage, "en");
+                        wipsub.Transcriptions.AddIfMissing(
+                            "sv",
+                            (id) => new FullTranscription(
+                                    id,
+                                    whisperHelper.TranscribeAudio(
+                                        wipsub
+                                        .FinalSubtitlesLocation
+                                        .Where(f => f.Type == SubtitleLocationType.Voice)
+                                        .Select(
+                                            vad => wipsub.PcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime))
+                                        .ToArray(),
+                                        language: r_options.SourceLanguage)));
+                        wipsub.Save();
+
+                        wipsub.Transcriptions.AddIfMissing(
+                            "mv",
+                            (id) => CreateTranscriptionFromMergedAudio(
+                                id,
+                                whisperHelper,
+                                wipsub.PcmAudio,
+                                wipsub.FinalSubtitlesLocation.Where(f => f.Type == SubtitleLocationType.Voice),
+                                language: r_options.SourceLanguage));
+                        wipsub.Save();
+                    }
+
+                    var googleTranslator = new GoogleTranslate();
+                    foreach (var transcription in wipsub.Transcriptions)
+                    {
+                        googleTranslator.Translate(
+                            "g",
+                            transcription,
+                            r_options.SourceLanguage,
+                            r_options.TargetLanguage,
+                            () => wipsub.Save());
                     }
 
                     wipsub.Save();
+
+                    if (wipsub.FinalSubtitlesLocation != null)
+                    {
+                        foreach (var transcription in wipsub.Transcriptions.Where(t => t.Id == "mv"))
+                        {
+                            var dlId = "dl";
+                            var dlFile = Path.ChangeExtension(inputMp4Fullpath, $"{transcription.Id}.DL.txt");
+                            var dlResultFile = Path.ChangeExtension(inputMp4Fullpath, $"{transcription.Id}.DL.result.txt");
+                            if (File.Exists(dlResultFile) && File.Exists(dlFile))
+                            {
+                                var dlResult = File.ReadAllLines(dlResultFile);
+                                int index = 0;
+
+                                foreach (var tt in transcription.Items)
+                                {
+                                    var alreadyTranslated = tt.Translations.FirstOrDefault(t => t.Id == dlId)?.Text;
+                                    if (alreadyTranslated == null)
+                                    {
+                                        tt.Translations.Add(new TranslatedText(dlId, dlResult[index]));
+                                    }
+
+                                    index++;
+                                }
+                                wipsub.Save();
+                            }
+                            else
+                            {
+                                using (var writerDL = File.CreateText(dlFile))
+                                {
+                                    int index = 0;
+
+                                    foreach (var tt in transcription.Items)
+                                    {
+                                        index++;
+                                        writerDL.WriteLine($"{tt.Text}");
+                                    }
+                                }
+                            }
+                        }
+
+                        var localAITranslator = new AITranslator();
+                        localAITranslator.Translate(
+                            "locai-mixtral-Q5_K_M",
+                            wipsub.Transcriptions.FirstOrDefault(t => t.Id == "mv"),
+                            r_options.SourceLanguage,
+                            r_options.TargetLanguage,
+                            () => wipsub.Save());
+                        wipsub.Save();
+
+                        var wipSubtitlesFile = CreateWIPSubtitleFile(
+                            wipsub,
+                            new[] { "sv", "mv", "f" },
+                            new[] { "locai", "locai-mixtral-Q5_K_M", "dl", "g", "locai-mixtral-3b", "locai-shisa-7B", "locai-Luna-AI", "locai-capybarahermes", "locai-airoboros", "locai-wizard-lm", "locai-mistral-7b", "locai-orca-2" });
+                        wipSubtitlesFile.SaveSrt(Path.ChangeExtension(inputMp4Fullpath, $".wip.srt"));
+                    }
+
+                    // TODO:
+                    // Create subtitle file with all the infos
+                    // Create import/export file for chatgpt/llm
+                    // Translate with DeepL
 
                     WriteInfo($"{inputMp4Fullpath}: Finished in {watch.Elapsed}.");
                     WriteInfo();
@@ -133,7 +218,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             return base.NbErrors;
         }
 
-        private VoiceAudioDetectionCollection ImportVad(string inputMp4Fullpath)
+        private FinalSubtitleLocationCollection ImportVad(
+            string inputMp4Fullpath)
         {
             var vadFilePath = Path.ChangeExtension(
                 inputMp4Fullpath,
@@ -143,11 +229,11 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 WriteInfo($"{inputMp4Fullpath}: Importing human VAD file '{r_options.ImportVAD}'...");
                 var humanVadSrtFile = SubtitleFile.FromSrtFile(
                     vadFilePath);
-                return new VoiceAudioDetectionCollection(
+                return new FinalSubtitleLocationCollection(
                     humanVadSrtFile.Subtitles.Select(
-                        subtitle => VoiceAudioDetection.FromText(
-                            subtitle.StartTime, 
-                            subtitle.EndTime, 
+                        subtitle => FinalSubtitleLocation.FromText(
+                            subtitle.StartTime,
+                            subtitle.EndTime,
                             subtitle.Text)));
             }
             else
@@ -156,481 +242,238 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             }
         }
 
+        private FullTranscription CreateTranscriptionFromMergedAudio(
+            string id,
+            WhisperHelper whisperHelper,
+            PcmAudio pcmAudio,
+            IEnumerable<FinalSubtitleLocation> audioDetections,
+            string language)
+        {
+            var silenceGapSamples = pcmAudio.GetSilenceAudio(
+                TimeSpan.FromSeconds(0.3));
 
-        //public async Task<int> ExecuteAsyncOld()
-        //{
-        //    foreach (var inputMp4Fullpath in r_options
-        //        .Input
-        //        .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
-        //        .Distinct()
-        //        .OrderBy(f => f))
-        //    {
-        //        try
-        //        {
-        //            var wipsubFullpath = Path.ChangeExtension(
-        //                inputMp4Fullpath,
-        //                r_options.Suffix + WorkInProgressSubtitles.Extension);
+            var currentDuration = TimeSpan.Zero;
+            var audioOffsets = new List<AudioOffset>();
+            var mergedAudio = new MemoryStream();
+            foreach (var vad in audioDetections)
+            {
+                var partAudio = pcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime);
 
-        //            var suffixIndex = 20;
-        //            do
-        //            {
-        //                r_options.Suffix = $".{suffixIndex++:D3}";
-        //                wipsubFullpath = Path.ChangeExtension(
-        //                    inputMp4Fullpath,
-        //                    r_options.Suffix + WorkInProgressSubtitles.Extension);
-        //            } while (File.Exists(wipsubFullpath));
+                audioOffsets.Add(
+                    new AudioOffset(
+                        currentDuration,
+                        currentDuration + partAudio.Duration + silenceGapSamples.Duration,
+                        vad.StartTime - currentDuration));
 
-        //            var watch = Stopwatch.StartNew();
-        //            WorkInProgressSubtitles wipsub;
-        //            if (File.Exists(wipsubFullpath))
-        //            {
-        //                wipsub = WorkInProgressSubtitles.FromFile(wipsubFullpath);
-        //            }
-        //            else
-        //            {
-        //                wipsub = new WorkInProgressSubtitles(wipsubFullpath);
-        //            }
+                mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
+                mergedAudio.Write(partAudio.Data, 0, partAudio.Data.Length);
+                mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
+                currentDuration += partAudio.Duration;
+                currentDuration += silenceGapSamples.Duration;
+            }
 
-        //            if (wipsub.WavData == null || wipsub.PcmData == null)
-        //            {
-        //                WriteInfo($"{inputMp4Fullpath}: Extracting .wav file from video...");
-        //                ConvertVideoToWavAndPcmData(
-        //                    inputMp4Fullpath,
-        //                    r_options.ExtractionParameters,
-        //                    out var wavData,
-        //                    out var pcmData);
-        //                wipsub.WavData = wavData;
-        //                wipsub.PcmData = pcmData;
-        //                wipsub.PcmSamplingRate = VerbSubtitlesV2.SamplingRate;
-        //                wipsub.Save();
-        //            }
+            var offsetCollection = new AudioOffsetCollection(audioOffsets);
 
-        //            if (r_options.SileroVAD && wipsub.Sections == null)
-        //            {
-        //                WriteInfo($"{inputMp4Fullpath}: Creating an empty vad subtitle file...");
-        //                wipsub.Sections = ExpandSubtitleSections(ExtractSubtitleTimingWithVADFromWavData(wipsub.WavData))
-        //                    .ToArray();
-        //                wipsub.Save();
-        //            }
+            var mergedPcm = new PcmAudio(pcmAudio.SamplingRate, mergedAudio.ToArray());
 
-        //            if (r_options.ImportVAD != null && wipsub.Sections == null)
-        //            {
-        //                var humanVadFilePath = Path.ChangeExtension(
-        //                    inputMp4Fullpath,
-        //                    r_options.ImportVAD);
-        //                if (File.Exists(humanVadFilePath))
-        //                {
-        //                    WriteInfo($"{inputMp4Fullpath}: Importing human VAD file '{r_options.ImportVAD}'...");
-        //                    var humanVadSrtFile = SubtitleFile.FromSrtFile(
-        //                        humanVadFilePath);
-        //                    wipsub.Sections = ExpandSubtitleSections(humanVadSrtFile.Subtitles)
-        //                        .ToArray();
-        //                    wipsub.Save();
-        //                }
-        //            }
+            var transcribedTexts = new List<TranscribedText>();
+            foreach (var original in whisperHelper.TranscribeAudio(
+                                new[] { mergedPcm },
+                                language: language))
+            {
+                var newStartTime = offsetCollection.TransformPosition(original.StartTime);
+                var newEndTime = offsetCollection.TransformPosition(original.EndTime);
+                if (newStartTime == null || newEndTime == null)
+                {
+                    throw new Exception("BUG");
+                }
+                transcribedTexts.Add(
+                    new TranscribedText(
+                        newStartTime.Value,
+                        newEndTime.Value,
+                        original.Text,
+                        original.NoSpeechProbability,
+                        original.Words));
+            }
 
-        //            if (r_options.Transcribe != null && wipsub.Sections != null && !(wipsub.Sections.FirstOrDefault()?.Results?.Count > 0))
-        //            {
-        //                var silenceGapSamples = new byte[GetNbSamplesFromDuration(TimeSpan.FromSeconds(0.3))];
+            return new FullTranscription(id, transcribedTexts);
+        }
 
-        //                foreach (var whisperConfigString in r_options.Transcribe.Split(','))
-        //                {
-        //                    var tempWavFullPath = Path.GetTempFileName() + ".wav";
-        //                    var splits = whisperConfigString.Split('/');
-        //                    var modelEnum = (GgmlType)Enum.Parse(typeof(GgmlType), splits[0]);
-        //                    var numberOfIteration = int.Parse(splits.Skip(1).FirstOrDefault() ?? "1");
+        private class TimeFrameIntersection
+        {
+            internal int Number;
 
-        //                    for (var iteration = 0; iteration < numberOfIteration; iteration++)
-        //                    {
-        //                        var whisperConfig = new WhisperConfig(modelEnum, iteration);
-        //                        // Temperature?, Seed?
-        //                        wipsub.WhisperConfigs.Add(whisperConfig);
+            public static TimeFrameIntersection From(
+                string transcriptionId,
+                FinalSubtitleLocation location,
+                TranscribedText tt)
+            {
+                var intersectionStartTime = location.StartTime > tt.StartTime ? location.StartTime : tt.StartTime;
+                var intersectionEndTime = location.EndTime < tt.EndTime ? location.EndTime : tt.EndTime;
+                return (intersectionStartTime < intersectionEndTime)
+                    ? new TimeFrameIntersection(
+                        transcriptionId,
+                        intersectionStartTime,
+                        intersectionEndTime,
+                        location,
+                        tt)
+                    : null;
+            }
 
-        //                        if (!File.Exists(whisperConfig.ModelName))
-        //                        {
-        //                            WriteInfo($"{inputMp4Fullpath}: Downloading model '{whisperConfig.ModelEnum}', saving as '{whisperConfig.ModelName}'...");
-        //                            using (var modelStream = await WhisperGgmlDownloader.GetGgmlModelAsync(whisperConfig.ModelEnum))
-        //                            using (var fileWriter = File.OpenWrite(whisperConfig.ModelName))
-        //                            {
-        //                                await modelStream.CopyToAsync(fileWriter);
-        //                            }
-        //                        }
+            public TimeFrameIntersection(
+                string transcriptionId,
+                TimeSpan startTime,
+                TimeSpan endTime,
+                FinalSubtitleLocation location,
+                TranscribedText tt)
+            {
+                TranscriptionId = transcriptionId;
+                StartTime = startTime;
+                EndTime = endTime;
+                Location = location;
+                TranscribedText = tt;
+                if (location != null)
+                {
+                    MatchPercentage = (int)(100 * (Math.Min(endTime.TotalMilliseconds, location.EndTime.TotalMilliseconds)
+                        - Math.Max(startTime.TotalMilliseconds, location.StartTime.TotalMilliseconds)) / location.Duration.TotalMilliseconds);
+                }
+            }
 
-        //                        using (var whisperFactory = WhisperFactory.FromPath(whisperConfig.ModelName))
-        //                        using (var processor = whisperFactory.CreateBuilder()
-        //                                //.WithLanguage("ja")
-        //                                .WithTokenTimestamps()
-        //                                .WithProbabilities()
-        //                                .Build())
-        //                        {
-        //                            var i = 0;
-        //                            var watchA = Stopwatch.StartNew();
-        //                            var watchB = Stopwatch.StartNew();
+            public string TranscriptionId { get; }
+            public TimeSpan StartTime { get; }
+            public TimeSpan EndTime { get; }
+            public TimeSpan Duration => EndTime - StartTime;
+            public FinalSubtitleLocation Location { get; }
+            public TranscribedText TranscribedText { get; }
+            public int MatchPercentage { get; }
+            public int Index { get; internal set; }
+            public int PercentageTime { get; internal set; }
+        }
 
-        //                            var nbToDo = 150;
-        //                            var maxContext = 0;
+        private SubtitleFile CreateWIPSubtitleFile(
+            WorkInProgressSubtitles wipsub,
+            string[] transcriptionOrder,
+            string[] translationOrder)
+        {
+            var wipSubtitleFile = new SubtitleFile();
 
-        //                            var context = new List<string>();
+            var intersections = new List<TimeFrameIntersection>();
+            var unmatchedTranscribedTexts = new List<TimeFrameIntersection>();
 
-        //                            foreach (var section in wipsub.Sections)
-        //                            {
-        //                                Console.WriteLine($"{whisperConfig.ModelEnum}-{whisperConfig.Iteration}  {i++}/{wipsub.Sections.Length}  {section.StartTime}");
-        //                                if (section.Lines.Any(f => f.Contains("SCREENCAPTURE")))
-        //                                {
-        //                                    Console.WriteLine("SKIP SCREEN CAPTURE");
-        //                                    continue;
-        //                                }
-        //                                if (section.NbSourceSubtitles > 1)
-        //                                {
-        //                                    Console.WriteLine("SKIP NbSourceSubtitles > 1");
-        //                                    continue;
-        //                                }
+            foreach (var transcription in wipsub.Transcriptions
+                .OrderBy(t => Array.IndexOf(transcriptionOrder, t.Id)))
+            {
+                foreach (var tt in transcription.Items)
+                {
+                    var matches = wipsub
+                        .FinalSubtitlesLocation
+                        .Select(location => TimeFrameIntersection.From(transcription.Id, location, tt))
+                        .Where(f => f != null)
+                        .ToArray();
+                    if (matches.Length == 0)
+                    {
+                        unmatchedTranscribedTexts.Add(
+                            new TimeFrameIntersection(
+                                transcription.Id,
+                                tt.StartTime,
+                                tt.EndTime,
+                                null,
+                                tt));
+                    }
+                    else
+                    {
+                        var totalTimeMatched = matches.Select(m => m.Duration.TotalMilliseconds).Sum();
 
-        //                                var duration = section.EndTime - section.StartTime;
+                        var index = 1;
+                        foreach (var match in matches)
+                        {
+                            match.Index = index++;
+                            match.Number = matches.Length;
+                            match.PercentageTime = (int)(100 * match.Duration.TotalMilliseconds / totalTimeMatched);
+                            intersections.Add(match);
+                        }
+                    }
+                }
+            }
 
-        //                                var startIndex = GetNbSamplesFromDuration(section.StartTime);
-        //                                var durationIndex = GetNbSamplesFromDuration(duration);
-        //                                var endIndex = startIndex + durationIndex;
+            TimeSpan? previousEnd = null;
+            foreach (var subtitleLocation in wipsub.FinalSubtitlesLocation)
+            {
+                if (subtitleLocation.Type == SubtitleLocationType.Screengrab)
+                {
+                    wipSubtitleFile.Subtitles.Add(
+                        new Subtitle(
+                            subtitleLocation.StartTime,
+                            subtitleLocation.EndTime,
+                            $"Screengrab: {subtitleLocation.Text}"));
+                }
+                else if (subtitleLocation.Type == SubtitleLocationType.Context)
+                {
+                }
+                else
+                {
+                    if (previousEnd != null)
+                    {
+                        foreach (var utt in unmatchedTranscribedTexts
+                            .Where(f => f.StartTime < subtitleLocation.StartTime)
+                            .ToArray())
+                        {
+                            var builder2 = new StringBuilder();
 
-        //                                using var memoryStream = new MemoryStream();
-        //                                memoryStream.Write(
-        //                                        wipsub.PcmData,
-        //                                        startIndex,
-        //                                        (endIndex > wipsub.PcmData.Length)
-        //                                            ? wipsub.PcmData.Length - startIndex
-        //                                            : durationIndex);
-        //                                memoryStream.Write(silenceGapSamples, 0, silenceGapSamples.Length);
-        //                                var pcmData = memoryStream.ToArray();
+                            builder2.AppendLine("** OUT OF SCOPE **");
+                            builder2.AppendLine($"[{utt.TranscriptionId}] {utt.TranscribedText.Text}");
+                            foreach (var translation in utt
+                                .TranscribedText
+                                .Translations
+                                .OrderBy(f => Array.IndexOf(translationOrder, f.Id)))
+                            {
+                                builder2.AppendLine($"   [{translation.Id}] {translation.Text}");
+                            }
 
-        //                                watchA.Start();
-        //                                ConvertPcmDataToWav(
-        //                                    tempWavFullPath,
-        //                                    pcmData,
-        //                                    0,
-        //                                    pcmData.Length);
-        //                                ConvertPcmDataToWav(
-        //                                    $"{wipsubFullpath}.{i:D4}.wav",
-        //                                    pcmData,
-        //                                    0,
-        //                                    pcmData.Length);
-        //                                watchA.Stop();
-        //                                watchB.Start();
+                            wipSubtitleFile.Subtitles.Add(
+                                new Subtitle(
+                                    utt.StartTime,
+                                    utt.EndTime,
+                                    builder2.ToString()));
 
-        //                                var prompt = string.Join(Environment.NewLine, context);
-        //                                //using var whisperFactoryB = WhisperFactory.FromPath(whisperConfig.ModelName);
-        //                                using var processorB = whisperFactory.CreateBuilder()
-        //                                        //.WithLanguage("ja")
-        //                                        .WithTokenTimestamps()
-        //                                        .WithProbabilities()
-        //                                        .WithPrompt(prompt)
-        //                                        .Build();
+                            unmatchedTranscribedTexts.Remove(utt);
+                        }
+                    }
 
-        //                                using (var fileStream = File.OpenRead(tempWavFullPath))
-        //                                {
-        //                                    var results = new WhisperResult(whisperConfig);
-        //                                    await foreach (var result in processorB.ProcessAsync(fileStream))
-        //                                    {
-        //                                        results.TranscribedSegments.Add(result);
-        //                                        context.Add(result.Text);
-        //                                        if (context.Count > maxContext)
-        //                                        {
-        //                                            context.RemoveAt(0);
-        //                                        }
-        //                                    }
-        //                                    section.Results.Add(results);
-        //                                }
-        //                                watchB.Stop();
-        //                                if (--nbToDo == 0)
-        //                                {
-        //                                    break;
-        //                                }
-        //                            }
-        //                            wipsub.Save();
-        //                            Console.WriteLine($"{whisperConfig.ModelEnum}-{whisperConfig.Iteration} {watchA.Elapsed},{watchB.Elapsed}");
-        //                        }
+                    var builder = new StringBuilder();
+                    foreach (var item in intersections.Where(f => f.Location == subtitleLocation))
+                    {
+                        if (builder.Length > 0)
+                        {
+                            builder.AppendLine("--------------");
+                        }
 
-        //                        var tempMergedPcmAFullpath = Path.GetTempFileName() + ".mergedA.pcm";
-        //                        var tempMergedPcmBFullpath = Path.GetTempFileName() + ".mergedB.pcm";
-        //                        using (var whisperFactory = WhisperFactory.FromPath(whisperConfig.ModelName))
-        //                        using (var processor = whisperFactory.CreateBuilder()
-        //                                //.WithLanguage("ja")
-        //                                .WithTokenTimestamps()
-        //                                .WithProbabilities()
-        //                                .Build())
-        //                        using (var pcmWriterA = File.Create(tempMergedPcmAFullpath))
-        //                        using (var pcmWriterB = File.Create(tempMergedPcmBFullpath))
-        //                        {
-        //                            var combinedDurationA = TimeSpan.Zero;
-        //                            var combinedDurationB = TimeSpan.Zero;
-        //                            var audioOffsetsA = new List<AudioOffset>();
-        //                            var audioOffsetsB = new List<AudioOffset>();
-        //                            var nbBlock = 0;
-        //                            var blockSize = TimeSpan.Zero;
-        //                            var nbSubtitleInBloc = 0;
-        //                            for (int index = 0; index < wipsub.Sections.Length; index++)
-        //                            {
-        //                                var section = wipsub.Sections[index];
-        //                                var nextSection = index + 1 < wipsub.Sections.Length ? wipsub.Sections[index + 1] : null;
-        //                                if (section.Lines.Any(f => f.Contains("SCREENCAPTURE")))
-        //                                {
-        //                                    Console.WriteLine("SKIP SCREEN CAPTURE");
-        //                                    continue;
-        //                                }
+                        var xyz = item.Number > 1 ? $"{item.Index}/{item.Number}," : string.Empty;
+                        builder.AppendLine($"[{item.TranscriptionId}] {item.TranscribedText.Text} ({xyz}{item.PercentageTime}%, {item.MatchPercentage}%)");
+                        foreach (var translation in item
+                            .TranscribedText
+                            .Translations
+                            .OrderBy(f => Array.IndexOf(translationOrder, f.Id)))
+                        {
+                            builder.AppendLine($"   [{translation.Id}] {translation.Text}");
+                        }
+                    }
 
-        //                                audioOffsetsA.Add(
-        //                                    new AudioOffset(
-        //                                        combinedDurationA,
-        //                                        combinedDurationA + (section.EndTime - section.StartTime),
-        //                                        section.StartTime - combinedDurationA));
-        //                                audioOffsetsB.Add(
-        //                                    new AudioOffset(
-        //                                        combinedDurationB,
-        //                                        combinedDurationB + (section.EndTime - section.StartTime),
-        //                                        section.StartTime - combinedDurationB));
+                    if (builder.Length > 0)
+                    {
+                        builder.AppendLine("** NO TRANSCRIPTION FOUND **");
+                    }
+                    wipSubtitleFile.Subtitles.Add(
+                        new Subtitle(
+                            subtitleLocation.StartTime,
+                            subtitleLocation.EndTime,
+                            builder.ToString()));
+                    previousEnd = subtitleLocation.EndTime;
+                }
+            }
 
-        //                                nbSubtitleInBloc++;
-        //                                var duration = section.EndTime - section.StartTime;
-        //                                var startIndex = GetNbSamplesFromDuration(section.StartTime);
-        //                                var durationIndex = GetNbSamplesFromDuration(duration);
-        //                                var endIndex = startIndex + durationIndex;
-        //                                pcmWriterA.Write(
-        //                                    wipsub.PcmData,
-        //                                    startIndex,
-        //                                    (endIndex > wipsub.PcmData.Length) ? wipsub.PcmData.Length - startIndex : endIndex - startIndex);
-        //                                pcmWriterB.Write(
-        //                                    wipsub.PcmData,
-        //                                    startIndex,
-        //                                    (endIndex > wipsub.PcmData.Length) ? wipsub.PcmData.Length - startIndex : endIndex - startIndex);
-        //                                combinedDurationA += duration;
-        //                                combinedDurationB += duration;
-        //                                blockSize += duration;
-
-        //                                var gapDuration = TimeSpan.FromSeconds(0.3);
-        //                                pcmWriterA.Write(silenceGapSamples, 0, GetNbSamplesFromDuration(gapDuration));
-        //                                combinedDurationA += gapDuration;
-
-        //                                if (nextSection?.StartTime > section.EndTime && nextSection.StartTime - section.EndTime < TimeSpan.FromSeconds(0.5))
-        //                                {
-        //                                    var si = GetNbSamplesFromDuration(section.EndTime);
-        //                                    pcmWriterB.Write(
-        //                                        wipsub.PcmData,
-        //                                        si,
-        //                                        GetNbSamplesFromDuration(nextSection.StartTime) - si);
-        //                                    combinedDurationB += nextSection.StartTime - section.EndTime;
-        //                                }
-        //                                else
-        //                                {
-        //                                    pcmWriterB.Write(silenceGapSamples, 0, GetNbSamplesFromDuration(gapDuration));
-        //                                    combinedDurationB += gapDuration;
-        //                                }
-
-        //                                nbBlock++;
-        //                                blockSize = TimeSpan.Zero;
-        //                                nbSubtitleInBloc = 0;
-        //                            }
-        //                        }
-
-        //                        using (var whisperFactory = WhisperFactory.FromPath(whisperConfig.ModelName))
-        //                        using (var processor = whisperFactory.CreateBuilder()
-        //                                //.WithLanguage("ja")
-        //                                .WithTokenTimestamps()
-        //                                .WithProbabilities()
-        //                                .Build())
-        //                        using (var writerX = File.CreateText(wipsubFullpath + ".mergeA.txt"))
-        //                        {
-        //                            ConvertPcmToWav(tempMergedPcmAFullpath, tempWavFullPath);
-        //                            ConvertPcmToWav(tempMergedPcmAFullpath, wipsubFullpath + ".mergeA.wav");
-        //                            using (var fileStream = File.OpenRead(tempWavFullPath))
-        //                            {
-        //                                var results = new WhisperResult(whisperConfig);
-        //                                await foreach (var result in processor.ProcessAsync(fileStream))
-        //                                {
-        //                                    results.TranscribedSegments.Add(result);
-        //                                    writerX.WriteLine(result.Text);
-        //                                }
-        //                            }
-        //                        }
-
-        //                        using (var whisperFactory = WhisperFactory.FromPath(whisperConfig.ModelName))
-        //                        using (var processor = whisperFactory.CreateBuilder()
-        //                                //.WithLanguage("ja")
-        //                                .WithTokenTimestamps()
-        //                                .WithProbabilities()
-        //                                .Build())
-        //                        using (var writerX = File.CreateText(wipsubFullpath + ".mergeB.txt"))
-        //                        {
-        //                            var index = 1;
-        //                            ConvertPcmToWav(tempMergedPcmBFullpath, tempWavFullPath);
-        //                            ConvertPcmToWav(tempMergedPcmBFullpath, wipsubFullpath + ".mergeB.wav");
-        //                            using (var fileStream = File.OpenRead(tempWavFullPath))
-        //                            {
-        //                                var results = new WhisperResult(whisperConfig);
-        //                                await foreach (var result in processor.ProcessAsync(fileStream))
-        //                                {
-        //                                    results.TranscribedSegments.Add(result);
-        //                                    writerX.WriteLine($"{index++}");
-        //                                    writerX.WriteLine($"{SubtitleFile.FormatTimespan(result.Start)} --> {SubtitleFile.FormatTimespan(result.End)}");
-        //                                    writerX.WriteLine(result.Text);
-        //                                }
-        //                            }
-        //                        }
-        //                    }
-        //                }
-        //            }
-
-        //            using (var writer = File.CreateText(Path.ChangeExtension(wipsubFullpath, ".DeepL.txt")))
-        //            {
-        //                var i = 0;
-        //                foreach (var transcribedSegment in wipsub.Sections.SelectMany(f => f.Results).SelectMany(f => f.TranscribedSegments))
-        //                {
-        //                    writer.WriteLine($"[{i++:D5}] {transcribedSegment.Text}");
-        //                }
-        //            }
-
-        //            WriteInfo($"{inputMp4Fullpath}: Finished in {watch.Elapsed}.");
-        //            WriteInfo();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            WriteError($"{inputMp4Fullpath}: Exception occured: {ex}");
-        //            WriteInfo();
-        //        }
-        //    }
-
-        //    return base.NbErrors;
-        //}
-
-        //private IEnumerable<SubtitleSection> ExpandSubtitleSections(IEnumerable<Subtitle> subtitles)
-        //{
-        //    foreach (var subtitle in subtitles)
-        //    {
-        //        yield return new SubtitleSection(subtitle);
-        //    }
-        //    yield break;
-
-        //    int nbSubtitlesInBlock = 0;
-        //    TimeSpan blockStartTime = TimeSpan.MinValue;
-        //    TimeSpan blockEndTime = TimeSpan.MinValue;
-        //    foreach (var subtitle in subtitles)
-        //    {
-        //        yield return new SubtitleSection(subtitle);
-        //        if (nbSubtitlesInBlock > 0 && subtitle.StartTime - blockEndTime < TimeSpan.FromMilliseconds(500))
-        //        {
-        //            blockEndTime = subtitle.EndTime;
-        //            nbSubtitlesInBlock++;
-        //        }
-        //        else
-        //        {
-        //            if (nbSubtitlesInBlock > 1)
-        //            {
-        //                yield return new SubtitleSection(blockStartTime, blockEndTime, nbSubtitlesInBlock);
-        //            }
-        //            nbSubtitlesInBlock = 1;
-        //            blockStartTime = subtitle.StartTime;
-        //            blockEndTime = subtitle.EndTime;
-        //        }
-        //    }
-        //    if (nbSubtitlesInBlock > 1)
-        //    {
-        //        yield return new SubtitleSection(blockStartTime, blockEndTime, nbSubtitlesInBlock);
-        //    }
-        //}
-
-        //private static int GetNbSamplesFromDuration(TimeSpan duration)
-        //{
-        //    var number = (int)(duration.TotalSeconds * SamplingRate * NbBytesPerSampling);
-        //    return (number % 2 == 0) ? number : number - 1;
-        //}
-
-        //private IEnumerable<Subtitle> ExtractSubtitleTimingWithVADFromWavData(byte[] wavData)
-        //{
-        //    var tempWavFilepath = Path.GetTempFileName() + ".wav";
-        //    try
-        //    {
-        //        File.WriteAllBytes(tempWavFilepath, wavData);
-        //        return ExtractSubtitleTimingWithVAD(tempWavFilepath).ToArray();
-        //    }
-        //    finally
-        //    {
-        //        File.Delete(tempWavFilepath);
-        //    }
-        //}
-
-        //private IEnumerable<Subtitle> ExtractSubtitleTimingWithVAD(string inputFilepath)
-        //{
-        //    var tempVadFilepath = Path.GetTempFileName() + ".vad.json";
-        //    try
-        //    {
-        //        Process process = new Process();
-        //        var scriptMessages = new List<string>();
-        //        try
-        //        {
-        //            var pythonScript = GetApplicationFolder(@"PythonSource\funscripttoolbox-extract-vad.py");
-
-        //            // Start the process
-        //            process.StartInfo.FileName = "Python.exe";
-        //            process.StartInfo.Arguments = $"{pythonScript} \"{inputFilepath}\" \"{tempVadFilepath}\" {SamplingRate}";
-        //            process.StartInfo.UseShellExecute = false;
-        //            process.StartInfo.RedirectStandardOutput = true;
-        //            process.StartInfo.RedirectStandardError = true;
-        //            process.OutputDataReceived += (sender, e) => {
-        //                scriptMessages.Add(e.Data);
-        //                WriteVerbose($"   [Silerio-VAD O] {e.Data}");
-        //            };
-        //            process.ErrorDataReceived += (sender, e) => {
-        //                scriptMessages.Add(e.Data);
-        //                WriteVerbose($"   [Silerio-VAD E] {e.Data}");
-        //            };
-
-        //            process.Start();
-        //            process.BeginOutputReadLine();
-        //            process.BeginErrorReadLine();
-        //            process.WaitForExit();
-        //            if (process.ExitCode != 0)
-        //            {
-        //                throw new ApplicationException($"{pythonScript} returned code: {process.ExitCode}");
-        //            }
-        //        }
-        //        catch (Exception)
-        //        {
-        //            WriteError($"An exception occured while running the following python script: {process.StartInfo.FileName} {process.StartInfo.Arguments}");
-        //            WriteError($"    Make sure that 'Python' is installed (https://www.python.org/downloads/) with the 'Add Path' selected.");
-        //            WriteError($"    If python is installed, make sure to run the following command in a command prompt:");
-        //            WriteError($"    pip3 install torch torchvision torchaudio soundfile IPython --extra-index-url https://download.pytorch.org/whl/cu116");
-        //            WriteError();
-        //            if (scriptMessages.Count > 0)
-        //            {
-        //                WriteError("Script output:");
-        //                foreach (var message in scriptMessages)
-        //                {
-        //                    WriteError($"   {message}");
-        //                }
-        //                WriteError();
-        //            }
-        //            throw;
-        //        }
-
-        //        // Read the file produced
-        //        using (var reader = File.OpenText(tempVadFilepath))
-        //        using (var jsonReader = new JsonTextReader(reader))
-        //        {
-        //            var content = Serializer.Deserialize<dynamic>(jsonReader);
-
-        //            foreach (var item in content)
-        //            {
-        //                var start = (double)item.start / SamplingRate;
-        //                var end = (double)item.end / SamplingRate;
-        //                yield return new Subtitle(
-        //                        TimeSpan.FromSeconds(start),
-        //                        TimeSpan.FromSeconds(end),
-        //                        ".");
-        //            }
-        //        }
-        //    }
-        //    finally
-        //    {
-        //        File.Delete(tempVadFilepath);
-        //    }
-        //}
+            wipSubtitleFile.ExpandTiming(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5));
+            return wipSubtitleFile;
+        }
     }
 }

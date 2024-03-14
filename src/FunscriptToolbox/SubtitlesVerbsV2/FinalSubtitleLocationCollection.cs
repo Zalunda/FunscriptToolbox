@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
-    public class VoiceAudioDetectionCollection : ReadOnlyCollection<VoiceAudioDetection>
+    public class FinalSubtitleLocationCollection : ReadOnlyCollection<FinalSubtitleLocation>
     {
-        public VoiceAudioDetectionCollection(IEnumerable<VoiceAudioDetection> vod)
+        public FinalSubtitleLocationCollection(IEnumerable<FinalSubtitleLocation> vod)
             : base(vod.ToArray())
         {
         }

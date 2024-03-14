@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Reflection;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
 {
     internal class PcmAudio
     {
         private const int NbBytesPerSamples = 2;
-     
+
         public int SamplingRate { get; }
         public byte[] Data { get; }
         public TimeSpan Offset { get; }
@@ -13,9 +14,9 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null)
         {
-            this.SamplingRate = samplingRate;
-            this.Data = data;
-            this.Offset = offset ?? TimeSpan.Zero;
+            SamplingRate = samplingRate;
+            Data = data;
+            Offset = offset ?? TimeSpan.Zero;
         }
 
         public PcmAudio ExtractSnippet(TimeSpan startTime, TimeSpan endTime)
@@ -25,9 +26,15 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             var durationLength = endIndex - startIndex;
 
             byte[] snippetData = new byte[durationLength];
-            Array.Copy(this.Data, startIndex, snippetData, 0, durationLength);
+            Array.Copy(Data, startIndex, snippetData, 0, durationLength);
 
-            return new PcmAudio(this.SamplingRate, snippetData, startTime);
+            return new PcmAudio(SamplingRate, snippetData, startTime);
+        }
+
+        public PcmAudio GetSilenceAudio(TimeSpan duration)
+        {
+            var data = new byte[TimeSpanToIndex(duration)];
+            return new PcmAudio(SamplingRate, data);
         }
 
         private TimeSpan IndexToTimeSpan(int index) => TimeSpan.FromSeconds((double)index / SamplingRate / NbBytesPerSamples);

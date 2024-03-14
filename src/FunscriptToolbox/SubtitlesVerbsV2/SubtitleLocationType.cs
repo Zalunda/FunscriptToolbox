@@ -1,6 +1,6 @@
 ﻿namespace FunscriptToolbox.SubtitlesVerbV2
 {
-    public enum VoiceAudioDectectionType
+    public enum SubtitleLocationType
     {
         Voice,
         Screengrab,

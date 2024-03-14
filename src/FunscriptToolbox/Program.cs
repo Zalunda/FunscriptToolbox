@@ -10,7 +10,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox
 {
@@ -199,7 +198,8 @@ namespace FunscriptToolbox
                         "--importvad", ".temp.perfect-vad.srt",
                         "--transcribe", "LargeV2", // LargeV2/3,LargeV1,Medium/2,Small/2,Base/2,Tiny/2,
                         "--sourcelanguage", "ja",
-                        "vrkm-809-1.mp4",
+                        "--targetlanguage", "en",
+                        "vrkm-809-*.mp4", // vrkm-809-
                     };
                     break;
             }

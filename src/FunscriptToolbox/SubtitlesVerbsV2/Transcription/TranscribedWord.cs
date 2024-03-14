@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
 {
     internal class TranscribedWord
     {
@@ -10,7 +10,11 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public string Text { get; }
         public double Probability { get; }
 
-        public TranscribedWord(TimeSpan startTime, TimeSpan endTime, string text, double probability)
+        public TranscribedWord(
+            TimeSpan startTime, 
+            TimeSpan endTime, 
+            string text, 
+            double probability)
         {
             StartTime = startTime;
             EndTime = endTime;

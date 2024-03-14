@@ -3,18 +3,22 @@ using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
 {
-    internal class FfmpegAudioHelper : IFfmpegAudioHelper
+    internal class FfmpegAudioHelper
     {
         protected const int SamplingRate = 16000;
 
         public FfmpegAudioHelper()
+            // TODO Path to FFmpeg 
         {
 
         }
 
-        public PcmAudio ExtractPcmAudio(string inputPath, int samplingRate = SamplingRate, string extractionParameters = null)
+        public PcmAudio ExtractPcmAudio(
+            string inputPath, 
+            int samplingRate = SamplingRate, 
+            string extractionParameters = null)
         {
             if (!File.Exists(inputPath))
             {
@@ -41,7 +45,9 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             }
         }
 
-        public void ConvertPcmAudioToWavFile(PcmAudio pcmAudio, string outputWavFilepath)
+        public void ConvertPcmAudioToWavFile(
+            PcmAudio pcmAudio, 
+            string outputWavFilepath)
         {
             var tempPcmFile = Path.GetTempFileName() + ".pcm";
             try

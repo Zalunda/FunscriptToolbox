@@ -5,21 +5,27 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
 {
     internal class WhisperHelper
     {
-        private readonly IFfmpegAudioHelper r_ffmpegAudioHelper;
+        private readonly FfmpegAudioHelper r_ffmpegAudioHelper;
         private readonly string r_pathToPurfviewWhisper;
 
-        public WhisperHelper(IFfmpegAudioHelper ffmpegAudioHelper, string pathToPurfviewWhisper)
+        public WhisperHelper(FfmpegAudioHelper ffmpegAudioHelper, string pathToPurfviewWhisper)
         {
             r_ffmpegAudioHelper = ffmpegAudioHelper;
             r_pathToPurfviewWhisper = pathToPurfviewWhisper;
         }
 
-        internal TranscribedText[] TranscribeAudio(PcmAudio[] audios, string model = "large-V2", string language = null, string transcribeParameters = null)
+        internal TranscribedText[] TranscribeAudio(
+            PcmAudio[] audios, 
+            string model = "large-V2", 
+            string language = null, 
+            string transcribeParameters = null)
         {
+            // TODO Add Lock to limit to only one transcription add a time??
+
             var tempPcmBaseFile = Path.GetTempFileName();
             var tempFiles = new List<string>();
             try
@@ -100,20 +106,25 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                 var word = words[indexWord];
 
                                 currentStartTime ??= word.StartTime;
-                                currentText = (currentText == null) ? word.Text : currentText + word.Text;
+                                currentText = (currentText ?? string.Empty) + word.Text;
                                 currentWords.Add(word);
-                                // Check for punctuation marks or end of words to create segments, or if its the last word in the segment
-                                if (indexWord == words.Count -1 || currentText.EndsWith("\u3001") /* , */ || currentText.EndsWith("\u3002") /* . */ || currentText.EndsWith("?") || currentText.EndsWith("!"))
+
+                                // Check for punctuation marks or if its the last word in the segment to create segments.
+                                if (indexWord == words.Count - 1 ||
+                                    currentText.EndsWith("\u3001") /* , */ ||
+                                    currentText.EndsWith("\u3002") /* . */ ||
+                                    currentText.EndsWith("?") ||
+                                    currentText.EndsWith("!"))
                                 {
-                                    var currentDuration = word.EndTime - currentStartTime.Value;
                                     // If a segment is longer than 15 seconds, we rerun whisper on that block.
                                     // Usually, it will be broken down into smaller pieces.
-                                    if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > TimeSpan.FromSeconds(15))
+                                    var currentDuration = word.EndTime - currentStartTime.Value;
+                                    if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > TimeSpan.FromSeconds(15)) // TODO add config for 15 seconds
                                     {
                                         texts.AddRange(
                                             TranscribeAudio(
                                                 new[] { pcmAudio.ExtractSnippet(
-                                                    currentStartTime.Value, 
+                                                    currentStartTime.Value,
                                                     word.EndTime) },
                                                 model,
                                                 language,

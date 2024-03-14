@@ -97,7 +97,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                         {
                             if (lines.Count > 0)
                             {
-                                lines.Add("*** OR ***");
+                                lines.Add("* ** OR ***");
                             }
                             lines.AddRange(choice);
                         }

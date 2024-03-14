@@ -2,10 +2,12 @@
 using System.Threading.Tasks;
 using System.Net.Http;
 using Newtonsoft.Json;
+using System.Linq;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcription;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Translation
 {
-    public class GoogleTranslate
+    internal class GoogleTranslate : ITranslator
     {
         private readonly HttpClient _client;
 
@@ -17,13 +19,29 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             _client.BaseAddress = new Uri("https://translate.googleapis.com/");
         }
 
-
-        public string Translate(string text, string sourceLanguageCode, string targetLanguageCode)
+        public void Translate(
+            string translationId, 
+            FullTranscription transcription, 
+            string sourceLanguage, 
+            string targetLanguage, 
+            Action saveAction)
         {
-            return TranslateAsync(text, sourceLanguageCode, targetLanguageCode).Result;
+            foreach (var tt in transcription.Items
+                .Where(f => !f.Translations.Any(t => t.Id == translationId)))
+            {
+                tt.Translations.Add(
+                    new TranslatedText(
+                        translationId,
+                        TranslateTextAsync(tt.Text, sourceLanguage, targetLanguage).Result));
+            }
+
+            saveAction();
         }
 
-        public async Task<string> TranslateAsync(string text, string sourceLanguageCode, string targetLanguageCode)
+        private async Task<string> TranslateTextAsync(
+            string text, 
+            string sourceLanguageCode, 
+            string targetLanguageCode)
         {
             string apiUrl = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl={sourceLanguageCode}&tl={targetLanguageCode}&dt=t&q={Uri.EscapeDataString(text)}";
 

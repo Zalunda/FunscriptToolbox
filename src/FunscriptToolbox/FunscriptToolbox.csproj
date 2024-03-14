@@ -178,21 +178,23 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="SubtitlesVerbsV2\GoogleTranslateV1.cs" />
-    <Compile Include="SubtitlesVerbsV2\IFfmpegAudioHelper.cs" />
-    <Compile Include="SubtitlesVerbsV2\PcmAudio.cs" />
-    <Compile Include="SubtitlesVerbsV2\TranscribedText.cs" />
-    <Compile Include="SubtitlesVerbsV2\TranscribedWord.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcription.cs" />
-    <Compile Include="SubtitlesVerbsV2\TranscriptionCollection.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translation\GoogleTranslateV1.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translation\ITranslator.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translation\AITranslator.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\PcmAudio.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\TranscribedText.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\TranscribedWord.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\FullTranscription.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\FullTranscriptionCollection.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translation\TranslatedText.cs" />
     <Compile Include="SubtitlesVerbsV2\VerbSubtitlesV2.cs" />
     <Compile Include="SubtitlesVerbsV2\VerbSubtitlesV2Test.cs" />
-    <Compile Include="SubtitlesVerbsV2\FfmpegAudioHelper.cs" />
-    <Compile Include="SubtitlesVerbsV2\VoiceAudioDectectionType.cs" />
-    <Compile Include="SubtitlesVerbsV2\VoiceAudioDetection.cs" />
-    <Compile Include="SubtitlesVerbsV2\VoiceAudioDetectionCollection.cs" />
-    <Compile Include="SubtitlesVerbsV2\WhisperConfig.cs" />
-    <Compile Include="SubtitlesVerbsV2\WhisperHelper.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\FfmpegAudioHelper.cs" />
+    <Compile Include="SubtitlesVerbsV2\SubtitleLocationType.cs" />
+    <Compile Include="SubtitlesVerbsV2\FinalSubtitleLocation.cs" />
+    <Compile Include="SubtitlesVerbsV2\FinalSubtitleLocationCollection.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\WhisperConfig.cs" />
+    <Compile Include="SubtitlesVerbsV2\Transcription\WhisperHelper.cs" />
     <Compile Include="SubtitlesVerbsV2\WorkInProgressSubtitles.cs" />
     <Compile Include="SubtitlesVerbs\AlpacaData.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />

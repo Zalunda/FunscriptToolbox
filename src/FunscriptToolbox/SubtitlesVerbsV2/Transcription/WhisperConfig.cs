@@ -1,14 +1,14 @@
 ﻿using Whisper.net.Ggml;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
 {
     public class WhisperConfig
     {
         public WhisperConfig(GgmlType modelEnum, int iteration)
         {
-            this.ModelEnum = modelEnum;
-            this.Iteration = iteration;
-            this.ModelName = $"ggml-{modelEnum}.bin";
+            ModelEnum = modelEnum;
+            Iteration = iteration;
+            ModelName = $"ggml-{modelEnum}.bin";
         }
 
         public GgmlType ModelEnum { get; }
