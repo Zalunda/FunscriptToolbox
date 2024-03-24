@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
-    public class FinalSubtitleLocationCollection : ReadOnlyCollection<FinalSubtitleLocation>
+    public class SubtitleForcedLocationCollection : ReadOnlyCollection<SubtitleForcedLocation>
     {
-        public FinalSubtitleLocationCollection(IEnumerable<FinalSubtitleLocation> vod)
+        public SubtitleForcedLocationCollection(IEnumerable<SubtitleForcedLocation> vod)
             : base(vod.ToArray())
         {
         }

@@ -1,109 +1,186 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcription;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Linq;
-using System.Net.Http;
 using System.Text;
-using System.Text.RegularExpressions;
+using System;
+using System.Linq;
+using FunscriptToolbox.SubtitlesVerbV2;
+using System.Collections.Generic;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2.Translation
+namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
-    internal class AITranslator : ITranslator
+    public abstract class AITranslator : Translator 
     {
-        public AITranslator()
+        public const string TranscriptionLanguageToken = "[TranscriptionLanguage]";
+        public const string TranslationLanguageToken = "[TranslationLanguage]";
+
+        public AITranslator(
+            string translationId)
+            : base(translationId)
         {
         }
 
-        public void Translate(
-            string translationId, 
-            FullTranscription transcription, 
-            string sourceLanguage, 
-            string targetLanguage, 
-            Action saveAction)
+        public int MaxItemsInRequest { get; set; } = 20;
+        public int OverlapItemsInRequest { get; set; } = 5;
+        public string[] SystemPrompt { get; set; } = null;
+        public string[] UserPrompt { get; set; } = null;
+
+        protected class ItemForAI
         {
-            // Reference: https://github.com/oobabooga/text-generation-webui/wiki/12-%E2%80%90-OpenAI-API
+            [JsonIgnore]
+            public TranscribedText Tag { get; }
 
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
-            client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
-            client.BaseAddress = new Uri("http://127.0.0.1:10000/v1/chat/completions");
-            client.Timeout = TimeSpan.FromSeconds(600);
+            public string StartTime { get; set; }
+            public string Original { get; set; }
 
-            var characterName = "Translator";
-            var maxPrevious = 50;
-
-            var allTexts = transcription.Items.Select(f => f.Text).ToArray();
-            // TODO Load model with /v1/engines/{model_name} maybe??
-
-            var previousTranslation = new List<Tuple<string, string>>();
-            previousTranslation.Add(new Tuple<string, string>("もしもし、", "Hello,"));
-            previousTranslation.Add(new Tuple<string, string>("ごめんね。", "I'm sorry,"));
-            previousTranslation.Add(new Tuple<string, string>("急に電話かけちゃって。", "I suddenly called you."));
-            // TODO: Add more "perfect" example
-
-            // TheBloke_Mixtral-8x7B-Instruct-v0.1-GPTQ, Translator, 150 characters to generate
-            for (int i = 0; i < allTexts.Length; i++)
+            public ItemForAI(TranscribedText tag)
             {
-                var alreadyTranslated = transcription.Items[i].Translations
-                    .FirstOrDefault(t => t.Id == translationId)?.Text;
-                if (alreadyTranslated != null)
+                this.Tag = tag;
+                this.StartTime = tag.StartTime.TotalSeconds.ToString("F1");
+                this.Original = tag.Text;
+            }
+        }
+
+        protected class RequestForAIService
+        {
+            public int Number { get; }
+            public string Content { get; }
+            public ItemForAI[] Items { get; }
+
+            public RequestForAIService(int requestNumber, string content, ItemForAI[] items)
+            {
+                Number = requestNumber;
+                Content = content;
+                Items = items;
+            }
+        }
+
+        protected ItemForAI[] GetAllItems(
+            Transcription transcription)
+        {
+            return transcription
+                .Items
+                .Select(item => new ItemForAI(item))
+                .ToArray();
+        }
+
+        protected IEnumerable<RequestForAIService> CreateRequests(
+            ItemForAI[] items,
+            Language transcribedLanguage,
+            Language translatedLanguage)
+        {
+            // See if some text have already been translated.
+            var currentIndex = 0;
+            while (items[currentIndex].Tag.TranslatedTexts
+                    .FirstOrDefault(t => t.Id == this.TranslationId)?.Text != null)
+            {
+                currentIndex++;
+            }
+
+            int requestNumber = 1;
+            while (currentIndex < items.Length)
+            {
+                currentIndex = Math.Max(0, currentIndex - this.OverlapItemsInRequest);
+                var itemsForRequest = items
+                    .Skip(currentIndex)
+                    .Take(this.MaxItemsInRequest)
+                    .ToArray();
+
+                var request = new StringBuilder();
+                if (this.UserPrompt != null)
                 {
-                    previousTranslation.Add(new Tuple<string, string>(transcription.Items[i].Text, alreadyTranslated));
-                    continue;
+                    request.AppendLine(
+                        ConvertPromptLinesToPrompt(
+                            this.UserPrompt,
+                            transcribedLanguage,
+                            translatedLanguage));
+                    request.AppendLine();
                 }
+                request.AppendLine(
+                    JsonConvert.SerializeObject(
+                        itemsForRequest, 
+                        Formatting.Indented));
 
-                while (previousTranslation.Count > maxPrevious)
+                yield return new RequestForAIService(
+                    requestNumber++,
+                    request.ToString(),
+                    itemsForRequest);
+                currentIndex += itemsForRequest.Length; 
+            }
+        }
+
+        protected string ConvertPromptLinesToPrompt(
+            string[] promptLines,
+            Language transcribedLanguage,
+            Language translatedLanguage)
+        {
+            return string.Join("\n", promptLines)
+                .Replace(TranscriptionLanguageToken, transcribedLanguage.LongName)
+                .Replace(TranslationLanguageToken, translatedLanguage.LongName);
+        }
+
+        protected void HandleResponse(
+            RequestForAIService request,
+            string responseReceived)
+        {
+            var result = ParseAndFixJson(responseReceived);
+            foreach (var item in result)
+            {
+                var startTime = (string)item.Start;
+                var original = (string)item.Original;
+                var translation = (string)item.Translation;
+                var originalItem = request.Items.FirstOrDefault(f => f.StartTime == startTime && f.Original == original)
+                    ?? request.Items.FirstOrDefault(f => f.StartTime == startTime)
+                    ?? request.Items.FirstOrDefault(f => f.Original == original);
+                if (originalItem != null)
                 {
-                    previousTranslation.RemoveAt(0);
+                    originalItem.Tag.TranslatedTexts.Add(
+                        new TranslatedText(
+                            this.TranslationId, 
+                            translation));
                 }
-
-                var messages = new List<dynamic>();
-                var text = allTexts[i];
-                var m = new StringBuilder();
-                if (characterName == null)
+                else
                 {
-                    messages.Add(new { role = "system", content = $"Task: Translate porn movie subtitles from {sourceLanguage} to {targetLanguage} based on the instructions\n\nObjective:\n\nTranslate subtitles accurately while maintaining the original meaning and tone of the movie.\n\nUse natural-sounding {targetLanguage} phrases and idioms that accurately convey the meaning of the original text.\n\nRoles:\n\nLinguist: Responsible for translating the subtitles from {sourceLanguage} to {targetLanguage}\n\nStrategy:\n\nTranslate subtitles accurately while maintaining the original meaning and tone of the scene.\n\nInstructions:\n\nUser Inputs any language of subtitles they want to translate one at a time.\n\nDetect the Language and Essence of the text.\n\nGenerate natural-sounding {targetLanguage} translations that accurately convey the meaning of the original text.\n\nCheck the accuracy and naturalness of the translations before submitting them to the user.\n\nThe audience for the translation are adults so it is acceptable to use explicitly sexual words or concept.\n\nThe subtitles are taken from VR scene where only the girl is talking." });
+                    // TODO: Log SerializeObject(item) could not be matched to an items.
                 }
-                foreach (var previous in previousTranslation)
+            }
+            foreach (var item in request.Items)
+            {
+                if (item.Tag.TranslatedTexts
+                    .FirstOrDefault(t => t.Id == this.TranslationId)?.Text == null)
                 {
-                    m.AppendLine($"{sourceLanguage}: {previous.Item1}");
-                    m.AppendLine($"{targetLanguage}: {previous.Item2}");
-                    messages.Add(new { role = "user", content = $"{sourceLanguage}: {previous.Item1}" });
-                    messages.Add(new { role = "assistant", content = $"{targetLanguage}: {previous.Item2}" });
+                    // TODO: Log SerializeObject(item) was not filled.
                 }
+            }
+        }
 
-                m.AppendLine($"{sourceLanguage}: {text}");
-                messages.Add(new { role = "user", content = $"{targetLanguage}: {text}" });
-
-                dynamic data = new ExpandoObject();
-                data.mode = "chat";
-                data.messages = messages;
-                if (characterName != null)
+        private dynamic ParseAndFixJson(string json)
+        {
+            var indexOfFirstBracket = json.IndexOf('[');
+            if (indexOfFirstBracket > 0)
+            {
+                json = json.Substring(indexOfFirstBracket);
+            }
+            var indexOfLastBracket = json.LastIndexOf(']');
+            if (indexOfLastBracket >= 0 && indexOfLastBracket < json.Length)
+            {
+                json = json.Substring(0, indexOfLastBracket + 1);
+            }
+            else
+            {
+                json = json + "]";
+            }
+            while (true)
+            {
+                try
                 {
-                    data.character = characterName;
+                    var result = JsonConvert.DeserializeObject<dynamic>(json);
+                    return result;
                 }
-
-                var json = JsonConvert.SerializeObject(data);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                Console.WriteLine($"------------- {i}/{allTexts.Length} -------------------");
-                Console.WriteLine(text);
-
-                var response = client.PostAsync(client.BaseAddress, content).Result;
-                string responseContent = response.Content.ReadAsStringAsync().Result;
-
-                dynamic responseObject = JsonConvert.DeserializeObject(responseContent);
-                string assistantMessage = responseObject.choices[0].message.content;
-                assistantMessage = assistantMessage.Replace($"{targetLanguage}: ", string.Empty);
-                var firstLine = Regex.Match(assistantMessage, @"^(?<FirstLine>.*?)(\r|\n|$)").Groups["FirstLine"].Value;
-                previousTranslation.Add(new Tuple<string, string>(text, firstLine));
-
-                Console.WriteLine(assistantMessage);
-                transcription.Items[i].Translations.Add(
-                    new TranslatedText(translationId, assistantMessage));
-                saveAction();
+                catch(Exception ex)
+                {
+                    throw;
+                    // TODO Try to fix
+                }
             }
         }
     }

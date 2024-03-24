@@ -27,7 +27,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 61;
+            int test = 60;
 
             switch (test)
             {
@@ -183,23 +183,10 @@ namespace FunscriptToolbox
                     {
                         "subtitlesv2.video2test",
                         "--verbose",
-                        "--suffix", ".draft",
-                        "--runwhispervad",
-                        "EBVR-038-A.mp4",
-                    };
-                    break;
-
-                case 61:
-                    args = new[]
-                    {
-                        "subtitlesv2.video2test",
-                        "--verbose",
                         "--suffix", ".final",
-                        "--importvad", ".temp.perfect-vad.srt",
-                        "--transcribe", "LargeV2", // LargeV2/3,LargeV1,Medium/2,Small/2,Base/2,Tiny/2,
+                        "--config", "SubtitleGeneratorConfig.json",
                         "--sourcelanguage", "ja",
-                        "--targetlanguage", "en",
-                        "vrkm-809-*.mp4", // vrkm-809-
+                        "*EBVR-038-A*.mp4", // vrkm-809-
                     };
                     break;
             }

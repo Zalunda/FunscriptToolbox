@@ -1,0 +1,31 @@
+﻿using FunscriptToolbox.SubtitlesVerbsV2.Translations;
+using FunscriptToolbox.SubtitlesVerbV2;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
+{
+    public class Transcription
+    {
+        public string Id { get; }
+        public Language Language { get; }
+        public TranscribedText[] Items { get; }
+        public TranscriptionCost[] Costs { get; }
+        public List<Translation> Translations { get; }
+
+        public Transcription(
+            string id,
+            Language language,
+            IEnumerable<TranscribedText> items, 
+            IEnumerable<TranscriptionCost> costs,
+            IEnumerable<Translation> translations = null)
+        {
+            Id = id;
+            Language = language;
+            Items = items.ToArray();
+            Costs = costs.ToArray();
+            Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
+        }
+    }
+}

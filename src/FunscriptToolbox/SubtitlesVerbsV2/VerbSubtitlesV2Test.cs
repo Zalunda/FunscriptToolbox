@@ -1,8 +1,7 @@
-﻿using AudioSynchronization;
-using CommandLine;
+﻿using CommandLine;
 using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbsV2.Transcription;
-using FunscriptToolbox.SubtitlesVerbsV2.Translation;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbsV2.Translations;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -32,26 +31,11 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', allow to search recursivly for matches", Default = false)]
             public bool Recursive { get; set; }
 
-            [Option('p', "extractionparameters", Required = false, HelpText = "Added parameters to pass to ffmpeg when extracting wav")]
-            public string ExtractionParameters { get; set; }
-
-            [Option('v', "skipvad", Required = false, HelpText = "Don't use Voice Activity Detection, create an empty .vad file instead", Default = false)]
-            public bool SkipVAD { get; set; }
-
-            [Option("silerovad", Required = false, HelpText = "", Default = false)]
-            public bool SileroVAD { get; set; }
-
-            [Option("importvad", Required = false, HelpText = "")]
-            public string ImportVAD { get; set; }
-
-            [Option("transcribe", Required = false, HelpText = "")]
-            public string Transcribe { get; set; }
+            [Option("config", Required = true, HelpText = "")]
+            public string ConfigPath { get; set; }
 
             [Option("sourcelanguage", Required = false, HelpText = "")]
             public string SourceLanguage { get; set; }
-
-            [Option("targetlanguage", Required = false, HelpText = "", Default = "en")]
-            public string TargetLanguage { get; set; }
         }
 
         private readonly Options r_options;
@@ -69,6 +53,9 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public async Task<int> ExecuteAsync()
         {
+            CreateConfigExample(); // TODO Remove
+            var config = SubtitleGeneratorConfig.FromFile(r_options.ConfigPath);
+            
             foreach (var inputMp4Fullpath in r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
@@ -79,131 +66,81 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 {
                     var watch = Stopwatch.StartNew();
                     var ffmpegAudioHelper = new FfmpegAudioHelper();
-                    var whisperHelper = new WhisperHelper(ffmpegAudioHelper, @"D:\OthersPrograms\AI\Purfview-Whisper-Faster\whisper-faster.exe");
 
                     var wipsubFullpath = Path.ChangeExtension(
                         inputMp4Fullpath,
                         r_options.Suffix + WorkInProgressSubtitles.Extension);
+                    var baseFilePath = Path.Combine(
+                        Path.GetDirectoryName(wipsubFullpath) ?? ".",
+                        Path.GetFileNameWithoutExtension(wipsubFullpath));
 
                     var wipsub = File.Exists(wipsubFullpath)
                         ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                         : new WorkInProgressSubtitles(wipsubFullpath);
 
-                    wipsub.PcmAudio ??= ffmpegAudioHelper.ExtractPcmAudio(inputMp4Fullpath, extractionParameters: r_options.ExtractionParameters);
+                    wipsub.PcmAudio ??= ffmpegAudioHelper.ExtractPcmAudio(
+                        inputMp4Fullpath, 
+                        extractionParameters: config.FfmpegAudioExtractionParameters);
                     wipsub.Save();
 
-                    wipsub.FinalSubtitlesLocation ??= ImportVad(inputMp4Fullpath);
+                    wipsub.SubtitlesForcedLocation ??= ImportForcedLocations(
+                            inputMp4Fullpath,
+                            config.SubtitleForcedLocationSuffix);
                     wipsub.Save();
 
-                    // if (DoFull)
-                    wipsub.Transcriptions.AddIfMissing(
-                        "f",
-                        (id) => new FullTranscription(
-                            id,
-                            whisperHelper.TranscribeAudio(
-                                new[] { wipsub.PcmAudio },
-                                language: r_options.SourceLanguage)));
-                    wipsub.Save();
+                    var sourceLanguage = Language.FromString(r_options.SourceLanguage);
 
-                    if (wipsub.FinalSubtitlesLocation != null)
+                    foreach (var transcriber in config.Transcribers)
                     {
-                        wipsub.Transcriptions.AddIfMissing(
-                            "sv",
-                            (id) => new FullTranscription(
-                                    id,
-                                    whisperHelper.TranscribeAudio(
-                                        wipsub
-                                        .FinalSubtitlesLocation
-                                        .Where(f => f.Type == SubtitleLocationType.Voice)
-                                        .Select(
-                                            vad => wipsub.PcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime))
-                                        .ToArray(),
-                                        language: r_options.SourceLanguage)));
-                        wipsub.Save();
-
-                        wipsub.Transcriptions.AddIfMissing(
-                            "mv",
-                            (id) => CreateTranscriptionFromMergedAudio(
-                                id,
-                                whisperHelper,
-                                wipsub.PcmAudio,
-                                wipsub.FinalSubtitlesLocation.Where(f => f.Type == SubtitleLocationType.Voice),
-                                language: r_options.SourceLanguage));
-                        wipsub.Save();
-                    }
-
-                    var googleTranslator = new GoogleTranslate();
-                    foreach (var transcription in wipsub.Transcriptions)
-                    {
-                        googleTranslator.Translate(
-                            "g",
-                            transcription,
-                            r_options.SourceLanguage,
-                            r_options.TargetLanguage,
-                            () => wipsub.Save());
-                    }
-
-                    wipsub.Save();
-
-                    if (wipsub.FinalSubtitlesLocation != null)
-                    {
-                        foreach (var transcription in wipsub.Transcriptions.Where(t => t.Id == "mv"))
+                        var transcription = wipsub.Transcriptions.FirstOrDefault(
+                            t => t.Id == transcriber.TranscriptionId);
+                        if (transcription == null)
                         {
-                            var dlId = "dl";
-                            var dlFile = Path.ChangeExtension(inputMp4Fullpath, $"{transcription.Id}.DL.txt");
-                            var dlResultFile = Path.ChangeExtension(inputMp4Fullpath, $"{transcription.Id}.DL.result.txt");
-                            if (File.Exists(dlResultFile) && File.Exists(dlFile))
+                            transcription = transcriber.Transcribe(
+                                ffmpegAudioHelper,
+                                wipsub.PcmAudio,
+                                wipsub.SubtitlesForcedLocation,
+                                sourceLanguage);
+                            if (transcription != null)
                             {
-                                var dlResult = File.ReadAllLines(dlResultFile);
-                                int index = 0;
-
-                                foreach (var tt in transcription.Items)
-                                {
-                                    var alreadyTranslated = tt.Translations.FirstOrDefault(t => t.Id == dlId)?.Text;
-                                    if (alreadyTranslated == null)
-                                    {
-                                        tt.Translations.Add(new TranslatedText(dlId, dlResult[index]));
-                                    }
-
-                                    index++;
-                                }
+                                wipsub.Transcriptions.Add(transcription);
                                 wipsub.Save();
-                            }
-                            else
-                            {
-                                using (var writerDL = File.CreateText(dlFile))
-                                {
-                                    int index = 0;
-
-                                    foreach (var tt in transcription.Items)
-                                    {
-                                        index++;
-                                        writerDL.WriteLine($"{tt.Text}");
-                                    }
-                                }
                             }
                         }
 
-                        var localAITranslator = new AITranslator();
-                        localAITranslator.Translate(
-                            "locai-mixtral-Q5_K_M",
-                            wipsub.Transcriptions.FirstOrDefault(t => t.Id == "mv"),
-                            r_options.SourceLanguage,
-                            r_options.TargetLanguage,
-                            () => wipsub.Save());
-                        wipsub.Save();
+                        if (transcription != null)
+                        {
+                            foreach (var translator in transcriber.Translators)
+                            {
+                                var translation = transcription.Translations.FirstOrDefault(
+                                    t => t.Id == translator.TranslationId);
+                                if (translation == null)
+                                {
+                                    translation = new Translation(
+                                        translator.TranslationId,
+                                        translator.TargetLanguage);
+                                    if (transcription != null)
+                                    {
+                                        transcription.Translations.Add(translation);
+                                        wipsub.Save();
+                                    }
+                                }
 
-                        var wipSubtitlesFile = CreateWIPSubtitleFile(
-                            wipsub,
-                            new[] { "sv", "mv", "f" },
-                            new[] { "locai", "locai-mixtral-Q5_K_M", "dl", "g", "locai-mixtral-3b", "locai-shisa-7B", "locai-Luna-AI", "locai-capybarahermes", "locai-airoboros", "locai-wizard-lm", "locai-mistral-7b", "locai-orca-2" });
-                        wipSubtitlesFile.SaveSrt(Path.ChangeExtension(inputMp4Fullpath, $".wip.srt"));
+                                translator.Translate(
+                                    baseFilePath,
+                                    transcription,
+                                    translation,
+                                    () => wipsub.Save());
+                            }
+                        }
                     }
 
-                    // TODO:
-                    // Create subtitle file with all the infos
-                    // Create import/export file for chatgpt/llm
-                    // Translate with DeepL
+                    // TODO Add "outputs" nodes in the config file
+                    var wipSubtitlesFile = CreateWIPSubtitleFile(
+                        wipsub,
+                        new[] { "sv", "mv", "f" },
+                        new[] { "Mixtral-8x7B", "chatgpt-json", "mistral-large-json", "mistral-small-json", "locai", "locai-mixtral-Q5_K_M", "dl", "g", "locai-mixtral-3b", "locai-shisa-7B", "locai-Luna-AI", "locai-capybarahermes", "locai-airoboros", "locai-wizard-lm", "locai-mistral-7b", "locai-orca-2" });
+                    wipSubtitlesFile.SaveSrt(Path.ChangeExtension(inputMp4Fullpath, $".wip.srt"));
 
                     WriteInfo($"{inputMp4Fullpath}: Finished in {watch.Elapsed}.");
                     WriteInfo();
@@ -218,20 +155,21 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             return base.NbErrors;
         }
 
-        private FinalSubtitleLocationCollection ImportVad(
-            string inputMp4Fullpath)
+        private SubtitleForcedLocationCollection ImportForcedLocations(
+            string inputMp4Fullpath,
+            string forcedLocationSuffixe)
         {
-            var vadFilePath = Path.ChangeExtension(
-                inputMp4Fullpath,
-                r_options.ImportVAD);
-            if (File.Exists(vadFilePath))
+            var path = Path.ChangeExtension(
+                inputMp4Fullpath, 
+                forcedLocationSuffixe);
+            if (File.Exists(path))
             {
-                WriteInfo($"{inputMp4Fullpath}: Importing human VAD file '{r_options.ImportVAD}'...");
+                WriteInfo($"{inputMp4Fullpath}: Importing forced subtitle locations file '{forcedLocationSuffixe}'...");
                 var humanVadSrtFile = SubtitleFile.FromSrtFile(
-                    vadFilePath);
-                return new FinalSubtitleLocationCollection(
+                    path);
+                return new SubtitleForcedLocationCollection(
                     humanVadSrtFile.Subtitles.Select(
-                        subtitle => FinalSubtitleLocation.FromText(
+                        subtitle => SubtitleForcedLocation.FromText(
                             subtitle.StartTime,
                             subtitle.EndTime,
                             subtitle.Text)));
@@ -242,70 +180,13 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             }
         }
 
-        private FullTranscription CreateTranscriptionFromMergedAudio(
-            string id,
-            WhisperHelper whisperHelper,
-            PcmAudio pcmAudio,
-            IEnumerable<FinalSubtitleLocation> audioDetections,
-            string language)
-        {
-            var silenceGapSamples = pcmAudio.GetSilenceAudio(
-                TimeSpan.FromSeconds(0.3));
-
-            var currentDuration = TimeSpan.Zero;
-            var audioOffsets = new List<AudioOffset>();
-            var mergedAudio = new MemoryStream();
-            foreach (var vad in audioDetections)
-            {
-                var partAudio = pcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime);
-
-                audioOffsets.Add(
-                    new AudioOffset(
-                        currentDuration,
-                        currentDuration + partAudio.Duration + silenceGapSamples.Duration,
-                        vad.StartTime - currentDuration));
-
-                mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
-                mergedAudio.Write(partAudio.Data, 0, partAudio.Data.Length);
-                mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
-                currentDuration += partAudio.Duration;
-                currentDuration += silenceGapSamples.Duration;
-            }
-
-            var offsetCollection = new AudioOffsetCollection(audioOffsets);
-
-            var mergedPcm = new PcmAudio(pcmAudio.SamplingRate, mergedAudio.ToArray());
-
-            var transcribedTexts = new List<TranscribedText>();
-            foreach (var original in whisperHelper.TranscribeAudio(
-                                new[] { mergedPcm },
-                                language: language))
-            {
-                var newStartTime = offsetCollection.TransformPosition(original.StartTime);
-                var newEndTime = offsetCollection.TransformPosition(original.EndTime);
-                if (newStartTime == null || newEndTime == null)
-                {
-                    throw new Exception("BUG");
-                }
-                transcribedTexts.Add(
-                    new TranscribedText(
-                        newStartTime.Value,
-                        newEndTime.Value,
-                        original.Text,
-                        original.NoSpeechProbability,
-                        original.Words));
-            }
-
-            return new FullTranscription(id, transcribedTexts);
-        }
-
         private class TimeFrameIntersection
         {
             internal int Number;
 
             public static TimeFrameIntersection From(
                 string transcriptionId,
-                FinalSubtitleLocation location,
+                SubtitleForcedLocation location,
                 TranscribedText tt)
             {
                 var intersectionStartTime = location.StartTime > tt.StartTime ? location.StartTime : tt.StartTime;
@@ -324,7 +205,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 string transcriptionId,
                 TimeSpan startTime,
                 TimeSpan endTime,
-                FinalSubtitleLocation location,
+                SubtitleForcedLocation location,
                 TranscribedText tt)
             {
                 TranscriptionId = transcriptionId;
@@ -343,7 +224,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             public TimeSpan StartTime { get; }
             public TimeSpan EndTime { get; }
             public TimeSpan Duration => EndTime - StartTime;
-            public FinalSubtitleLocation Location { get; }
+            public SubtitleForcedLocation Location { get; }
             public TranscribedText TranscribedText { get; }
             public int MatchPercentage { get; }
             public int Index { get; internal set; }
@@ -360,13 +241,16 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             var intersections = new List<TimeFrameIntersection>();
             var unmatchedTranscribedTexts = new List<TimeFrameIntersection>();
 
+            var final = wipsub.SubtitlesForcedLocation?.ToArray()
+                ?? wipsub.Transcriptions.First().Items.Select(
+                    f => new SubtitleForcedLocation(f.StartTime, f.EndTime, SubtitleLocationType.Voice, f.Text)).ToArray();
+
             foreach (var transcription in wipsub.Transcriptions
                 .OrderBy(t => Array.IndexOf(transcriptionOrder, t.Id)))
             {
                 foreach (var tt in transcription.Items)
                 {
-                    var matches = wipsub
-                        .FinalSubtitlesLocation
+                    var matches = final
                         .Select(location => TimeFrameIntersection.From(transcription.Id, location, tt))
                         .Where(f => f != null)
                         .ToArray();
@@ -397,7 +281,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             }
 
             TimeSpan? previousEnd = null;
-            foreach (var subtitleLocation in wipsub.FinalSubtitlesLocation)
+            foreach (var subtitleLocation in final)
             {
                 if (subtitleLocation.Type == SubtitleLocationType.Screengrab)
                 {
@@ -424,7 +308,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                             builder2.AppendLine($"[{utt.TranscriptionId}] {utt.TranscribedText.Text}");
                             foreach (var translation in utt
                                 .TranscribedText
-                                .Translations
+                                .TranslatedTexts
                                 .OrderBy(f => Array.IndexOf(translationOrder, f.Id)))
                             {
                                 builder2.AppendLine($"   [{translation.Id}] {translation.Text}");
@@ -452,7 +336,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                         builder.AppendLine($"[{item.TranscriptionId}] {item.TranscribedText.Text} ({xyz}{item.PercentageTime}%, {item.MatchPercentage}%)");
                         foreach (var translation in item
                             .TranscribedText
-                            .Translations
+                            .TranslatedTexts
                             .OrderBy(f => Array.IndexOf(translationOrder, f.Id)))
                         {
                             builder.AppendLine($"   [{translation.Id}] {translation.Text}");
@@ -474,6 +358,85 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
             wipSubtitleFile.ExpandTiming(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5));
             return wipSubtitleFile;
+        }
+
+        private void CreateConfigExample()
+        {
+            var whisperConfig = new PurfviewWhisperConfig
+            {
+                ApplicationFullPath = @"D:\OthersPrograms\AI\Purfview-Whisper-Faster\whisper-faster.exe",
+                Model = "Large-V2",
+                ForceSplitOnComma = true,
+                RedoBlockLargerThen = TimeSpan.FromSeconds(15)
+            };
+
+            var config = new SubtitleGeneratorConfig()
+            {
+                SubtitleForcedLocationSuffix = ".perfect-vad.srt",
+                Transcribers = new Transcriber[]
+
+                {
+                            new WhisperTranscriberFullAudio(
+                                "f",
+                                new Translator[] {
+                                    new GoogleV1Translator("g") { TargetLanguage = Language.FromString("en") }
+                                },
+                                whisperConfig),
+                            new WhisperTranscriberMergedVADAudio(
+                                "mv",
+                                new Translator[] {
+                                    new GoogleV1Translator("g") { TargetLanguage = Language.FromString("en") },
+                                    new ChatBotAITranslator(
+                                        "chat-mistral-large")
+                                    {
+                                        MaxItemsInRequest = 100,
+                                        OverlapItemsInRequest = 10,
+                                        TargetLanguage = Language.FromString("en"),
+                                        UserPrompt = new []
+                                        {
+                                            "I have a json file that contain subtitles for an adult film.",
+                                            "Each node of the json have a start time and the original text in " + AITranslator.TranscriptionLanguageToken + ".",
+                                            "Can you give me a json where you added an 'Translation' field on each node that contains an " + AITranslator.TranslationLanguageToken + " translation.",
+                                            "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
+                                            "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
+                                            "The subtitles are from a VR video where only the girl talk.",
+                                            "Use the text surrounding the node to better understand the context and create a better translation.",
+                                            "The StartTime field could also help you considerer more or less the surrounding texts, according to the time difference."
+                                        }
+                                    },
+                                    new GenericOpenAIAPITranslator(
+                                        "mistral-large")
+                                    {
+                                        BaseAddress = "https://api.mistral.ai",
+                                        APIKey = "eovr2ouAYXKd67JuoIvTjrLWgjXjlgZR",
+                                        Model = "mistral-large-latest",
+                                        MaxItemsInRequest = 15, // 100
+                                        OverlapItemsInRequest = 3, // 10
+                                        TargetLanguage = Language.FromString("en"),
+                                        SystemPrompt = new [] {
+                                            "You are translator specialized in adult film subtitles.",
+                                            "The user will provide a json where node have a start time, original text and, sometime, description of what's happening in the following part of the video.",
+                                            "You job is to add a 'Translation' field to each node with a " + AITranslator.TranslationLanguageToken + " translation.",
+                                            // That part could be modified
+                                            "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
+                                            "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
+                                            "Take that into accout that the subtitles are from a VR video where only the girl talk.",
+                                            "You should read the whole json first to understand the full context before starting translating nodes.",
+                                            "Use StartTime field to help you considerer more or less the surrounding texts, according to the time difference."
+                                        }
+                                    }
+                                },
+                                whisperConfig),
+                            new WhisperTranscriberSingleVADAudio(
+                                "sv",
+                                new Translator[] {
+                                    new GoogleV1Translator("g") { TargetLanguage = Language.FromString("en") }
+                                },
+                                whisperConfig)
+                }
+            };
+
+            config.Save("SubtitleGeneratorConfigExample.json");
         }
     }
 }

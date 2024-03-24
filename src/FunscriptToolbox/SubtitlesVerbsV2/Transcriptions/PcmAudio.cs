@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Reflection;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    internal class PcmAudio
+    public class PcmAudio
     {
         private const int NbBytesPerSamples = 2;
 

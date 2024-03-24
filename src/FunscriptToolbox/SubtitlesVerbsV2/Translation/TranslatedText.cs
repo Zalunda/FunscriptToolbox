@@ -1,4 +1,4 @@
-﻿namespace FunscriptToolbox.SubtitlesVerbsV2.Translation
+﻿namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
     public class TranslatedText
     {

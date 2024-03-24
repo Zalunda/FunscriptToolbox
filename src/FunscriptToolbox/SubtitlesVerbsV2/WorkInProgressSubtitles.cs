@@ -1,7 +1,8 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcription;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -34,7 +35,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public WorkInProgressSubtitles()
         {
-            this.Transcriptions = new FullTranscriptionCollection();
+            this.Transcriptions = new List<Transcription>();
         }
 
         public WorkInProgressSubtitles(string fullpath)           
@@ -47,13 +48,23 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public string OriginalFilePath { get; private set; }
 
         public PcmAudio PcmAudio { get; set; }
-        public FinalSubtitleLocationCollection FinalSubtitlesLocation { get; set; }
-        public FullTranscriptionCollection Transcriptions { get; set; }
+        public SubtitleForcedLocationCollection SubtitlesForcedLocation { get; set; }
+        public List<Transcription> Transcriptions { get; set; }
 
         public void Save(string filepath = null)
         {
-            using var writer = new StreamWriter(filepath ?? OriginalFilePath, false, Encoding.UTF8);
-            rs_serializer.Serialize(writer, this);
+            var path = filepath ?? OriginalFilePath;
+            using (var writer = new StreamWriter(path + ".temp", false, Encoding.UTF8))
+            {
+                rs_serializer.Serialize(writer, this);
+            }
+
+            if (File.Exists(path))
+            {
+                File.Delete(path + ".bak");
+                File.Move(path, path + ".bak");
+            }
+            File.Move(path + ".temp", path);
         }
     }
 }

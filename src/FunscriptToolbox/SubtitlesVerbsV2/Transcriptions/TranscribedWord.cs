@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    internal class TranscribedWord
+    public class TranscribedWord
     {
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }

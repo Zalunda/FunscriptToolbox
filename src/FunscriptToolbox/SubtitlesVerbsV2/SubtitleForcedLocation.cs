@@ -3,9 +3,9 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
-    public class FinalSubtitleLocation
+    public class SubtitleForcedLocation
     {
-        public static FinalSubtitleLocation FromText(
+        public static SubtitleForcedLocation FromText(
             TimeSpan startTime, 
             TimeSpan endTime, 
             string text)
@@ -13,15 +13,15 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             var match = Regex.Match(text, @"^\s*(Context:(?<textContext>.*)|Screengrab:(?<textScreengrab>.*))", RegexOptions.IgnoreCase);
             if (match.Groups["textContext"].Success)
             {
-                return new FinalSubtitleLocation(startTime, endTime, SubtitleLocationType.Context, match.Groups["textContext"].Value.Trim());
+                return new SubtitleForcedLocation(startTime, endTime, SubtitleLocationType.Context, match.Groups["textContext"].Value.Trim());
             }
             else if (match.Groups["textScreengrab"].Success)
             {
-                return new FinalSubtitleLocation(startTime, endTime, SubtitleLocationType.Screengrab, match.Groups["textScreengrab"].Value.Trim());
+                return new SubtitleForcedLocation(startTime, endTime, SubtitleLocationType.Screengrab, match.Groups["textScreengrab"].Value.Trim());
             }
             else
             {
-                return new FinalSubtitleLocation(startTime, endTime, SubtitleLocationType.Voice, text);
+                return new SubtitleForcedLocation(startTime, endTime, SubtitleLocationType.Voice, text);
             }
         }
 
@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public TimeSpan Duration => EndTime - StartTime;
         public string Text { get; }
 
-        public FinalSubtitleLocation(
+        public SubtitleForcedLocation(
             TimeSpan startTime, 
             TimeSpan endTime, 
             SubtitleLocationType type, 

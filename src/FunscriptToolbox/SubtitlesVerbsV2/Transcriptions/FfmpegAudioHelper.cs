@@ -3,9 +3,9 @@ using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2.Transcription
+namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    internal class FfmpegAudioHelper
+    public class FfmpegAudioHelper
     {
         protected const int SamplingRate = 16000;
 
