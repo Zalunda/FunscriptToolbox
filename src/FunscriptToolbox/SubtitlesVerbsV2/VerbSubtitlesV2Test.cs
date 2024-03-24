@@ -408,7 +408,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                         "mistral-large")
                                     {
                                         BaseAddress = "https://api.mistral.ai",
-                                        APIKey = "eovr2ouAYXKd67JuoIvTjrLWgjXjlgZR",
+                                        APIKey = "[InsertYourAPIKeyHere]",
                                         Model = "mistral-large-latest",
                                         MaxItemsInRequest = 15, // 100
                                         OverlapItemsInRequest = 3, // 10
