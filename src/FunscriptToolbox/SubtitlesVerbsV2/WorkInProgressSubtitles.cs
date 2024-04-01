@@ -9,7 +9,7 @@ using System.Text;
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
     [JsonObject(IsReference = false)]
-    class WorkInProgressSubtitles
+    public class WorkInProgressSubtitles
     {
         private readonly static JsonSerializer rs_serializer = JsonSerializer
             .Create(new JsonSerializerSettings
@@ -47,8 +47,9 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         [JsonIgnore]
         public string OriginalFilePath { get; private set; }
 
+        public string FormatVersion { get; set; } = "1.0";
         public PcmAudio PcmAudio { get; set; }
-        public SubtitleForcedLocationCollection SubtitlesForcedLocation { get; set; }
+        public SubtitleForcedTimingCollection SubtitlesForcedTiming { get; set; }
         public List<Transcription> Transcriptions { get; set; }
 
         public void Save(string filepath = null)

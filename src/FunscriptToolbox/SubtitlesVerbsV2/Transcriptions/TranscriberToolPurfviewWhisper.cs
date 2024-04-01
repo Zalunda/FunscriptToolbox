@@ -8,20 +8,22 @@ using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    public class PurfviewWhisperHelper
+    public class TranscriberToolPurfviewWhisper : TranscriberTool
     {
         private object r_lock = new object();
 
-        private readonly PurfviewWhisperConfig r_config;
-
-        public PurfviewWhisperHelper(
-            PurfviewWhisperConfig config)
+        public TranscriberToolPurfviewWhisper()
         {
-            r_config = config;
         }
 
+        [JsonProperty(Order = 10)]
+        public string Model { get; set; } = "Large-V2";
+        [JsonProperty(Order = 11)]
+        public bool ForceSplitOnComma { get; set; } = true;
+        [JsonProperty(Order = 12)]
+        public TimeSpan RedoBlockLargerThen { get; set; } = TimeSpan.FromSeconds(15);
 
-        public TranscribedText[] TranscribeAudio(
+        public override TranscribedText[] TranscribeAudio(
             FfmpegAudioHelper audioHelper,
             PcmAudio[] audios,
             Language sourceLanguage,
@@ -44,6 +46,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             Language sourceLanguage,
             List<TranscriptionCost> costs)
         {
+            // TODO Add info/progress/verbose logs
+
             // Only allows one thread doing transption at a times
             lock (r_lock)
             {
@@ -65,7 +69,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
                     // Construct command-line arguments for transcription
                     var arguments = new StringBuilder();
-                    arguments.Append($" --model {r_config.Model}");
+                    arguments.Append($" --model {this.Model}");
                     if (sourceLanguage != null)
                         arguments.Append($" --language {sourceLanguage.ShortName}");
                     arguments.Append($" --task transcribe");
@@ -73,12 +77,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                     arguments.Append($" --print_progress");
                     arguments.Append($" --beep_off");
                     arguments.Append($" --output_format json");
-                    arguments.Append($" {r_config.AdditionalParameters}");
+                    arguments.Append($" {this.AdditionalParameters}");
                     arguments.Append($" \"{tempPcmBaseFile}-*.wav\"");
 
                     // Start a new process to perform transcription
                     var process = new Process();
-                    process.StartInfo.FileName = r_config.ApplicationFullPath;
+                    process.StartInfo.FileName = this.ApplicationFullPath;
                     process.StartInfo.Arguments = arguments.ToString();
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.RedirectStandardError = true;
@@ -102,10 +106,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                     costs.Add(
                         new TranscriptionCost(
                             "Purview-Whisper",
-                            audios.Length,
-                            totalDuration, 
                             stopwatch.Elapsed,
-                            logs.ToString()));
+                            audios.Length,
+                            totalDuration));
 
                     // Process transcription results for each temporary audio file
                     var texts = new List<TranscribedText>();
@@ -149,7 +152,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
                                     // Check for punctuation marks or if its the last word in the segment to create segments.
                                     if (indexWord == words.Count - 1 ||
-                                        (r_config.ForceSplitOnComma && currentText.EndsWith("\u3001") /* , */) ||
+                                        (this.ForceSplitOnComma && currentText.EndsWith("\u3001") /* , */) ||
                                         currentText.EndsWith("\u3002") /* . */ ||
                                         currentText.EndsWith("?") ||
                                         currentText.EndsWith("!"))
@@ -157,7 +160,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                                         // If a segment is longer than the configured duration, we rerun whisper on that block.
                                         // Usually, it will be broken down into smaller pieces.
                                         var currentDuration = word.EndTime - currentStartTime.Value;
-                                        if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > r_config.RedoBlockLargerThen)
+                                        if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > this.RedoBlockLargerThen)
                                         {
                                             texts.AddRange(
                                                 TranscribeAudioInternal(

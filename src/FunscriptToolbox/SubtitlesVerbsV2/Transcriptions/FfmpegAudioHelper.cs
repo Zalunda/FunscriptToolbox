@@ -1,4 +1,6 @@
-﻿using System;
+﻿using FunscriptToolbox.SubtitlesVerbV2;
+using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
@@ -10,12 +12,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         protected const int SamplingRate = 16000;
 
         public FfmpegAudioHelper()
-            // TODO Path to FFmpeg 
         {
 
         }
 
         public PcmAudio ExtractPcmAudio(
+            SubtitleGeneratorContext context,
             string inputPath, 
             int samplingRate = SamplingRate, 
             string extractionParameters = null)
@@ -28,6 +30,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var tempPcmFile = Path.GetTempFileName() + ".pcm";
             try
             {
+                context.WriteInfo($"Extraction PCM audio from '{inputPath}'...");
+
+                var watch = Stopwatch.StartNew();
                 IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(inputPath).GetAwaiter().GetResult();
                 IStream audioStream = mediaInfo.AudioStreams.FirstOrDefault();
                 FFmpeg.Conversions.New()
@@ -37,7 +42,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                     .SetOutput(tempPcmFile)
                     .Start()
                     .Wait();
-                return new PcmAudio(samplingRate, File.ReadAllBytes(tempPcmFile));
+
+                var pcmAudio = new PcmAudio(samplingRate, File.ReadAllBytes(tempPcmFile));
+                context.WriteInfo($"Finished in {watch.Elapsed}:");
+                context.WriteInfo($"    AudioDuration = {pcmAudio.Duration}");
+                return pcmAudio;
             }
             finally
             {

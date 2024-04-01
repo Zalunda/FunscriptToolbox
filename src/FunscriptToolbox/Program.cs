@@ -1,6 +1,5 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
-using FunscriptToolbox.Core;
 using FunscriptToolbox.MotionVectorsVerbs;
 using FunscriptToolbox.SubtitlesVerb;
 using FunscriptToolbox.SubtitlesVerbV2;
@@ -181,12 +180,12 @@ namespace FunscriptToolbox
                 case 60:
                     args = new[]
                     {
-                        "subtitlesv2.video2test",
+                        "subtitlesv2.create",
                         "--verbose",
-                        "--suffix", ".final",
-                        "--config", "SubtitleGeneratorConfig.json",
+                        "--suffix", ".test",
+                        "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
                         "--sourcelanguage", "ja",
-                        "*EBVR-038-A*.mp4", // vrkm-809-
+                        "*SIVR-207-B*.mp4", // vrkm-809-
                     };
                     break;
             }
@@ -217,7 +216,7 @@ namespace FunscriptToolbox
 
                     VerbSubtitlesSrt2Training.Options,
 
-                    VerbSubtitlesV2Video2Test.Options,
+                    VerbSubtitlesV2Create.Options,
 
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
@@ -239,7 +238,7 @@ namespace FunscriptToolbox
 
                           (VerbSubtitlesSrt2Training.Options options) => new VerbSubtitlesSrt2Training(options).Execute(),
 
-                          (VerbSubtitlesV2Video2Test.Options options) => new VerbSubtitlesV2Video2Test(options).Execute(),
+                          (VerbSubtitlesV2Create.Options options) => new VerbSubtitlesV2Create(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),

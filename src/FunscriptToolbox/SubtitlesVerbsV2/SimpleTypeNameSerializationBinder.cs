@@ -7,8 +7,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 {
     public class SimpleTypeNameSerializationBinder : DefaultSerializationBinder
     {
-        private Dictionary<string, Type> _nameToType;
-        private Dictionary<Type, string> _typeToName;
+        private readonly Dictionary<string, Type> r_nameToType;
+        private readonly Dictionary<Type, string> r_typeToName;
 
         public SimpleTypeNameSerializationBinder(Type[] baseTypes)
         {
@@ -19,17 +19,27 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     .Where(x => baseTypes.Any(
                         baseType => baseType.IsAssignableFrom(x) && !x.IsAbstract));
 
-            _nameToType = matchingTypes.ToDictionary(
-                t => t.Name,
+            r_nameToType = matchingTypes.ToDictionary(
+                t => SimplyName(t.Name, baseTypes),
                 t => t);
-            _typeToName = _nameToType.ToDictionary(
+            r_typeToName = r_nameToType.ToDictionary(
                 t => t.Value,
                 t => t.Key);
         }
 
+        private string SimplyName(string originalName, Type[] baseTypes)
+        {
+            var simplifiedName = originalName;
+            foreach (var baseType in baseTypes) 
+            {
+                simplifiedName = simplifiedName.Replace(baseType.Name, string.Empty);
+            }
+            return simplifiedName;
+        }
+
         public override void BindToName(Type serializedType, out string assemblyName, out string typeName)
         {
-            if (_typeToName.TryGetValue(serializedType, out typeName))
+            if (r_typeToName.TryGetValue(serializedType, out typeName))
             {
                 assemblyName = null;
             }
@@ -41,7 +51,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public override Type BindToType(string assemblyName, string typeName)
         {
-            if (_nameToType.TryGetValue(typeName, out var matchedType))
+            if (r_nameToType.TryGetValue(typeName, out var matchedType))
             {
                 return matchedType;
             }

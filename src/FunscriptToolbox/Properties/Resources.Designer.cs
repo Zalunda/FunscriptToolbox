@@ -93,6 +93,26 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to @echo off
+        ///REM ScriptVersion:1.0
+        ///
+        ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
+        ///
+        ///&quot;FunscriptToolbox.exe&quot; ^
+        ///		subtitlesV2.create ^
+        ///		--suffix &quot;.temp.vad&quot; ^
+        ///		&quot;*.mp4&quot;
+        ///
+        ///pause
+        ///.
+        /// </summary>
+        internal static string FSTB_CreateSubtitlesV2Alpha_bat {
+            get {
+                return ResourceManager.GetString("FSTB_CreateSubtitlesV2Alpha_bat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to @echo off
         ///REM ScriptVersion:1.1
         ///
         ///echo How to use:

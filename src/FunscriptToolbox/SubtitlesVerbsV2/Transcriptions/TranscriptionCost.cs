@@ -1,27 +1,22 @@
-﻿using System;
+﻿using FunscriptToolbox.SubtitlesVerbV2;
+using System;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    public class TranscriptionCost
+    public class TranscriptionCost : Cost
     {
-        public string TaskName { get; }
         public int NumberOfAudio { get; }
         public TimeSpan TranscriptionDuration { get; }
-        public TimeSpan TimeTaken { get; }
-        public string ExecutionLogs { get; }
 
         public TranscriptionCost(
-            string taskName, 
-            int numberOfAudio,
-            TimeSpan transcriptionDuration, 
+            string taskName,
             TimeSpan timeTaken,
-            string executionLogs)
+            int numberOfAudio,
+            TimeSpan transcriptionDuration)
+            : base(taskName, timeTaken)
         {
-            TaskName = taskName;
             NumberOfAudio = numberOfAudio;
             TranscriptionDuration = transcriptionDuration;
-            TimeTaken = timeTaken;
-            ExecutionLogs = executionLogs;
         }
     }
 }

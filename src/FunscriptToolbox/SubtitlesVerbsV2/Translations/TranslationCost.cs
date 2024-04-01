@@ -1,25 +1,23 @@
-﻿using System;
+﻿using FunscriptToolbox.SubtitlesVerbV2;
+using System;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
-    public class TranslationCost
+    public class TranslationCost : Cost
     {
-        public string TaskName { get; }
         public int NbTexts { get; }
-        public TimeSpan TimeTaken { get; }
         public int? NbInputTokens { get; }
         public int? NbOutputTokens { get; }
 
         public TranslationCost(
-            string taskName, 
+            string taskName,
+            TimeSpan timeTaken,
             int nbTexts, 
-            TimeSpan timeTaken, 
             int? nbInputTokens = null,
             int? nbOutputTokens = null)
+            : base(taskName, timeTaken)
         {
-            TaskName = taskName;
             NbTexts = nbTexts;
-            TimeTaken = timeTaken;
             NbInputTokens = nbInputTokens;
             NbOutputTokens = nbOutputTokens;
         }

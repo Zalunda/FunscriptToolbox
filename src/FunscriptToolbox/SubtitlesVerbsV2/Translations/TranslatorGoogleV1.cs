@@ -5,23 +5,24 @@ using System.Linq;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using System.Collections.Generic;
 using System.Diagnostics;
+using FunscriptToolbox.SubtitlesVerbV2;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
-    internal class GoogleV1Translator : Translator
+    internal class TranslatorGoogleV1 : Translator
     {
-        public GoogleV1Translator(
-            string translationId)
-            : base(translationId)
+        public TranslatorGoogleV1()
         {
         }
 
         public override void Translate(
+            SubtitleGeneratorContext context,
             string baseFilePath,
             Transcription transcription,
-            Translation translation,
-            Action saveAction)
+            Translation translation)
         {
+            // TODO Add info/verbose/user-todo logs
+
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
@@ -50,7 +51,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         new TranslatedText(translation.Id, translatedText));
 
                     translation.Costs.Add(
-                        new TranslationCost("GoogleV1", 1, watch.Elapsed));
+                        new TranslationCost("GoogleV1", watch.Elapsed, 1));
                 }
                 else
                 {
@@ -58,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 }
             }
 
-            saveAction();
+            context.Wipsub.Save();
         }
 
         private string ExtractTranslatedText(dynamic result)

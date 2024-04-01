@@ -1,27 +1,23 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Translations;
-using FunscriptToolbox.SubtitlesVerbV2;
-using System.Collections.Generic;
+﻿using FunscriptToolbox.SubtitlesVerbV2;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    public class WhisperTranscriberFullAudio : WhisperTranscriber
+    public class TranscriberWhisperFullAudio : TranscriberWhisper
     {
-        public WhisperTranscriberFullAudio(
-            string transcriptionId,
-            IEnumerable<Translator> translators,
-            PurfviewWhisperConfig whisperConfig)
-            : base(transcriptionId, translators, whisperConfig)
+        public TranscriberWhisperFullAudio()
         {
         }
 
         public override Transcription Transcribe(
+            SubtitleGeneratorContext context,
             FfmpegAudioHelper audioHelper,
             PcmAudio pcmAudio,
-            IEnumerable<SubtitleForcedLocation> subtitlesForcedLocation,
             Language overrideLanguage)
         {
+            // TODO Add info/verbose logs
+
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            var transcribedTexts = this.WhisperHelper.TranscribeAudio(
+            var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                      audioHelper,
                      new[] { pcmAudio },
                      transcribedLanguage,

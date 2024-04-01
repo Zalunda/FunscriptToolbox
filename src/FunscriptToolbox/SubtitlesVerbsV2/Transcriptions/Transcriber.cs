@@ -1,31 +1,31 @@
 ﻿using FunscriptToolbox.SubtitlesVerbsV2.Translations;
 using FunscriptToolbox.SubtitlesVerbV2;
 using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
     public abstract class Transcriber
     {
-        public string TranscriptionId { get; }
-        public Language Language { get; set; } = Language.FromString("ja");
+        [JsonProperty(Order = 1)]
+        public bool Enabled { get; set; } = true;
 
-        [JsonProperty(TypeNameHandling = TypeNameHandling.None)]
-        public Translator[] Translators { get; }
+        [JsonProperty(Order = 2)]
+        public string TranscriptionId { get; set; }
 
-        public Transcriber(
-            string transcriptionId,
-            IEnumerable<Translator> translators)
+        [JsonProperty(Order = 3)]
+        public Language Language { get; set; } = null;
+
+        [JsonProperty(Order = 100, TypeNameHandling = TypeNameHandling.None)]
+        public Translator[] Translators { get; set; }
+
+        public Transcriber()
         {
-            this.TranscriptionId = transcriptionId;
-            this.Translators = translators.ToArray();
         }
 
         public abstract Transcription Transcribe(
+            SubtitleGeneratorContext context,
             FfmpegAudioHelper ffmpegAudioHelper,
             PcmAudio pcmAudio,
-            IEnumerable<SubtitleForcedLocation> subtitlesForcedLocation,
             Language overrideLanguage);
     }
 }

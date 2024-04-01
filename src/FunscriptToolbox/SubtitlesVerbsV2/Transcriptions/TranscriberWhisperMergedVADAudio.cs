@@ -3,30 +3,29 @@ using FunscriptToolbox.SubtitlesVerbV2;
 using System.Collections.Generic;
 using System.IO;
 using System;
-using FunscriptToolbox.SubtitlesVerbsV2.Translations;
+using Newtonsoft.Json;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    public class WhisperTranscriberMergedVADAudio : WhisperTranscriber
+    public class TranscriberWhisperMergedVADAudio : TranscriberWhisper
     {
-        public WhisperTranscriberMergedVADAudio(
-            string transcriptionId,
-            IEnumerable<Translator> translators,
-            PurfviewWhisperConfig whisperConfig)
-            : base(transcriptionId, translators, whisperConfig)
+        public TranscriberWhisperMergedVADAudio()
         {
         }
 
+        [JsonProperty(Order = 20)]
         public TimeSpan GapLength { get; set; } = TimeSpan.FromSeconds(0.3);
 
         public override Transcription Transcribe(
+            SubtitleGeneratorContext context,
             FfmpegAudioHelper audioHelper,
             PcmAudio pcmAudio,
-            IEnumerable<SubtitleForcedLocation> subtitlesForcedLocation,
             Language overrideLanguage)
         {
+            // TODO Add info/verbose logs
+
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            if (subtitlesForcedLocation == null)
+            if (context.Wipsub.SubtitlesForcedTiming == null)
             {
                 // TODO Maybe add a PrerequisiteMet method
                 return null;
@@ -37,7 +36,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var currentDuration = TimeSpan.Zero;
             var audioOffsets = new List<AudioOffset>();
             var mergedAudio = new MemoryStream();
-            foreach (var forcedLocation in subtitlesForcedLocation)
+            foreach (var forcedLocation in context.Wipsub.SubtitlesForcedTiming)
             {
                 var partAudio = pcmAudio.ExtractSnippet(
                     forcedLocation.StartTime, 
@@ -60,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var mergedPcm = new PcmAudio(pcmAudio.SamplingRate, mergedAudio.ToArray());
             var transcribedTexts = new List<TranscribedText>();
             TranscriptionCost[] costs;
-            foreach (var original in this.WhisperHelper.TranscribeAudio(
+            foreach (var original in this.TranscriberTool.TranscribeAudio(
                                 audioHelper,
                                 new[] { mergedPcm },
                                 transcribedLanguage,

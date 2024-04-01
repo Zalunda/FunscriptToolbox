@@ -1,39 +1,37 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Translations;
-using FunscriptToolbox.SubtitlesVerbV2;
-using System.Collections.Generic;
+﻿using FunscriptToolbox.SubtitlesVerbV2;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
-    public class WhisperTranscriberSingleVADAudio : WhisperTranscriber
+    public class TranscriberWhisperSingleVADAudio : TranscriberWhisper
     {
-        public WhisperTranscriberSingleVADAudio(
-            string transcriptionId,
-            IEnumerable<Translator> translators,
-            PurfviewWhisperConfig whisperConfig)
-            : base(transcriptionId, translators, whisperConfig)
+        public TranscriberWhisperSingleVADAudio()
         {
         }
 
         public override Transcription Transcribe(
+            SubtitleGeneratorContext context,
             FfmpegAudioHelper audioHelper, 
             PcmAudio pcmAudio,
-            IEnumerable<SubtitleForcedLocation> subtitlesForcedLocation,
             Language overrideLanguage)
         {
+            // TODO Add info/verbose logs
+
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            if (subtitlesForcedLocation == null)
+            if (context.Wipsub.SubtitlesForcedTiming == null)
             {
                 // TODO Maybe add a PrerequisiteMet method
                 return null;
             }
 
-            var audioSections = subtitlesForcedLocation
-                .Where(f => f.Type == SubtitleLocationType.Voice)
+            var audioSections = context
+                .Wipsub
+                .SubtitlesForcedTiming
+                .Where(f => f.Type == SubtitleForcedTimingType.Voice)
                 .Select(
                     vad => pcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime))
                 .ToArray();
-            var transcribedTexts = this.WhisperHelper.TranscribeAudio(
+            var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                 audioHelper,
                 audioSections,
                 transcribedLanguage,

@@ -3,38 +3,38 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
-    public class SubtitleForcedLocation
+    public class SubtitleForcedTiming
     {
-        public static SubtitleForcedLocation FromText(
+        public static SubtitleForcedTiming FromText(
             TimeSpan startTime, 
             TimeSpan endTime, 
             string text)
         {
-            var match = Regex.Match(text, @"^\s*(Context:(?<textContext>.*)|Screengrab:(?<textScreengrab>.*))", RegexOptions.IgnoreCase);
+            var match = Regex.Match(text, @"^\s*(Context:(?<textContext>.*)|Screengrab:(?<textScreengrab>.*))", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             if (match.Groups["textContext"].Success)
             {
-                return new SubtitleForcedLocation(startTime, endTime, SubtitleLocationType.Context, match.Groups["textContext"].Value.Trim());
+                return new SubtitleForcedTiming(startTime, endTime, SubtitleForcedTimingType.Context, match.Groups["textContext"].Value.Trim());
             }
             else if (match.Groups["textScreengrab"].Success)
             {
-                return new SubtitleForcedLocation(startTime, endTime, SubtitleLocationType.Screengrab, match.Groups["textScreengrab"].Value.Trim());
+                return new SubtitleForcedTiming(startTime, endTime, SubtitleForcedTimingType.Screengrab, match.Groups["textScreengrab"].Value.Trim());
             }
             else
             {
-                return new SubtitleForcedLocation(startTime, endTime, SubtitleLocationType.Voice, text);
+                return new SubtitleForcedTiming(startTime, endTime, SubtitleForcedTimingType.Voice, text);
             }
         }
 
-        public SubtitleLocationType Type { get; }
+        public SubtitleForcedTimingType Type { get; }
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }
         public TimeSpan Duration => EndTime - StartTime;
         public string Text { get; }
 
-        public SubtitleForcedLocation(
+        public SubtitleForcedTiming(
             TimeSpan startTime, 
             TimeSpan endTime, 
-            SubtitleLocationType type, 
+            SubtitleForcedTimingType type, 
             string text)
         {
             StartTime = startTime;
