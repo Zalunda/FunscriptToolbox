@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -26,11 +27,19 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public static WorkInProgressSubtitles FromFile(string filepath)
         {
-            using var reader = File.OpenText(filepath);
-            using var jsonReader = new JsonTextReader(reader);
-            var content = rs_serializer.Deserialize<WorkInProgressSubtitles>(jsonReader);
-            content.OriginalFilePath = filepath;
-            return content;
+            try 
+            {
+                using var reader = File.OpenText(filepath);
+                using var jsonReader = new JsonTextReader(reader);
+                var content = rs_serializer.Deserialize<WorkInProgressSubtitles>(jsonReader);
+                content.OriginalFilePath = filepath;
+                return content;
+            }
+            catch (Exception ex)
+            {
+                ex.Data.Add("File", filepath);
+                throw new Exception($"Error parsing file '{filepath}': {ex.Message}", ex);
+            }
         }
 
         public WorkInProgressSubtitles()

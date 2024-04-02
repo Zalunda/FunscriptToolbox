@@ -53,78 +53,151 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public async Task<int> ExecuteAsync()
         {   
-            var config = SubtitleGeneratorConfig.FromFile(r_options.ConfigPath);
-            
+            var config = SubtitleGeneratorConfig.FromFile(
+                r_options.ConfigPath);
+            var privateConfig = SubtitleGeneratorPrivateConfig.FromFile(
+                Path.ChangeExtension(r_options.ConfigPath, ".private.json"));
+
+            var errors = new List<string>();
+            var userTodoList = new List<string>();
+
             foreach (var inputMp4Fullpath in r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
                 .Distinct()
                 .OrderBy(f => f))
             {
+                var watchGlobal = Stopwatch.StartNew();
+                var ffmpegAudioHelper = new FfmpegAudioHelper();
+
+                var wipsubFullpath = Path.ChangeExtension(
+                    inputMp4Fullpath,
+                    r_options.Suffix + WorkInProgressSubtitles.Extension);
+                var baseFilePath = Path.Combine(
+                    Path.GetDirectoryName(wipsubFullpath) ?? ".",
+                    Path.GetFileNameWithoutExtension(wipsubFullpath));
+
+                var wipsub = File.Exists(wipsubFullpath)
+                    ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
+                    : new WorkInProgressSubtitles(wipsubFullpath);
+
+                var context = new SubtitleGeneratorContext(
+                    rs_log,
+                    privateConfig,
+                    prefix: $"{Path.GetFileNameWithoutExtension(inputMp4Fullpath)}: ",
+                    r_options.Verbose,
+                    baseFilePath,
+                    wipsub);
+
                 try
                 {
-                    var watch = Stopwatch.StartNew();
-                    var ffmpegAudioHelper = new FfmpegAudioHelper();
+                    // 1. Extracting PcmAudio, if not already done.
+                    if (wipsub.PcmAudio != null)
+                    {
+                        context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
+                        context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
+                        context.WriteInfoAlreadyDone();
+                    }
+                    else
+                    {
+                        context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputMp4Fullpath)}'...");
 
-                    var wipsubFullpath = Path.ChangeExtension(
-                        inputMp4Fullpath,
-                        r_options.Suffix + WorkInProgressSubtitles.Extension);
-                    var baseFilePath = Path.Combine(
-                        Path.GetDirectoryName(wipsubFullpath) ?? ".",
-                        Path.GetFileNameWithoutExtension(wipsubFullpath));
-
-                    var wipsub = File.Exists(wipsubFullpath)
-                        ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
-                        : new WorkInProgressSubtitles(wipsubFullpath);
-
-                    var context = new SubtitleGeneratorContext(
-                        rs_log,
-                        r_options.Verbose,
-                        baseFilePath,
-                        wipsub);
-
-                    // TODO Add info/verbose logs
-
-                    // TODO WriteMessage if already done
-                    wipsub.PcmAudio ??= ffmpegAudioHelper.ExtractPcmAudio(
-                        context,
-                        inputMp4Fullpath, 
-                        extractionParameters: config.FfmpegAudioExtractionParameters);
-                    wipsub.Save();
-
-                    // TODO WriteMessage if already done
-                    wipsub.SubtitlesForcedTiming ??= ImportForcedLocations(
-                            context,
+                        var watchPcmAudio = Stopwatch.StartNew();
+                        wipsub.PcmAudio = ffmpegAudioHelper.ExtractPcmAudio(
                             inputMp4Fullpath,
-                            config.SubtitleForcedLocationSuffix);
-                    wipsub.Save();
+                            extractionParameters: config.FfmpegAudioExtractionParameters);
+                        wipsub.Save();
 
+                        context.WriteInfo($"Finished in {watchPcmAudio.Elapsed}:");
+                        context.WriteInfo($"    Audio Duration = {wipsub.PcmAudio.Duration}");
+                        context.WriteInfo();
+                    }
+
+                    // 2. Importing Subtitle Forced Timings, if not already done.
+                    var forcedTimingPath = Path.ChangeExtension(
+                        inputMp4Fullpath,
+                        config.SubtitleForcedTimingsSuffix);
+                    if (wipsub.SubtitlesForcedTiming != null)
+                    {
+                        context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
+                        context.WriteInfoAlreadyDone($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
+                        context.WriteInfoAlreadyDone($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
+                        context.WriteInfoAlreadyDone();
+                    }
+                    else if (File.Exists(forcedTimingPath))
+                    {
+                        context.WriteInfo($"Importing forced subtitle timings from '{Path.GetFileName(forcedTimingPath)}'...");
+
+                        wipsub.SubtitlesForcedTiming = new SubtitleForcedTimingCollection(
+                            SubtitleFile
+                            .FromSrtFile(forcedTimingPath)
+                            .Subtitles
+                            .Select(
+                                subtitle => SubtitleForcedTiming.FromText(
+                                    subtitle.StartTime,
+                                    subtitle.EndTime,
+                                    subtitle.Text)));
+                        wipsub.Save();
+
+                        context.WriteInfo($"Finished:");
+                        context.WriteInfo($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
+                        context.WriteInfo($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
+                        context.WriteInfo();
+                    }
+                    else if (config.Outputs.Any(f => f.NeedSubtitleForcedTimings))
+                    {
+                        context.AddUserTodo($"Create the subtitle forced timings file '{Path.GetFileName(forcedTimingPath)}'.");
+                    }
+                    else
+                    {
+                        // Ignore subtitle forced timing since it's not used.
+                    }
+
+                    // 3. Transcribing the audio file, if not already done.
                     var sourceLanguage = Language.FromString(r_options.SourceLanguage);
-
                     foreach (var transcriber in config.Transcribers
                         ?.Where(t => t.Enabled) 
                         ?? Array.Empty<Transcriber>())
                     {
                         var transcription = wipsub.Transcriptions.FirstOrDefault(
                             t => t.Id == transcriber.TranscriptionId);
-                        if (transcription == null)
+                        if (transcription != null)
                         {
-                            transcription = transcriber.Transcribe(
-                                context,
-                                ffmpegAudioHelper,
-                                wipsub.PcmAudio,
-                                sourceLanguage);
-                            if (transcription != null)
-                            {
-                                wipsub.Transcriptions.Add(transcription);
-                                wipsub.Save();
-                            }
+                            context.WriteInfoAlreadyDone($"Transcription '{transcriber.TranscriptionId}' have already been done:");
+                            context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Length}");
+                            context.WriteInfoAlreadyDone();
+                        }
+                        else if (!transcriber.IsPrerequisitesMet(context, out var reason))
+                        {
+                            context.WriteInfo($"Transcription '{transcriber.TranscriptionId}' cannot be done yet: {reason}");
+                            context.WriteInfo();
                         }
                         else
                         {
-                            // TODO
+                            try
+                            {
+                                var watch = Stopwatch.StartNew();
+                                context.WriteInfo($"Transcribing '{transcriber.TranscriptionId}'...");
+                                transcription = transcriber.Transcribe(
+                                    context,
+                                    ffmpegAudioHelper,
+                                    wipsub.PcmAudio,
+                                    sourceLanguage);
+
+                                context.WriteInfo($"Finished in {watch.Elapsed}:");
+                                context.WriteInfo($"    Number of subtitles = {transcription.Items.Length}");
+                                context.WriteInfo();
+
+                                wipsub.Transcriptions.Add(transcription);
+                                wipsub.Save();
+                            }
+                            catch (Exception ex)
+                            {
+                                context.WriteError($"An error occured while trancribing '{transcriber.TranscriptionId}':\n{ex.Message}");
+                            }
                         }
 
+                        // 4. Translating the transcribed text, if not already done.
                         if (transcription != null)
                         {
                             foreach (var translator in transcriber.Translators
@@ -145,67 +218,59 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                     }
                                 }
 
-                                translator.Translate(
-                                    context,
-                                    baseFilePath,
-                                    transcription,
-                                    translation);
+                                if (translator.IsFinished(transcription, translation))
+                                {
+                                    context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' have already been done.");
+                                    context.WriteInfoAlreadyDone();
+                                }
+                                else
+                                {
+                                    try
+                                    {
+                                        var watch = Stopwatch.StartNew();
+                                        context.WriteInfo($"Translating '{transcription.Id}/{translation.Id}'...");
+                                        translator.Translate(
+                                            context,
+                                            baseFilePath,
+                                            transcription,
+                                            translation);
+                                        wipsub.Save();
+
+                                        context.WriteInfo($"Finished in {watch.Elapsed}.");
+                                        context.WriteInfo();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        context.WriteError($"An error occured while translating '{transcription.Id}/{translation.Id}':\n{ex.Message}");
+                                    }
+                                }
                             }
                         }
                     }
 
+                    // 5. Creating user defined outputs
                     foreach (var output in config.Outputs
                         ?.Where(o => o.Enabled) 
                         ?? Array.Empty<SubtitleOutput>())
                     {
+                        // TODO Add logs,
                         output.CreateOutput(
                             context,
                             wipsub);
                     }
 
-                    WriteInfo($"{inputMp4Fullpath}: Finished in {watch.Elapsed}.");
-                    WriteInfo();
+                    context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
+                    context.WriteInfo();
                 }
                 catch (Exception ex)
                 {
-                    WriteError($"{inputMp4Fullpath}: Exception occured: {ex}");
-                    WriteInfo();
+                    context.WriteError($"Unexpected exception occured: {ex}");
                 }
+
+                // TODO Add
             }
 
             return base.NbErrors;
-        }
-
-        private SubtitleForcedTimingCollection ImportForcedLocations(
-            SubtitleGeneratorContext context,
-            string inputMp4Fullpath,
-            string forcedLocationSuffixe)
-        {
-            var path = Path.ChangeExtension(
-                inputMp4Fullpath, 
-                forcedLocationSuffixe);
-            if (File.Exists(path))
-            {
-                context.WriteInfo($"Importing forced subtitle timing file '{Path.GetFileName(forcedLocationSuffixe)}'...");
-                var humanVadSrtFile = SubtitleFile.FromSrtFile(
-                    path);
-
-                var result = new SubtitleForcedTimingCollection(
-                    humanVadSrtFile.Subtitles.Select(
-                        subtitle => SubtitleForcedTiming.FromText(
-                            subtitle.StartTime,
-                            subtitle.EndTime,
-                            subtitle.Text)));
-                context.WriteInfo($"Finished:");
-                context.WriteInfo($"    Number of items = {result.Count}");
-                context.WriteInfo($"    AudioDuration = {TimeSpan.FromMilliseconds(result.Sum(f => f.Duration.TotalMilliseconds))}");
-                return result;
-            }
-            else
-            {
-                context.WriteInfo($"Forced subtitle timing file '{Path.GetFileName(forcedLocationSuffixe)}' doesn't exists yet.");
-                return null;
-            }
         }
     }
 }

@@ -16,12 +16,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         public ItemForAI[] GetAllItems(
             Transcription transcription,
             SubtitleForcedTimingCollection subtitlesForcedTiming,
-            string translationId)
+            string translationId = null)
         {
             string currentContext = null;
             return transcription
                 .Items
-                .Where(t => t.TranslatedTexts.FirstOrDefault(tt => tt.Id == translationId)?.Text == null)
+                .Where(t => translationId != null || t.TranslatedTexts.FirstOrDefault(tt => tt.Id == translationId)?.Text == null)
                 .Select(item =>
                 {
                     var previousContext = currentContext;
@@ -37,7 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             Language transcribedLanguage,
             Language translatedLanguage);
 
-        public abstract void HandleResponse(
+        public abstract int HandleResponse(
             string translationId,
             ItemForAI[] items,
             string responseReceived);

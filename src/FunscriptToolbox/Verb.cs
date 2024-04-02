@@ -254,11 +254,6 @@ namespace FunscriptToolbox
             this.NbErrors++;
         }
 
-        protected static string FormatTimeSpan(TimeSpan value)
-        {
-            return Regex.Replace(value.ToString(), @"\d{4}$", "");                
-        }
-
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive = false)
         {
             if (filename.Contains("*"))

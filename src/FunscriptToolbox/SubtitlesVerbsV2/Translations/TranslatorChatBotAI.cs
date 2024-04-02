@@ -1,8 +1,8 @@
 ﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbV2;
 using Newtonsoft.Json;
-using System;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
@@ -13,7 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
         }
 
-        [JsonProperty(Order = 10)]
+        [JsonProperty(Order = 10, Required = Required.Always)]
         public AIMessagesHandler MessagesHandler { get; set; }
 
         public override void Translate(
@@ -22,48 +22,61 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             Transcription transcription,
             Translation translation)
         {
-            // TODO Add info/verbose/user-todo logs
+            // Get only the items that have not been translated yet
+            var items = this.MessagesHandler.GetAllItems(
+                transcription, 
+                context.Wipsub.SubtitlesForcedTiming,
+                this.TranslationId);
 
-            var items = this.MessagesHandler.GetAllItems(transcription, context.Wipsub.SubtitlesForcedTiming, this.TranslationId);
-            if (items.Length == 0)
-            {
-                return;
-            }
+            // Parse previous files, they might contains translations if the user updated them
+            var nbErrors = 0;
             foreach (var fullpath in Directory.GetFiles(Path.GetDirectoryName(baseFilePath) ?? ".", Path.GetFileName(baseFilePath) + "*.*"))
             {
-                try
+                var filename = Path.GetFileName(fullpath);
+                var baseFilename = Path.GetFileName(baseFilePath);
+                if (Regex.IsMatch(filename, $"^{baseFilename}.{transcription.Id}-{translation.Id}-BATCH-\\d+\\.txt", RegexOptions.IgnoreCase))
                 {
-                    var filename = Path.GetFileName(fullpath);
-                    var baseFilename = Path.GetFileName(baseFilePath);
-                    if (Regex.IsMatch(filename, $"^{baseFilename}.{transcription.Id}-{translation.Id}-BATCH-\\d+\\.txt", RegexOptions.IgnoreCase))
+                    var response = File.ReadAllText(fullpath);
+                    context.SoftDelete(fullpath);
+                    try
                     {
-                        this.MessagesHandler.HandleResponse(
+                        context.WriteInfo($"        Analysing existing file '{filename}'...");
+                        var nbTranslationsAdded = this.MessagesHandler.HandleResponse(
                             this.TranslationId,
                             items,
-                            File.ReadAllText(fullpath));
-                        context.SoftDelete(fullpath);
+                            response);
+                        context.WriteInfo($"        Finished:");
+                        context.WriteInfo($"            Nb translations added: {nbTranslationsAdded}");
+                        if (nbTranslationsAdded > 0)
+                        {
+                            context.Wipsub.Save();
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    context.WriteError(ex.ToString());
-                    context.Wipsub.Save();
-                    return;
+                    catch (AIMessagesHandlerExpection ex)
+                    {
+                        nbErrors++;
+                        File.WriteAllText(fullpath, ex.PartiallyFixedResponse, Encoding.UTF8);
+                        context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
+                        context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
+                    }
                 }
             }
 
-            var itemsAfter = this.MessagesHandler.GetAllItems(transcription, context.Wipsub.SubtitlesForcedTiming, this.TranslationId);
-            context.Wipsub.Save();
-
-            foreach (var request in this.MessagesHandler.CreateRequests(
-                this.TranslationId,
-                items,
-                transcription.Language,
-                translation.Language))
+            // If there are still translations to be done, create files for each batch of items
+            if (nbErrors == 0)
             {
-                File.WriteAllText(
-                    $"{baseFilePath}.{transcription.Id}-{translation.Id}-BATCH-{request.Number:D03}.txt",
-                    request.FullPrompt);
+                foreach (var request in this.MessagesHandler.CreateRequests(
+                    this.TranslationId,
+                    items,
+                    transcription.Language,
+                    translation.Language))
+                {
+                    var filepath = $"{baseFilePath}.{transcription.Id}-{translation.Id}-BATCH-{request.Number:D03}.txt";
+                    context.WriteInfo($"        Creating file '{Path.GetFileName(filepath)}' (contains {request.Items.Length} texts)...");
+                    File.WriteAllText(filepath, request.FullPrompt);
+
+                    context.AddUserTodo($"Give the content of the file '{Path.GetFileName(filepath)}' to an AI and then put its response in the same file.");
+                }
             }
         }
     }

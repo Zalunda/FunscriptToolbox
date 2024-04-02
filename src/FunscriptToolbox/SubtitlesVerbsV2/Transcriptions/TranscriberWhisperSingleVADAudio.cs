@@ -9,21 +9,21 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         {
         }
 
+        public override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason)
+        {
+            reason = "SubtitlesForcedTiming not imported yet";
+            return context.Wipsub.SubtitlesForcedTiming != null;
+        }
+
         public override Transcription Transcribe(
             SubtitleGeneratorContext context,
             FfmpegAudioHelper audioHelper, 
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
-            // TODO Add info/verbose logs
-
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            if (context.Wipsub.SubtitlesForcedTiming == null)
-            {
-                // TODO Maybe add a PrerequisiteMet method
-                return null;
-            }
-
             var audioSections = context
                 .Wipsub
                 .SubtitlesForcedTiming
@@ -33,6 +33,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                 .ToArray();
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                 audioHelper,
+                context.DefaultProgressUpdateHandler,
                 audioSections,
                 transcribedLanguage,
                 out var costs);

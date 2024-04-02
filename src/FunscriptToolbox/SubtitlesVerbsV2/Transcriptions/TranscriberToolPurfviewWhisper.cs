@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
@@ -12,11 +13,13 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
     {
         private object r_lock = new object();
 
+        private const string ToolName = "PurfviewWhisper";
+
         public TranscriberToolPurfviewWhisper()
         {
         }
 
-        [JsonProperty(Order = 10)]
+        [JsonProperty(Order = 10, Required = Required.Always)]
         public string Model { get; set; } = "Large-V2";
         [JsonProperty(Order = 11)]
         public bool ForceSplitOnComma { get; set; } = true;
@@ -25,15 +28,17 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
         public override TranscribedText[] TranscribeAudio(
             FfmpegAudioHelper audioHelper,
+            ProgressUpdateDelegate progressUpdateCallback,
             PcmAudio[] audios,
             Language sourceLanguage,
             out TranscriptionCost[] costs)
         {
             var costsList = new List<TranscriptionCost>();
             var transcribedTexts = TranscribeAudioInternal(
-                audioHelper, 
+                audioHelper,
+                progressUpdateCallback,
                 audios, 
-                sourceLanguage, 
+                sourceLanguage,
                 costsList);
             costs = costsList.ToArray();
             return transcribedTexts;
@@ -42,13 +47,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
         private TranscribedText[] TranscribeAudioInternal(
             FfmpegAudioHelper audioHelper,
+            ProgressUpdateDelegate progressUpdateCallback,
             PcmAudio[] audios,
             Language sourceLanguage,
             List<TranscriptionCost> costs)
         {
-            // TODO Add info/progress/verbose logs
-
-            // Only allows one thread doing transption at a times
+            // Only allows one thread doing transcription at a times
             lock (r_lock)
             {
 
@@ -91,10 +95,23 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                     var logs = new StringBuilder();
                     var stopwatch = Stopwatch.StartNew();
                     var errors = new List<string>();
+                    int currentFileIndex = 0;
                     void dataHandler(object s, DataReceivedEventArgs e)
                     {
                         logs.AppendLine(e.Data);
-                        Console.WriteLine($"[Purfview-Whisper] {e.Data}");
+
+                        var match = Regex.Match(e.Data ?? string.Empty, "Starting transcription.*-(?<Index>\\d+).wav$", RegexOptions.IgnoreCase);
+                        if (match.Success)
+                        {
+                            currentFileIndex = int.Parse(match.Groups["Index"].Value) + 1;
+                        }
+
+                        progressUpdateCallback(
+                            ToolName, 
+                            audios.Length == 1
+                            ? "full"
+                            : $"{currentFileIndex}/{audios.Length}",
+                            e.Data);
                     }
                     process.ErrorDataReceived += dataHandler;
                     process.OutputDataReceived += dataHandler;
@@ -105,7 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
                     costs.Add(
                         new TranscriptionCost(
-                            "Purview-Whisper",
+                            ToolName,
                             stopwatch.Elapsed,
                             audios.Length,
                             totalDuration));
@@ -165,6 +182,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                                             texts.AddRange(
                                                 TranscribeAudioInternal(
                                                     audioHelper,
+                                                    (toolName, toolAction, message) => progressUpdateCallback(ToolName, $"REDO:{(int)currentStartTime.Value.TotalSeconds}=>{(int)word.EndTime.TotalSeconds}", message),
                                                     new[] { 
                                                         pcmAudio.ExtractSnippet(
                                                             currentStartTime.Value,

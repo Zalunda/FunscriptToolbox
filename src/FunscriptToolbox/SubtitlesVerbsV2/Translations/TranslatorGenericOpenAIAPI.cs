@@ -16,14 +16,14 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
         }
 
-        [JsonProperty(Order = 10)]
+        [JsonProperty(Order = 10, Required = Required.Always)]
         public string BaseAddress { get; set; } = "http://localhost:10000";
 
         [JsonProperty(Order = 11)]
         public string Model { get; set; }
 
         [JsonProperty(Order = 12)]
-        public string APIKey { get; set; } // TODO Should be in a different file
+        public string APIKeyName { get; set; }
 
         [JsonProperty(Order = 13)]
         public TimeSpan TimeOut { get; set; } = TimeSpan.FromSeconds(300);
@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         [JsonProperty(Order = 14, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject DataExpansion { get; set; }
 
-        [JsonProperty(Order = 15)]
+        [JsonProperty(Order = 15, Required = Required.Always)]
         public AIMessagesHandler MessagesHandler { get; set; }
 
         public override void Translate(
@@ -42,17 +42,15 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
             try
             {
-                // TODO Add info/verbose/user-todo logs
-
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
                 client.BaseAddress = new Uri(this.BaseAddress);
                 client.Timeout = this.TimeOut;
-                if (this.APIKey != null)
+                if (this.APIKeyName != null)
                 {
-                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + this.APIKey);
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
                 }
 
                 var items = this.MessagesHandler.GetAllItems(transcription, context.Wipsub.SubtitlesForcedTiming, this.TranslationId);

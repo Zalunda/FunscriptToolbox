@@ -11,6 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         public const string TranscriptionLanguageToken = "[TranscriptionLanguage]";
         public const string TranslationLanguageToken = "[TranslationLanguage]";
 
+        [JsonProperty(Required = Required.Always)]
         public string[] Lines { get; }
 
         public AIPrompt(IEnumerable<string> lines)

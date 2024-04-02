@@ -16,20 +16,21 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         [JsonProperty(Order = 20)]
         public TimeSpan GapLength { get; set; } = TimeSpan.FromSeconds(0.3);
 
+        public override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason)
+        {
+            reason = "SubtitlesForcedTiming not imported yet";
+            return context.Wipsub.SubtitlesForcedTiming != null;
+        }
+
         public override Transcription Transcribe(
             SubtitleGeneratorContext context,
             FfmpegAudioHelper audioHelper,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
-            // TODO Add info/verbose logs
-
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            if (context.Wipsub.SubtitlesForcedTiming == null)
-            {
-                // TODO Maybe add a PrerequisiteMet method
-                return null;
-            }
 
             var silenceGapSamples = pcmAudio.GetSilenceAudio(this.GapLength);
 
@@ -61,6 +62,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             TranscriptionCost[] costs;
             foreach (var original in this.TranscriberTool.TranscribeAudio(
                                 audioHelper,
+                                context.DefaultProgressUpdateHandler,
                                 new[] { mergedPcm },
                                 transcribedLanguage,
                                 out costs))

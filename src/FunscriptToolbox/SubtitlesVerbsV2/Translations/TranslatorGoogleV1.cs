@@ -11,6 +11,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
     internal class TranslatorGoogleV1 : Translator
     {
+        private const string ToolName = "GoogleV1";
+
         public TranslatorGoogleV1()
         {
         }
@@ -21,17 +23,18 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             Transcription transcription,
             Translation translation)
         {
-            // TODO Add info/verbose/user-todo logs
-
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
 
             var costsAsList = new List<TranslationCost>();
-            foreach (var transcribedText in transcription
+            var missingTranscriptions = transcription
                 .Items
-                .Where(f => !f.TranslatedTexts.Any(t => t.Id == this.TranslationId)))
+                .Where(f => !f.TranslatedTexts.Any(t => t.Id == this.TranslationId))
+                .ToArray();
+            var currentIndex = 1;
+            foreach (var transcribedText in missingTranscriptions)
             {
                 string apiUrl = $"https://translate.googleapis.com/translate_a/single" + 
                     "?client=gtx" + 
@@ -51,15 +54,15 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         new TranslatedText(translation.Id, translatedText));
 
                     translation.Costs.Add(
-                        new TranslationCost("GoogleV1", watch.Elapsed, 1));
+                        new TranslationCost(ToolName, watch.Elapsed, 1));
+
+                    context.DefaultProgressUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
                 }
                 else
                 {
                     throw new HttpRequestException($"Error: {response.StatusCode} - {response.ReasonPhrase}");
                 }
             }
-
-            context.Wipsub.Save();
         }
 
         private string ExtractTranslatedText(dynamic result)

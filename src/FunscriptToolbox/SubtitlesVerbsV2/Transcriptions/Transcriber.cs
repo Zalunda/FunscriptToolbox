@@ -9,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;
 
-        [JsonProperty(Order = 2)]
+        [JsonProperty(Order = 2, Required = Required.Always)]
         public string TranscriptionId { get; set; }
 
         [JsonProperty(Order = 3)]
@@ -21,6 +21,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         public Transcriber()
         {
         }
+
+        public abstract bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason);
 
         public abstract Transcription Transcribe(
             SubtitleGeneratorContext context,

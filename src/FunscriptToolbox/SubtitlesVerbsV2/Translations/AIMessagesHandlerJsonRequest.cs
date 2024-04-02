@@ -86,11 +86,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             }
         }
 
-        public override void HandleResponse(
+        public override int HandleResponse(
             string translationId,
             ItemForAI[] items,
             string responseReceived)
         {
+            var nbTranslationsAdded = 0;
             var result = ParseAndFixJson(responseReceived);
             foreach (var item in result)
             {
@@ -104,6 +105,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         ?? items.FirstOrDefault(f => f.Original == original);
                     if (originalItem != null)
                     {
+                        nbTranslationsAdded++;
                         originalItem.Tag.TranslatedTexts.Add(
                             new TranslatedText(
                                 translationId,
@@ -116,35 +118,43 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     }
                 }
             }
+            return nbTranslationsAdded;
         }
 
         private dynamic ParseAndFixJson(string json)
         {
-            // Remove everything before the first '['
-            var indexOfFirstBracket = json.IndexOf('[');
-            if (indexOfFirstBracket > 0)
+            try
             {
-                json = json.Substring(indexOfFirstBracket);
-            }
+                // Remove everything before the first '['
+                var indexOfFirstBracket = json.IndexOf('[');
+                if (indexOfFirstBracket > 0)
+                {
+                    json = json.Substring(indexOfFirstBracket);
+                }
 
-            // Remove everything after the last ']', add a ']' at the end, if missing.
-            var indexOfLastBracket = json.LastIndexOf(']');
-            if (indexOfLastBracket >= 0 && indexOfLastBracket < json.Length)
+                // Remove everything after the last ']', add a ']' at the end, if missing.
+                var indexOfLastBracket = json.LastIndexOf(']');
+                if (indexOfLastBracket >= 0 && indexOfLastBracket < json.Length)
+                {
+                    json = json.Substring(0, indexOfLastBracket + 1);
+                }
+                else
+                {
+                    json += "]";
+                }
+
+                // Add missing comma at the end of a field line
+                json = Regex.Replace(json, @"(""(Original|StartTime)"": ""[^""]*""(?!\s*,))", "$1,");
+
+                // Add missing comma between items
+                json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
+
+                return JsonConvert.DeserializeObject<dynamic>(json);
+            }
+            catch (Exception ex)
             {
-                json = json.Substring(0, indexOfLastBracket + 1);
+                throw new AIMessagesHandlerExpection(ex, json);
             }
-            else
-            {
-                json += "]";
-            }
-
-            // Add missing comma at the end of a field line
-            json = Regex.Replace(json, @"(""(Original|StartTime)"": ""[^""]*""(?!\s*,))", "$1,");
-
-            // Add missing comma between items
-            json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
-
-            return JsonConvert.DeserializeObject<dynamic>(json);
         }
     }
 }

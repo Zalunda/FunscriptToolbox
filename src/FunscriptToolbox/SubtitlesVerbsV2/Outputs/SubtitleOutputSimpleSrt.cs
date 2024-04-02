@@ -13,6 +13,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             
         }
 
+        public override bool NeedSubtitleForcedTimings => false;
+
         [JsonProperty(Order = 10)]
         public string FileSuffixe { get; set; }
         [JsonProperty(Order = 11)]
@@ -24,8 +26,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             SubtitleGeneratorContext context,
             WorkInProgressSubtitles wipsub)
         {
-            // TODO Add info/verbose logs
-
             if (this.FileSuffixe == null)
             {
                 throw new ArgumentNullException($"{typeof(SubtitleOutputWIPSrt).Name}.FileSuffixe");
@@ -35,7 +35,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
                 ?? wipsub.Transcriptions.FirstOrDefault();
             if (transcription == null)
             {
-                context.WriteInfo("No transcription found."); // TODO Better message
+                context.WriteError("   No transcription found."); // TODO Better message
                 return;
             }
 

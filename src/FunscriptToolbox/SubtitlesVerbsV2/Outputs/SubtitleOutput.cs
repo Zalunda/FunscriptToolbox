@@ -8,6 +8,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
     {
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;
+        
+        [JsonIgnore()]
+        public abstract bool NeedSubtitleForcedTimings { get; }
 
         public abstract void CreateOutput(
             SubtitleGeneratorContext context,

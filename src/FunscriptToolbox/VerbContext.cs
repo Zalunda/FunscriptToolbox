@@ -1,30 +1,34 @@
 ﻿using log4net;
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox
 {
-    public class ProcessContext
+    public class VerbContext
     {
-        public ProcessContext(
+        public VerbContext(
             ILog log,
-            bool isVerbose,
-            string baseFilePath)
+            string prefix,
+            bool isVerbose)
         {
             r_log = log;
-            r_isVerbose = isVerbose;
-            this.BaseFilePath = baseFilePath;
+            this.Prefix = prefix;
+            this.IsVerbose = isVerbose;
+            this.Errors = new List<string>();
         }
 
         private readonly ILog r_log;
-        private readonly bool r_isVerbose;
-        public string BaseFilePath { get; }
-
         private bool m_lastWriteIsProgress = false;
-        public int NbErrors { get; set; } = 0;
+
+        public string Prefix { get; }
+        public bool IsVerbose { get; }
+        public List<string> Errors { get; }
 
         public void WriteInfo(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
+            message = this.Prefix + message;
+
             if (m_lastWriteIsProgress)
             {
                 Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
@@ -34,11 +38,15 @@ namespace FunscriptToolbox
             if (color != null) Console.ForegroundColor = color.Value;
             if (isProgress)
             {
-                Console.Write($"{message}{new string(' ', Math.Max(0, Console.WindowWidth - message.Length - 1))}\r");
+                var padding = Console.WindowWidth - message.Length - 1;
+                Console.Write(
+                    (padding < 0)
+                    ? $"{message.Substring(0, Console.WindowWidth - 1)}\r"
+                    : $"{message}{new string(' ', padding)}\r");
             }
             else
             {
-                Console.WriteLine(message);
+                Console.WriteLine($"{message}");
             }
             Console.ResetColor();
             m_lastWriteIsProgress = isProgress;
@@ -48,13 +56,15 @@ namespace FunscriptToolbox
 
         public void WriteVerbose(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
+            message = this.Prefix + message;
+
             if (m_lastWriteIsProgress)
             {
                 Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
             }
 
             r_log.Debug(message);
-            if (r_isVerbose)
+            if (this.IsVerbose)
             {
                 if (color != null) Console.ForegroundColor = color.Value;
                 if (isProgress)
@@ -72,11 +82,15 @@ namespace FunscriptToolbox
 
         public void WriteDebug(string message = "")
         {
+            message = this.Prefix + message;
+
             r_log.Debug(message);
         }
 
         public void WriteError(string message = "")
         {
+            message = this.Prefix + message;
+
             if (m_lastWriteIsProgress)
             {
                 Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
@@ -86,7 +100,7 @@ namespace FunscriptToolbox
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine(message);
             Console.ResetColor();
-            this.NbErrors++;
+            this.Errors.Add(message);
         }
 
         protected static string FormatTimeSpan(TimeSpan value)

@@ -1,26 +1,60 @@
 ﻿using log4net;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
-    public class SubtitleGeneratorContext : ProcessContext
+    public delegate void ProgressUpdateDelegate(string toolName, string toolAction, string message);
+
+    public class SubtitleGeneratorContext : VerbContext
     {
         public SubtitleGeneratorContext(
-            ILog log, 
-            bool isVerbose, 
+            ILog log,
+            SubtitleGeneratorPrivateConfig privateConfig,
+            string prefix,
+            bool isVerbose,
             string baseFilePath,
             WorkInProgressSubtitles wipsub) 
-            : base(log, isVerbose, baseFilePath)
+            : base(log, prefix, isVerbose)
         {
             r_logsAndBackupFolder = baseFilePath + "_LogsAndBackup";
-            Wipsub = wipsub;
+            r_privateConfig = privateConfig;
+            this.BaseFilePath = baseFilePath;
+            this.Wipsub = wipsub;
+            this.UserTodoList = new List<string>();
         }
 
         private readonly string r_logsAndBackupFolder;
+        private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
+
+        public string BaseFilePath { get; }
 
         public WorkInProgressSubtitles Wipsub { get; }
+
+        public List<string> UserTodoList { get; }
+
+        public string GetPrivateConfig(string itemName)
+        {
+            return r_privateConfig.GetValue(itemName);
+        }
+
+        internal void WriteInfoAlreadyDone(string message = null)
+        {
+            WriteInfo(message, ConsoleColor.DarkGray);
+        }
+
+        internal void DefaultProgressUpdateHandler(string toolName, string toolAction, string message)
+        {
+            var toolActionString = toolAction == null ? string.Empty : $"[{toolAction}]";
+            WriteInfo($"    [{toolName}]{toolActionString} {message}", isProgress: true);
+        }
+
+        internal void AddUserTodo(string message)
+        {
+            this.UserTodoList.Add(message);
+        }
 
         internal void SoftDelete(string fullpath)
         {

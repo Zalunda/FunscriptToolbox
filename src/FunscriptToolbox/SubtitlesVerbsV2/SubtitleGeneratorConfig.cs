@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
-using System.Security.Policy;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
@@ -39,9 +38,17 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
         public static SubtitleGeneratorConfig FromFile(string filepath)
         {
-            using var reader = File.OpenText(filepath);
-            using var jsonReader = new JsonTextReader(reader);
-            return rs_serializer.Deserialize<SubtitleGeneratorConfig>(jsonReader);
+            try
+            {
+                using var reader = File.OpenText(filepath);
+                using var jsonReader = new JsonTextReader(reader);
+                rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
+                return rs_serializer.Deserialize<SubtitleGeneratorConfig>(jsonReader);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error while parsing file '{filepath}': {ex.Message}", ex);
+            }
         }
 
         public SubtitleGeneratorConfig()
@@ -49,7 +56,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         }
 
         [JsonProperty(Order = 1)]
-        public string SubtitleForcedLocationSuffix { get; set; }
+        public string SubtitleForcedTimingsSuffix { get; set; }
 
         [JsonProperty(Order = 2)]
         public string FfmpegAudioExtractionParameters { get; set; }
@@ -118,7 +125,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
             var config = new SubtitleGeneratorConfig()
             {
-                SubtitleForcedLocationSuffix = ".perfect-vad.srt",
+                SubtitleForcedTimingsSuffix = ".perfect-vad.srt",
                 SharedObjects = new object[]
                 {
                     transcriberTool,
@@ -173,10 +180,10 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                     },
                                     new TranslatorGenericOpenAIAPI()
                                     {
-                                        Enabled = false,
+                                        Enabled = true,
                                         TranslationId = "mistral-large",
                                         BaseAddress = "https://api.mistral.ai",
-                                        APIKey = "[InsertYourAPIKeyHere]",
+                                        APIKeyName = "MistralAPIKey",
                                         Model = "mistral-large-latest",
                                         TargetLanguage = Language.FromString("en"),
                                         DataExpansion = dataExpansion,
@@ -218,6 +225,22 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
             return OverridesIdInJObject(JObject.FromObject(config, rs_serializer), jtokenIdOverrides)
                 .ToString();
+        }
+
+        internal class ValidatingReferenceResolver : IReferenceResolver
+        {
+            private readonly IReferenceResolver r_parent;
+
+            public ValidatingReferenceResolver(IReferenceResolver parentResolver)
+            {
+                r_parent = parentResolver;
+            }
+
+            public void AddReference(object context, string reference, object value) => r_parent.AddReference(context, reference, value);
+            public string GetReference(object context, object value) => r_parent.GetReference(context, value);
+            public bool IsReferenced(object context, object value) => r_parent.IsReferenced(context, value);
+            public object ResolveReference(object context, string reference) => r_parent.ResolveReference(context, reference) 
+                    ?? throw new Exception($"Reference '{reference}' cannot be resolved.");
         }
 
         private class JTokenIdOverride
