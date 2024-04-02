@@ -32,7 +32,10 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             var simplifiedName = originalName;
             foreach (var baseType in baseTypes) 
             {
-                simplifiedName = simplifiedName.Replace(baseType.Name, string.Empty);
+                if (baseType.IsAbstract)
+                {
+                    simplifiedName = simplifiedName.Replace(baseType.Name, string.Empty);
+                }
             }
             return simplifiedName;
         }

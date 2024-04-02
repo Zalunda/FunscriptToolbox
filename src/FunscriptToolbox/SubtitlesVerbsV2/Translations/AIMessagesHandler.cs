@@ -8,13 +8,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
     public abstract class AIMessagesHandler
     {
-        public const string TranscriptionLanguageToken = "[TranscriptionLanguage]";
-        public const string TranslationLanguageToken = "[TranslationLanguage]";
-
         [JsonProperty(Order = 1)]
-        public string[] SystemPrompt { get; set; } = null;
+        public AIPrompt SystemPrompt { get; set; } = null;
         [JsonProperty(Order = 2)]
-        public string[] UserPrompt { get; set; } = null;
+        public AIPrompt UserPrompt { get; set; } = null;
 
         public ItemForAI[] GetAllItems(
             Transcription transcription,
@@ -44,16 +41,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             string translationId,
             ItemForAI[] items,
             string responseReceived);
-
-        protected string ConvertPromptLinesToPrompt(
-            string[] promptLines,
-            Language transcribedLanguage,
-            Language translatedLanguage)
-        {
-            return string.Join("\n", promptLines)
-                .Replace(TranscriptionLanguageToken, transcribedLanguage.LongName)
-                .Replace(TranslationLanguageToken, translatedLanguage.LongName);
-        }
 
         public class ItemForAI
         {

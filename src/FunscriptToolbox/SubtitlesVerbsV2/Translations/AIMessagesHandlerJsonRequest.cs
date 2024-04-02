@@ -9,9 +9,9 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
-    public class AIMessagesHandlerBigRequest : AIMessagesHandler
+    public class AIMessagesHandlerJsonRequest : AIMessagesHandler
     {
-        public AIMessagesHandlerBigRequest() 
+        public AIMessagesHandlerJsonRequest() 
         { 
         }
 
@@ -41,8 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 var messages = new List<dynamic>();
                 if (SystemPrompt != null)
                 {
-                    var systemContent = ConvertPromptLinesToPrompt(
-                                SystemPrompt,
+                    var systemContent = SystemPrompt.GetFinalText(
                                 transcribedLanguage,
                                 translatedLanguage);
                     messages.Add(
@@ -58,8 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 if (this.UserPrompt != null)
                 {
                     userContent.AppendLine(
-                        ConvertPromptLinesToPrompt(
-                            this.UserPrompt,
+                        this.UserPrompt.GetFinalText(
                             transcribedLanguage,
                             translatedLanguage));
                     userContent.AppendLine();

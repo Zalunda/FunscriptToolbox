@@ -179,6 +179,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="SubtitlesVerbsV2\Cost.cs" />
+    <Compile Include="SubtitlesVerbsV2\IReferenceResolverProvided.cs" />
     <Compile Include="SubtitlesVerbsV2\Language.cs" />
     <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
     <Compile Include="ProcessContext.cs" />
@@ -202,7 +203,8 @@
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisperMergedVADAudio.cs" />
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberToolPurfviewWhisper.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandler.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerBigRequest.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerJsonRequest.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\AIPrompt.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGoogleV1.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorChatBotAI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGenericOpenAIAPI.cs" />

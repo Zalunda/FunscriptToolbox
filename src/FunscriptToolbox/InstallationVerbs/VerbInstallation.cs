@@ -38,7 +38,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
             CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitlesV2Alpha_bat);
             CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetExample().GetFileContent());
+            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-SubtitleGeneratorConfigExample-1.0", ".json", SubtitleGeneratorConfig.GetExample());
 
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat);
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);

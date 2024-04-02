@@ -3,8 +3,14 @@ using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbsV2.Translations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using System;
+using System.Collections.Generic;
+using System.Dynamic;
 using System.IO;
+using System.Linq;
+using System.Security.Policy;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
@@ -17,12 +23,14 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     SerializationBinder = new SimpleTypeNameSerializationBinder(
                         new[] {
                             typeof(AIMessagesHandler),
+                            typeof(AIPrompt),
                             typeof(SubtitleOutput),
                             typeof(TranscriberTool),
                             typeof(Transcriber),
                             typeof(Translator)
                         }),
-                    TypeNameHandling = TypeNameHandling.Auto        
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    PreserveReferencesHandling = PreserveReferencesHandling.Objects
                 });
         static SubtitleGeneratorConfig()
         {
@@ -47,21 +55,18 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public string FfmpegAudioExtractionParameters { get; set; }
 
         [JsonProperty(Order = 3)]
-        public Transcriber[] Transcribers { get; set; }
+        public object[] SharedObjects { get; set; }
 
         [JsonProperty(Order = 4)]
+        public Transcriber[] Transcribers { get; set; }
+
+        [JsonProperty(Order = 5)]
         public SubtitleOutput[] Outputs { get; set; }
 
-        // Only to create default config on installation
-        internal string GetFileContent()
+        public static string GetExample()
         {
-            using var writer = new StringWriter();
-            rs_serializer.Serialize(writer, this);
-            return writer.ToString();
-        }
+            var jtokenIdOverrides = new List<JTokenIdOverride>();
 
-        public static SubtitleGeneratorConfig GetExample()
-        {
             var transcriberTool = new TranscriberToolPurfviewWhisper
             {
                 ApplicationFullPath = @"[PathToPurfview]\Purfview-Whisper-Faster\whisper-faster.exe",
@@ -69,76 +74,101 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 ForceSplitOnComma = true,
                 RedoBlockLargerThen = TimeSpan.FromSeconds(15)
             };
+            jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
+
+            var translatorGoogleV1 = new TranslatorGoogleV1()
+            {
+                TranslationId = "google",
+                TargetLanguage = Language.FromString("en")
+            };
+            jtokenIdOverrides.Add(new JTokenIdOverride("GoogleV1", "TranslatorGoogleV1"));
+
+            var systemPrompt = new AIPrompt(new[] 
+            {
+                "You are translator specialized in adult film subtitles.",
+                "The user will provide a JSON where nodes have a start time, original text and, sometime, description of what's happening in the following part of the video.",
+                "You job is to add a 'Translation' field to each node with a " + AIPrompt.TranscriptionLanguageToken + ".",
+                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
+                "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
+                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
+                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the mostly passive male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "Before translating any individual lines, I will first read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene. This will allow me to consider how each line contributes to the overall progression and tone.",
+                "When translating each line, I will closely reference the provided StartTime metadata. This will help me situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
+            });
+            jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPrompt"));
+
+            var userPrompt = new AIPrompt(new[] 
+            {
+                "I have a JSON file that contain subtitles for an adult film.",
+                "Each node of the JSON have a start time and the original text in " + AIPrompt.TranscriptionLanguageToken + ".",
+                "Can you give me a JSON where you added an 'Translation' field on each node that contains an " + AIPrompt.TranslationLanguageToken + " translation.",
+                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
+                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
+                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the mostly passive male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "Before translating any individual lines, I will first read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene. This will allow me to consider how each line contributes to the overall progression and tone.",
+                "When translating each line, I will closely reference the provided StartTime metadata. This will help me situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
+            });
+            jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "UserPrompt"));
+
+            dynamic dataExpansion = new ExpandoObject();
+            dataExpansion.temperature = 0.7;
+            dataExpansion.response_format = new { type = "json_object" };
 
             var config = new SubtitleGeneratorConfig()
             {
                 SubtitleForcedLocationSuffix = ".perfect-vad.srt",
+                SharedObjects = new object[]
+                {
+                    transcriberTool,
+                    translatorGoogleV1,
+                    systemPrompt,
+                    userPrompt
+                },
                 Transcribers = new Transcriber[]
-
                 {
                             new TranscriberWhisperFullAudio()
                             {
-                                TranscriptionId = "f",
-                                Translators = new Translator[] {
-                                    new TranslatorGoogleV1() 
-                                    { 
-                                        TranslationId = "g",
-                                        TargetLanguage = Language.FromString("en") 
-                                    }
-                                },
+                                TranscriptionId = "full",
+                                Translators = new Translator[] { translatorGoogleV1 },
                                 TranscriberTool = transcriberTool
                             },
                             new TranscriberWhisperMergedVADAudio()
                             {
-                                TranscriptionId = "mv",
+                                TranscriptionId = "mergedvad",
                                 Translators = new Translator[] {
-                                    new TranslatorGoogleV1() 
-                                    {                         
-                                        TranslationId = "g",
-                                        TargetLanguage = Language.FromString("en") 
-                                    },
+                                    translatorGoogleV1,
                                     new TranslatorChatBotAI()
                                     {
-                                        TranslationId = "claude-3-Haiku-200k-bot-v2",
-                                        OthersTranslationId = new [] { "claude-3-opus", "chatgpt-4" },
+                                        TranslationId = "claude-3-Haiku-200k",
                                         TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerBigRequest
+                                        MessagesHandler = new AIMessagesHandlerJsonRequest
                                         {
-                                            MaxItemsInRequest = 100,
-                                            OverlapItemsInRequest = 10,
-                                            UserPrompt = new []
-                                            {
-                                                "I have a JSON file that contain subtitles for an adult film.",
-                                                "Each node of the JSON have a start time and the original text in " + AIMessagesHandler.TranscriptionLanguageToken + ".",
-                                                "Can you give me a JSON where you added an 'Translation' field on each node that contains an " + AIMessagesHandler.TranslationLanguageToken + " translation.",
-                                                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
-                                                "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                                                "The subtitles are from a VR video where only the girl talk.",
-                                                "Use the text surrounding the node to better understand the context and create a better translation.",
-                                                "The StartTime field could also help you considerer more or less the surrounding texts, according to the time difference."
-                                            }
+                                            UserPrompt = userPrompt,
+                                            MaxItemsInRequest = 10000
                                         }
                                     },
                                     new TranslatorChatBotAI()
                                     {
-                                        TranslationId = "claude-3-Haiku-200k",
-                                        OthersTranslationId = new [] { "claude-3-opus", "chatgpt-4" },
+                                        TranslationId = "mistral-large",
                                         TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerBigRequest
+                                        MessagesHandler = new AIMessagesHandlerJsonRequest
                                         {
+                                            UserPrompt = userPrompt,
                                             MaxItemsInRequest = 100,
-                                            OverlapItemsInRequest = 10,
-                                            UserPrompt = new []
-                                            {
-                                                "I have a JSON file that contain subtitles for an adult film.",
-                                                "Each node of the JSON have a start time and the original text in " + AIMessagesHandler.TranscriptionLanguageToken + ".",
-                                                "Can you give me a JSON where you added an 'Translation' field on each node that contains an " + AIMessagesHandler.TranslationLanguageToken + " translation.",
-                                                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
-                                                "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                                                "The subtitles are from a VR video where only the girl talk.",
-                                                "Use the text surrounding the node to better understand the context and create a better translation.",
-                                                "The StartTime field could also help you considerer more or less the surrounding texts, according to the time difference."
-                                            }
+                                            OverlapItemsInRequest = 10
+                                        }
+                                    },
+                                    new TranslatorChatBotAI()
+                                    {
+                                        TranslationId = "chatgpt",
+                                        TargetLanguage = Language.FromString("en"),
+                                        MessagesHandler = new AIMessagesHandlerJsonRequest
+                                        {
+                                            UserPrompt = userPrompt,
+                                            MaxItemsInRequest = 40,
+                                            OverlapItemsInRequest = 5
                                         }
                                     },
                                     new TranslatorGenericOpenAIAPI()
@@ -149,22 +179,12 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                         APIKey = "[InsertYourAPIKeyHere]",
                                         Model = "mistral-large-latest",
                                         TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerBigRequest
+                                        DataExpansion = dataExpansion,
+                                        MessagesHandler = new AIMessagesHandlerJsonRequest
                                         {
                                             MaxItemsInRequest = 100,
                                             OverlapItemsInRequest = 10,
-                                            SystemPrompt = new [] {
-                                                "You are translator specialized in adult film subtitles.",
-                                                "The user will provide a JSON where nodes have a start time, original text and, sometime, description of what's happening in the following part of the video.",
-                                                "You job is to add a 'Translation' field to each node with a " + AIMessagesHandler.TranscriptionLanguageToken + ".",
-                                                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
-                                                "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                                                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
-                                                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
-                                                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the passive male participant, whose reactions and inner thoughts are not explicitly conveyed.",
-                                                "Before translating any individual lines, I will first read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene. This will allow me to consider how each line contributes to the overall progression and tone.",
-                                                "When translating each line, I will closely reference the provided StartTime metadata. This will help me situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
-                                            }
+                                            SystemPrompt = systemPrompt
                                         }
                                     }
                                 },
@@ -172,13 +192,9 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                             },
                             new TranscriberWhisperSingleVADAudio()
                             {
-                                TranscriptionId = "sv",
+                                TranscriptionId = "singlevad",
                                 Translators = new Translator[] {
-                                    new TranslatorGoogleV1() 
-                                    { 
-                                        TranslationId = "g",
-                                        TargetLanguage = Language.FromString("en") 
-                                    }
+                                    translatorGoogleV1
                                 },
                                 TranscriberTool = transcriberTool
                             }
@@ -187,20 +203,93 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 {
                     new SubtitleOutputSimpleSrt()
                     {
-                        TranscriptionId = "f",
+                        TranscriptionId = "full",
                         TranslationId = "google",
                         FileSuffixe = ".perfect-vad-potential.srt"
                     },
                     new SubtitleOutputWIPSrt()
                     {
-                        TranscriptionOrder = new [] { "sv", "mv", "*" },
-                        TranslationOrder = new [] { "claude-3-Haiku-200k", "mistral-large", "*" },
+                        TranscriptionOrder = new [] { "singlevad", "mergedvad", "*" },
+                        TranslationOrder = new [] { "claude-3-Haiku-200k", "mistral-large", "chatgpt", "*" },
                         FileSuffixe = ".wip.srt"
                     }
                 }
             };
 
-            return config;
+            return OverridesIdInJObject(JObject.FromObject(config, rs_serializer), jtokenIdOverrides)
+                .ToString();
+        }
+
+        private class JTokenIdOverride
+        { 
+            public string TypeName { get; }
+            public string NewId { get; }
+            public string OldId { get; set; }
+
+            public JTokenIdOverride(string typeName, string newId)
+            {
+                TypeName = typeName;
+                NewId = newId;
+                OldId = null;
+            }
+        }
+
+
+        static private JToken OverridesIdInJObject(JToken token, List<JTokenIdOverride> replacements)
+        {
+            if (token is JObject obj)
+            {
+                var type = (string)token["$type"];
+                if (type?.StartsWith("<>") == true)
+                {
+                    obj.Remove("$type");
+                    type = null;
+                }
+
+                var tuppleInstance = replacements.FirstOrDefault(
+                    t => t.TypeName == type && t.OldId == null);
+                if (tuppleInstance != null)
+                {
+                    tuppleInstance.OldId = (string)token["$id"];
+                    token["$id"] = tuppleInstance.NewId;
+                }
+                else
+                {
+                    obj.Remove("$id");
+                }
+
+                var reference = (string)token["$ref"];
+                if (reference != null)
+                {
+                    var tuppleReference = replacements.FirstOrDefault(
+                        t => t.OldId == reference);
+                    if (tuppleReference != null)
+                    {
+                        token["$ref"] = tuppleReference.NewId;
+                    }
+                    else
+                    {
+                        throw new Exception("BUG");
+                    }
+                }
+
+                foreach (var property in obj.Properties())
+                {
+                    OverridesIdInJObject(property.Value, replacements); // Recursively call the method for the property value
+                }
+            }
+            else if (token is JArray array)
+            {
+                for (int i = 0; i < array.Count; i++)
+                {
+                    OverridesIdInJObject(array[i], replacements); // Recursively call the method for the array item
+                }
+            }
+            else
+            {
+                // Ignore JValue
+            }
+            return token;
         }
     }
 }
