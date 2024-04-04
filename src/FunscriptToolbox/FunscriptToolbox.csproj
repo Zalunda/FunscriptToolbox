@@ -182,7 +182,7 @@
     <Compile Include="SubtitlesVerbsV2\Language.cs" />
     <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorPrivateConfig.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishotRequest.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishot.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLWithFiles.cs" />
     <Compile Include="SubtitlesVerbsV2\ValidatingReferenceResolver.cs" />
@@ -208,7 +208,7 @@
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberToolPurfviewWhisper.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandler.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerExpection.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerJsonRequest.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerJson.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIPrompt.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGoogleV1.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIChatBot.cs" />

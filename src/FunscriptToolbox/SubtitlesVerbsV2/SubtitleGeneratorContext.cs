@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbV2
 {
@@ -60,6 +61,20 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         internal void AddUserTodo(string message)
         {
             this.UserTodoList.Add(message);
+        }
+
+        internal void CreateVerboseFile(string filename, string content)
+        {
+            if (IsVerbose)
+            {
+                Directory.CreateDirectory(r_logsAndBackupFolder);
+                File.WriteAllText(
+                    Path.Combine(
+                        r_logsAndBackupFolder,
+                        filename),
+                    content,
+                    Encoding.UTF8);
+            }
         }
 
         internal void SoftDelete(string fullpath)

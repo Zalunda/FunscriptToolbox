@@ -27,13 +27,19 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         public string Model { get; set; }
 
         [JsonProperty(Order = 12)]
-        public string APIKeyName { get; set; }
+        public bool ValidateModelNameInResponse { get; set; } = false;
 
         [JsonProperty(Order = 13)]
+        public string APIKeyName { get; set; }
+
+        [JsonProperty(Order = 14)]
         public TimeSpan TimeOut { get; set; } = TimeSpan.FromSeconds(300);
 
-        [JsonProperty(Order = 14, TypeNameHandling = TypeNameHandling.None)]
+        [JsonProperty(Order = 15, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject DataExpansion { get; set; }
+
+        [JsonProperty(Order = 16)]
+        public int? DebugNbRequestsLimit { get; set; } = null;
 
         public override void Translate(
             SubtitleGeneratorContext context,
@@ -67,12 +73,19 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
                 }
 
+                var verboseFileId = DateTime.Now.ToString("yyyyMMddHHmmss");
                 var lastTimeSaved = DateTime.Now;
                 foreach (var request in this.MessagesHandler.CreateRequests(
                     transcription,
                     translation,
                     items))
                 {
+                    if (DebugNbRequestsLimit != null && request.Number > DebugNbRequestsLimit.Value)
+                    {
+                        context.WriteInfo($"    Stopping because DebugNbRequestsLimit reached ({DebugNbRequestsLimit.Value})");
+                        return;
+                    }
+
                     dynamic data = request.Data;
                     if (this.Model != null)
                     {
@@ -80,8 +93,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     }
                     data = Merge(request.Data, DataExpansion);
 
-                    var json = JsonConvert.SerializeObject(data);
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    var requestJson = JsonConvert.SerializeObject(data, Formatting.Indented);
+
+                    var verboseRequestPrefix = $"{context.BaseFilePath}.{transcription.Id}-{translation.Id}-{verboseFileId}-{request.Number:D04}";
+                    context.CreateVerboseFile(verboseRequestPrefix + "-Req.json", requestJson);
+
+                    var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
                     try
                     {
@@ -89,10 +106,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         var response = client.PostAsync(
                             new Uri(client.BaseAddress, "/v1/chat/completions"),
                             content).Result;
-                        string responseContent = response.Content.ReadAsStringAsync().Result;
+                        string responseJson = response.Content.ReadAsStringAsync().Result;
                         watch.Stop();
 
-                        dynamic responseObject = JsonConvert.DeserializeObject(responseContent);
+                        dynamic responseObject = JsonConvert.DeserializeObject(responseJson);
+                        context.CreateVerboseFile(verboseRequestPrefix + "-Resp.json", JsonConvert.SerializeObject(responseObject, Formatting.Indented));
+
                         string assistantMessage = responseObject.choices[0].message.content;
                         translation.Costs.Add(
                             new TranslationCost(
@@ -101,6 +120,14 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                                 request.Items.Length,
                                 (int?)responseObject.usage?.prompt_tokens,
                                 (int?)responseObject.usage?.completion_tokens));
+
+                        if (ValidateModelNameInResponse && !string.Equals((string)responseObject.model, this.Model, StringComparison.OrdinalIgnoreCase))
+                        {
+                            context.WriteError($"Invalid model name in response:");
+                            context.WriteError($"   [response] {responseObject.model}");
+                            context.WriteError($"   [config]   {this.Model}");
+                            return;
+                        }
 
                         var nbTranslationAdded = this.MessagesHandler.HandleResponse(
                             translation,
@@ -130,6 +157,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     {
                         context.WriteError($"Error while parsing response from the API: {ex.Message}");
                         context.Wipsub.Save();
+                        return;
                     }
                 }
             }

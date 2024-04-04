@@ -163,9 +163,14 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                 TranscriptionId = "mergedvad",
                                 Translators = new Translator[] {
                                     translatorGoogleV1,
+                                    new TranslatorDeepLWithFiles()
+                                    {
+                                        TranslationId = "deepl",
+                                        TargetLanguage = Language.FromString("en")
+                                    },
                                     new TranslatorAIChatBot()
                                     {
-                                        TranslationId = "claude-3-Haiku-200k",
+                                        TranslationId = "claude-3-haiku-200k",
                                         TargetLanguage = Language.FromString("en"),
                                         MessagesHandler = new AIMessagesHandlerJson
                                         {
@@ -198,26 +203,11 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                     new TranslatorAIGenericAPI()
                                     {
                                         Enabled = true,
-                                        TranslationId = "mistral-large",
-                                        BaseAddress = "https://api.mistral.ai",
-                                        APIKeyName = "MistralAPIKey",
-                                        Model = "mistral-large-latest",
-                                        TargetLanguage = Language.FromString("en"),
-                                        DataExpansion = dataExpansionMistralAPI,
-                                        MessagesHandler = new AIMessagesHandlerJson
-                                        {
-                                            MaxItemsInRequest = 100,
-                                            OverlapItemsInRequest = 10,
-                                            SystemPrompt = systemPromptJson
-                                        }
-                                    },
-                                    new TranslatorAIGenericAPI()
-                                    {
-                                        Enabled = true,
                                         TranslationId = "local-mistral-7b",
-                                        BaseAddress = "https://localhost:10000",
+                                        BaseAddress = "http://localhost:10000",
                                         APIKeyName = "MistralAPIKey",
-                                        Model = "mistral-large-latest",
+                                        Model = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF/mistral-7b-instruct-v0.2.Q8_0.gguf",
+                                        ValidateModelNameInResponse = true,
                                         TargetLanguage = Language.FromString("en"),
                                         DataExpansion = dataExpansionMistral7b,
                                         MessagesHandler = new AIMessagesHandlerMultishot
@@ -264,7 +254,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     new SubtitleOutputWIPSrt()
                     {
                         TranscriptionOrder = new [] { "singlevad", "mergedvad", "*" },
-                        TranslationOrder = new [] { "claude-3-Haiku-200k", "mistral-large", "chatgpt", "*" },
+                        TranslationOrder = new [] { "claude-3-haiku-200k", "mistral-large", "chatgpt", "local-mistral-7b", "deepl", "*" },
                         FileSuffixe = ".wip.srt"
                     }
                 }
