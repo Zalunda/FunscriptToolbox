@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
     internal class TranslatorAIGenericAPI : TranslatorAI
     {
-        public const string ToolName = "API";
+        public const string ToolName = "GenericAI-API";
 
         public TranslatorAIGenericAPI()
         {

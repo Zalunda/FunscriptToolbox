@@ -36,6 +36,12 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
             [Option("sourcelanguage", Required = false, HelpText = "")]
             public string SourceLanguage { get; set; }
+
+            [Option("reimporttimings", Required = false, HelpText = "", Default = false)]
+            public bool ReimportTimings { get; set; }
+
+            [Option("removetranslations", Required = false, HelpText = "")]
+            public string RemoveTranslations { get; set; }
         }
 
         private readonly Options r_options;
@@ -87,6 +93,22 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                         Path.GetFileNameWithoutExtension(wipsubFullpath)),
                     wipsub);
 
+                // 0. Remove translations 
+                var translationsToRemove = r_options.RemoveTranslations?.Split(';').ToArray();
+                if (translationsToRemove != null)
+                {
+                    foreach (var translationId in translationsToRemove)
+                    {
+                        var nbTranslatedTexts = 0;
+                        foreach (var transcription in wipsub.Transcriptions) 
+                        {
+                            nbTranslatedTexts += transcription.RemoveTranslation(translationId);
+                        }
+                        context.WriteInfo($"Removed translation '{translationId}': {nbTranslatedTexts} translated texts removed.");
+                        wipsub.Save();
+                    }
+                }
+
                 try
                 {
                     // 1. Extracting PcmAudio, if not already done.
@@ -115,7 +137,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     var forcedTimingPath = Path.ChangeExtension(
                         inputMp4Fullpath,
                         config.SubtitleForcedTimingsSuffix);
-                    if (wipsub.SubtitlesForcedTiming != null)
+                    if (wipsub.SubtitlesForcedTiming != null && !r_options.ReimportTimings)
                     {
                         context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
                         context.WriteInfoAlreadyDone($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");

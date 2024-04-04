@@ -185,6 +185,7 @@
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishot.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLWithFiles.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLAPI.cs" />
     <Compile Include="SubtitlesVerbsV2\ValidatingReferenceResolver.cs" />
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\CostReportLevel.cs" />
@@ -210,7 +211,7 @@
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerExpection.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerJson.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIPrompt.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGoogleV1.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGoogleV1API.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIChatBot.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIGenericAPI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\Translation.cs" />

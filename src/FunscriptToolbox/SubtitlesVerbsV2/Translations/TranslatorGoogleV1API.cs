@@ -9,11 +9,11 @@ using FunscriptToolbox.SubtitlesVerbV2;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
-    internal class TranslatorGoogleV1 : Translator
+    internal class TranslatorGoogleV1API : Translator
     {
-        private const string ToolName = "GoogleV1";
+        private const string ToolName = "GoogleV1-API";
 
-        public TranslatorGoogleV1()
+        public TranslatorGoogleV1API()
         {
         }
 
@@ -59,7 +59,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 }
                 else
                 {
-                    throw new HttpRequestException($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                    context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                    return;
                 }
             }
         }

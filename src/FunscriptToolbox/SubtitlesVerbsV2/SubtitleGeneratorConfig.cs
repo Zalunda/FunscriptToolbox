@@ -83,7 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             };
             jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
 
-            var translatorGoogleV1 = new TranslatorGoogleV1()
+            var translatorGoogleV1 = new TranslatorGoogleV1API()
             {
                 TranslationId = "google",
                 TargetLanguage = Language.FromString("en")
@@ -168,6 +168,12 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                         TranslationId = "deepl",
                                         TargetLanguage = Language.FromString("en")
                                     },
+                                    new TranslatorDeepLAPI()
+                                    {
+                                        Enabled = false,
+                                        TranslationId = "deepl-api",
+                                        TargetLanguage = Language.FromString("en")
+                                    },
                                     new TranslatorAIChatBot()
                                     {
                                         TranslationId = "claude-3-haiku-200k",
@@ -191,6 +197,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                     },
                                     new TranslatorAIChatBot()
                                     {
+                                        Enabled = false,
                                         TranslationId = "chatgpt",
                                         TargetLanguage = Language.FromString("en"),
                                         MessagesHandler = new AIMessagesHandlerJson
@@ -202,7 +209,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                     },
                                     new TranslatorAIGenericAPI()
                                     {
-                                        Enabled = true,
                                         TranslationId = "local-mistral-7b",
                                         BaseAddress = "http://localhost:10000",
                                         APIKeyName = "MistralAPIKey",
