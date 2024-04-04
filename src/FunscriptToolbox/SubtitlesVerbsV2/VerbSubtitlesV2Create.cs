@@ -73,10 +73,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 var wipsubFullpath = Path.ChangeExtension(
                     inputMp4Fullpath,
                     r_options.Suffix + WorkInProgressSubtitles.Extension);
-                var baseFilePath = Path.Combine(
-                    Path.GetDirectoryName(wipsubFullpath) ?? ".",
-                    Path.GetFileNameWithoutExtension(wipsubFullpath));
-
                 var wipsub = File.Exists(wipsubFullpath)
                     ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                     : new WorkInProgressSubtitles(wipsubFullpath);
@@ -86,7 +82,9 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     privateConfig,
                     prefix: $"{Path.GetFileNameWithoutExtension(inputMp4Fullpath)}: ",
                     r_options.Verbose,
-                    baseFilePath,
+                    baseFilePath: Path.Combine(
+                        Path.GetDirectoryName(wipsubFullpath) ?? ".",
+                        Path.GetFileNameWithoutExtension(wipsubFullpath)),
                     wipsub);
 
                 try
@@ -231,7 +229,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                         context.WriteInfo($"Translating '{transcription.Id}/{translation.Id}'...");
                                         translator.Translate(
                                             context,
-                                            baseFilePath,
                                             transcription,
                                             translation);
                                         wipsub.Save();

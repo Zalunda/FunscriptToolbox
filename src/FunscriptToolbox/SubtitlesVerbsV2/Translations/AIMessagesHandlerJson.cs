@@ -2,16 +2,16 @@
 using System.Text;
 using System;
 using System.Linq;
-using FunscriptToolbox.SubtitlesVerbV2;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Text.RegularExpressions;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
-    public class AIMessagesHandlerJsonRequest : AIMessagesHandler
+    public class AIMessagesHandlerJson : AIMessagesHandler
     {
-        public AIMessagesHandlerJsonRequest() 
+        public AIMessagesHandlerJson() 
         { 
         }
 
@@ -19,38 +19,40 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         public int MaxItemsInRequest { get; set; } = 20;
         [JsonProperty(Order = 11)]
         public int OverlapItemsInRequest { get; set; } = 5;
+        [JsonProperty(Order = 12)]
+        public bool IncludeStartTime { get; set; } = true;
+        [JsonProperty(Order = 13)]
+        public bool IncludeContext { get; set; } = true;
 
         public override IEnumerable<RequestForAIService> CreateRequests(
-            string translationId,
-            ItemForAI[] items,
-            Language transcribedLanguage,
-            Language translatedLanguage)
+            Transcription transcription,
+            Translation translation,
+            ItemForAICollection items)
         {
+            var itemsWithoutTranslations = items.ItemsWithoutTranslation(translation);
+
             var currentIndex = 0;
             int requestNumber = 1;
-            while (currentIndex < items.Length)
+            while (currentIndex < itemsWithoutTranslations.Length)
             {
                 currentIndex = Math.Max(0, currentIndex - this.OverlapItemsInRequest);
-                var itemsForRequest = items
+                var itemsForRequest = itemsWithoutTranslations
                     .Skip(currentIndex)
                     .Take(this.MaxItemsInRequest)
                     .ToArray();
-
-                var fullPrompt = new StringBuilder();
 
                 var messages = new List<dynamic>();
                 if (SystemPrompt != null)
                 {
                     var systemContent = SystemPrompt.GetFinalText(
-                                transcribedLanguage,
-                                translatedLanguage);
+                                transcription.Language,
+                                translation.Language);
                     messages.Add(
                         new
                         {
                             role = "system",
                             content = systemContent
                         });
-                    fullPrompt.AppendLine(systemContent.ToString());
                 }
 
                 var userContent = new StringBuilder();
@@ -58,38 +60,47 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 {
                     userContent.AppendLine(
                         this.UserPrompt.GetFinalText(
-                            transcribedLanguage,
-                            translatedLanguage));
+                            transcription.Language,
+                            translation.Language));
                     userContent.AppendLine();
                 }
                 userContent.AppendLine(
                     JsonConvert.SerializeObject(
-                        itemsForRequest,
-                        Formatting.Indented));
+                        itemsForRequest.Select(
+                            f => new {
+                                Context = this.IncludeContext ? f.Context : null,
+                                StartTime = this.IncludeStartTime ? f.StartTime : null,
+                                f.Original
+                            }),
+                        Formatting.Indented, 
+                        new JsonSerializerSettings
+                        {
+                            NullValueHandling = NullValueHandling.Ignore
+                        }));
                 messages.Add(
                     new
                     {
                         role = "user",
                         content = userContent.ToString()
                     });
-                fullPrompt.AppendLine(userContent.ToString());
 
                 dynamic data = new ExpandoObject();
                 data.messages = messages;
 
                 yield return new RequestForAIService(
                     requestNumber++,
+                    $"{currentIndex}/{itemsWithoutTranslations.Length}",                    
                     data,
-                    fullPrompt.ToString(),
-                    itemsForRequest); ;
+                    itemsForRequest);
                 currentIndex += itemsForRequest.Length;
             }
         }
 
         public override int HandleResponse(
-            string translationId,
-            ItemForAI[] items,
-            string responseReceived)
+            Translation translation,
+            ItemForAICollection allItems,
+            string responseReceived,
+            ItemForAI[] requestItems)
         {
             var nbTranslationsAdded = 0;
             var result = ParseAndFixJson(responseReceived);
@@ -97,19 +108,19 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             {
                 var startTime = (string)item.StartTime;
                 var original = (string)item.Original;
-                var translation = (string)item.Translation;
-                if (translation != null)
+                var translatedText = (string)item.Translation;
+                if (translatedText != null)
                 {
-                    var originalItem = items.FirstOrDefault(f => f.StartTime == startTime && f.Original == original)
-                        ?? items.FirstOrDefault(f => f.StartTime == startTime)
-                        ?? items.FirstOrDefault(f => f.Original == original);
+                    var originalItem = allItems.FirstOrDefault(f => f.StartTime == startTime && f.Original == original)
+                        ?? allItems.FirstOrDefault(f => f.StartTime == startTime)
+                        ?? allItems.FirstOrDefault(f => f.Original == original);
                     if (originalItem != null)
                     {
                         nbTranslationsAdded++;
                         originalItem.Tag.TranslatedTexts.Add(
                             new TranslatedText(
-                                translationId,
-                                translation));
+                                translation.Id,
+                                translatedText));
                     }
                     else
                     {
@@ -134,13 +145,13 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 
                 // Remove everything after the last ']', add a ']' at the end, if missing.
                 var indexOfLastBracket = json.LastIndexOf(']');
-                if (indexOfLastBracket >= 0 && indexOfLastBracket < json.Length)
+                if (indexOfLastBracket < 0)
                 {
-                    json = json.Substring(0, indexOfLastBracket + 1);
+                    json += "]";
                 }
                 else
                 {
-                    json += "]";
+                    json = json.Substring(0, indexOfLastBracket + 1);
                 }
 
                 // Add missing comma at the end of a field line

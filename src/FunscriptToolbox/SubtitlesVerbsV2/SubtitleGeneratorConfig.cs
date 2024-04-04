@@ -90,7 +90,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             };
             jtokenIdOverrides.Add(new JTokenIdOverride("GoogleV1", "TranslatorGoogleV1"));
 
-            var systemPrompt = new AIPrompt(new[] 
+            var systemPromptJson = new AIPrompt(new[] 
             {
                 "You are translator specialized in adult film subtitles.",
                 "The user will provide a JSON where nodes have a start time, original text and, sometime, description of what's happening in the following part of the video.",
@@ -103,7 +103,20 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 "Before translating any individual lines, I will first read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene. This will allow me to consider how each line contributes to the overall progression and tone.",
                 "When translating each line, I will closely reference the provided StartTime metadata. This will help me situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
             });
-            jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPrompt"));
+            jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPromptJson"));
+
+            var systemPromptMultiShot = new AIPrompt(new[]
+            {
+                "You are translator specialized in adult film subtitles.",
+                "The user might provide some context on what will happening in the following part of the scene.",
+                "The user will provide a text in " + AIPrompt.TranscriptionLanguageToken + ", in the following format: Original[[text]]",
+                "You job reply with a translation in " + AIPrompt.TranslationLanguageToken + ", in the following format: Translation[[text]]",
+                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
+                "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
+                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
+                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+            });
+            jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPromptMultishot"));
 
             var userPrompt = new AIPrompt(new[] 
             {
@@ -119,9 +132,12 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "UserPrompt"));
 
-            dynamic dataExpansion = new ExpandoObject();
-            dataExpansion.temperature = 0.7;
-            dataExpansion.response_format = new { type = "json_object" };
+            dynamic dataExpansionMistralAPI = new ExpandoObject();
+            dataExpansionMistralAPI.temperature = 0.7;
+            dataExpansionMistralAPI.response_format = new { type = "json_object" };
+
+            dynamic dataExpansionMistral7b = new ExpandoObject();
+            dataExpansionMistral7b.max_tokens = 40;
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -130,7 +146,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 {
                     transcriberTool,
                     translatorGoogleV1,
-                    systemPrompt,
+                    systemPromptJson,
+                    systemPromptMultiShot,
                     userPrompt
                 },
                 Transcribers = new Transcriber[]
@@ -146,39 +163,39 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                 TranscriptionId = "mergedvad",
                                 Translators = new Translator[] {
                                     translatorGoogleV1,
-                                    new TranslatorChatBotAI()
+                                    new TranslatorAIChatBot()
                                     {
                                         TranslationId = "claude-3-Haiku-200k",
                                         TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerJsonRequest
+                                        MessagesHandler = new AIMessagesHandlerJson
                                         {
                                             UserPrompt = userPrompt,
                                             MaxItemsInRequest = 10000
                                         }
                                     },
-                                    new TranslatorChatBotAI()
+                                    new TranslatorAIChatBot()
                                     {
                                         TranslationId = "mistral-large",
                                         TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerJsonRequest
+                                        MessagesHandler = new AIMessagesHandlerJson
                                         {
                                             UserPrompt = userPrompt,
                                             MaxItemsInRequest = 100,
                                             OverlapItemsInRequest = 10
                                         }
                                     },
-                                    new TranslatorChatBotAI()
+                                    new TranslatorAIChatBot()
                                     {
                                         TranslationId = "chatgpt",
                                         TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerJsonRequest
+                                        MessagesHandler = new AIMessagesHandlerJson
                                         {
                                             UserPrompt = userPrompt,
                                             MaxItemsInRequest = 40,
                                             OverlapItemsInRequest = 5
                                         }
                                     },
-                                    new TranslatorGenericOpenAIAPI()
+                                    new TranslatorAIGenericAPI()
                                     {
                                         Enabled = true,
                                         TranslationId = "mistral-large",
@@ -186,12 +203,42 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                         APIKeyName = "MistralAPIKey",
                                         Model = "mistral-large-latest",
                                         TargetLanguage = Language.FromString("en"),
-                                        DataExpansion = dataExpansion,
-                                        MessagesHandler = new AIMessagesHandlerJsonRequest
+                                        DataExpansion = dataExpansionMistralAPI,
+                                        MessagesHandler = new AIMessagesHandlerJson
                                         {
                                             MaxItemsInRequest = 100,
                                             OverlapItemsInRequest = 10,
-                                            SystemPrompt = systemPrompt
+                                            SystemPrompt = systemPromptJson
+                                        }
+                                    },
+                                    new TranslatorAIGenericAPI()
+                                    {
+                                        Enabled = true,
+                                        TranslationId = "local-mistral-7b",
+                                        BaseAddress = "https://localhost:10000",
+                                        APIKeyName = "MistralAPIKey",
+                                        Model = "mistral-large-latest",
+                                        TargetLanguage = Language.FromString("en"),
+                                        DataExpansion = dataExpansionMistral7b,
+                                        MessagesHandler = new AIMessagesHandlerMultishot
+                                        {
+                                            SystemPrompt = systemPromptMultiShot
+                                        }
+                                    },
+                                    new TranslatorAIGenericAPI()
+                                    {
+                                        Enabled = false,
+                                        TranslationId = "mistral-large",
+                                        BaseAddress = "https://api.mistral.ai",
+                                        APIKeyName = "MistralAPIKey",
+                                        Model = "mistral-large-latest",
+                                        TargetLanguage = Language.FromString("en"),
+                                        DataExpansion = dataExpansionMistralAPI,
+                                        MessagesHandler = new AIMessagesHandlerJson
+                                        {
+                                            MaxItemsInRequest = 100,
+                                            OverlapItemsInRequest = 10,
+                                            SystemPrompt = systemPromptJson
                                         }
                                     }
                                 },

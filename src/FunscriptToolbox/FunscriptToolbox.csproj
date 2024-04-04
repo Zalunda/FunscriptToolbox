@@ -182,6 +182,9 @@
     <Compile Include="SubtitlesVerbsV2\Language.cs" />
     <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorPrivateConfig.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishotRequest.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAI.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLWithFiles.cs" />
     <Compile Include="SubtitlesVerbsV2\ValidatingReferenceResolver.cs" />
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\CostReportLevel.cs" />
@@ -208,8 +211,8 @@
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerJsonRequest.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIPrompt.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGoogleV1.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorChatBotAI.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGenericOpenAIAPI.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIChatBot.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIGenericAPI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\Translation.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslationCost.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\Translator.cs" />

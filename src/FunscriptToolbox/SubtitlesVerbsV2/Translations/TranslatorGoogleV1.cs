@@ -19,7 +19,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 
         public override void Translate(
             SubtitleGeneratorContext context,
-            string baseFilePath,
             Transcription transcription,
             Translation translation)
         {
@@ -31,7 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             var costsAsList = new List<TranslationCost>();
             var missingTranscriptions = transcription
                 .Items
-                .Where(f => !f.TranslatedTexts.Any(t => t.Id == this.TranslationId))
+                .Where(f => !f.TranslatedTexts.Any(t => t.Id == translation.Id))
                 .ToArray();
             var currentIndex = 1;
             foreach (var transcribedText in missingTranscriptions)
@@ -56,7 +55,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     translation.Costs.Add(
                         new TranslationCost(ToolName, watch.Elapsed, 1));
 
-                    context.DefaultProgressUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
+                    context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
                 }
                 else
                 {

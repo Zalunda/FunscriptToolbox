@@ -31,9 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 
         public abstract void Translate(
             SubtitleGeneratorContext context,
-            string baseFilePath,
             Transcription transcription,
             Translation translation);
     }
-
 }

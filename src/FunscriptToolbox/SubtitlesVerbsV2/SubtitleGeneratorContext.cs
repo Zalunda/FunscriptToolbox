@@ -51,6 +51,12 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             WriteInfo($"    [{toolName}]{toolActionString} {message}", isProgress: true);
         }
 
+        internal void DefaultUpdateHandler(string toolName, string toolAction, string message)
+        {
+            var toolActionString = toolAction == null ? string.Empty : $"[{toolAction}]";
+            WriteInfo($"    [{toolName}]{toolActionString} {message}", isProgress: false);
+        }
+
         internal void AddUserTodo(string message)
         {
             this.UserTodoList.Add(message);

@@ -3,6 +3,8 @@ using Newtonsoft.Json;
 using System.Linq;
 using FunscriptToolbox.SubtitlesVerbV2;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
@@ -13,34 +15,32 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         [JsonProperty(Order = 2)]
         public AIPrompt UserPrompt { get; set; } = null;
 
-        public ItemForAI[] GetAllItems(
+        public ItemForAICollection GetAllItems(
             Transcription transcription,
-            SubtitleForcedTimingCollection subtitlesForcedTiming,
-            string translationId = null)
+            SubtitleForcedTimingCollection subtitlesForcedTiming)
         {
             string currentContext = null;
-            return transcription
+            return new ItemForAICollection(
+                transcription
                 .Items
-                .Where(t => translationId != null || t.TranslatedTexts.FirstOrDefault(tt => tt.Id == translationId)?.Text == null)
                 .Select(item =>
                 {
                     var previousContext = currentContext;
                     currentContext = subtitlesForcedTiming.GetContextAt(item.StartTime);
                     return new ItemForAI(item, currentContext == previousContext ? null : currentContext);
-                }
-                ).ToArray();
+                }));
         }
 
         public abstract IEnumerable<RequestForAIService> CreateRequests(
-            string translationId,
-            ItemForAI[] items,
-            Language transcribedLanguage,
-            Language translatedLanguage);
+            Transcription transcription,
+            Translation translation,
+            ItemForAICollection items);
 
         public abstract int HandleResponse(
-            string translationId,
-            ItemForAI[] items,
-            string responseReceived);
+            Translation translation,
+            ItemForAICollection allItems,
+            string responseReceived,
+            ItemForAI[] requestItems = null);
 
         public class ItemForAI
         {
@@ -65,23 +65,54 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             }
         }
 
+        public class ItemForAICollection : ReadOnlyCollection<ItemForAI>
+        {
+            public ItemForAICollection(IEnumerable<ItemForAI> list)
+                : base(list.ToArray())
+            {
+            }
+
+            public ItemForAI[] ItemsWithoutTranslation(
+                Translation translation)
+            {
+                return this
+                    .Where(t => t.Tag.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation.Id)?.Text == null)
+                    .ToArray();
+            }
+
+            public bool IsFinished(Translation translation)
+            {
+                return !this
+                    .Any(t => t.Tag.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation.Id)?.Text == null);
+            }
+
+        }
+
         public class RequestForAIService
         {
             public int Number { get; }
+            public string ToolAction { get; }
             public dynamic Data { get; }
-            public string FullPrompt { get; }
             public ItemForAI[] Items { get; }
+            public string FullPrompt { get; }
 
             public RequestForAIService(
                 int requestNumber, 
+                string toolAction,
                 dynamic data, 
-                string fullPrompt,
                 ItemForAI[] items)
             {
                 Number = requestNumber;
+                ToolAction = toolAction;
                 Data = data;
-                FullPrompt = fullPrompt;
                 Items = items;
+
+                var fullpromptBuilder = new StringBuilder();
+                foreach (var message in data.messages)
+                {
+                    fullpromptBuilder.AppendLine(message.content);
+                }
+                FullPrompt = fullpromptBuilder.ToString();
             }
         }
     }
