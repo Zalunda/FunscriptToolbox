@@ -3,7 +3,6 @@ using System.Net.Http;
 using Newtonsoft.Json;
 using System.Linq;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using System.Collections.Generic;
 using System.Diagnostics;
 using FunscriptToolbox.SubtitlesVerbV2;
 
@@ -27,11 +26,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
 
-            var costsAsList = new List<TranslationCost>();
             var missingTranscriptions = transcription
                 .Items
                 .Where(f => !f.TranslatedTexts.Any(t => t.Id == translation.Id))
                 .ToArray();
+
             var currentIndex = 1;
             foreach (var transcribedText in missingTranscriptions)
             {
@@ -43,25 +42,26 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     $"&q={Uri.EscapeDataString(transcribedText.Text)}";
 
                 var watch = Stopwatch.StartNew();
-                HttpResponseMessage response = client.GetAsync(apiUrl).Result;
-                if (response.IsSuccessStatusCode)
-                {
-                    string jsonResponse = response.Content.ReadAsStringAsync().Result;
-                    dynamic result = JsonConvert.DeserializeObject(jsonResponse);
-                    var translatedText = (string)ExtractTranslatedText(result);
-                    transcribedText.TranslatedTexts.Add(
-                        new TranslatedText(translation.Id, translatedText));
-
-                    translation.Costs.Add(
-                        new TranslationCost(ToolName, watch.Elapsed, 1));
-
-                    context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
-                }
-                else
+                var response = client.GetAsync(apiUrl).Result;
+                if (!response.IsSuccessStatusCode)
                 {
                     context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
                     return;
                 }
+
+                string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                watch.Stop();
+
+                translation.Costs.Add(
+                    new TranslationCost(ToolName, watch.Elapsed, 1));
+
+                dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+
+                var translatedText = (string)ExtractTranslatedText(responseBody);
+                transcribedText.TranslatedTexts.Add(
+                    new TranslatedText(translation.Id, translatedText));
+
+                context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
             }
         }
 

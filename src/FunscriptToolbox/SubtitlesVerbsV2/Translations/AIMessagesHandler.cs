@@ -92,23 +92,23 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
             public int Number { get; }
             public string ToolAction { get; }
-            public dynamic Data { get; }
+            public dynamic Body { get; }
             public ItemForAI[] Items { get; }
             public string FullPrompt { get; }
 
             public RequestForAIService(
                 int requestNumber, 
                 string toolAction,
-                dynamic data, 
+                dynamic body, 
                 ItemForAI[] items)
             {
                 Number = requestNumber;
                 ToolAction = toolAction;
-                Data = data;
+                Body = body;
                 Items = items;
 
                 var fullpromptBuilder = new StringBuilder();
-                foreach (var message in data.messages)
+                foreach (var message in body.messages)
                 {
                     fullpromptBuilder.AppendLine(message.content);
                 }

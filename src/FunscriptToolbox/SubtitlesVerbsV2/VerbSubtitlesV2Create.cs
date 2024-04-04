@@ -213,7 +213,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                             }
                             catch (Exception ex)
                             {
-                                context.WriteError($"An error occured while trancribing '{transcriber.TranscriptionId}':\n{ex.Message}");
+                                context.WriteError($"An error occured while transcribing '{transcriber.TranscriptionId}':\n{ex.Message}");
                             }
                         }
 

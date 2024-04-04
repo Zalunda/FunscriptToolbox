@@ -88,7 +88,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 TranslationId = "google",
                 TargetLanguage = Language.FromString("en")
             };
-            jtokenIdOverrides.Add(new JTokenIdOverride("GoogleV1", "TranslatorGoogleV1"));
+            jtokenIdOverrides.Add(new JTokenIdOverride("GoogleV1API", "TranslatorGoogleV1"));
 
             var systemPromptJson = new AIPrompt(new[] 
             {
@@ -132,12 +132,12 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "UserPrompt"));
 
-            dynamic dataExpansionMistralAPI = new ExpandoObject();
-            dataExpansionMistralAPI.temperature = 0.7;
-            dataExpansionMistralAPI.response_format = new { type = "json_object" };
+            dynamic requestBodyExtensionMistralAPI = new ExpandoObject();
+            requestBodyExtensionMistralAPI.temperature = 0.7;
+            requestBodyExtensionMistralAPI.response_format = new { type = "json_object" };
 
-            dynamic dataExpansionMistral7b = new ExpandoObject();
-            dataExpansionMistral7b.max_tokens = 40;
+            dynamic requestBodyExtensionMistral7b = new ExpandoObject();
+            requestBodyExtensionMistral7b.max_tokens = 40;
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -211,11 +211,10 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                     {
                                         TranslationId = "local-mistral-7b",
                                         BaseAddress = "http://localhost:10000",
-                                        APIKeyName = "MistralAPIKey",
                                         Model = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF/mistral-7b-instruct-v0.2.Q8_0.gguf",
                                         ValidateModelNameInResponse = true,
                                         TargetLanguage = Language.FromString("en"),
-                                        DataExpansion = dataExpansionMistral7b,
+                                        RequestBodyExtension = requestBodyExtensionMistral7b,
                                         MessagesHandler = new AIMessagesHandlerMultishot
                                         {
                                             SystemPrompt = systemPromptMultiShot
@@ -226,10 +225,10 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                         Enabled = false,
                                         TranslationId = "mistral-large",
                                         BaseAddress = "https://api.mistral.ai",
-                                        APIKeyName = "MistralAPIKey",
+                                        APIKeyName = "APIKeyMistral",
                                         Model = "mistral-large-latest",
                                         TargetLanguage = Language.FromString("en"),
-                                        DataExpansion = dataExpansionMistralAPI,
+                                        RequestBodyExtension = requestBodyExtensionMistralAPI,
                                         MessagesHandler = new AIMessagesHandlerJson
                                         {
                                             MaxItemsInRequest = 100,

@@ -52,6 +52,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             Language sourceLanguage,
             List<TranscriptionCost> costs)
         {
+            if (!File.Exists(this.ApplicationFullPath))
+            {
+                throw new Exception($"Cannot find application '{this.ApplicationFullPath}'.");
+            }
+
             // Only allows one thread doing transcription at a times
             lock (r_lock)
             {

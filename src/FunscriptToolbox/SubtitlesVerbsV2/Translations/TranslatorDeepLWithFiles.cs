@@ -60,7 +60,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                             var oldTranslatedItem = transcriptionItem.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation.Id);
                             if (oldTranslatedItem == null || (oldTranslatedItem.Text == originalText))
                             {
-                                Console.WriteLine($"{startIndex + lineIndex}: {translatedText}");
                                 transcriptionItem.TranslatedTexts.Remove(oldTranslatedItem);
                                 transcriptionItem.TranslatedTexts.Add(new TranslatedText(translation.Id, translatedText));
                                 nbTranslationsAdded++;
@@ -79,7 +78,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 var startIndexInFile = index;
                 do
                 {
-                    Console.WriteLine(index.ToString());
                     var currentItem = transcription.Items.Skip(index).FirstOrDefault();
 
                     if (currentItem != null 

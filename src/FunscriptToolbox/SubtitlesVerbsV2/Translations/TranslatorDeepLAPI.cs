@@ -3,9 +3,9 @@ using System.Net.Http;
 using Newtonsoft.Json;
 using System.Linq;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using System.Collections.Generic;
 using System.Diagnostics;
 using FunscriptToolbox.SubtitlesVerbV2;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
@@ -17,8 +17,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
         }
 
+        [JsonProperty(Order = 10)]
+        public string BaseAddress { get; set; } = "https://api-free.deepl.com";
+
         [JsonProperty(Order = 11)]
-        public string APIKeyName { get; set; } = "DeepLAPIKey";
+        public string APIKeyName { get; set; } = "APIKeyDeepL";
 
         [JsonProperty(Order = 12)]
         public int NbPerRequest { get; set; } = 20;
@@ -30,10 +33,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
+            client.DefaultRequestHeaders.Add("Authorization", $"DeepL-Auth-Key {context.GetPrivateConfig(this.APIKeyName)}");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
-            client.BaseAddress = new Uri("https://api.deepl.com/");
+            client.BaseAddress = new Uri(this.BaseAddress);
 
-            var costsAsList = new List<TranslationCost>();
             var missingTranscriptions = transcription
                 .Items
                 .Where(f => !f.TranslatedTexts.Any(t => t.Id == translation.Id))
@@ -49,36 +52,42 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 
                 var requestBody = new
                 {
-                    auth_key = context.GetPrivateConfig(this.APIKeyName),
                     text = batch.Select(f => f.Text).ToArray(),
                     target_lang = translation.Language.ShortName
                 };
-
-                string requestBodyJson = JsonConvert.SerializeObject(requestBody);
-                string apiUrl = $"https://api.deepl.com/v2/translate";
+                string requestBodyAsJson = JsonConvert.SerializeObject(requestBody);
 
                 var watch = Stopwatch.StartNew();
-                var response = client.GetAsync(apiUrl).Result;
-                if (response.IsSuccessStatusCode)
-                {
-                    translation.Costs.Add(
-                        new TranslationCost(ToolName, watch.Elapsed, batch.Length));
-
-                    string jsonResponse = response.Content.ReadAsStringAsync().Result;
-                    dynamic jsonObject = JsonConvert.DeserializeObject(jsonResponse);
-                    var index = 0;
-                    foreach (string translatedText in jsonObject.translations)
-                    {
-                        batch[index].TranslatedTexts.Add(
-                            new TranslatedText(translation.Id, translatedText));
-                        index++;
-                        context.DefaultUpdateHandler(ToolName, $"{currentStartIndex + index}/{missingTranscriptions.Length}", translatedText);
-                    }
-                }
-                else
+                var response = client.PostAsync(
+                    new Uri(
+                        client.BaseAddress, 
+                        "/v2/translate"),
+                    new StringContent(
+                        requestBodyAsJson, 
+                        Encoding.UTF8, 
+                        "application/json")
+                    ).Result;
+                if (!response.IsSuccessStatusCode)
                 {
                     context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
                     return;
+                }
+
+                string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                watch.Stop();
+
+                translation.Costs.Add(
+                    new TranslationCost(ToolName, watch.Elapsed, batch.Length));
+
+                dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+                var index = 0;
+                foreach (var translationItem in responseBody.translations)
+                {
+                    var translatedText = (string) translationItem.text;
+                    batch[index].TranslatedTexts.Add(
+                        new TranslatedText(translation.Id, translatedText));
+                    index++;
+                    context.DefaultUpdateHandler(ToolName, $"{currentStartIndex + index}/{missingTranscriptions.Length}", translatedText);
                 }
 
                 currentStartIndex += NbPerRequest;

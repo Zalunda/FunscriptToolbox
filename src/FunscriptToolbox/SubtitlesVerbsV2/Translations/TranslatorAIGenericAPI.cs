@@ -36,7 +36,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         public TimeSpan TimeOut { get; set; } = TimeSpan.FromSeconds(300);
 
         [JsonProperty(Order = 15, TypeNameHandling = TypeNameHandling.None)]
-        public ExpandoObject DataExpansion { get; set; }
+        public ExpandoObject RequestBodyExtension { get; set; }
 
         [JsonProperty(Order = 16)]
         public int? DebugNbRequestsLimit { get; set; } = null;
@@ -46,6 +46,17 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             Transcription transcription,
             Translation translation)
         {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+            client.BaseAddress = new Uri(this.BaseAddress);
+            client.Timeout = this.TimeOut;
+            if (this.APIKeyName != null)
+            {
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
+            }
+
             // Get only the items that have not been translated yet
             var items = this.MessagesHandler.GetAllItems(
                 transcription,
@@ -62,17 +73,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             // If there are still translations to be done, create files for each batch of items
             if (nbErrors == 0)
             {
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
-                client.BaseAddress = new Uri(this.BaseAddress);
-                client.Timeout = this.TimeOut;
-                if (this.APIKeyName != null)
-                {
-                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
-                }
-
                 var verboseFileId = DateTime.Now.ToString("yyyyMMddHHmmss");
                 var lastTimeSaved = DateTime.Now;
                 foreach (var request in this.MessagesHandler.CreateRequests(
@@ -86,45 +86,55 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         return;
                     }
 
-                    dynamic data = request.Data;
+                    dynamic requestBody = request.Body;
                     if (this.Model != null)
                     {
-                        data.model = this.Model;
+                        requestBody.model = this.Model;
                     }
-                    data = Merge(request.Data, DataExpansion);
+                    requestBody = Merge(request.Body, RequestBodyExtension);
 
-                    var requestJson = JsonConvert.SerializeObject(data, Formatting.Indented);
+                    var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
                     var verboseRequestPrefix = $"{context.BaseFilePath}.{transcription.Id}-{translation.Id}-{verboseFileId}-{request.Number:D04}";
-                    context.CreateVerboseFile(verboseRequestPrefix + "-Req.json", requestJson);
+                    context.CreateVerboseFile(verboseRequestPrefix + "-Req.json", requestBodyAsJson);
 
-                    var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+                    var watch = Stopwatch.StartNew();
+                    var response = client.PostAsync(
+                        new Uri(
+                            client.BaseAddress, 
+                            "/v1/chat/completions"),
+                        new StringContent(
+                            requestBodyAsJson, 
+                            Encoding.UTF8, 
+                            "application/json")
+                        ).Result;
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                        return;
+                    }
+
+                    string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                    watch.Stop();
 
                     try
                     {
-                        var watch = Stopwatch.StartNew();
-                        var response = client.PostAsync(
-                            new Uri(client.BaseAddress, "/v1/chat/completions"),
-                            content).Result;
-                        string responseJson = response.Content.ReadAsStringAsync().Result;
-                        watch.Stop();
+                        dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+                        context.CreateVerboseFile(verboseRequestPrefix + "-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented));
 
-                        dynamic responseObject = JsonConvert.DeserializeObject(responseJson);
-                        context.CreateVerboseFile(verboseRequestPrefix + "-Resp.json", JsonConvert.SerializeObject(responseObject, Formatting.Indented));
-
-                        string assistantMessage = responseObject.choices[0].message.content;
+                        string assistantMessage = responseBody.choices[0].message.content;
                         translation.Costs.Add(
                             new TranslationCost(
                                 $"{this.BaseAddress},{this.Model}",
                                 watch.Elapsed,
                                 request.Items.Length,
-                                (int?)responseObject.usage?.prompt_tokens,
-                                (int?)responseObject.usage?.completion_tokens));
+                                (int?)responseBody.usage?.prompt_tokens,
+                                (int?)responseBody.usage?.completion_tokens));
 
-                        if (ValidateModelNameInResponse && !string.Equals((string)responseObject.model, this.Model, StringComparison.OrdinalIgnoreCase))
+                        if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
                         {
                             context.WriteError($"Invalid model name in response:");
-                            context.WriteError($"   [response] {responseObject.model}");
+                            context.WriteError($"   [response] {responseBody.model}");
                             context.WriteError($"   [config]   {this.Model}");
                             return;
                         }
