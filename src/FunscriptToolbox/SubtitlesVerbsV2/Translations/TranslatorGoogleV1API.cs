@@ -65,6 +65,35 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             }
         }
 
+        public string SimpleTranslate(
+            string originalText, 
+            string shortOriginalLanguage,
+            string shortTranslationLanguage)
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
+            client.BaseAddress = new Uri("https://translate.googleapis.com/");
+
+            string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
+                "?client=gtx" +
+                $"&sl={shortOriginalLanguage}" +
+                $"&tl={shortTranslationLanguage}" +
+                $"&dt=t" +
+                $"&q={Uri.EscapeDataString(originalText)}";
+
+            var response = client.GetAsync(apiUrl).Result;
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+            }
+
+            string responseAsJson = response.Content.ReadAsStringAsync().Result;
+            dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+
+            return (string)ExtractTranslatedText(responseBody);
+        }
+
         private string ExtractTranslatedText(dynamic result)
         {
             var translatedText = "";

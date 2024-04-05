@@ -18,6 +18,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         [JsonProperty(Order = 10)]
         public int MaxPreviousShot { get; set; } = 20;
         [JsonProperty(Order = 11)]
+        public bool IncludeExamples { get; set; } = true;
+        [JsonProperty(Order = 12)]
         public bool IncludeContext { get; set; } = true;
         [JsonProperty(Order = 13)]
         public string ContextTextPattern { get; set; } = "Context{{<text>}}";
@@ -66,16 +68,17 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         });
                 }
 
-                // TODO Create examples using English text and Google
-                var examples = new[] {
-                    new Tuple<string, string>("もしもし、", "Hello,"),
-                    new Tuple<string, string>("ごめんね。", "I'm sorry,"),
-                    new Tuple<string, string>("急に電話かけちゃって。", "I suddenly called you.")};
-                for (int i = 0; i < 3 - itemsForThisRequest.Length; i++)
+                if (this.IncludeExamples)
                 {
-                    messages.Add(new { role = "user", content = this.OriginalTextPattern.Replace("<text>", examples[i].Item1) });
-                    messages.Add(new { role = "assistant", content = this.TranslationTextPattern.Replace("<text>", examples[i].Item2) });
+                    foreach (var example in translation.GetTranslationExamples(
+                        transcription.Language, 
+                        this.MaxPreviousShot - itemsForThisRequest.Length))
+                    {
+                        messages.Add(new { role = "user", content = this.OriginalTextPattern.Replace("<text>", example.Original) });
+                        messages.Add(new { role = "assistant", content = this.TranslationTextPattern.Replace("<text>", example.Translation) });
+                    }
                 }
+
                 var currentContext = items
                     .Take(currentIndex - this.MaxPreviousShot)
                     .LastOrDefault(f => f.Context != null)

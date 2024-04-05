@@ -23,8 +23,13 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         [JsonProperty(Order = 11)]
         public string APIKeyName { get; set; } = "APIKeyDeepL";
 
+        // See: https://developers.deepl.com/docs/api-reference/translate/openapi-spec-for-text-translation
         [JsonProperty(Order = 12)]
-        public int NbPerRequest { get; set; } = 20;
+        public string Formalilty { get; set; } = "prefer_less";
+
+
+        [JsonProperty(Order = 12)]
+        public int NbPerRequest { get; set; } = 50;
 
         public override void Translate(
             SubtitleGeneratorContext context,
@@ -53,7 +58,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 var requestBody = new
                 {
                     text = batch.Select(f => f.Text).ToArray(),
-                    target_lang = translation.Language.ShortName
+                    source_lang = transcription.Language.ShortName,
+                    target_lang = translation.Language.ShortName,
+                    formality = this.Formalilty
                 };
                 string requestBodyAsJson = JsonConvert.SerializeObject(requestBody);
 

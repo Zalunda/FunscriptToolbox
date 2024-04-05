@@ -40,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     context.WriteInfo($"        Creating file '{Path.GetFileName(filepath)}' (contains {request.Items.Length} texts)...");
                     File.WriteAllText(filepath, request.FullPrompt);
 
-                    context.AddUserTodo($"Give the content of the file '{Path.GetFileName(filepath)}' to an AI and then put its response in the same file.");
+                    context.AddUserTodo($"Feed the content of '{Path.GetFileName(filepath)}' to an AI, then replace the content of the file with the AI's answer.");
                 }
             }
         }

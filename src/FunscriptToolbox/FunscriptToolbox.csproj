@@ -183,6 +183,7 @@
     <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorPrivateConfig.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishot.cs" />
+    <Compile Include="SubtitlesVerbsV2\Translations\TranslationExample.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLWithFiles.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLAPI.cs" />

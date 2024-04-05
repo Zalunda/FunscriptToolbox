@@ -278,6 +278,33 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                             wipsub);
                     }
 
+                    // 6. Write final report:
+                    context.WriteInfo();
+                    context.WriteInfo();
+                    if (context.Errors.Count > 0)
+                    {
+                        context.WriteInfo($"The following errors occured during the process:");
+                        var index = 1;
+                        foreach (var error in context.Errors)
+                        {
+                            context.WriteNumeredPoint(index++, error, ConsoleColor.Red);
+                        }
+                        context.WriteInfo();
+                    }
+
+                    context.WriteInfo();
+                    context.WriteInfo();
+                    if (context.UserTodoList.Count > 0)
+                    {
+                        context.WriteInfo($"You have the following task to do:");
+                        var index = 1;
+                        foreach (var usertodo in context.UserTodoList)
+                        {
+                            context.WriteNumeredPoint(index++, usertodo, ConsoleColor.Green);
+                        }
+                        context.WriteInfo();
+                    }
+
                     context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
                     context.WriteInfo();
                 }

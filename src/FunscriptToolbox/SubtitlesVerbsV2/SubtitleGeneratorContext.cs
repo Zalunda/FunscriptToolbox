@@ -63,6 +63,16 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             this.UserTodoList.Add(message);
         }
 
+        internal void WriteNumeredPoint(int number, string message, ConsoleColor? color = null)
+        {
+            var split = message.Split('\n');
+            WriteInfo($"{number,3}. {split[0]}", color);
+            for (int i = 1; i < split.Length; i++)
+            {
+                WriteInfo($"     {split[i]}", color);
+            }
+        }
+
         internal void CreateVerboseFile(string filename, string content)
         {
             if (IsVerbose)
