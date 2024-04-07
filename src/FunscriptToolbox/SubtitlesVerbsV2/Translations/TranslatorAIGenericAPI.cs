@@ -73,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             // If there are still translations to be done, create files for each batch of items
             if (nbErrors == 0)
             {
-                var verboseFileId = DateTime.Now.ToString("yyyyMMddHHmmss");
+                var processStartTime = DateTime.Now;
                 var lastTimeSaved = DateTime.Now;
                 foreach (var request in this.MessagesHandler.CreateRequests(
                     transcription,
@@ -95,8 +95,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 
                     var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
-                    var verboseRequestPrefix = $"{context.BaseFilePath}.{transcription.Id}-{translation.Id}-{verboseFileId}-{request.Number:D04}";
-                    context.CreateVerboseFile(verboseRequestPrefix + "-Req.json", requestBodyAsJson);
+                    var verbosePrefix = $"{transcription.Id}-{translation.Id}-{request.Number:D04}";
+                    context.CreateVerboseFile(processStartTime, $"{verbosePrefix}-Req.json", requestBodyAsJson);
 
                     var watch = Stopwatch.StartNew();
                     var response = client.PostAsync(
@@ -120,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     try
                     {
                         dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-                        context.CreateVerboseFile(verboseRequestPrefix + "-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented));
+                        context.CreateVerboseFile(processStartTime, $"{verbosePrefix}-Req.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented));
 
                         string assistantMessage = responseBody.choices[0].message.content;
                         translation.Costs.Add(

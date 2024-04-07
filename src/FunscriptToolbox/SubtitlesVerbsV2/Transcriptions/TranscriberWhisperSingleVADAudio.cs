@@ -31,15 +31,16 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                     vad => pcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime))
                 .ToArray();
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
-                context.FfmpegAudioHelper,
+                context,
                 context.DefaultProgressUpdateHandler,
                 audioSections,
                 transcribedLanguage,
+                $"{this.TranscriptionId}-",
                 out var costs);
             return new Transcription(
                 this.TranscriptionId,
                 transcribedLanguage,
-                transcribedTexts, 
+                transcribedTexts,
                 costs);
         }
     }

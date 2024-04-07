@@ -45,8 +45,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         }
 
         public void ConvertPcmAudioToWavFile(
-            PcmAudio pcmAudio, 
-            string outputWavFilepath)
+            PcmAudio pcmAudio,
+            string outputWavFilepath,
+            string ffmpegParameters = null)
         {
             var tempPcmFile = Path.GetTempFileName() + ".pcm";
             try
@@ -57,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                 }
                 FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le")
+                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le {ffmpegParameters}")
                     .SetOutput(outputWavFilepath)
                     .Start()
                     .Wait();

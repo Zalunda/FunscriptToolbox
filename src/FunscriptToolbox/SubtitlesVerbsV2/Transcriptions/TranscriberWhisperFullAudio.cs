@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.SubtitlesVerbV2;
+using System;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
@@ -23,10 +24,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
-                     context.FfmpegAudioHelper,
+                     context,
                      context.DefaultProgressUpdateHandler,
                      new[] { pcmAudio },
                      transcribedLanguage,
+                     $"{this.TranscriptionId}-",
                      out var costs);
             return new Transcription(
                 this.TranscriptionId,

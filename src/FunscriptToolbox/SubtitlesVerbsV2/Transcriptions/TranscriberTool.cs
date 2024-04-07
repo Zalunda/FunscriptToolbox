@@ -9,12 +9,15 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         public string ApplicationFullPath { get; set; }
         [JsonProperty(Order = 2)]
         public string AdditionalParameters { get; set; } = "";
+        [JsonProperty(Order = 3)]
+        public string FfmpegWavParameters { get; set; } = "";
 
         public abstract TranscribedText[] TranscribeAudio(
-            FfmpegAudioHelper audioHelper,
+            SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
             PcmAudio[] audios,
             Language sourceLanguage,
+            string filesPrefix,
             out TranscriptionCost[] costs);
     }
 }

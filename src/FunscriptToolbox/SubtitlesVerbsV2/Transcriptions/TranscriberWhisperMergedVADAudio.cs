@@ -60,10 +60,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var transcribedTexts = new List<TranscribedText>();
             TranscriptionCost[] costs;
             foreach (var original in this.TranscriberTool.TranscribeAudio(
-                                context.FfmpegAudioHelper,
+                                context,
                                 context.DefaultProgressUpdateHandler,
                                 new[] { mergedPcm },
                                 transcribedLanguage,
+                                $"{this.TranscriptionId}-",
                                 out costs))
             {
                 var newStartTime = offsetCollection.TransformPosition(original.StartTime);

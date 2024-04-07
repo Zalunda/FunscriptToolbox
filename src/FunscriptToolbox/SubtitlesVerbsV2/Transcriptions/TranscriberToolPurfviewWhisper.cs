@@ -1,9 +1,11 @@
-﻿using FunscriptToolbox.SubtitlesVerbV2;
+﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.SubtitlesVerbV2;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -27,18 +29,20 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         public TimeSpan RedoBlockLargerThen { get; set; } = TimeSpan.FromSeconds(15);
 
         public override TranscribedText[] TranscribeAudio(
-            FfmpegAudioHelper audioHelper,
+            SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
             PcmAudio[] audios,
             Language sourceLanguage,
+            string filesPrefix,
             out TranscriptionCost[] costs)
         {
             var costsList = new List<TranscriptionCost>();
             var transcribedTexts = TranscribeAudioInternal(
-                audioHelper,
+                context,
                 progressUpdateCallback,
                 audios, 
                 sourceLanguage,
+                filesPrefix,
                 costsList);
             costs = costsList.ToArray();
             return transcribedTexts;
@@ -46,10 +50,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         }
 
         private TranscribedText[] TranscribeAudioInternal(
-            FfmpegAudioHelper audioHelper,
+            SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
             PcmAudio[] audios,
             Language sourceLanguage,
+            string filesPrefix,
             List<TranscriptionCost> costs)
         {
             if (!File.Exists(this.ApplicationFullPath))
@@ -60,19 +65,22 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             // Only allows one thread doing transcription at a times
             lock (r_lock)
             {
-
-                var tempPcmBaseFile = Path.GetTempFileName();
                 var tempFiles = new List<string>();
+                var processStartTime = DateTime.Now;
+                var fullSrtTempFile = context.GetPotentialVerboseFilePath(processStartTime, filesPrefix + $"all.srt");
+
                 try
                 {
+
                     // Convert each input PCM audio to WAV format and store as temporary files
                     var indexAudio = 0;
                     var totalDuration = TimeSpan.Zero;
                     foreach (var audio in audios)
                     {
-                        var tempFile = $"{tempPcmBaseFile}-{indexAudio++:D5}.wav";
+                        var id = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
+                        var tempFile = context.GetPotentialVerboseFilePath(processStartTime, filesPrefix + $"{id}.wav");
                         tempFiles.Add(tempFile);
-                        audioHelper.ConvertPcmAudioToWavFile(audio, tempFile);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, tempFile, this.FfmpegWavParameters);
                         totalDuration += audio.Duration;
                     }
 
@@ -87,7 +95,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                     arguments.Append($" --beep_off");
                     arguments.Append($" --output_format json");
                     arguments.Append($" {this.AdditionalParameters}");
-                    arguments.Append($" \"{tempPcmBaseFile}-*.wav\"");
+                    arguments.Append($" \"{context.GetPotentialVerboseFilePath(processStartTime, $"*.wav")}\"");
 
                     // Start a new process to perform transcription
                     var process = new Process();
@@ -112,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                         }
 
                         progressUpdateCallback(
-                            ToolName, 
+                            ToolName,
                             audios.Length == 1
                             ? "full"
                             : $"{currentFileIndex}/{audios.Length}",
@@ -184,15 +192,17 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                                         var currentDuration = word.EndTime - currentStartTime.Value;
                                         if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > this.RedoBlockLargerThen)
                                         {
+                                            var redoId = $"REDO-{(int)currentStartTime.Value.TotalSeconds}-{(int)word.EndTime.TotalSeconds}";
                                             texts.AddRange(
                                                 TranscribeAudioInternal(
-                                                    audioHelper,
-                                                    (toolName, toolAction, message) => progressUpdateCallback(ToolName, $"REDO:{(int)currentStartTime.Value.TotalSeconds}=>{(int)word.EndTime.TotalSeconds}", message),
+                                                    context,
+                                                    (toolName, toolAction, message) => progressUpdateCallback(ToolName, redoId, message),
                                                     new[] { 
                                                         pcmAudio.ExtractSnippet(
                                                             currentStartTime.Value,
                                                             word.EndTime) },
                                                     sourceLanguage,
+                                                    filesPrefix + redoId + "-",
                                                     costs));
                                         }
                                         else
@@ -219,14 +229,22 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                         }
                     }
 
+                    var subtitleFile = new SubtitleFile();
+                    subtitleFile.Subtitles.AddRange(texts.Select(f => new Subtitle(f.StartTime, f.EndTime, f.Text)));
+                    subtitleFile.SaveSrt(fullSrtTempFile);
                     return texts.ToArray();
                 }
                 finally
                 {
-                    foreach (var tempFile in tempFiles)
+                    if (!context.IsVerbose)
                     {
-                        File.Delete(tempFile);
-                        File.Delete(Path.ChangeExtension(tempFile, ".json"));
+                        File.Delete(fullSrtTempFile);
+
+                        foreach (var tempFile in tempFiles)
+                        {
+                            File.Delete(tempFile);
+                            File.Delete(Path.ChangeExtension(tempFile, ".json"));
+                        }
                     }
                 }
             }

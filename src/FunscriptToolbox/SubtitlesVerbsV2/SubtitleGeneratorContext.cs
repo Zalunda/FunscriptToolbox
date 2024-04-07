@@ -76,15 +76,20 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             }
         }
 
-        internal void CreateVerboseFile(string filename, string content)
+        internal string GetPotentialVerboseFilePath(DateTime processStartTime, string suffixe)
+        {
+            return Path.Combine(
+                        r_logsAndBackupFolder,
+                        processStartTime.ToString("yyyyMMddHHmmss") + "-" + suffixe);
+        }
+
+        internal void CreateVerboseFile(DateTime processStartTime, string suffixe, string content)
         {
             if (IsVerbose)
             {
                 Directory.CreateDirectory(r_logsAndBackupFolder);
                 File.WriteAllText(
-                    Path.Combine(
-                        r_logsAndBackupFolder,
-                        filename),
+                    GetPotentialVerboseFilePath(processStartTime, suffixe),
                     content,
                     Encoding.UTF8);
             }
