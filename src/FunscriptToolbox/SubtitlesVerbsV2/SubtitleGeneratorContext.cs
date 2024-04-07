@@ -1,4 +1,5 @@
-﻿using log4net;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,13 +18,15 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             string prefix,
             bool isVerbose,
             string baseFilePath,
-            WorkInProgressSubtitles wipsub) 
+            WorkInProgressSubtitles wipsub,
+            FfmpegAudioHelper ffmpegAudioHelper) 
             : base(log, prefix, isVerbose)
         {
             r_logsAndBackupFolder = baseFilePath + "_LogsAndBackup";
             r_privateConfig = privateConfig;
             this.BaseFilePath = baseFilePath;
             this.Wipsub = wipsub;
+            FfmpegAudioHelper = ffmpegAudioHelper;
             this.UserTodoList = new List<string>();
         }
 
@@ -33,7 +36,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public string BaseFilePath { get; }
 
         public WorkInProgressSubtitles Wipsub { get; }
-
+        public FfmpegAudioHelper FfmpegAudioHelper { get; }
         public List<string> UserTodoList { get; }
 
         public string GetPrivateConfig(string itemName)

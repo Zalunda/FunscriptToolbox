@@ -23,6 +23,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                         new[] {
                             typeof(AIMessagesHandler),
                             typeof(AIPrompt),
+                            typeof(SubtitleForcedTimingParser),
                             typeof(SubtitleOutput),
                             typeof(TranscriberTool),
                             typeof(Transcriber),
@@ -58,16 +59,19 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         [JsonProperty(Order = 1)]
         public string SubtitleForcedTimingsSuffix { get; set; }
 
-        [JsonProperty(Order = 2)]
-        public string FfmpegAudioExtractionParameters { get; set; }
+        [JsonProperty(Order = 2, Required = Required.Always)]
+        public SubtitleForcedTimingParser SubtitleForcedTimingsParser { get; set; }
 
         [JsonProperty(Order = 3)]
-        public object[] SharedObjects { get; set; }
+        public string FfmpegAudioExtractionParameters { get; set; }
 
         [JsonProperty(Order = 4)]
-        public Transcriber[] Transcribers { get; set; }
+        public object[] SharedObjects { get; set; }
 
         [JsonProperty(Order = 5)]
+        public Transcriber[] Transcribers { get; set; }
+
+        [JsonProperty(Order = 6)]
         public SubtitleOutput[] Outputs { get; set; }
 
         public static string GetExample()
@@ -92,43 +96,62 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
             var systemPromptJson = new AIPrompt(new[] 
             {
-                "You are translator specialized in adult film subtitles.",
-                "The user will provide a JSON where nodes have a start time, original text and, sometime, description of what's happening in the following part of the video.",
-                "You job is to add a 'Translation' field to each node with a " + AIPrompt.TranscriptionLanguageToken + ".",
+                "You are a translator specialized in adult film subtitles.",
+                "The user will provide a JSON where nodes have the following fields:",
+                "* Context (optional): description of what's happening in the next section of the video (valid until the next node with a context).",
+                "* Talker (optional): if it's not provided, it mean it's the woman talking.",
+                "* StartTime: the start time for the subtitle.",
+                "* Original:  The transcribed text in the original language (for example, " + AIPrompt.TranscriptionLanguageToken + ").",
+                "You job is to return a JSON where nodes have the following fields:",
+                "* StartTime",
+                "* Original",
+                "* Translation (new field): Your translation in " + AIPrompt.TranslationLanguageToken + ".",
                 "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
                 "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
-                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
-                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the mostly passive male participant, whose reactions and inner thoughts are not explicitly conveyed.",
-                "Before translating any individual lines, I will first read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene. This will allow me to consider how each line contributes to the overall progression and tone.",
-                "When translating each line, I will closely reference the provided StartTime metadata. This will help me situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
+                "The video is from the perspective of the male participant, who is the recipient of the woman's actions and dialogue. He does not speak.",
+                "Unless specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "Before translating any individual lines, read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene.",
+                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPromptJson"));
 
             var systemPromptMultiShot = new AIPrompt(new[]
             {
-                "You are translator specialized in adult film subtitles.",
+                "You are a translator specialized in adult film subtitles.",
                 "The user might provide some context on what will happening in the following part of the scene.",
-                "The user will provide a text in " + AIPrompt.TranscriptionLanguageToken + ", in the following format: Original[[text]]",
-                "You job reply with a translation in " + AIPrompt.TranslationLanguageToken + ", in the following format: Translation[[text]]",
+                "The user might provide who's saying the text to translate.",
+                "The user will always provide a text in " + AIPrompt.TranscriptionLanguageToken + ", in the following format: Original{{text}}",
+                "You job reply with a translation in " + AIPrompt.TranslationLanguageToken + ", in the following format: Translation{{text}}",
                 "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
                 "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
-                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+                "The video is from the perspective of the male participant, who is the recipient of the woman's actions and dialogue. He does not speak.",
+                "Unless specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "Before translating any individual lines, read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene.",
+                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPromptMultishot"));
 
             var userPrompt = new AIPrompt(new[] 
             {
-                "I have a JSON file that contain subtitles for an adult film.",
-                "Each node of the JSON have a start time and the original text in " + AIPrompt.TranscriptionLanguageToken + ".",
-                "Can you give me a JSON where you added an 'Translation' field on each node that contains an " + AIPrompt.TranslationLanguageToken + " translation.",
+                "I have a JSON file that contains subtitles for an adult film.",
+                "The JSON nodes have the following fields:",
+                "* Context (optional): description of what's happening in the next section of the video (valid until the next node with a context).",
+                "* Talker (optional): if it's not provided, it mean it's the woman talking.",
+                "* StartTime: the start time for the subtitle.",
+                "* Original:  The transcribed text in the original language (for example, " + AIPrompt.TranscriptionLanguageToken + ").",
+                "Can you return me a JSON where nodes have the following fields:",
+                "* StartTime",
+                "* Original",
+                "* Translation (new field): Your translation in " + AIPrompt.TranslationLanguageToken + ".",
                 "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
-                "The video is from the perspective of the male participant, who is the passive recipient of the woman's actions and dialogue. He does not speak or initiate any of the activities.",
-                "The woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
-                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the mostly passive male participant, whose reactions and inner thoughts are not explicitly conveyed.",
-                "Before translating any individual lines, I will first read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene. This will allow me to consider how each line contributes to the overall progression and tone.",
-                "When translating each line, I will closely reference the provided StartTime metadata. This will help me situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
+                "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
+                "The video is from the perspective of the male participant, who is the recipient of the woman's actions and dialogue. He does not speak.",
+                "Unless specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "Before translating any individual lines, read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene.",
+                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "UserPrompt"));
 
@@ -142,6 +165,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             var config = new SubtitleGeneratorConfig()
             {
                 SubtitleForcedTimingsSuffix = ".perfect-vad.srt",
+                SubtitleForcedTimingsParser = new SubtitleForcedTimingParser(),
                 SharedObjects = new object[]
                 {
                     transcriberTool,
@@ -152,116 +176,161 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 },
                 Transcribers = new Transcriber[]
                 {
-                            new TranscriberWhisperFullAudio()
+                    new TranscriberWhisperFullAudio()
+                    {
+                        TranscriptionId = "full",
+                        Translators = new Translator[] { translatorGoogleV1 },
+                        TranscriberTool = transcriberTool
+                    },
+                    new TranscriberWhisperMergedVADAudio()
+                    {
+                        TranscriptionId = "mergedvad",
+                        Translators = new Translator[] {
+                            translatorGoogleV1,
+                            new TranslatorDeepLWithFiles()
                             {
-                                TranscriptionId = "full",
-                                Translators = new Translator[] { translatorGoogleV1 },
-                                TranscriberTool = transcriberTool
+                                TranslationId = "deepl-files",
+                                TargetLanguage = Language.FromString("en")
                             },
-                            new TranscriberWhisperMergedVADAudio()
+                            new TranslatorDeepLAPI()
                             {
-                                TranscriptionId = "mergedvad",
-                                Translators = new Translator[] {
-                                    translatorGoogleV1,
-                                    new TranslatorDeepLWithFiles()
-                                    {
-                                        TranslationId = "deepl",
-                                        TargetLanguage = Language.FromString("en")
-                                    },
-                                    new TranslatorDeepLAPI()
-                                    {
-                                        Enabled = false,
-                                        TranslationId = "deepl-api",
-                                        TargetLanguage = Language.FromString("en")
-                                    },
-                                    new TranslatorAIChatBot()
-                                    {
-                                        TranslationId = "claude-3-haiku-200k",
-                                        TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerJson
-                                        {
-                                            UserPrompt = userPrompt,
-                                            MaxItemsInRequest = 10000
-                                        }
-                                    },
-                                    new TranslatorAIChatBot()
-                                    {
-                                        TranslationId = "mistral-large",
-                                        TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerJson
-                                        {
-                                            UserPrompt = userPrompt,
-                                            MaxItemsInRequest = 100,
-                                            OverlapItemsInRequest = 10
-                                        }
-                                    },
-                                    new TranslatorAIChatBot()
-                                    {
-                                        Enabled = false,
-                                        TranslationId = "chatgpt",
-                                        TargetLanguage = Language.FromString("en"),
-                                        MessagesHandler = new AIMessagesHandlerJson
-                                        {
-                                            UserPrompt = userPrompt,
-                                            MaxItemsInRequest = 40,
-                                            OverlapItemsInRequest = 5
-                                        }
-                                    },
-                                    new TranslatorAIGenericAPI()
-                                    {
-                                        TranslationId = "local-mistral-7b",
-                                        BaseAddress = "http://localhost:10000",
-                                        Model = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF/mistral-7b-instruct-v0.2.Q8_0.gguf",
-                                        ValidateModelNameInResponse = true,
-                                        TargetLanguage = Language.FromString("en"),
-                                        RequestBodyExtension = requestBodyExtensionMistral7b,
-                                        MessagesHandler = new AIMessagesHandlerMultishot
-                                        {
-                                            SystemPrompt = systemPromptMultiShot
-                                        }
-                                    },
-                                    new TranslatorAIGenericAPI()
-                                    {
-                                        Enabled = false,
-                                        TranslationId = "mistral-large",
-                                        BaseAddress = "https://api.mistral.ai",
-                                        APIKeyName = "APIKeyMistral",
-                                        Model = "mistral-large-latest",
-                                        TargetLanguage = Language.FromString("en"),
-                                        RequestBodyExtension = requestBodyExtensionMistralAPI,
-                                        MessagesHandler = new AIMessagesHandlerJson
-                                        {
-                                            MaxItemsInRequest = 100,
-                                            OverlapItemsInRequest = 10,
-                                            SystemPrompt = systemPromptJson
-                                        }
-                                    }
-                                },
-                                TranscriberTool = transcriberTool
+                                Enabled = false,
+                                TranslationId = "deepl",
+                                TargetLanguage = Language.FromString("en")
                             },
-                            new TranscriberWhisperSingleVADAudio()
+                            new TranslatorAIChatBot()
                             {
-                                TranscriptionId = "singlevad",
-                                Translators = new Translator[] {
-                                    translatorGoogleV1
-                                },
-                                TranscriberTool = transcriberTool
+                                Enabled = false,
+                                TranslationId = "chatgpt-4",
+                                TargetLanguage = Language.FromString("en"),
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = userPrompt,
+                                    MaxItemsInRequest = 20
+                                }
+                            },
+                            new TranslatorAIChatBot()
+                            {
+                                Enabled = true,
+                                TranslationId = "claude-3-haiku",
+                                TargetLanguage = Language.FromString("en"),
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = userPrompt,
+                                    MaxItemsInRequest = 40
+                                }
+                            },
+                            new TranslatorAIChatBot()
+                            {
+                                Enabled = false,
+                                TranslationId = "claude-3-haiku-200k",
+                                TargetLanguage = Language.FromString("en"),
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = userPrompt,
+                                    MaxItemsInRequest = 10000
+                                }
+                            },
+                            new TranslatorAIChatBot()
+                            {
+                                TranslationId = "claude-3-sonnet",
+                                TargetLanguage = Language.FromString("en"),
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = userPrompt,
+                                    MaxItemsInRequest = 30
+                                }
+                            },
+                            new TranslatorAIChatBot()
+                            {
+                                Enabled = false,
+                                TranslationId = "claude-3-opus",
+                                TargetLanguage = Language.FromString("en"),
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = userPrompt,
+                                    MaxItemsInRequest = 40
+                                }
+                            },
+                            new TranslatorAIChatBot()
+                            {
+                                Enabled = false,
+                                TranslationId = "mistral-large",
+                                TargetLanguage = Language.FromString("en"),
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = userPrompt,
+                                    MaxItemsInRequest = 100
+                                }
+                            },
+                            new TranslatorAIGenericAPI()
+                            {
+                                Enabled = false,
+                                TranslationId = "local-mistral-7b",
+                                BaseAddress = "http://localhost:10000",
+                                Model = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF/mistral-7b-instruct-v0.2.Q8_0.gguf",
+                                ValidateModelNameInResponse = true,
+                                TargetLanguage = Language.FromString("en"),
+                                RequestBodyExtension = requestBodyExtensionMistral7b,
+                                MessagesHandler = new AIMessagesHandlerMultishot
+                                {
+                                    SystemPrompt = systemPromptMultiShot
+                                }
+                            },
+                            new TranslatorAIGenericAPI()
+                            {
+                                Enabled = false,
+                                TranslationId = "mistral-large",
+                                BaseAddress = "https://api.mistral.ai",
+                                APIKeyName = "APIKeyMistral",
+                                Model = "mistral-large-latest",
+                                TargetLanguage = Language.FromString("en"),
+                                RequestBodyExtension = requestBodyExtensionMistralAPI,
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    MaxItemsInRequest = 100,
+                                    OverlapItemsInRequest = 10,
+                                    SystemPrompt = systemPromptJson
+                                }
                             }
+                        },
+                        TranscriberTool = transcriberTool
+                    },
+                    new TranscriberWhisperSingleVADAudio()
+                    {
+                        TranscriptionId = "singlevad",
+                        Translators = new Translator[] {
+                            translatorGoogleV1
+                        },
+                        TranscriberTool = transcriberTool
+                    }
                 },
                 Outputs = new SubtitleOutput[]
                 {
-                    new SubtitleOutputSimpleSrt()
+                    new SubtitleOutputSingleTranslationSrt()
                     {
                         TranscriptionId = "full",
                         TranslationId = "google",
                         FileSuffixe = ".perfect-vad-potential.srt"
                     },
+                    new SubtitleOutputMultiTranslationSrt()
+                    {
+                        Enabled = false,
+                        TranscriptionId = "mv",
+                        TranslationOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
+                        FileSuffixe = ".mv.srt"
+                    },
                     new SubtitleOutputWIPSrt()
                     {
                         TranscriptionOrder = new [] { "singlevad", "mergedvad", "*" },
-                        TranslationOrder = new [] { "claude-3-haiku-200k", "mistral-large", "chatgpt", "local-mistral-7b", "deepl", "*" },
+                        TranslationOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
                         FileSuffixe = ".wip.srt"
-                    }
+                    },
+                    new SubtitleOutputWav()
+                    {
+                        Enabled = false,
+                        FileSuffixe = ".wav"
+                    },
                 }
             };
 

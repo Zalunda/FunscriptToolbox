@@ -1,5 +1,5 @@
 ﻿using CommandLine;
-using FunscriptToolbox.Core;
+using FunscriptToolbox.SubtitlesVerbsV2;
 using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbsV2.Translations;
@@ -66,7 +66,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
-
             foreach (var inputMp4Fullpath in r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
@@ -74,7 +73,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 .OrderBy(f => f))
             {
                 var watchGlobal = Stopwatch.StartNew();
-                var ffmpegAudioHelper = new FfmpegAudioHelper();
 
                 var wipsubFullpath = Path.ChangeExtension(
                     inputMp4Fullpath,
@@ -89,9 +87,10 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     prefix: $"{Path.GetFileNameWithoutExtension(inputMp4Fullpath)}: ",
                     r_options.Verbose,
                     baseFilePath: Path.Combine(
-                        Path.GetDirectoryName(wipsubFullpath) ?? ".",
+                        PathExtension.SafeGetDirectoryName(wipsubFullpath),
                         Path.GetFileNameWithoutExtension(wipsubFullpath)),
-                    wipsub);
+                    wipsub,
+                    new FfmpegAudioHelper());
 
                 // 0. Remove translations 
                 var translationsToRemove = r_options.RemoveTranslations?.Split(';').ToArray();
@@ -123,7 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                         context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputMp4Fullpath)}'...");
 
                         var watchPcmAudio = Stopwatch.StartNew();
-                        wipsub.PcmAudio = ffmpegAudioHelper.ExtractPcmAudio(
+                        wipsub.PcmAudio = context.FfmpegAudioHelper.ExtractPcmAudio(
                             inputMp4Fullpath,
                             extractionParameters: config.FfmpegAudioExtractionParameters);
                         wipsub.Save();
@@ -148,15 +147,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     {
                         context.WriteInfo($"Importing forced subtitle timings from '{Path.GetFileName(forcedTimingPath)}'...");
 
-                        wipsub.SubtitlesForcedTiming = new SubtitleForcedTimingCollection(
-                            SubtitleFile
-                            .FromSrtFile(forcedTimingPath)
-                            .Subtitles
-                            .Select(
-                                subtitle => SubtitleForcedTiming.FromText(
-                                    subtitle.StartTime,
-                                    subtitle.EndTime,
-                                    subtitle.Text)));
+                        wipsub.SubtitlesForcedTiming = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
                         wipsub.Save();
 
                         context.WriteInfo($"Finished:");
@@ -200,7 +191,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                                 context.WriteInfo($"Transcribing '{transcriber.TranscriptionId}'...");
                                 transcription = transcriber.Transcribe(
                                     context,
-                                    ffmpegAudioHelper,
                                     wipsub.PcmAudio,
                                     sourceLanguage);
 
@@ -278,33 +268,6 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                             wipsub);
                     }
 
-                    // 6. Write final report:
-                    context.WriteInfo();
-                    context.WriteInfo();
-                    if (context.Errors.Count > 0)
-                    {
-                        context.WriteInfo($"The following errors occured during the process:");
-                        var index = 1;
-                        foreach (var error in context.Errors)
-                        {
-                            context.WriteNumeredPoint(index++, error, ConsoleColor.Red);
-                        }
-                        context.WriteInfo();
-                    }
-
-                    context.WriteInfo();
-                    context.WriteInfo();
-                    if (context.UserTodoList.Count > 0)
-                    {
-                        context.WriteInfo($"You have the following task to do:");
-                        var index = 1;
-                        foreach (var usertodo in context.UserTodoList)
-                        {
-                            context.WriteNumeredPoint(index++, usertodo, ConsoleColor.Green);
-                        }
-                        context.WriteInfo();
-                    }
-
                     context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
                     context.WriteInfo();
                 }
@@ -313,9 +276,34 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     context.WriteError($"Unexpected exception occured: {ex}");
                 }
 
-                // TODO Add
-            }
 
+                // 6. Write final report:
+                context.WriteInfo();
+                context.WriteInfo();
+                if (context.Errors.Count > 0)
+                {
+                    context.WriteInfo($"The following errors occured during the process:");
+                    var index = 1;
+                    foreach (var error in context.Errors)
+                    {
+                        context.WriteNumeredPoint(index++, error, ConsoleColor.Red);
+                    }
+                    context.WriteInfo();
+                }
+
+                context.WriteInfo();
+                context.WriteInfo();
+                if (context.UserTodoList.Count > 0)
+                {
+                    context.WriteInfo($"You have the following task to do:");
+                    var index = 1;
+                    foreach (var usertodo in context.UserTodoList)
+                    {
+                        context.WriteNumeredPoint(index++, usertodo, ConsoleColor.Green);
+                    }
+                    context.WriteInfo();
+                }
+            }
             return base.NbErrors;
         }
     }

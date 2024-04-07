@@ -19,7 +19,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
         public override Transcription Transcribe(
             SubtitleGeneratorContext context,
-            FfmpegAudioHelper audioHelper, 
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
@@ -27,12 +26,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var audioSections = context
                 .Wipsub
                 .SubtitlesForcedTiming
-                .Where(f => f.Type == SubtitleForcedTimingType.Voice)
+                .Where(f => f.VoiceText != null)
                 .Select(
                     vad => pcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime))
                 .ToArray();
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
-                audioHelper,
+                context.FfmpegAudioHelper,
                 context.DefaultProgressUpdateHandler,
                 audioSections,
                 transcribedLanguage,

@@ -18,13 +18,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
         public override Transcription Transcribe(
             SubtitleGeneratorContext context,
-            FfmpegAudioHelper audioHelper,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
-                     audioHelper,
+                     context.FfmpegAudioHelper,
                      context.DefaultProgressUpdateHandler,
                      new[] { pcmAudio },
                      transcribedLanguage,

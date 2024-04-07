@@ -21,7 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
             var nbErrors = 0;
             foreach (var fullpath in Directory.GetFiles(
-                Path.GetDirectoryName(context.BaseFilePath) ?? ".",
+                PathExtension.SafeGetDirectoryName(context.BaseFilePath),
                 "*.*"))
             {
                 var filename = Path.GetFileName(fullpath);

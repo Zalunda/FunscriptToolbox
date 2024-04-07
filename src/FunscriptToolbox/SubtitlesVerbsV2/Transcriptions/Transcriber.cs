@@ -28,7 +28,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
         public abstract Transcription Transcribe(
             SubtitleGeneratorContext context,
-            FfmpegAudioHelper ffmpegAudioHelper,
             PcmAudio pcmAudio,
             Language overrideLanguage);
     }

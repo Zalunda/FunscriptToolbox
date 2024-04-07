@@ -3,12 +3,13 @@ using FunscriptToolbox.SubtitlesVerbV2;
 using System;
 using System.Linq;
 using Newtonsoft.Json;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
 {
-    internal class SubtitleOutputSimpleSrt : SubtitleOutput
+    internal class SubtitleOutputMultiTranslationSrt : SubtitleOutput
     {
-        public SubtitleOutputSimpleSrt()
+        public SubtitleOutputMultiTranslationSrt()
         {
             
         }
@@ -20,7 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
         [JsonProperty(Order = 11)]
         public string TranscriptionId { get; set; }
         [JsonProperty(Order = 12)]
-        public string TranslationId { get; set; }
+        public string[] TranslationOrder { get; set; }
 
         public override void CreateOutput(
             SubtitleGeneratorContext context,
@@ -35,19 +36,24 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
                 ?? wipsub.Transcriptions.FirstOrDefault();
             if (transcription == null)
             {
-                context.WriteError("   No transcription found."); // TODO Better message
+                context.WriteError($"Cannot create file '{this.FileSuffixe}' because transcription '{this.TranscriptionId}' doesn't exists.");
                 return;
             }
 
-            var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId)
-                ?? transcription.Translations.FirstOrDefault();
+            var finalTranslationOrder = CreateFinalOrder(this.TranslationOrder, wipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
 
             var subtitleFile = new SubtitleFile();
-            foreach (var item in transcription.Items)
+            foreach (var transcribedText in transcription.Items)
             {
-                var text = item.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation?.Id)?.Text
-                    ?? item.Text;
-                subtitleFile.Subtitles.Add(new Subtitle(item.StartTime, item.EndTime, text));
+                var builder = new StringBuilder();
+                foreach (var translatedText in transcribedText
+                    .TranslatedTexts
+                    .Where(f => finalTranslationOrder.Contains(f.Id))
+                    .OrderBy(f => Array.IndexOf(finalTranslationOrder, f.Id)))
+                {
+                    builder.AppendLine($"   [{translatedText.Id}] {translatedText.Text}");
+                }
+                subtitleFile.Subtitles.Add(new Subtitle(transcribedText.StartTime, transcribedText.EndTime, builder.ToString()));
             }
 
             var filename = context.BaseFilePath + this.FileSuffixe;

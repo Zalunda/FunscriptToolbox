@@ -10,7 +10,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {
     internal class TranslatorDeepLWithFiles : Translator
     {
-        public const string ValidationStringToKnowIfFileTranslated = "THIS    LINE     IS     HERE     TO      DETECT    IF    FILE    HAS BEEN     TRANSLATED";
+        public const string ValidationStringToKnowIfFileTranslated = "THIS  LINE  IS  HERE  TO  DETECT  IF  FILE  HAS  BEEN  TRANSLATED";
 
         public TranslatorDeepLWithFiles()
         {
@@ -26,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             var allTexts = transcription.Items.Select(item => item.Text).ToArray();
 
             foreach (var fullpath in Directory.GetFiles(
-                Path.GetDirectoryName(context.BaseFilePath) ?? ".",
+                PathExtension.SafeGetDirectoryName(context.BaseFilePath),
                 "*.*"))
             {
                 var filename = Path.GetFileName(fullpath);

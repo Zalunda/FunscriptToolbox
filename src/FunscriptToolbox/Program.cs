@@ -184,6 +184,7 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
                         "--sourcelanguage", "ja",
+                        //"--reimporttimings",
                         "*SIVR-207-B*.mp4", // vrkm-809-
                     };
                     break;

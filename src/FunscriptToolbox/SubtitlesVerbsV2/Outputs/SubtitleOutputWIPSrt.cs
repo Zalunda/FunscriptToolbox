@@ -44,7 +44,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
 
             var final = wipsub.SubtitlesForcedTiming?.ToArray()
                 ?? wipsub.Transcriptions.First().Items.Select(
-                    f => new SubtitleForcedTiming(f.StartTime, f.EndTime, SubtitleForcedTimingType.Voice, f.Text)).ToArray();
+                    f => new SubtitleForcedTiming(f.StartTime, f.EndTime, f.Text)).ToArray();
 
             var finalTranscriptionOrder = CreateFinalOrder(this.TranscriptionOrder, wipsub.Transcriptions.Select(f => f.Id));
             var finalTranslationOrder = CreateFinalOrder(this.TranslationOrder, wipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
@@ -88,18 +88,15 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             TimeSpan? previousEnd = null;
             foreach (var subtitleLocation in final)
             {
-                if (subtitleLocation.Type == SubtitleForcedTimingType.Screengrab)
+                if (subtitleLocation.ScreengrabText != null)
                 {
                     wipSubtitleFile.Subtitles.Add(
                         new Subtitle(
                             subtitleLocation.StartTime,
                             subtitleLocation.EndTime,
-                            $"Screengrab: {subtitleLocation.Text}"));
+                            $"Screengrab: {subtitleLocation.ScreengrabText}"));
                 }
-                else if (subtitleLocation.Type == SubtitleForcedTimingType.Context)
-                {
-                }
-                else
+                else if (subtitleLocation.VoiceText != null)
                 {
                     if (previousEnd != null)
                     {
@@ -163,30 +160,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             var filename = context.BaseFilePath + this.FileSuffixe;
             context.SoftDelete(filename);
             wipSubtitleFile.SaveSrt(filename);
-        }
-
-        private string[] CreateFinalOrder(string[] order, IEnumerable<string> allIds)
-        {
-            if (order == null)
-                return allIds.Distinct().ToArray();
-
-            var remainingCandidats = allIds.Distinct().ToList();
-            var finalOrder = new List<string>();
-            foreach (var id in order)
-            {
-                if (id == "*")
-                {
-                    finalOrder.AddRange(remainingCandidats);
-                    break;
-                }
-                else if (remainingCandidats.Contains(id))
-                {
-                    finalOrder.Add(id); 
-                    remainingCandidats.Remove(id);
-                }
-            }
-
-            return finalOrder.ToArray();
         }
 
         private class TimeFrameIntersection

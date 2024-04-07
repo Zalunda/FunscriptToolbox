@@ -181,8 +181,12 @@
     <Compile Include="SubtitlesVerbsV2\Cost.cs" />
     <Compile Include="SubtitlesVerbsV2\Language.cs" />
     <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
+    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
+    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputWav.cs" />
+    <Compile Include="SubtitlesVerbsV2\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorPrivateConfig.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishot.cs" />
+    <Compile Include="SubtitlesVerbsV2\PathExtension.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslationExample.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAI.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLWithFiles.cs" />
@@ -191,7 +195,7 @@
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\CostReportLevel.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutput.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputSimpleSrt.cs" />
+    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputSingleTranslationSrt.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputCostReport.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputWIPSrt.cs" />
     <Compile Include="SubtitlesVerbsV2\SimpleTypeNameSerializationBinder.cs" />
@@ -221,7 +225,6 @@
     <Compile Include="SubtitlesVerbsV2\Transcriptions\PcmAudio.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatedText.cs" />
     <Compile Include="SubtitlesVerbsV2\VerbSubtitlesV2Create.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleForcedTimingType.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleForcedTiming.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleForcedTimingCollection.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorContext.cs" />

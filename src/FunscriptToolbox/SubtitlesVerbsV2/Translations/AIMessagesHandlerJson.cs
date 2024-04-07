@@ -15,14 +15,19 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         { 
         }
 
+
         [JsonProperty(Order = 10)]
         public int MaxItemsInRequest { get; set; } = 20;
         [JsonProperty(Order = 11)]
-        public int OverlapItemsInRequest { get; set; } = 5;
+        public int OverlapItemsInRequest { get; set; } = 0;
         [JsonProperty(Order = 12)]
         public bool IncludeStartTime { get; set; } = true;
-        [JsonProperty(Order = 13)]
+        // [JsonProperty(Order = 13)]
+        // TODO but not easy. => public bool IncludeDuration { get; set; } = true;
+        [JsonProperty(Order = 14)]
         public bool IncludeContext { get; set; } = true;
+        [JsonProperty(Order = 15)]
+        public bool IncludeTalker { get; set; } = true;
 
         public override IEnumerable<RequestForAIService> CreateRequests(
             Transcription transcription,
@@ -56,19 +61,29 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 }
 
                 var userContent = new StringBuilder();
-                if (this.UserPrompt != null)
+                if (this.OtherUserPrompt != null && requestNumber > 1)
                 {
                     userContent.AppendLine(
-                        this.UserPrompt.GetFinalText(
+                        this.OtherUserPrompt.GetFinalText(
                             transcription.Language,
                             translation.Language));
                     userContent.AppendLine();
                 }
+                else if (this.FirstUserPrompt != null)
+                {
+                    userContent.AppendLine(
+                        this.FirstUserPrompt.GetFinalText(
+                            transcription.Language,
+                            translation.Language));
+                    userContent.AppendLine();
+                }
+
                 userContent.AppendLine(
                     JsonConvert.SerializeObject(
                         itemsForRequest.Select(
                             f => new {
                                 Context = this.IncludeContext ? f.Context : null,
+                                Talker = this.IncludeTalker ? f.Talker : null,
                                 StartTime = this.IncludeStartTime ? f.StartTime : null,
                                 f.Original
                             }),
@@ -138,7 +153,14 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             {
                 // Remove everything before the first '['
                 var indexOfFirstBracket = json.IndexOf('[');
-                if (indexOfFirstBracket > 0)
+                if (indexOfFirstBracket < 0)
+                {
+                    var indexOfFirstCurlyBrace = json.IndexOf('{');
+                    json = (indexOfFirstCurlyBrace < 0)
+                        ? "[" + json.Substring(indexOfFirstCurlyBrace)
+                        : "[" + json;
+                }
+                else
                 {
                     json = json.Substring(indexOfFirstBracket);
                 }

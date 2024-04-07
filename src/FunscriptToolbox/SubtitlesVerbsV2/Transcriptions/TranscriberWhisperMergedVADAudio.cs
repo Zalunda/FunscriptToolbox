@@ -26,7 +26,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 
         public override Transcription Transcribe(
             SubtitleGeneratorContext context,
-            FfmpegAudioHelper audioHelper,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
@@ -61,7 +60,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var transcribedTexts = new List<TranscribedText>();
             TranscriptionCost[] costs;
             foreach (var original in this.TranscriberTool.TranscribeAudio(
-                                audioHelper,
+                                context.FfmpegAudioHelper,
                                 context.DefaultProgressUpdateHandler,
                                 new[] { mergedPcm },
                                 transcribedLanguage,

@@ -13,7 +13,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         [JsonProperty(Order = 1)]
         public AIPrompt SystemPrompt { get; set; } = null;
         [JsonProperty(Order = 2)]
-        public AIPrompt UserPrompt { get; set; } = null;
+        public AIPrompt FirstUserPrompt { get; set; } = null;
+        [JsonProperty(Order = 3)]
+        public AIPrompt OtherUserPrompt { get; set; } = null;
 
         public ItemForAICollection GetAllItems(
             Transcription transcription,
@@ -27,7 +29,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 {
                     var previousContext = currentContext;
                     currentContext = subtitlesForcedTiming.GetContextAt(item.StartTime);
-                    return new ItemForAI(item, currentContext == previousContext ? null : currentContext);
+                    return new ItemForAI(
+                        item, 
+                        currentContext == previousContext ? null : currentContext,
+                        subtitlesForcedTiming?.GetTalkerAt(item.StartTime, item.EndTime));
                 }));
         }
 
@@ -50,18 +55,20 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 
             [JsonProperty(Order = 1, NullValueHandling = NullValueHandling.Ignore)]
             public string Context { get; set; }
-
-            [JsonProperty(Order = 2)]
-            public string StartTime { get; set; }
+            [JsonProperty(Order = 2, NullValueHandling = NullValueHandling.Ignore)]
+            public string Talker { get; set; }
             [JsonProperty(Order = 3)]
+            public string StartTime { get; set; }
+            [JsonProperty(Order = 4)]
             public string Original { get; set; }
 
-            public ItemForAI(TranscribedText tag, string context)
+            public ItemForAI(TranscribedText tag, string context, string talker)
             {
                 this.Tag = tag;
                 this.StartTime = tag.StartTime.TotalSeconds.ToString("F1");
                 this.Original = tag.Text;
                 this.Context = context;
+                this.Talker = talker;
             }
         }
 

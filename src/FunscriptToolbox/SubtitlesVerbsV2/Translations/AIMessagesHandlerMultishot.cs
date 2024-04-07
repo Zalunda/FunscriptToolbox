@@ -22,12 +22,16 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         [JsonProperty(Order = 12)]
         public bool IncludeContext { get; set; } = true;
         [JsonProperty(Order = 13)]
-        public string ContextTextPattern { get; set; } = "Context{{<text>}}";
+        public bool IncludeTalker { get; set; } = true;
         [JsonProperty(Order = 14)]
-        public string OriginalTextPattern { get; set; } = "Original{{<text>}}";
+        public string ContextTextFormat { get; set; } = "Context{{<text>}}";
         [JsonProperty(Order = 15)]
-        public string TranslationTextPattern { get; set; } = "Translation{{<text>}}";
+        public string TalkerTextFormat { get; set; } = "Talker{{<text>}}";
         [JsonProperty(Order = 16)]
+        public string OriginalTextFormat { get; set; } = "Original{{<text>}}";
+        [JsonProperty(Order = 17)]
+        public string TranslationTextFormat { get; set; } = "Translation{{<text>}}";
+        [JsonProperty(Order = 18)]
         public string TranslationTextExtractionRegex { get; set; } = "{+(?<text>[^}]*)";
 
         public override IEnumerable<RequestForAIService> CreateRequests(
@@ -74,8 +78,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         transcription.Language, 
                         this.MaxPreviousShot - itemsForThisRequest.Length))
                     {
-                        messages.Add(new { role = "user", content = this.OriginalTextPattern.Replace("<text>", example.Original) });
-                        messages.Add(new { role = "assistant", content = this.TranslationTextPattern.Replace("<text>", example.Translation) });
+                        messages.Add(new { role = "user", content = this.OriginalTextFormat.Replace("<text>", example.Original) });
+                        messages.Add(new { role = "assistant", content = this.TranslationTextFormat.Replace("<text>", example.Translation) });
                     }
                 }
 
@@ -92,16 +96,20 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     }
                     if (IncludeContext && currentContext != null)
                     {
-                        userContent.AppendLine(this.ContextTextPattern.Replace("<text>", currentContext));
+                        userContent.AppendLine(this.ContextTextFormat.Replace("<text>", currentContext));
                     }
-                    userContent.AppendLine(this.OriginalTextPattern.Replace("<text>", item.Original));
+                    if (IncludeTalker && item.Talker != null)
+                    {
+                        userContent.AppendLine(this.TalkerTextFormat.Replace("<text>", item.Talker));
+                    }
+                    userContent.AppendLine(this.OriginalTextFormat.Replace("<text>", item.Original));
                     messages.Add(new { role = "user", content = userContent.ToString() });
 
                     var itemTranslation = item.Tag.TranslatedTexts
                         .FirstOrDefault(t => t.Id == translation.Id)?.Text;
                     if (itemTranslation != null)
                     {
-                        messages.Add(new { role = "assistant", content = this.TranslationTextPattern.Replace("<text>", itemTranslation) });
+                        messages.Add(new { role = "assistant", content = this.TranslationTextFormat.Replace("<text>", itemTranslation) });
                     }
                 }
 

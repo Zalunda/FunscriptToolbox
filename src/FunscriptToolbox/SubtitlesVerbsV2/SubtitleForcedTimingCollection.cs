@@ -15,7 +15,20 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         internal string GetContextAt(TimeSpan startTime)
         {
             return this
-                .LastOrDefault(f => f.StartTime < startTime && f.Type == SubtitleForcedTimingType.Context)?.Text;
+                .LastOrDefault(f => f.StartTime < startTime && f.ContextText != null)?.ContextText;
+        }
+
+        internal string GetTalkerAt(TimeSpan startTime, TimeSpan endTime)
+        {
+            return this
+                .Select(sft => {
+                    var percentage = (int)(100 * (Math.Min(endTime.TotalMilliseconds, sft.EndTime.TotalMilliseconds)
+                        - Math.Max(startTime.TotalMilliseconds, sft.StartTime.TotalMilliseconds)) / sft.Duration.TotalMilliseconds);
+                    return new { percentage, sft }; 
+                })
+                .OrderByDescending(item => item.percentage)
+                .FirstOrDefault()
+                ?.sft.Talker;
         }
     }
 }
