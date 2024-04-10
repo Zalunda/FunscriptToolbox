@@ -1,6 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbV2;
+﻿using Newtonsoft.Json;
 using System;
-using Newtonsoft.Json;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
 {

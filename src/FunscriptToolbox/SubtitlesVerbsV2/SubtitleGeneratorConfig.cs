@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbsV2.Translations;
 using Newtonsoft.Json;
@@ -11,7 +12,7 @@ using System.Dynamic;
 using System.IO;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     internal class SubtitleGeneratorConfig
     {
@@ -62,8 +63,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         [JsonProperty(Order = 2, Required = Required.Always)]
         public SubtitleForcedTimingParser SubtitleForcedTimingsParser { get; set; }
 
-        [JsonProperty(Order = 3)]
-        public string FfmpegAudioExtractionParameters { get; set; }
+        [JsonProperty(Order = 3, Required = Required.Always)]
+        public AudioExtractor AudioExtractor { get; set; }
 
         [JsonProperty(Order = 4)]
         public object[] SharedObjects { get; set; }
@@ -325,12 +326,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                         TranscriptionOrder = new [] { "singlevad", "mergedvad", "*" },
                         TranslationOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
                         FileSuffixe = ".wip.srt"
-                    },
-                    new SubtitleOutputWav()
-                    {
-                        Enabled = false,
-                        FileSuffixe = ".wav"
-                    },
+                    }
                 }
             };
 

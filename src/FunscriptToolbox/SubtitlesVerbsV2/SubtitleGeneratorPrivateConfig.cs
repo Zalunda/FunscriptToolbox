@@ -1,16 +1,12 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
-using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbsV2.Translations;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public class SubtitleGeneratorPrivateConfig
     {

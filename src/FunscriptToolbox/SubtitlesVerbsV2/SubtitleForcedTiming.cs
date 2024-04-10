@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public class SubtitleForcedTiming
     {
@@ -11,6 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public string Talker { get; }
         public string ContextText { get; }
         public string ScreengrabText { get; }
+        public string AudioNormalizationParameters { get; }
 
         public SubtitleForcedTiming(
             TimeSpan startTime, 
@@ -18,7 +19,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             string voiceText,
             string talker = null,
             string contextText = null,
-            string screengrabText = null)
+            string screengrabText = null,
+            string audioNormalizationConfig = null)
         {
             StartTime = startTime;
             EndTime = endTime;
@@ -26,6 +28,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
             Talker = talker;
             ContextText = contextText;
             ScreengrabText = screengrabText;
+            AudioNormalizationParameters = audioNormalizationConfig;
         }
     }
 }

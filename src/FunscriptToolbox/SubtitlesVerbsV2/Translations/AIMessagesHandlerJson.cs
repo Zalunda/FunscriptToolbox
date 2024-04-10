@@ -1,11 +1,11 @@
-﻿using Newtonsoft.Json;
-using System.Text;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+using Newtonsoft.Json;
 using System;
-using System.Linq;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
-using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {

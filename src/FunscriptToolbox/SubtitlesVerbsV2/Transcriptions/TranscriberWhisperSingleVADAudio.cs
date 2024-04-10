@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbV2;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+using System;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
@@ -8,6 +9,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         public TranscriberWhisperSingleVADAudio()
         {
         }
+
+        public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
+        public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
+
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -28,7 +33,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                 .SubtitlesForcedTiming
                 .Where(f => f.VoiceText != null)
                 .Select(
-                    vad => pcmAudio.ExtractSnippet(vad.StartTime, vad.EndTime))
+                    vad => pcmAudio.ExtractSnippet(vad.StartTime - this.ExpandStart, vad.EndTime + this.ExpandEnd))
                 .ToArray();
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                 context,

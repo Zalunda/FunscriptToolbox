@@ -2,13 +2,14 @@
 using FunscriptToolbox.AudioSyncVerbs;
 using FunscriptToolbox.MotionVectorsVerbs;
 using FunscriptToolbox.SubtitlesVerb;
-using FunscriptToolbox.SubtitlesVerbV2;
+using FunscriptToolbox.SubtitlesVerbsV2;
 using log4net;
 using log4net.Appender;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FunscriptToolbox
 {
@@ -184,8 +185,8 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
                         "--sourcelanguage", "ja",
-                        //"--reimporttimings",
-                        "*SIVR-207-B*.mp4", // vrkm-809-
+                        "--reimporttimings",
+                        "*3DSVR-0223-AAA.mp4", // vrkm-809-
                     };
                     break;
             }
@@ -193,6 +194,7 @@ namespace FunscriptToolbox
             try
             {
                 UpdateLog4NetFileNameIfAnotherProcessIsRunning();
+                Console.OutputEncoding = Encoding.UTF8;
 
                 rs_log.Info("Application started with arguments:");
                 foreach (var arg in args)

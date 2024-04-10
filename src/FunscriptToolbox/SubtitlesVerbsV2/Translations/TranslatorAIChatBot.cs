@@ -1,5 +1,4 @@
 ﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbV2;
 using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations

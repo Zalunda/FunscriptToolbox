@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbV2;
-using System;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {

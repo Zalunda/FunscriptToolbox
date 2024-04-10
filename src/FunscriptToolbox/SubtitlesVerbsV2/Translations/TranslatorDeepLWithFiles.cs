@@ -1,6 +1,4 @@
 ﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbV2;
-using System;
 using System.IO;
 using System.Linq;
 using System.Text;

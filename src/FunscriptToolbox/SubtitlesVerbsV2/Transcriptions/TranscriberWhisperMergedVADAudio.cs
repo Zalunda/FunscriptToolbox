@@ -1,9 +1,11 @@
 ﻿using AudioSynchronization;
-using FunscriptToolbox.SubtitlesVerbV2;
+using FunscriptToolbox.Core;
+using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System;
-using Newtonsoft.Json;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
 {
@@ -32,27 +34,58 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             var transcribedLanguage = overrideLanguage ?? this.Language;
 
             var silenceGapSamples = pcmAudio.GetSilenceAudio(this.GapLength);
+            var halfSilenceGapLength = TimeSpan.FromMilliseconds(silenceGapSamples.Duration.TotalMilliseconds / 2);
 
             var currentDuration = TimeSpan.Zero;
             var audioOffsets = new List<AudioOffset>();
             var mergedAudio = new MemoryStream();
-            foreach (var forcedLocation in context.Wipsub.SubtitlesForcedTiming)
+
+            var forcedTimings = context.Wipsub.SubtitlesForcedTiming;
+
+            for (int i = 0; i < forcedTimings.Count; i++)
             {
+                var gapLengthBefore = i == 0 ? TimeSpan.Zero : forcedTimings[i].StartTime - forcedTimings[i - 1].EndTime;
+
+                var startDuration = currentDuration;
+                if (gapLengthBefore > this.GapLength)
+                {
+                    mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
+                    currentDuration += halfSilenceGapLength;
+                }
+                else
+                {
+                    // Do nothing
+                }
+
                 var partAudio = pcmAudio.ExtractSnippet(
-                    forcedLocation.StartTime, 
-                    forcedLocation.EndTime);
+                    forcedTimings[i].StartTime,
+                    forcedTimings[i].EndTime);
+                mergedAudio.Write(partAudio.Data, 0, partAudio.Data.Length);
+                currentDuration += partAudio.Duration;
+
+                if (i + 1 < forcedTimings.Count)
+                {
+                    var gapLengthAfter = forcedTimings[i + 1].StartTime - forcedTimings[i].EndTime;
+                    if (gapLengthAfter > this.GapLength)
+                    {
+                        mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
+                        currentDuration += halfSilenceGapLength;
+                    }
+                    else if (gapLengthAfter > TimeSpan.Zero)
+                    {
+                        var audioInGap = pcmAudio.ExtractSnippet(
+                            forcedTimings[i].EndTime,
+                            forcedTimings[i + 1].StartTime);
+                        mergedAudio.Write(audioInGap.Data, 0, audioInGap.Data.Length);
+                        currentDuration += audioInGap.Duration;
+                    }
+                }
 
                 audioOffsets.Add(
                     new AudioOffset(
+                        startDuration,
                         currentDuration,
-                        currentDuration + partAudio.Duration + silenceGapSamples.Duration,
-                        forcedLocation.StartTime - currentDuration));
-
-                mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
-                mergedAudio.Write(partAudio.Data, 0, partAudio.Data.Length);
-                mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
-                currentDuration += partAudio.Duration;
-                currentDuration += silenceGapSamples.Duration;
+                        forcedTimings[i].StartTime - startDuration));
             }
 
             var offsetCollection = new AudioOffsetCollection(audioOffsets);
@@ -81,6 +114,13 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                         original.NoSpeechProbability,
                         original.Words));
 
+            }
+
+            if (context.IsVerbose)
+            {
+                var adjustedSrt = new SubtitleFile();
+                adjustedSrt.Subtitles.AddRange(transcribedTexts.Select(tt => new Subtitle(tt.StartTime, tt.EndTime, tt.Text)));
+                adjustedSrt.SaveSrt(context.GetPotentialVerboseFilePath(DateTime.Now, $"{this.TranscriptionId}-adjusted.srt"));                     
             }
 
             return new Transcription(

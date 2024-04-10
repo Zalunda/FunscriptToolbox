@@ -1,9 +1,10 @@
-﻿using System;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public class SubtitleForcedTimingCollection : ReadOnlyCollection<SubtitleForcedTiming>
     {
@@ -29,6 +30,15 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                 .OrderByDescending(item => item.percentage)
                 .FirstOrDefault()
                 ?.sft.Talker;
+        }
+
+        internal AudioNormalizationRule[] GetAudioNormalizationRules()
+        {
+            return this
+                .Items
+                .Where(item => item.AudioNormalizationParameters != null)
+                .Select(item => new AudioNormalizationRule(item.StartTime, item.AudioNormalizationParameters))
+                .ToArray();
         }
     }
 }

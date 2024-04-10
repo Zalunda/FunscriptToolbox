@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
+namespace FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction
 {
     public class FfmpegAudioHelper
     {
@@ -15,9 +15,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         }
 
         public PcmAudio ExtractPcmAudio(
-            string inputPath, 
-            int samplingRate = SamplingRate, 
-            string extractionParameters = null)
+            string inputPath,
+            string extractionParameters = null, 
+            int samplingRate = SamplingRate)
         {
             if (!File.Exists(inputPath))
             {
@@ -58,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                 }
                 FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le {ffmpegParameters}")
+                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -ar 16000 {ffmpegParameters}")
                     .SetOutput(outputWavFilepath)
                     .Start()
                     .Wait();
@@ -66,6 +66,34 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             finally
             {
                 File.Delete(tempPcmFile);
+            }
+        }
+
+        internal PcmAudio TransformPcmAudio(
+            PcmAudio pcmAudio, 
+            string ffmpegParameters)
+        {
+            var tempPcmSourceFile = Path.GetTempFileName() + ".pcm";
+            var tempPcmDestinationFile = Path.GetTempFileName() + ".pcm";
+            try
+            {
+                using (var writer = File.Create(tempPcmSourceFile))
+                {
+                    writer.Write(pcmAudio.Data, 0, pcmAudio.Data.Length);
+                }
+                FFmpeg.Conversions.New()
+                    .SetOverwriteOutput(true)
+                    .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmSourceFile}\" {ffmpegParameters} -f s16le -acodec pcm_s16le -ar {pcmAudio.SamplingRate} -ac 1")
+                    .SetOutput(tempPcmDestinationFile)
+                    .Start()
+                    .Wait();
+                return new PcmAudio(pcmAudio.SamplingRate, File.ReadAllBytes(tempPcmDestinationFile));
+
+            }
+            finally
+            {
+                File.Delete(tempPcmSourceFile);
+                File.Delete(tempPcmDestinationFile);
             }
         }
     }

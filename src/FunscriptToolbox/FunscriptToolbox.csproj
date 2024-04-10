@@ -178,11 +178,12 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="SubtitlesVerbsV2\AudioExtraction\AudioExtractor.cs" />
+    <Compile Include="SubtitlesVerbsV2\AudioExtraction\AudioNormalizationRule.cs" />
     <Compile Include="SubtitlesVerbsV2\Cost.cs" />
     <Compile Include="SubtitlesVerbsV2\Language.cs" />
     <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputWav.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorPrivateConfig.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishot.cs" />
@@ -202,7 +203,7 @@
     <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbsV2\Transcriptions\Transcriber.cs" />
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriptionCost.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\FfmpegAudioHelper.cs" />
+    <Compile Include="SubtitlesVerbsV2\AudioExtraction\FfmpegAudioHelper.cs" />
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberTool.cs" />
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisper.cs" />
     <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisperSingleVADAudio.cs" />
@@ -222,7 +223,7 @@
     <Compile Include="SubtitlesVerbsV2\Translations\Translation.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslationCost.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\Translator.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\PcmAudio.cs" />
+    <Compile Include="SubtitlesVerbsV2\AudioExtraction\PcmAudio.cs" />
     <Compile Include="SubtitlesVerbsV2\Translations\TranslatedText.cs" />
     <Compile Include="SubtitlesVerbsV2\VerbSubtitlesV2Create.cs" />
     <Compile Include="SubtitlesVerbsV2\SubtitleForcedTiming.cs" />

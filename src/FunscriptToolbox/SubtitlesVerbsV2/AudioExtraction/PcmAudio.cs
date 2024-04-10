@@ -1,6 +1,10 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
+namespace FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction
 {
     public class PcmAudio
     {
@@ -11,16 +15,33 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         public TimeSpan Offset { get; }
         public TimeSpan Duration => IndexToTimeSpan(Data.Length);
 
-        public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null)
+        public AudioNormalizationRule[] AudioNormalizationRules { get; }
+
+        [JsonConstructor]
+        public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null, IEnumerable<AudioNormalizationRule> audioNormalizationRules = null)
         {
             SamplingRate = samplingRate;
             Data = data;
             Offset = offset ?? TimeSpan.Zero;
+            AudioNormalizationRules = audioNormalizationRules == null ? null : audioNormalizationRules.ToArray();
+        }
+
+        public PcmAudio(IEnumerable<PcmAudio> parts, IEnumerable<AudioNormalizationRule> audioNormalizationRules)
+        {
+            SamplingRate = parts.First().SamplingRate;
+            var dataBuilder = new MemoryStream();
+            foreach (var part in parts)
+            { 
+                dataBuilder.Write(part.Data, 0, part.Data.Length);
+            }
+            Data = dataBuilder.ToArray();
+            Offset = TimeSpan.Zero;
+            AudioNormalizationRules = audioNormalizationRules.ToArray(); ;
         }
 
         public PcmAudio ExtractSnippet(TimeSpan startTime, TimeSpan endTime)
         {
-            var startIndex = TimeSpanToIndex(startTime);
+            var startIndex = Math.Max(0, TimeSpanToIndex(startTime));
             var endIndex = Math.Min(TimeSpanToIndex(endTime), Data.Length);
             var durationLength = endIndex - startIndex;
 

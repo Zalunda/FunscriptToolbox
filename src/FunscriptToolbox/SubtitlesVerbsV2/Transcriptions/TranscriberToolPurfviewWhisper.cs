@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbV2;
+using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -80,7 +80,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                         var id = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
                         var tempFile = context.GetPotentialVerboseFilePath(processStartTime, filesPrefix + $"{id}.wav");
                         tempFiles.Add(tempFile);
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, tempFile, this.FfmpegWavParameters);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, tempFile);
                         totalDuration += audio.Duration;
                     }
 
@@ -122,7 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                         progressUpdateCallback(
                             ToolName,
                             audios.Length == 1
-                            ? "full"
+                            ? "all"
                             : $"{currentFileIndex}/{audios.Length}",
                             e.Data);
                     }
@@ -192,18 +192,39 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                                         var currentDuration = word.EndTime - currentStartTime.Value;
                                         if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > this.RedoBlockLargerThen)
                                         {
-                                            var redoId = $"REDO-{(int)currentStartTime.Value.TotalSeconds}-{(int)word.EndTime.TotalSeconds}";
-                                            texts.AddRange(
-                                                TranscribeAudioInternal(
+                                            var redoId = $"REDO-{(int)currentStartTime.Value.TotalSeconds}-{(int)currentDuration.TotalSeconds}";
+                                            var redoResult = TranscribeAudioInternal(
                                                     context,
                                                     (toolName, toolAction, message) => progressUpdateCallback(ToolName, redoId, message),
-                                                    new[] { 
+                                                    new[] {
                                                         pcmAudio.ExtractSnippet(
                                                             currentStartTime.Value,
                                                             word.EndTime) },
                                                     sourceLanguage,
                                                     filesPrefix + redoId + "-",
-                                                    costs));
+                                                    costs);
+                                            texts.AddRange(redoResult);
+
+                                            if (redoResult.Length == 0)
+                                            {
+                                                texts.Add(
+                                                   new TranscribedText(
+                                                       currentStartTime.Value,
+                                                       word.EndTime,
+                                                       currentText,
+                                                       (double)segment.no_speech_prob,
+                                                       currentWords));
+                                            }
+                                            else
+                                            {
+                                                context.WriteVerbose("   Before");
+                                                context.WriteVerbose($"      {currentStartTime} => {word.EndTime}: {currentText}");
+                                                context.WriteVerbose("   After");
+                                                foreach (var x in redoResult)
+                                                {
+                                                    context.WriteVerbose($"      {x.StartTime} => {x.EndTime}: {x.Text}");
+                                                }
+                                            }
                                         }
                                         else
                                         {

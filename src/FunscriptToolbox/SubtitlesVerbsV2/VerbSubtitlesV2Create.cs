@@ -1,5 +1,5 @@
 ﻿using CommandLine;
-using FunscriptToolbox.SubtitlesVerbsV2;
+using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbsV2.Translations;
@@ -12,7 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     [JsonObject(IsReference = false)]
     class VerbSubtitlesV2Create : Verb
@@ -110,29 +110,8 @@ namespace FunscriptToolbox.SubtitlesVerbV2
 
                 try
                 {
-                    // 1. Extracting PcmAudio, if not already done.
-                    if (wipsub.PcmAudio != null)
-                    {
-                        context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
-                        context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
-                        context.WriteInfoAlreadyDone();
-                    }
-                    else
-                    {
-                        context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputMp4Fullpath)}'...");
 
-                        var watchPcmAudio = Stopwatch.StartNew();
-                        wipsub.PcmAudio = context.FfmpegAudioHelper.ExtractPcmAudio(
-                            inputMp4Fullpath,
-                            extractionParameters: config.FfmpegAudioExtractionParameters);
-                        wipsub.Save();
-
-                        context.WriteInfo($"Finished in {watchPcmAudio.Elapsed}:");
-                        context.WriteInfo($"    Audio Duration = {wipsub.PcmAudio.Duration}");
-                        context.WriteInfo();
-                    }
-
-                    // 2. Importing Subtitle Forced Timings, if not already done.
+                    // 1. Importing Subtitle Forced Timings, if not already done.
                     var forcedTimingPath = Path.ChangeExtension(
                         inputMp4Fullpath,
                         config.SubtitleForcedTimingsSuffix);
@@ -162,6 +141,39 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                     else
                     {
                         // Ignore subtitle forced timing since it's not used.
+                    }
+
+                    // 2. Extracting PcmAudio, if not already done.
+                    if (wipsub.PcmAudio != null)
+                    {
+                        // TODO Maybed? 
+                        // if  (wipsub.PcmAudio.AudioNormalizationRules
+                        //    .SequenceEqual(
+                        //    wipsub.SubtitlesForcedTiming.GetAudioNormalizationRules()))
+                        {
+                            context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
+                            context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
+                            context.WriteInfoAlreadyDone();
+                        }
+                        // else
+                        // {
+                            // context.WriteInfoAlreadyDone($"Normalization rules changed. Redoing audio extraction.");
+                            // cleanup files not processed yet
+                            // rename old id for transcription already done
+                            // redo extraction
+                        //}
+                    }
+                    else
+                    {
+                        context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputMp4Fullpath)}'...");
+
+                        var watchPcmAudio = Stopwatch.StartNew();
+                        wipsub.PcmAudio = config.AudioExtractor.ExtractPcmAudio(context, inputMp4Fullpath);
+                        wipsub.Save();
+                   
+                        context.WriteInfo($"Finished in {watchPcmAudio.Elapsed}:");
+                        context.WriteInfo($"    Audio Duration = {wipsub.PcmAudio.Duration}");
+                        context.WriteInfo();
                     }
 
                     // 3. Transcribing the audio file, if not already done.

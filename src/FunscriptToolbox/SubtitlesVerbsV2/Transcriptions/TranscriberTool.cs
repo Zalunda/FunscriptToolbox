@@ -1,4 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbV2;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using Newtonsoft.Json;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
@@ -9,8 +9,6 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         public string ApplicationFullPath { get; set; }
         [JsonProperty(Order = 2)]
         public string AdditionalParameters { get; set; } = "";
-        [JsonProperty(Order = 3)]
-        public string FfmpegWavParameters { get; set; } = "";
 
         public abstract TranscribedText[] TranscribeAudio(
             SubtitleGeneratorContext context,

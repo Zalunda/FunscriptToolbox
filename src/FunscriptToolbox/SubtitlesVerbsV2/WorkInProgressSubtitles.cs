@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -7,7 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     [JsonObject(IsReference = false)]
     public class WorkInProgressSubtitles

@@ -1,4 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using log4net;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public delegate void ProgressUpdateDelegate(string toolName, string toolAction, string message);
 

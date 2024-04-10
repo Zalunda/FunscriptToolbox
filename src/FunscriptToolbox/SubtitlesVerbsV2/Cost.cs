@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public abstract class Cost
     {

@@ -1,9 +1,8 @@
 ﻿using CommandLine;
 using FunscriptToolbox.InstallationFiles;
 using FunscriptToolbox.Properties;
-using FunscriptToolbox.SubtitlesVerbV2;
+using FunscriptToolbox.SubtitlesVerbsV2;
 using log4net;
-using log4net.Util;
 using System;
 using System.IO;
 using System.Reflection;

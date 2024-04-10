@@ -1,9 +1,8 @@
 ﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbV2;
-using System.IO;
-using System.Text.RegularExpressions;
-using System.Text;
 using Newtonsoft.Json;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {

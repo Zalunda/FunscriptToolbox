@@ -2,7 +2,7 @@
 using System;
 using System.Globalization;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     [JsonConverter(typeof(LanguageConverter))]
     public class Language

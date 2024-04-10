@@ -1,5 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Translations;
-using FunscriptToolbox.SubtitlesVerbV2;
+﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbsV2.Translations;
 using Newtonsoft.Json;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions

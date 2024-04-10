@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbV2;
-using System.Linq;
+﻿using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
 {

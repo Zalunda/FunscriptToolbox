@@ -1,11 +1,10 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbV2;
-using System.Collections.Generic;
-using System.Text;
-using System;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
-using System.Linq;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
 {

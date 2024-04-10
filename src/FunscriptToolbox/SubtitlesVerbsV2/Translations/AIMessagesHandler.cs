@@ -1,9 +1,8 @@
 ﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using Newtonsoft.Json;
-using System.Linq;
-using FunscriptToolbox.SubtitlesVerbV2;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbsV2.Translations

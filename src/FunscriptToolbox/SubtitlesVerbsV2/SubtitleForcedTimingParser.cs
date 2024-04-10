@@ -1,9 +1,9 @@
-﻿using System.Text.RegularExpressions;
+﻿using FunscriptToolbox.Core;
 using System;
-using FunscriptToolbox.Core;
 using System.Linq;
+using System.Text.RegularExpressions;
 
-namespace FunscriptToolbox.SubtitlesVerbV2
+namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public class SubtitleForcedTimingParser
     {
@@ -11,6 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbV2
         public string PatternContext { get; set; } = "{Context:(?<text>[^}]*)}";
         public string PatternScreengrab { get; set; } = "{Screengrab:(?<text>[^}]*)}";
         public string PatternTalker { get; set; } = "{Talker:(?<text>[^}]*)}";
+        public string PatternAudioNormalization { get; set; } = "{NormAudio(:)?(?<text>[^}]*)}";
 
         public SubtitleForcedTimingCollection ParseFromFile(string filepath)
         {
@@ -24,12 +25,15 @@ namespace FunscriptToolbox.SubtitlesVerbV2
                         var contextText = GetMatchedText(subtitle.Text, this.PatternContext);
                         var screengrabText = GetMatchedText(subtitle.Text, this.PatternScreengrab);
                         var talker = GetMatchedText(subtitle.Text, this.PatternTalker);
+                        var audioNormalization = GetMatchedText(subtitle.Text, this.PatternAudioNormalization);
                         return new SubtitleForcedTiming(
                                 subtitle.StartTime,
                                 subtitle.EndTime,
                                 noVoice || screengrabText != null ? null : subtitle.Text,
                                 talker,
-                                contextText);
+                                contextText, 
+                                screengrabText,
+                                audioNormalization);
                     }));
         }
 
