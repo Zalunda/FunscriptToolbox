@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using Newtonsoft.Json;
 using System.IO;
 using System.Text;
@@ -20,13 +21,13 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
         {
             var nbErrors = 0;
             foreach (var fullpath in Directory.GetFiles(
-                PathExtension.SafeGetDirectoryName(context.BaseFilePath),
+                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
                 "*.*"))
             {
                 var filename = Path.GetFileName(fullpath);
                 if (Regex.IsMatch(
                     filename,
-                    $"^" + Regex.Escape($"{Path.GetFileName(context.BaseFilePath)}.{transcription.Id}-{translation.Id}") + $"{patternSuffixe}$",
+                    $"^" + Regex.Escape($"{Path.GetFileName(context.CurrentBaseFilePath)}.TODO-{transcription.Id}-{translation.Id}") + $"{patternSuffixe}$",
                     RegexOptions.IgnoreCase))
                 {
                     var response = File.ReadAllText(fullpath);
@@ -42,7 +43,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                         context.WriteInfo($"            Nb translations added: {nbTranslationsAdded}");
                         if (nbTranslationsAdded > 0)
                         {
-                            context.Wipsub.Save();
+                            context.CurrentWipsub.Save();
                         }
                     }
                     catch (AIMessagesHandlerExpection ex)

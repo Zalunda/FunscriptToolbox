@@ -16,14 +16,14 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         }
 
         [JsonProperty(Order = 20)]
-        public TimeSpan GapLength { get; set; } = TimeSpan.FromSeconds(0.3);
+        public TimeSpan SilentGapDuration { get; set; } = TimeSpan.FromSeconds(0.3);
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
             reason = "SubtitlesForcedTiming not imported yet";
-            return context.Wipsub.SubtitlesForcedTiming != null;
+            return context.CurrentWipsub.SubtitlesForcedTiming != null;
         }
 
         public override Transcription Transcribe(
@@ -33,21 +33,21 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
 
-            var silenceGapSamples = pcmAudio.GetSilenceAudio(this.GapLength);
+            var silenceGapSamples = pcmAudio.GetSilenceAudio(this.SilentGapDuration);
             var halfSilenceGapLength = TimeSpan.FromMilliseconds(silenceGapSamples.Duration.TotalMilliseconds / 2);
 
             var currentDuration = TimeSpan.Zero;
             var audioOffsets = new List<AudioOffset>();
             var mergedAudio = new MemoryStream();
 
-            var forcedTimings = context.Wipsub.SubtitlesForcedTiming;
+            var forcedTimings = context.CurrentWipsub.SubtitlesForcedTiming;
 
             for (int i = 0; i < forcedTimings.Count; i++)
             {
                 var gapLengthBefore = i == 0 ? TimeSpan.Zero : forcedTimings[i].StartTime - forcedTimings[i - 1].EndTime;
 
                 var startDuration = currentDuration;
-                if (gapLengthBefore > this.GapLength)
+                if (gapLengthBefore > this.SilentGapDuration)
                 {
                     mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
                     currentDuration += halfSilenceGapLength;
@@ -66,7 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                 if (i + 1 < forcedTimings.Count)
                 {
                     var gapLengthAfter = forcedTimings[i + 1].StartTime - forcedTimings[i].EndTime;
-                    if (gapLengthAfter > this.GapLength)
+                    if (gapLengthAfter > this.SilentGapDuration)
                     {
                         mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
                         currentDuration += halfSilenceGapLength;

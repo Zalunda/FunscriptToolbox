@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -24,13 +25,13 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             var allTexts = transcription.Items.Select(item => item.Text).ToArray();
 
             foreach (var fullpath in Directory.GetFiles(
-                PathExtension.SafeGetDirectoryName(context.BaseFilePath),
+                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
                 "*.*"))
             {
                 var filename = Path.GetFileName(fullpath);
                 var match = Regex.Match(
                     filename, 
-                    Regex.Escape($"{transcription.Id}-{translation.Id}-DEEPL-") + $"(?<startIndex>\\d+)-(?<nbItems>\\d+).txt", 
+                    Regex.Escape($"TODO-{transcription.Id}-{translation.Id}-DEEPL-") + $"(?<startIndex>\\d+)-(?<nbItems>\\d+).txt", 
                     RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
@@ -86,9 +87,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     else
                     {
                         var nbItems = index - startIndexInFile;
-                        var filepath = $"{context.BaseFilePath}.{transcription.Id}-{translation.Id}-DEEPL-{startIndexInFile + 1:D04}-{nbItems:D04}.txt";
+                        var filepath = $"{context.CurrentBaseFilePath}.TODO-{transcription.Id}-{translation.Id}-{startIndexInFile + 1:D04}-{nbItems:D04}.txt";
                         context.WriteInfo($"        Creating file '{Path.GetFileName(filepath)}' (contains {nbItems} texts)...");
                         fileContent.AppendLine(ValidationStringToKnowIfFileTranslated);
+                        context.SoftDelete(filepath);
                         File.WriteAllText(filepath, fileContent.ToString());
 
                         fileContent.Clear();

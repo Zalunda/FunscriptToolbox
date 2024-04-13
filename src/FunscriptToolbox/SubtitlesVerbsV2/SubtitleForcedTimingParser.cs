@@ -7,6 +7,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
 {
     public class SubtitleForcedTimingParser
     {
+        public string FileSuffix { get; set; } = ".perfect-vad.srt";
+
         public string PatternNoVoice { get; set; } = "{NoVoice}";
         public string PatternContext { get; set; } = "{Context:(?<text>[^}]*)}";
         public string PatternScreengrab { get; set; } = "{Screengrab:(?<text>[^}]*)}";

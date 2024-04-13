@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2
+namespace FunscriptToolbox.Core.Infra
 {
     public static class PathExtension
     {

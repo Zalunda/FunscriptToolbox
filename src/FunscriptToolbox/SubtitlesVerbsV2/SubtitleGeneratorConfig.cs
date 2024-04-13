@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbsV2.Translations;
@@ -57,22 +58,19 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
         {
         }
 
-        [JsonProperty(Order = 1)]
-        public string SubtitleForcedTimingsSuffix { get; set; }
-
-        [JsonProperty(Order = 2, Required = Required.Always)]
+        [JsonProperty(Order = 1, Required = Required.Always)]
         public SubtitleForcedTimingParser SubtitleForcedTimingsParser { get; set; }
 
-        [JsonProperty(Order = 3, Required = Required.Always)]
+        [JsonProperty(Order = 2, Required = Required.Always)]
         public AudioExtractor AudioExtractor { get; set; }
 
-        [JsonProperty(Order = 4)]
+        [JsonProperty(Order = 3)]
         public object[] SharedObjects { get; set; }
 
-        [JsonProperty(Order = 5)]
+        [JsonProperty(Order = 4)]
         public Transcriber[] Transcribers { get; set; }
 
-        [JsonProperty(Order = 6)]
+        [JsonProperty(Order = 5)]
         public SubtitleOutput[] Outputs { get; set; }
 
         public static string GetExample()
@@ -165,8 +163,10 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
 
             var config = new SubtitleGeneratorConfig()
             {
-                SubtitleForcedTimingsSuffix = ".perfect-vad.srt",
-                SubtitleForcedTimingsParser = new SubtitleForcedTimingParser(),
+                SubtitleForcedTimingsParser = new SubtitleForcedTimingParser()
+                { 
+                    FileSuffix = ".perfect-vad.srt" 
+                },
                 SharedObjects = new object[]
                 {
                     transcriberTool,
@@ -175,13 +175,14 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                     systemPromptMultiShot,
                     userPrompt
                 },
+                AudioExtractor = new AudioExtractor(),
                 Transcribers = new Transcriber[]
                 {
                     new TranscriberWhisperFullAudio()
                     {
                         TranscriptionId = "full",
-                        Translators = new Translator[] { translatorGoogleV1 },
-                        TranscriberTool = transcriberTool
+                        TranscriberTool = transcriberTool,
+                        Translators = new Translator[] { translatorGoogleV1 }
                     },
                     new TranscriberWhisperMergedVADAudio()
                     {
@@ -234,6 +235,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                             },
                             new TranslatorAIChatBot()
                             {
+                                Enabled = false,
                                 TranslationId = "claude-3-sonnet",
                                 TargetLanguage = Language.FromString("en"),
                                 MessagesHandler = new AIMessagesHandlerJson
@@ -300,32 +302,35 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                     new TranscriberWhisperSingleVADAudio()
                     {
                         TranscriptionId = "singlevad",
+                        TranscriberTool = transcriberTool,
                         Translators = new Translator[] {
                             translatorGoogleV1
-                        },
-                        TranscriberTool = transcriberTool
+                        }
                     }
                 },
                 Outputs = new SubtitleOutput[]
                 {
+                    new SubtitleOutputCostReport()
+                    {
+                    },
                     new SubtitleOutputSingleTranslationSrt()
                     {
                         TranscriptionId = "full",
                         TranslationId = "google",
-                        FileSuffixe = ".perfect-vad-potential.srt"
+                        FileSuffix = ".perfect-vad-potential.srt"
                     },
                     new SubtitleOutputMultiTranslationSrt()
                     {
                         Enabled = false,
                         TranscriptionId = "mv",
-                        TranslationOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
-                        FileSuffixe = ".mv.srt"
+                        TranslationsOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
+                        FileSuffix = ".mv.srt"
                     },
                     new SubtitleOutputWIPSrt()
                     {
-                        TranscriptionOrder = new [] { "singlevad", "mergedvad", "*" },
-                        TranslationOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
-                        FileSuffixe = ".wip.srt"
+                        TranscriptionsOrder = new [] { "singlevad", "mergedvad", "*" },
+                        TranslationsOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
+                        FileSuffix = ".wip.srt"
                     }
                 }
             };

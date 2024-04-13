@@ -11,7 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction
         {
             var processStartTime = DateTime.Now;
 
-            var rules = context.Wipsub.SubtitlesForcedTiming?.GetAudioNormalizationRules() ?? Array.Empty<AudioNormalizationRule>();
+            var rules = context.CurrentWipsub.SubtitlesForcedTiming?.GetAudioNormalizationRules() ?? Array.Empty<AudioNormalizationRule>();
 
             var audio = context.FfmpegAudioHelper.ExtractPcmAudio(
                 inputMp4Fullpath, 
@@ -38,18 +38,25 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction
                         ? rules[i + 1].StartTime
                         : audio.Duration);
 
-                    var partialAudioNormalized = context
-                            .FfmpegAudioHelper
-                            .TransformPcmAudio(partialAudioOriginal, currentRule.FfmpegParameters);
-                    pcmParts.Add(partialAudioNormalized);
-                    if (context.IsVerbose)
+                    if (string.IsNullOrEmpty(currentRule.FfmpegParameters?.Trim()))
                     {
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
-                            partialAudioOriginal,
-                            context.GetPotentialVerboseFilePath(processStartTime, $"audio-part-{i}-original.wav"));
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
-                            partialAudioNormalized,
-                            context.GetPotentialVerboseFilePath(processStartTime, $"audio-part-{i}-normalized.wav"));
+                        pcmParts.Add(partialAudioOriginal);
+                    }
+                    else
+                    {
+                        var partialAudioNormalized = context
+                                .FfmpegAudioHelper
+                                .TransformPcmAudio(partialAudioOriginal, currentRule.FfmpegParameters);
+                        pcmParts.Add(partialAudioNormalized);
+                        if (context.IsVerbose)
+                        {
+                            context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
+                                partialAudioOriginal,
+                                context.GetPotentialVerboseFilePath(processStartTime, $"audio-part-{i}-original.wav"));
+                            context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
+                                partialAudioNormalized,
+                                context.GetPotentialVerboseFilePath(processStartTime, $"audio-part-{i}-normalized.wav"));
+                        }
                     }
                 }
 

@@ -17,12 +17,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
 
         public override bool NeedSubtitleForcedTimings => true;
 
-        [JsonProperty(Order = 10)]
-        public string FileSuffixe { get; set; }
-        [JsonProperty(Order = 11)]
-        public string[] TranscriptionOrder { get; set; }
-        [JsonProperty(Order = 12)]
-        public string[] TranslationOrder { get; set; }
+        [JsonProperty(Order = 10, Required = Required.Always)]
+        public string FileSuffix { get; set; }
+        [JsonProperty(Order = 11, Required = Required.Always)]
+        public string[] TranscriptionsOrder { get; set; }
+        [JsonProperty(Order = 12, Required = Required.Always)]
+        public string[] TranslationsOrder { get; set; }
 
         public override void CreateOutput(
             SubtitleGeneratorContext context,
@@ -31,9 +31,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             // TODO Add info/verbose logs
             // TODO cleanup/improve text in generated srt, especially % for text that overlap multiple forced timing.
 
-            if (this.FileSuffixe == null)
+            if (this.FileSuffix == null)
             {
-                throw new ArgumentNullException($"{typeof(SubtitleOutputWIPSrt).Name}.FileSuffixe");
+                throw new ArgumentNullException($"{typeof(SubtitleOutputWIPSrt).Name}.FileSuffix");
             }
 
             var wipSubtitleFile = new SubtitleFile();
@@ -41,16 +41,17 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             var intersections = new List<TimeFrameIntersection>();
             var unmatchedTranscribedTexts = new List<TimeFrameIntersection>();
 
+            // TODO Fix bug if transcriptions is empty
             var final = wipsub.SubtitlesForcedTiming?.ToArray()
-                ?? wipsub.Transcriptions.First().Items.Select(
+                ?? wipsub.Transcriptions.FirstOrDefault()?.Items.Select(
                     f => new SubtitleForcedTiming(f.StartTime, f.EndTime, f.Text)).ToArray();
 
-            var finalTranscriptionOrder = CreateFinalOrder(this.TranscriptionOrder, wipsub.Transcriptions.Select(f => f.Id));
-            var finalTranslationOrder = CreateFinalOrder(this.TranslationOrder, wipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
+            var finalTranscriptionsOrder = CreateFinalOrder(this.TranscriptionsOrder, wipsub.Transcriptions.Select(f => f.Id));
+            var finalTranslationsOrder = CreateFinalOrder(this.TranslationsOrder, wipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
 
             foreach (var transcription in wipsub.Transcriptions
-                .Where(f => finalTranscriptionOrder.Contains(f.Id))
-                .OrderBy(t => Array.IndexOf(finalTranscriptionOrder, t.Id)))
+                .Where(f => finalTranscriptionsOrder.Contains(f.Id))
+                .OrderBy(t => Array.IndexOf(finalTranscriptionsOrder, t.Id)))
             {
                 foreach (var tt in transcription.Items)
                 {
@@ -110,8 +111,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
                             foreach (var translation in utt
                                 .TranscribedText
                                 .TranslatedTexts
-                                .Where(f => finalTranslationOrder.Contains(f.Id))
-                                .OrderBy(f => Array.IndexOf(finalTranslationOrder, f.Id)))
+                                .Where(f => finalTranslationsOrder.Contains(f.Id))
+                                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
                             {
                                 builder2.AppendLine($"   [{translation.Id}] {translation.Text}");
                             }
@@ -127,22 +128,39 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
                     }
 
                     var builder = new StringBuilder();
-                    foreach (var item in intersections.Where(f => f.Location == subtitleLocation))
+                    if (finalTranscriptionsOrder.Length == 1 && finalTranslationsOrder.Length == 1)
                     {
-                        if (builder.Length > 0)
+                        foreach (var item in intersections.Where(f => f.Location == subtitleLocation))
                         {
-                            builder.AppendLine("--------------");
+                            foreach (var translation in item
+                                .TranscribedText
+                                .TranslatedTexts
+                                .Where(f => finalTranslationsOrder.Contains(f.Id))
+                                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
+                            {
+                                builder.AppendLine($"{translation.Text}");
+                            }
                         }
-
-                        var xyz = item.Number > 1 ? $"{item.Index}/{item.Number}," : string.Empty;
-                        builder.AppendLine($"[{item.TranscriptionId}] {item.TranscribedText.Text} ({xyz}{item.PercentageTime}%, {item.MatchPercentage}%)");
-                        foreach (var translation in item
-                            .TranscribedText
-                            .TranslatedTexts
-                            .Where(f => finalTranslationOrder.Contains(f.Id))
-                            .OrderBy(f => Array.IndexOf(finalTranslationOrder, f.Id)))
+                    }
+                    else
+                    {
+                        foreach (var item in intersections.Where(f => f.Location == subtitleLocation))
                         {
-                            builder.AppendLine($"   [{translation.Id}] {translation.Text}");
+                            if (builder.Length > 0)
+                            {
+                                builder.AppendLine("--------------");
+                            }
+
+                            var xyz = item.Number > 1 ? $"{item.Index}/{item.Number}," : string.Empty;
+                            builder.AppendLine($"[{item.TranscriptionId}] {item.TranscribedText.Text} ({xyz}{item.PercentageTime}%, {item.MatchPercentage}%)");
+                            foreach (var translation in item
+                                .TranscribedText
+                                .TranslatedTexts
+                                .Where(f => finalTranslationsOrder.Contains(f.Id))
+                                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
+                            {
+                                builder.AppendLine($"   [{translation.Id}] {translation.Text}");
+                            }
                         }
                     }
 
@@ -156,7 +174,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Outputs
             }
 
             wipSubtitleFile.ExpandTiming(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5));
-            var filename = context.BaseFilePath + this.FileSuffixe;
+            var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);
             wipSubtitleFile.SaveSrt(filename);
         }

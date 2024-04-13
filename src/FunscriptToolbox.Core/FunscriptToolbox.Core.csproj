@@ -46,6 +46,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Infra\PathExtension.cs" />
+    <Compile Include="Infra\SimpleTypeNameSerializationBinder.cs" />
+    <Compile Include="Infra\TimeSpanExtensions.cs" />
     <Compile Include="MotionVectors\BlocAnalyserRule.cs" />
     <Compile Include="MotionVectors\FrameAnalyser.cs" />
     <Compile Include="MotionVectors\FrameAnalyserGenerator.cs" />

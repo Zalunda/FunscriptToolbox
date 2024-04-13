@@ -179,14 +179,16 @@ namespace FunscriptToolbox
                     break;
 
                 case 60:
+                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.0.json", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
                     args = new[]
                     {
                         "subtitlesv2.create",
                         "--verbose",
+                        "--recursive", 
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
                         "--sourcelanguage", "ja",
                         "--reimporttimings",
-                        "*3DSVR-0223-AAA.mp4", // vrkm-809-
+                        "*.mp4"
                     };
                     break;
             }

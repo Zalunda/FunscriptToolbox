@@ -217,6 +217,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
                                             }
                                             else
                                             {
+                                                context.WriteVerbose(redoId);
                                                 context.WriteVerbose("   Before");
                                                 context.WriteVerbose($"      {currentStartTime} => {word.EndTime}: {currentText}");
                                                 context.WriteVerbose("   After");

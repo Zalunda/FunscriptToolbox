@@ -9,21 +9,26 @@ namespace FunscriptToolbox
     {
         public VerbContext(
             ILog log,
-            string prefix,
-            bool isVerbose)
+            bool isVerbose,
+            string prefix)
         {
             r_log = log;
-            this.Prefix = prefix;
             this.IsVerbose = isVerbose;
+            this.Prefix = prefix;
             this.Errors = new List<string>();
         }
 
         private readonly ILog r_log;
         private bool m_lastWriteIsProgress = false;
 
-        public string Prefix { get; }
+        public string Prefix { get; private set; }
         public bool IsVerbose { get; }
         public List<string> Errors { get; }
+
+        public void ChangePrefix(string prefix)
+        {
+            this.Prefix = prefix;
+        }
 
         public void WriteInfo(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {

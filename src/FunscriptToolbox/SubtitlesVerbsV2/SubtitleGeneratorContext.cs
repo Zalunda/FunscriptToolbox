@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using log4net;
 using System;
 using System.Collections.Generic;
@@ -14,30 +15,27 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
     {
         public SubtitleGeneratorContext(
             ILog log,
-            SubtitleGeneratorPrivateConfig privateConfig,
-            string prefix,
             bool isVerbose,
-            string baseFilePath,
-            WorkInProgressSubtitles wipsub,
-            FfmpegAudioHelper ffmpegAudioHelper) 
-            : base(log, prefix, isVerbose)
+            FfmpegAudioHelper ffmpegAudioHelper,
+            SubtitleGeneratorPrivateConfig privateConfig) 
+            : base(log, isVerbose, null)
         {
-            r_logsAndBackupFolder = baseFilePath + "_LogsAndBackup";
+            this.FfmpegAudioHelper = ffmpegAudioHelper;
             r_privateConfig = privateConfig;
-            this.BaseFilePath = baseFilePath;
-            this.Wipsub = wipsub;
-            FfmpegAudioHelper = ffmpegAudioHelper;
             this.UserTodoList = new List<string>();
+
+            this.CurrentBaseFilePath = null;
+            this.CurrentWipsub = null;
         }
 
-        private readonly string r_logsAndBackupFolder;
         private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
 
-        public string BaseFilePath { get; }
-
-        public WorkInProgressSubtitles Wipsub { get; }
         public FfmpegAudioHelper FfmpegAudioHelper { get; }
         public List<string> UserTodoList { get; }
+
+        public string CurrentBaseFilePath { get; private set; }
+        public string CurrentBackupFolder => this.CurrentBaseFilePath == null ? null : $"{CurrentBaseFilePath}_Backup";
+        public WorkInProgressSubtitles CurrentWipsub { get; private set; }
 
         public string GetPrivateConfig(string itemName)
         {
@@ -47,6 +45,16 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
         internal void WriteInfoAlreadyDone(string message = null)
         {
             WriteInfo(message, ConsoleColor.DarkGray);
+        }
+
+        internal void WriteNumeredPoint(int number, string message, ConsoleColor? color = null)
+        {
+            var split = message.Split('\n');
+            WriteInfo($"{number,3}. {split[0]}", color);
+            for (int i = 1; i < split.Length; i++)
+            {
+                WriteInfo($"     {split[i]}", color);
+            }
         }
 
         internal void DefaultProgressUpdateHandler(string toolName, string toolAction, string message)
@@ -63,23 +71,30 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
 
         internal void AddUserTodo(string message)
         {
-            this.UserTodoList.Add(message);
+            this.UserTodoList.Add(this.Prefix + message);
         }
 
-        internal void WriteNumeredPoint(int number, string message, ConsoleColor? color = null)
+        public void ChangeCurrentFile(
+            WorkInProgressSubtitles wipsub)
         {
-            var split = message.Split('\n');
-            WriteInfo($"{number,3}. {split[0]}", color);
-            for (int i = 1; i < split.Length; i++)
-            {
-                WriteInfo($"     {split[i]}", color);
-            }
+            this.CurrentBaseFilePath = Path.Combine(
+                        PathExtension.SafeGetDirectoryName(wipsub.OriginalFilePath),
+                        Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath));
+            this.CurrentWipsub = wipsub;
+            this.ChangePrefix(Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": ");
+        }
+
+        public void ForgetCurrentFile()
+        {
+            this.CurrentBaseFilePath = null;
+            this.CurrentWipsub = null;
+            this.ChangePrefix(string.Empty);
         }
 
         internal string GetPotentialVerboseFilePath(DateTime processStartTime, string suffixe)
         {
             return Path.Combine(
-                        r_logsAndBackupFolder,
+                        this.CurrentBackupFolder,
                         processStartTime.ToString("yyyyMMddHHmmss") + "-" + suffixe);
         }
 
@@ -87,7 +102,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
         {
             if (IsVerbose)
             {
-                Directory.CreateDirectory(r_logsAndBackupFolder);
+                Directory.CreateDirectory(this.CurrentBackupFolder);
                 File.WriteAllText(
                     GetPotentialVerboseFilePath(processStartTime, suffixe),
                     content,
@@ -99,14 +114,20 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
         {
             if (File.Exists(fullpath))
             {
-                Directory.CreateDirectory(r_logsAndBackupFolder);
+                Directory.CreateDirectory(this.CurrentBackupFolder);
                 var crc = ComputeFileHash(fullpath);
 
                 var targetPath = Path.Combine(
-                        r_logsAndBackupFolder,
+                        this.CurrentBackupFolder,
                         $"{Path.GetFileNameWithoutExtension(fullpath)}-{crc}{Path.GetExtension(fullpath)}");
-                File.Delete(targetPath);
-                File.Move(fullpath, targetPath);
+                if (File.Exists(targetPath))
+                {
+                    File.Delete(fullpath);
+                }
+                else
+                {
+                    File.Move(fullpath, targetPath);
+                }
             }
         }
 

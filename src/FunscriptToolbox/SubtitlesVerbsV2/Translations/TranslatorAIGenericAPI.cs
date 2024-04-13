@@ -59,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             // Get only the items that have not been translated yet
             var items = this.MessagesHandler.GetAllItems(
                 transcription,
-                context.Wipsub.SubtitlesForcedTiming);
+                context.CurrentWipsub.SubtitlesForcedTiming);
 
             // Parse previous files, they might contains translations if the user fixed them
             var nbErrors = this.HandlePreviousFiles(
@@ -67,7 +67,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 transcription,
                 translation,
                 items,                
-                $"-BATCH-\\d+\\.txt");
+                $"-\\d+\\.txt");
 
             // If there are still translations to be done, create files for each batch of items
             if (nbErrors == 0)
@@ -119,7 +119,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     try
                     {
                         dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-                        context.CreateVerboseFile(processStartTime, $"{verbosePrefix}-Req.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented));
+                        context.CreateVerboseFile(processStartTime, $"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented));
 
                         string assistantMessage = responseBody.choices[0].message.content;
                         translation.Costs.Add(
@@ -145,7 +145,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                             request.Items);
                         if (DateTime.Now - lastTimeSaved > TimeSpan.FromMinutes(1))
                         {
-                            context.Wipsub.Save();
+                            context.CurrentWipsub.Save();
                             lastTimeSaved = DateTime.Now;
                         }
 
@@ -156,7 +156,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     }
                     catch (AIMessagesHandlerExpection ex)
                     {
-                        var filepath = $"{context.BaseFilePath}.{transcription.Id}-{translation.Id}-BATCH-{request.Number:D04}.txt";
+                        var filepath = $"{context.CurrentBaseFilePath}.TODO-{transcription.Id}-{translation.Id}-{request.Number:D04}.txt";
+                        context.SoftDelete(filepath);
                         File.WriteAllText(filepath, ex.PartiallyFixedResponse, Encoding.UTF8);
                         context.WriteInfo($"Error while parsing response from the API: {ex.Message}");
                         context.AddUserTodo($"Manually fix the following error in file '{filepath}':\n{ex.Message}");
@@ -165,7 +166,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     catch (Exception ex)
                     {
                         context.WriteError($"Error while parsing response from the API: {ex.Message}");
-                        context.Wipsub.Save();
+                        context.CurrentWipsub.Save();
                         return;
                     }
                 }

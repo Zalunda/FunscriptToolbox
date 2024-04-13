@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbsV2.AudioExtraction;
 using FunscriptToolbox.SubtitlesVerbsV2.Outputs;
 using FunscriptToolbox.SubtitlesVerbsV2.Transcriptions;
@@ -63,6 +64,11 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                 r_options.ConfigPath);
             var privateConfig = SubtitleGeneratorPrivateConfig.FromFile(
                 Path.ChangeExtension(r_options.ConfigPath, ".private.json"));
+            var context = new SubtitleGeneratorContext(
+                rs_log,
+                r_options.Verbose,
+                new FfmpegAudioHelper(),
+                privateConfig);
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
@@ -81,17 +87,8 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                     ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                     : new WorkInProgressSubtitles(wipsubFullpath);
 
-                var context = new SubtitleGeneratorContext(
-                    rs_log,
-                    privateConfig,
-                    prefix: $"{Path.GetFileNameWithoutExtension(inputMp4Fullpath)}: ",
-                    r_options.Verbose,
-                    baseFilePath: Path.Combine(
-                        PathExtension.SafeGetDirectoryName(wipsubFullpath),
-                        Path.GetFileNameWithoutExtension(wipsubFullpath)),
-                    wipsub,
-                    new FfmpegAudioHelper());
-
+                context.ChangeCurrentFile(wipsub);
+                
                 // 0. Remove translations 
                 var translationsToRemove = r_options.RemoveTranslations?.Split(';').ToArray();
                 if (translationsToRemove != null)
@@ -114,7 +111,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                     // 1. Importing Subtitle Forced Timings, if not already done.
                     var forcedTimingPath = Path.ChangeExtension(
                         inputMp4Fullpath,
-                        config.SubtitleForcedTimingsSuffix);
+                        config.SubtitleForcedTimingsParser.FileSuffix);
                     if (wipsub.SubtitlesForcedTiming != null && !r_options.ReimportTimings)
                     {
                         context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
@@ -287,34 +284,35 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
                 {
                     context.WriteError($"Unexpected exception occured: {ex}");
                 }
+            }
 
+            context.ForgetCurrentFile();
 
-                // 6. Write final report:
-                context.WriteInfo();
-                context.WriteInfo();
-                if (context.Errors.Count > 0)
+            // 6. Write final report
+            context.WriteInfo();
+            context.WriteInfo();
+            if (context.Errors.Count > 0)
+            {
+                context.WriteInfo($"The following errors occured during the process:");
+                var index = 1;
+                foreach (var error in context.Errors)
                 {
-                    context.WriteInfo($"The following errors occured during the process:");
-                    var index = 1;
-                    foreach (var error in context.Errors)
-                    {
-                        context.WriteNumeredPoint(index++, error, ConsoleColor.Red);
-                    }
-                    context.WriteInfo();
+                    context.WriteNumeredPoint(index++, error, ConsoleColor.Red);
                 }
+                context.WriteInfo();
+            }
 
-                context.WriteInfo();
-                context.WriteInfo();
-                if (context.UserTodoList.Count > 0)
+            context.WriteInfo();
+            context.WriteInfo();
+            if (context.UserTodoList.Count > 0)
+            {
+                context.WriteInfo($"You have the following task to do:");
+                var index = 1;
+                foreach (var usertodo in context.UserTodoList)
                 {
-                    context.WriteInfo($"You have the following task to do:");
-                    var index = 1;
-                    foreach (var usertodo in context.UserTodoList)
-                    {
-                        context.WriteNumeredPoint(index++, usertodo, ConsoleColor.Green);
-                    }
-                    context.WriteInfo();
+                    context.WriteNumeredPoint(index++, usertodo, ConsoleColor.Green);
                 }
+                context.WriteInfo();
             }
             return base.NbErrors;
         }

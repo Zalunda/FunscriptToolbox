@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
             // Get only the items that have not been translated yet
             var items = this.MessagesHandler.GetAllItems(
                 transcription,
-                context.Wipsub.SubtitlesForcedTiming);
+                context.CurrentWipsub.SubtitlesForcedTiming);
 
             // Parse previous files, they might contains translations if the user updated them
             var nbErrors = this.HandlePreviousFiles(
@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                 transcription,
                 translation,
                 items,
-                "-BATCH-\\d+\\.txt");
+                "-\\d+\\.txt");
 
             // If there are still translations to be done, create files for each batch of items
             if (nbErrors == 0)
@@ -35,8 +35,9 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Translations
                     translation,
                     items))
                 {
-                    var filepath = $"{context.BaseFilePath}.{transcription.Id}-{translation.Id}-BATCH-{request.Number:D04}.txt";
+                    var filepath = $"{context.CurrentBaseFilePath}.TODO-{transcription.Id}-{translation.Id}-{request.Number:D04}.txt";
                     context.WriteInfo($"        Creating file '{Path.GetFileName(filepath)}' (contains {request.Items.Length} texts)...");
+                    context.SoftDelete(filepath);
                     File.WriteAllText(filepath, request.FullPrompt);
 
                     context.AddUserTodo($"Feed the content of '{Path.GetFileName(filepath)}' to an AI, then replace the content of the file with the AI's answer.");

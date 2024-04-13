@@ -19,7 +19,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
             out string reason)
         {
             reason = "SubtitlesForcedTiming not imported yet";
-            return context.Wipsub.SubtitlesForcedTiming != null;
+            return context.CurrentWipsub.SubtitlesForcedTiming != null;
         }
 
         public override Transcription Transcribe(
@@ -29,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2.Transcriptions
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
             var audioSections = context
-                .Wipsub
+                .CurrentWipsub
                 .SubtitlesForcedTiming
                 .Where(f => f.VoiceText != null)
                 .Select(

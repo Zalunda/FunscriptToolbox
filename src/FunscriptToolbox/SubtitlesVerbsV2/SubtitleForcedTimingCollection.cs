@@ -16,7 +16,7 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
         internal string GetContextAt(TimeSpan startTime)
         {
             return this
-                .LastOrDefault(f => f.StartTime < startTime && f.ContextText != null)?.ContextText;
+                .LastOrDefault(f => f.StartTime <= startTime && f.ContextText != null)?.ContextText;
         }
 
         internal string GetTalkerAt(TimeSpan startTime, TimeSpan endTime)

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbsV2
+namespace FunscriptToolbox.Core.Infra
 {
     public class SimpleTypeNameSerializationBinder : DefaultSerializationBinder
     {
@@ -13,11 +13,12 @@ namespace FunscriptToolbox.SubtitlesVerbsV2
         public SimpleTypeNameSerializationBinder(Type[] baseTypes)
         {
             var matchingTypes =
-                this.GetType()
-                    .Assembly
-                    .GetTypes()
-                    .Where(x => baseTypes.Any(
-                        baseType => baseType.IsAssignableFrom(x) && !x.IsAbstract));
+                AppDomain
+                .CurrentDomain
+                .GetAssemblies()
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(x => baseTypes.Any(
+                    baseType => baseType.IsAssignableFrom(x) && !x.IsAbstract));
 
             r_nameToType = matchingTypes.ToDictionary(
                 t => SimplyName(t.Name, baseTypes),
