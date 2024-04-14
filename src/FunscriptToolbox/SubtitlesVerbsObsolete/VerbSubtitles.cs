@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
 
-namespace FunscriptToolbox.SubtitlesVerb
+namespace FunscriptToolbox.SubtitlesVerbObsolete
 {
     class VerbSubtitles : Verb
     {

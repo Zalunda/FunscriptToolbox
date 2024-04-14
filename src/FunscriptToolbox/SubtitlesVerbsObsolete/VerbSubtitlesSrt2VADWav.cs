@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerb
+namespace FunscriptToolbox.SubtitlesVerbObsolete
 {
     class VerbSubtitlesSrt2VADWav : VerbSubtitles
     {

@@ -1,8 +1,8 @@
 ﻿using CommandLine;
 using FunscriptToolbox.InstallationFiles;
 using FunscriptToolbox.Properties;
+using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
-using log4net.Util;
 using System;
 using System.IO;
 using System.Reflection;
@@ -32,17 +32,20 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         public int Execute()
         {
             InstallOFSPlugin();
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", Resources.FSTB_CreateSubtitles_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfigExample-1.0", ".json", SubtitleGeneratorConfig.GetExample());
 
-            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", Resources.FSTB_PrepareScriptForRelease_bat);
-            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat);
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
 
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", Resources.FSTB_PrepareVideoForOFS_bat);
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", ".bat", Resources.FSTB_PrepareVideoForOFS_bat);
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
 
-            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-VerifyDownloadedScripts", Resources.FSTB_VerifyDownloadedScripts_bat);
-            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-GenericCmd", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-VerifyDownloadedScripts", ".bat", Resources.FSTB_VerifyDownloadedScripts_bat);
+            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
+
             return 0;
         }
 
@@ -71,26 +74,26 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             }
         }
 
-        private void CreateUseCaseFolder(string folderName, string baseScriptName, string scriptContent)
+        private void CreateUseCaseFolder(string folderName, string baseFileName, string extension, string fileContent)
         {
             if (!Directory.Exists(folderName))
             {
                 WriteInfo($@"Creating use case folder '{folderName}'.");
                 Directory.CreateDirectory(folderName);
             }
-            var scriptVersion = Regex.Match(scriptContent, "ScriptVersion:(?<Version>[0-9.]*)");
-            var finalScriptName = scriptVersion.Success 
-                ? $"{baseScriptName}.{scriptVersion.Groups["Version"].Value}.bat" 
-                : $"{baseScriptName}.bat";
-            var scriptFullPath = Path.Combine(folderName, finalScriptName);
+            var scriptVersion = Regex.Match(fileContent, "ScriptVersion:(?<Version>[0-9.]*)");
+            var finalFileName = scriptVersion.Success 
+                ? $"{baseFileName}.{scriptVersion.Groups["Version"].Value}{extension}" 
+                : $"{baseFileName}{extension}";
+            var scriptFullPath = Path.Combine(folderName, finalFileName);
             if (File.Exists(scriptFullPath))
             {
-                WriteInfo($@"Skipping '{finalScriptName}', it already exists.", ConsoleColor.DarkGray);
+                WriteInfo($@"Skipping '{finalFileName}', it already exists.", ConsoleColor.DarkGray);
             }
             else
             {
-                WriteInfo($@"Creating '{finalScriptName}'.");
-                CreateFileWithReplace(scriptFullPath, scriptContent);
+                WriteInfo($@"Creating '{finalFileName}'.");
+                CreateFileWithReplace(scriptFullPath, fileContent);
             }
         }
 

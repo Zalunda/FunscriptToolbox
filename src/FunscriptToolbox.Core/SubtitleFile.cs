@@ -15,10 +15,17 @@ namespace FunscriptToolbox.Core
 
         public static SubtitleFile FromSrtFile(string filepath)
         {
-            return new SubtitleFile(
-                filepath,
-                ReadSrtSubtitles(
-                    File.ReadLines(filepath).ToArray()));
+            try
+            {
+                return new SubtitleFile(
+                    filepath,
+                    ReadSrtSubtitles(
+                        File.ReadLines(filepath).ToArray()));
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Cannot parse srt file '{filepath}': {ex.Message}", ex);
+            }
         }
 
         private static IEnumerable<Subtitle> ReadSrtSubtitles(string[] lines)
@@ -62,6 +69,31 @@ namespace FunscriptToolbox.Core
         {
             this.FilePath = filepath;
             this.Subtitles = subtitles == null ? new List<Subtitle>() : subtitles.ToList();
+        }
+
+        public void ExpandTiming(TimeSpan minDuration, TimeSpan durationAdded)
+        {
+            var oldSubtitles = this.Subtitles.ToArray();
+            this.Subtitles.Clear();
+            for (int i = 0; i < oldSubtitles.Length; i++)
+            {
+                var subtitle = oldSubtitles[i];
+                var nextSubtitle = (i + 1 < oldSubtitles.Length) ? oldSubtitles[i + 1] : null;
+
+                var newDuration = subtitle.Duration + durationAdded;
+                if (newDuration < minDuration)
+                {
+                    newDuration = minDuration;
+                }
+
+                var newEndTime = subtitle.StartTime + newDuration;
+                if (newEndTime > nextSubtitle?.StartTime)
+                {
+                    newEndTime = nextSubtitle.StartTime;
+                }
+
+                this.Subtitles.Add(new Subtitle(subtitle.StartTime, newEndTime, subtitle.Lines));
+            }
         }
 
         public void SaveSrt(string filepath = null)

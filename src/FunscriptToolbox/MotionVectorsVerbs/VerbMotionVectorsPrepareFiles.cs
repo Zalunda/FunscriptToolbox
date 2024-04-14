@@ -200,12 +200,12 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             WriteInfo($"[MotionVectorsExtractor]   Handling a video of {total} took {stopwatch.Elapsed}.");
         }
 
-        private void CreateMP4WithVisualMotionVector(string sourceFullPath, string destinationFullPath)
+        private void CreateMP4WithVisualMotionVector(string sourceFullPath, string targetFullPath)
         {
             var conversion = FFmpeg.Conversions.New()
                 .SetOverwriteOutput(true)
                 .AddParameter($"-flags2 +export_mvs -i \"{sourceFullPath}\" -filter:v codecview=mv=pf+bf+bb -g 1 -c:a copy");
-            StartAndHandleFfmpegProgress(conversion, destinationFullPath);
+            StartAndHandleFfmpegProgress(conversion, targetFullPath);
         }
     }
 }

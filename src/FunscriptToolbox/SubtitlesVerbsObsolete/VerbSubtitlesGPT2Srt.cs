@@ -8,7 +8,7 @@ using FunscriptToolbox.Core;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 
-namespace FunscriptToolbox.SubtitlesVerb
+namespace FunscriptToolbox.SubtitlesVerbObsolete
 {
     class VerbSubtitlesGPT2Srt : Verb
     {
@@ -97,7 +97,7 @@ namespace FunscriptToolbox.SubtitlesVerb
                         {
                             if (lines.Count > 0)
                             {
-                                lines.Add("*** OR ***");
+                                lines.Add("* ** OR ***");
                             }
                             lines.AddRange(choice);
                         }

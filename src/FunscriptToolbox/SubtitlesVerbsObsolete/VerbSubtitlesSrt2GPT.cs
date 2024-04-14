@@ -7,7 +7,7 @@ using System;
 using FunscriptToolbox.Core;
 using System.Diagnostics;
 
-namespace FunscriptToolbox.SubtitlesVerb
+namespace FunscriptToolbox.SubtitlesVerbObsolete
 {
     class VerbSubtitlesSrt2GPT : Verb
     {

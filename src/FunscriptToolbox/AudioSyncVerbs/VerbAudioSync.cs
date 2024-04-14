@@ -4,6 +4,7 @@ using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
@@ -125,6 +126,11 @@ namespace FunscriptToolbox.AudioSyncVerbs
             }
 
             return newSubtitles.ToArray();
+        }
+
+        protected static string FormatTimeSpan(TimeSpan value)
+        {
+            return Regex.Replace(value.ToString(), @"\d{4}$", "");
         }
     }
 }

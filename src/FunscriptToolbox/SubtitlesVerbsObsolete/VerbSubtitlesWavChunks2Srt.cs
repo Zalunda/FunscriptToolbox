@@ -8,7 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace FunscriptToolbox.SubtitlesVerb
+namespace FunscriptToolbox.SubtitlesVerbObsolete
 {
 
     class VerbSubtitlesWavChunks2Srt : VerbSubtitles

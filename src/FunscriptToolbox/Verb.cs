@@ -11,7 +11,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
@@ -252,11 +251,6 @@ namespace FunscriptToolbox
             Console.Error.WriteLine(message);
             Console.ResetColor();
             this.NbErrors++;
-        }
-
-        protected static string FormatTimeSpan(TimeSpan value)
-        {
-            return Regex.Replace(value.ToString(), @"\d{4}$", "");                
         }
 
         protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive = false)
