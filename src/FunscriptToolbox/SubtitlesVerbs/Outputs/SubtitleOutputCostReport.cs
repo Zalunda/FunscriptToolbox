@@ -18,6 +18,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         public override bool NeedSubtitleForcedTimings => false;
 
+        public override string Description => this.FileSuffix == null ? base.Description : $"{base.Description}: {this.FileSuffix}";
+
         [JsonProperty(Order = 10)]
         public string FileSuffix { get; set; } = null;
         [JsonProperty(Order = 11)]
@@ -27,9 +29,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 13)]
         public bool IsGlobalTranslationReport { get; set; } = false;
 
+        public override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context, 
+            out string reason)
+        {
+            reason = null;
+            return true;
+        }
+
         public override void CreateOutput(
-            SubtitleGeneratorContext context,
-            WorkInProgressSubtitles wipsub)
+            SubtitleGeneratorContext context)
         {
             StreamWriter fileWriter;
             if (this.FileSuffix == null)
@@ -57,7 +66,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 fileWriter.Close();
             }
         }
-
 
         private IEnumerable<string> GenerateConsolidatedReport(
             IEnumerable<Transcription> transcriptions)

@@ -108,6 +108,12 @@ namespace FunscriptToolbox
             this.Errors.Add(message);
         }
 
+        internal void WriteLog(string message = "")
+        {
+            message = this.Prefix + message;
+            r_log.Info(message);
+        }
+
         protected static string FormatTimeSpan(TimeSpan value)
         {
             return Regex.Replace(value.ToString(), @"\d{4}$", "");

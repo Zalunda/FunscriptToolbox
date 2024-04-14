@@ -15,6 +15,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         public override bool NeedSubtitleForcedTimings => false;
 
+        public override string Description => $"{base.Description}: {this.FileSuffix}" ;
+
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string FileSuffix { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]
@@ -22,19 +24,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 12, Required = Required.Always)]
         public string[] TranslationsOrder { get; set; }
 
-        public override void CreateOutput(
+        public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
-            WorkInProgressSubtitles wipsub)
+            out string reason)
         {
-            var transcription = wipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId) 
-                ?? wipsub.Transcriptions.FirstOrDefault();
+            reason = $"Cannot create file because transcription '{this.TranscriptionId}' doesn't exists yet.";
+            return null != (context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId)
+                ?? context.CurrentWipsub.Transcriptions.FirstOrDefault());
+        }
+
+        public override void CreateOutput(
+            SubtitleGeneratorContext context)
+        {
+            var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId) 
+                ?? context.CurrentWipsub.Transcriptions.FirstOrDefault();
             if (transcription == null)
             {
                 context.WriteError($"Cannot create file '{this.FileSuffix}' because transcription '{this.TranscriptionId}' doesn't exists.");
                 return;
             }
 
-            var finalTranslationOrder = CreateFinalOrder(this.TranslationsOrder, wipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
+            var finalTranslationOrder = CreateFinalOrder(this.TranslationsOrder, context.CurrentWipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
 
             var subtitleFile = new SubtitleFile();
             foreach (var transcribedText in transcription.Items)

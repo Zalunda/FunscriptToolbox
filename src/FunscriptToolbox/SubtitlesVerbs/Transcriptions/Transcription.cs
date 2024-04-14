@@ -27,6 +27,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
         }
 
+        public TranscriptionAnalysis GetAnalysis(
+            SubtitleGeneratorContext context,
+            int minimumPercentage = 0)
+        {
+            return (context.CurrentWipsub.SubtitlesForcedTiming == null)
+                    ? null :
+                    TranscriptionAnalysis.From(
+                        this,
+                        context.CurrentWipsub.SubtitlesForcedTiming.Where(f => f.VoiceText != null).ToArray(), 
+                    minimumPercentage);
+        }
+
         public int RemoveTranslation(string translationId)
         {
             var nbTranslatedTexts = 0;

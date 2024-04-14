@@ -35,5 +35,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TranslatedTexts = new List<TranslatedText>(
                 translatedTexts ?? Array.Empty<TranslatedText>());
         }
+
+        public string GetFirstTranslatedIfPossible()
+        {
+            return this.TranslatedTexts.FirstOrDefault()?.Text ?? this.Text;
+        }
     }
 }

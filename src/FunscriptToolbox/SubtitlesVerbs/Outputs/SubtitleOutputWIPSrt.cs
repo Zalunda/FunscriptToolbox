@@ -17,6 +17,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         public override bool NeedSubtitleForcedTimings => true;
 
+        public override string Description => $"{base.Description}: {this.FileSuffix}";
+
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string FileSuffix { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]
@@ -24,209 +26,149 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 12, Required = Required.Always)]
         public string[] TranslationsOrder { get; set; }
 
-        public override void CreateOutput(
-            SubtitleGeneratorContext context,
-            WorkInProgressSubtitles wipsub)
-        {
-            // TODO cleanup/improve text in generated srt, especially % for text that overlap multiple forced timing.
+        public int MinimumOverlapPercentage { get; set; } = 10;
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
 
-            if (this.FileSuffix == null)
+        public override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason)
+        {
+            if (context.CurrentWipsub.Transcriptions.Count == 0)
             {
-                throw new ArgumentNullException($"{typeof(SubtitleOutputWIPSrt).Name}.FileSuffix");
+                reason = "No transcription available";
+                return false;
             }
+            else
+            {
+                reason = null;
+                return true;
+            }
+        }
+
+        public override void CreateOutput(
+            SubtitleGeneratorContext context)
+        {
+            var finalForcedTimings = context.CurrentWipsub.SubtitlesForcedTiming?.ToArray()
+                ?? context.CurrentWipsub.Transcriptions.FirstOrDefault()?.Items.Select(
+                    f => new SubtitleForcedTiming(f.StartTime, f.EndTime, f.Text)).ToArray();
+
+            var finalTranscriptionsOrder = CreateFinalOrder(this.TranscriptionsOrder, context.CurrentWipsub.Transcriptions.Select(f => f.Id));
+            var finalTranslationsOrder = CreateFinalOrder(this.TranslationsOrder, context.CurrentWipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
+
+            var transcriptionsAnalysis = finalTranscriptionsOrder
+                .Select(id => context.CurrentWipsub.Transcriptions.First(t => t.Id == id).GetAnalysis(context, MinimumOverlapPercentage))
+                .ToArray();
+            var extraTranscriptions = transcriptionsAnalysis
+                .SelectMany(ta => ta.ExtraTranscriptions.Select(tt => new ExtraTranscription(ta.Transcription.Id, tt)))
+                .OrderBy(item => item.TranscribedText.StartTime)
+                .ThenBy(item => Array.IndexOf(finalTranscriptionsOrder, item.TranscriptionId))
+                .ToList();
 
             var wipSubtitleFile = new SubtitleFile();
 
-            var intersections = new List<TimeFrameIntersection>();
-            var unmatchedTranscribedTexts = new List<TimeFrameIntersection>();
-
-            // TODO Fix bug if transcriptions is empty
-            var final = wipsub.SubtitlesForcedTiming?.ToArray()
-                ?? wipsub.Transcriptions.FirstOrDefault()?.Items.Select(
-                    f => new SubtitleForcedTiming(f.StartTime, f.EndTime, f.Text)).ToArray();
-
-            var finalTranscriptionsOrder = CreateFinalOrder(this.TranscriptionsOrder, wipsub.Transcriptions.Select(f => f.Id));
-            var finalTranslationsOrder = CreateFinalOrder(this.TranslationsOrder, wipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
-
-            foreach (var transcription in wipsub.Transcriptions
-                .Where(f => finalTranscriptionsOrder.Contains(f.Id))
-                .OrderBy(t => Array.IndexOf(finalTranscriptionsOrder, t.Id)))
-            {
-                foreach (var tt in transcription.Items)
-                {
-                    var matches = final
-                        .Select(location => TimeFrameIntersection.From(transcription.Id, location, tt))
-                        .Where(f => f != null)
-                        .ToArray();
-                    if (matches.Length == 0)
-                    {
-                        unmatchedTranscribedTexts.Add(
-                            new TimeFrameIntersection(
-                                transcription.Id,
-                                tt.StartTime,
-                                tt.EndTime,
-                                null,
-                                tt));
-                    }
-                    else
-                    {
-                        var totalTimeMatched = matches.Select(m => m.Duration.TotalMilliseconds).Sum();
-
-                        var index = 1;
-                        foreach (var match in matches)
-                        {
-                            match.Index = index++;
-                            match.Number = matches.Length;
-                            match.PercentageTime = (int)(100 * match.Duration.TotalMilliseconds / totalTimeMatched);
-                            intersections.Add(match);
-                        }
-                    }
-                }
-            }
-
             TimeSpan? previousEnd = null;
-            foreach (var subtitleLocation in final)
+            foreach (var forcedTiming in finalForcedTimings)
             {
-                if (subtitleLocation.ScreengrabText != null)
+                wipSubtitleFile.Subtitles.AddRange(GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder, forcedTiming.StartTime));
+
+                if (forcedTiming.ScreengrabText != null)
                 {
                     wipSubtitleFile.Subtitles.Add(
                         new Subtitle(
-                            subtitleLocation.StartTime,
-                            subtitleLocation.EndTime,
-                            $"Screengrab: {subtitleLocation.ScreengrabText}"));
+                            forcedTiming.StartTime,
+                            forcedTiming.EndTime,
+                            $"Screengrab: {forcedTiming.ScreengrabText}"));
                 }
-                else if (subtitleLocation.VoiceText != null)
+                else if (forcedTiming.VoiceText != null)
                 {
-                    if (previousEnd != null)
-                    {
-                        foreach (var utt in unmatchedTranscribedTexts
-                            .Where(f => f.StartTime < subtitleLocation.StartTime)
-                            .ToArray())
-                        {
-                            var builder2 = new StringBuilder();
-
-                            builder2.AppendLine("** OUT OF SCOPE **");
-                            builder2.AppendLine($"[{utt.TranscriptionId}] {utt.TranscribedText.Text}");
-                            foreach (var translation in utt
-                                .TranscribedText
-                                .TranslatedTexts
-                                .Where(f => finalTranslationsOrder.Contains(f.Id))
-                                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
-                            {
-                                builder2.AppendLine($"   [{translation.Id}] {translation.Text}");
-                            }
-
-                            wipSubtitleFile.Subtitles.Add(
-                                new Subtitle(
-                                    utt.StartTime,
-                                    utt.EndTime,
-                                    builder2.ToString()));
-
-                            unmatchedTranscribedTexts.Remove(utt);
-                        }
-                    }
-
                     var builder = new StringBuilder();
-                    if (finalTranscriptionsOrder.Length == 1 && finalTranslationsOrder.Length == 1)
+                    foreach (var ta in transcriptionsAnalysis)
                     {
-                        foreach (var item in intersections.Where(f => f.Location == subtitleLocation))
+                        if (!ta.ForcedTimingsWithOverlapTranscribedTexts.TryGetValue(forcedTiming, out var overlaps) || overlaps.Length == 0)
                         {
-                            foreach (var translation in item
-                                .TranscribedText
-                                .TranslatedTexts
-                                .Where(f => finalTranslationsOrder.Contains(f.Id))
-                                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
+                            builder.AppendLine($"[{ta.Transcription.Id}] ** NO TRANSCRIPTION FOUND **");
+                        }
+                        else
+                        {
+                            var index = 1;
+                            foreach (var overlap in overlaps)
                             {
-                                builder.AppendLine($"{translation.Text}");
+                                var number = (overlaps.Length > 1)
+                                    ? $",{index++}/{overlaps.Length}"
+                                    : string.Empty;
+                                builder.AppendLine($"[{ta.Transcription.Id}{number}] {overlap.TranscribedText.Text} {overlap.OverlapInfo}");
+                                AppendTranslationLines(builder, overlap.TranscribedText, finalTranslationsOrder);
                             }
                         }
-                    }
-                    else
-                    {
-                        foreach (var item in intersections.Where(f => f.Location == subtitleLocation))
-                        {
-                            if (builder.Length > 0)
-                            {
-                                builder.AppendLine("--------------");
-                            }
-
-                            var xyz = item.Number > 1 ? $"{item.Index}/{item.Number}," : string.Empty;
-                            builder.AppendLine($"[{item.TranscriptionId}] {item.TranscribedText.Text} ({xyz}{item.PercentageTime}%, {item.MatchPercentage}%)");
-                            foreach (var translation in item
-                                .TranscribedText
-                                .TranslatedTexts
-                                .Where(f => finalTranslationsOrder.Contains(f.Id))
-                                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
-                            {
-                                builder.AppendLine($"   [{translation.Id}] {translation.Text}");
-                            }
-                        }
-                    }
+                    }    
 
                     wipSubtitleFile.Subtitles.Add(
                         new Subtitle(
-                            subtitleLocation.StartTime,
-                            subtitleLocation.EndTime,
+                            forcedTiming.StartTime,
+                            forcedTiming.EndTime,
                             builder.ToString()));
-                    previousEnd = subtitleLocation.EndTime;
+                    previousEnd = forcedTiming.EndTime;
                 }
             }
+            wipSubtitleFile.Subtitles.AddRange(
+                GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder));
 
-            wipSubtitleFile.ExpandTiming(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5));
+            wipSubtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+
             var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);
             wipSubtitleFile.SaveSrt(filename);
         }
 
-        private class TimeFrameIntersection
+        private static void AppendTranslationLines(
+            StringBuilder builder, 
+            TranscribedText transcribedText, 
+            string[] finalTranslationsOrder)
         {
-            internal int Number;
-
-            public static TimeFrameIntersection From(
-                string transcriptionId,
-                SubtitleForcedTiming location,
-                TranscribedText tt)
+            foreach (var translation in transcribedText
+                .TranslatedTexts
+                .Where(f => finalTranslationsOrder.Contains(f.Id))
+                .OrderBy(f => Array.IndexOf(finalTranslationsOrder, f.Id)))
             {
-                var intersectionStartTime = location.StartTime > tt.StartTime ? location.StartTime : tt.StartTime;
-                var intersectionEndTime = location.EndTime < tt.EndTime ? location.EndTime : tt.EndTime;
-                return (intersectionStartTime < intersectionEndTime)
-                    ? new TimeFrameIntersection(
-                        transcriptionId,
-                        intersectionStartTime,
-                        intersectionEndTime,
-                        location,
-                        tt)
-                    : null;
+                builder.AppendLine($"   [{translation.Id}] {translation.Text}");
             }
+        }
 
-            public TimeFrameIntersection(
-                string transcriptionId,
-                TimeSpan startTime,
-                TimeSpan endTime,
-                SubtitleForcedTiming location,
-                TranscribedText tt)
+        internal class ExtraTranscription
+        {
+            public string TranscriptionId { get; }
+            public TranscribedText TranscribedText { get; }
+
+            public ExtraTranscription(string transcriptionId, TranscribedText transcribedText)
             {
                 TranscriptionId = transcriptionId;
-                StartTime = startTime;
-                EndTime = endTime;
-                Location = location;
-                TranscribedText = tt;
-                if (location != null)
-                {
-                    MatchPercentage = (int)(100 * (Math.Min(endTime.TotalMilliseconds, location.EndTime.TotalMilliseconds)
-                        - Math.Max(startTime.TotalMilliseconds, location.StartTime.TotalMilliseconds)) / location.Duration.TotalMilliseconds);
-                }
+                TranscribedText = transcribedText;
             }
+        }
 
-            public string TranscriptionId { get; }
-            public TimeSpan StartTime { get; }
-            public TimeSpan EndTime { get; }
-            public TimeSpan Duration => EndTime - StartTime;
-            public SubtitleForcedTiming Location { get; }
-            public TranscribedText TranscribedText { get; }
-            public int MatchPercentage { get; }
-            public int Index { get; internal set; }
-            public int PercentageTime { get; internal set; }
+
+        private IEnumerable<Subtitle> GetExtraSubtitles(
+            List<ExtraTranscription> extraTranscriptions,
+            string[] finalTranslationsOrder,
+            TimeSpan? currentTiming = null)
+        {
+            while (extraTranscriptions.Count > 0 && (currentTiming == null || extraTranscriptions.First().TranscribedText.StartTime <= currentTiming))
+            {
+                var extra = extraTranscriptions.First();
+                extraTranscriptions.RemoveAt(0);
+
+                var builder = new StringBuilder();
+
+                builder.AppendLine("** EXTRA TRANSCRIPTION **");
+                builder.AppendLine($"[{extra.TranscriptionId}] {extra.TranscribedText.Text}");
+                AppendTranslationLines(builder, extra.TranscribedText, finalTranslationsOrder);
+
+                yield return new Subtitle(
+                        extra.TranscribedText.StartTime,
+                        extra.TranscribedText.EndTime,
+                        builder.ToString());
+            }
         }
     }
 }

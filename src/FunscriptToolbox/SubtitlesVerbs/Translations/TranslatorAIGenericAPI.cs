@@ -95,31 +95,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
                     var verbosePrefix = $"{transcription.Id}-{translation.Id}-{request.Number:D04}";
-                    context.CreateVerboseFile(processStartTime, $"{verbosePrefix}-Req.json", requestBodyAsJson);
-
-                    var watch = Stopwatch.StartNew();
-                    var response = client.PostAsync(
-                        new Uri(
-                            client.BaseAddress, 
-                            "/v1/chat/completions"),
-                        new StringContent(
-                            requestBodyAsJson, 
-                            Encoding.UTF8, 
-                            "application/json")
-                        ).Result;
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
-                        return;
-                    }
-
-                    string responseAsJson = response.Content.ReadAsStringAsync().Result;
-                    watch.Stop();
+                    context.CreateVerboseFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
 
                     try
                     {
+                        var watch = Stopwatch.StartNew();
+                        var response = client.PostAsync(
+                            new Uri(
+                                client.BaseAddress,
+                                "/v1/chat/completions"),
+                            new StringContent(
+                                requestBodyAsJson,
+                                Encoding.UTF8,
+                                "application/json")
+                            ).Result;
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                            return;
+                        }
+
+                        string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                        watch.Stop();
+
                         dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-                        context.CreateVerboseFile(processStartTime, $"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented));
+                        context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
 
                         string assistantMessage = responseBody.choices[0].message.content;
                         translation.Costs.Add(
@@ -132,9 +132,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
                         if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
                         {
-                            context.WriteError($"Invalid model name in response:");
-                            context.WriteError($"   [response] {responseBody.model}");
-                            context.WriteError($"   [config]   {this.Model}");
+                            context.WriteError($"Invalid model name in response:\n" +
+                                $"   [API response] {responseBody.model}\n" +
+                                $"   [config]   {this.Model}");
                             return;
                         }
 
@@ -163,9 +163,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                         context.AddUserTodo($"Manually fix the following error in file '{filepath}':\n{ex.Message}");
                         return;
                     }
+                    catch (AggregateException ex)
+                    {
+                        var builder = new StringBuilder();
+                        builder.AppendLine($"Error while communicating or parsing response from the API:");
+                        foreach (var innerException in ex.InnerExceptions)
+                        {
+                            var currentException = innerException;
+                            while (currentException.InnerException != null)
+                            {
+                                currentException = currentException.InnerException;
+                            }
+                            builder.AppendLine($"- {currentException.Message}");
+                        }
+                        context.WriteError(builder.ToString());
+                        context.WriteLog(ex.ToString());
+                        context.CurrentWipsub.Save();
+                        return;
+                    }
                     catch (Exception ex)
                     {
-                        context.WriteError($"Error while parsing response from the API: {ex.Message}");
+                        context.WriteError($"Error while communicating or parsing response from the API: {ex.Message}");
                         context.CurrentWipsub.Save();
                         return;
                     }

@@ -67,7 +67,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var tempFiles = new List<string>();
                 var processStartTime = DateTime.Now;
-                var fullSrtTempFile = context.GetPotentialVerboseFilePath(processStartTime, filesPrefix + $"all.srt");
+                var fullSrtTempFile = context.GetPotentialVerboseFilePath(filesPrefix + $"all.srt", processStartTime);
 
                 try
                 {
@@ -78,7 +78,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     foreach (var audio in audios)
                     {
                         var id = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
-                        var tempFile = context.GetPotentialVerboseFilePath(processStartTime, filesPrefix + $"{id}.wav");
+                        var tempFile = context.GetPotentialVerboseFilePath(filesPrefix + $"{id}.wav", processStartTime);
                         tempFiles.Add(tempFile);
                         context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, tempFile);
                         totalDuration += audio.Duration;
@@ -95,7 +95,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     arguments.Append($" --beep_off");
                     arguments.Append($" --output_format json");
                     arguments.Append($" {this.AdditionalParameters}");
-                    arguments.Append($" \"{context.GetPotentialVerboseFilePath(processStartTime, $"*.wav")}\"");
+                    arguments.Append($" \"{context.GetPotentialVerboseFilePath($"*.wav", processStartTime)}\"");
 
                     // Start a new process to perform transcription
                     var process = new Process();

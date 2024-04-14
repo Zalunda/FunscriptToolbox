@@ -91,20 +91,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.ChangePrefix(string.Empty);
         }
 
-        internal string GetPotentialVerboseFilePath(DateTime processStartTime, string suffixe)
+        internal string GetPotentialVerboseFilePath(string suffixe, DateTime? processStartTime = null)
         {
-            return Path.Combine(
+            return processStartTime == null
+                ? Path.Combine(
+                    this.CurrentBackupFolder,
+                    suffixe)
+                : Path.Combine(
                         this.CurrentBackupFolder,
-                        processStartTime.ToString("yyyyMMddHHmmss") + "-" + suffixe);
+                        processStartTime.Value.ToString("yyyyMMddHHmmss") + "-" + suffixe);
         }
 
-        internal void CreateVerboseFile(DateTime processStartTime, string suffixe, string content)
+        internal void CreateVerboseFile(string suffixe, string content, DateTime? processStartTime = null)
         {
             if (IsVerbose)
             {
                 Directory.CreateDirectory(this.CurrentBackupFolder);
                 File.WriteAllText(
-                    GetPotentialVerboseFilePath(processStartTime, suffixe),
+                    GetPotentialVerboseFilePath(suffixe, processStartTime),
                     content,
                     Encoding.UTF8);
             }

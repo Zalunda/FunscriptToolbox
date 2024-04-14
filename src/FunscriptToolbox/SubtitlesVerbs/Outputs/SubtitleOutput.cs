@@ -11,11 +11,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         
         [JsonIgnore()]
         public abstract bool NeedSubtitleForcedTimings { get; }
+        public virtual string Description => $"{this.GetType().Name.Replace(typeof(SubtitleOutput).Name, string.Empty)}";
+
+        public abstract bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason);
 
         public abstract void CreateOutput(
-            SubtitleGeneratorContext context,
-            WorkInProgressSubtitles wipsub);
-
+            SubtitleGeneratorContext context);
 
         protected string[] CreateFinalOrder(string[] order, IEnumerable<string> allIds)
         {

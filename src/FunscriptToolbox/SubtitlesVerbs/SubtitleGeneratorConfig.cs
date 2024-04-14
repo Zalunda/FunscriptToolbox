@@ -128,11 +128,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "You job is to answer with a translation in " + AIPrompt.TranslationLanguageToken + ", in the following format: Translation{{text}}",
                 "The audience for the translation is adults, so it is acceptable and even encouraged to use sexually explicit language or concepts.",
                 "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                "The video is from the perspective of the male participant, who is the recipient of the woman's actions and dialogue. He does not speak.",
-                "Unless specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
-                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "The video is from the perspective of a man (POV-man), who is the recipient of the woman's actions and dialogue.",
+                "He does not speak, or at least, we don't know what he's saying.",
+                "Unless otherwise specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with POV-man.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards POV-man, whose reactions and inner thoughts are not explicitly conveyed.",
                 "Before translating any individual lines, read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene.",
-                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
+                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and POV-man's implicit reactions."
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "SystemPromptMultishot"));
 
@@ -148,13 +149,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "* StartTime",
                 "* Original",
                 "* Translation (new field): Your translation in " + AIPrompt.TranslationLanguageToken + ".",
-                "The audience for the translation is adults so it is acceptable to use explicitily sexual words or concepts.",
+                "The audience for the translation is adults, so it is acceptable and even encouraged to use sexually explicit language or concepts.",
                 "Use natural-sounding phrases and idioms that accurately convey the meaning of the original text.",
-                "The video is from the perspective of the male participant, who is the recipient of the woman's actions and dialogue. He does not speak.",
-                "Unless specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with the male participant.",
-                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards the male participant, whose reactions and inner thoughts are not explicitly conveyed.",
+                "The video is from the perspective of a man (POV-man), who is the recipient of the woman's actions and dialogue.",
+                "He does not speak, or at least, we don't know what he's saying.",
+                "Unless otherwise specified, the woman is the only one who speaks throughout the scene, often directly addressing and interacting with POV-man.",
+                "When translating, consider the woman's tone, pacing and emotional state as she directs her comments and ministrations towards POV-man, whose reactions and inner thoughts are not explicitly conveyed.",
                 "Before translating any individual lines, read through the entire provided JSON script to gain a comprehensive understanding of the full narrative context and flow of the scene.",
-                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and the male participant's implicit reactions.",
+                "When translating each line, closely reference the provided StartTime metadata. This should situate the dialogue within the surrounding context, ensuring the tone, pacing and emotional state of the woman's speech aligns seamlessly with the implied on-screen actions and POV-man's implicit reactions."
             });
             jtokenIdOverrides.Add(new JTokenIdOverride("AIPrompt", "UserPrompt"));
 

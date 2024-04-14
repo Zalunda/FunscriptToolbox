@@ -10,5 +10,15 @@ namespace FunscriptToolbox.Core.Infra
         {
             return source.Select(selector).Aggregate(TimeSpan.Zero, (acc, ts) => acc + ts);
         }
+
+        public static TimeSpan Min(TimeSpan a, TimeSpan b)
+        {
+            return a < b ? a : b;
+        }
+
+        public static TimeSpan Max(TimeSpan a, TimeSpan b)
+        {
+            return a > b ? a : b;
+        }
     }
 }

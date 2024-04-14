@@ -184,6 +184,7 @@
     <Compile Include="SubtitlesVerbs\Language.cs" />
     <Compile Include="SubtitlesVerbs\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionAnalysis.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
     <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerMultishot.cs" />
@@ -192,7 +193,6 @@
     <Compile Include="SubtitlesVerbs\Translations\TranslatorDeepLWithFiles.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorDeepLAPI.cs" />
     <Compile Include="VerbContext.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\CostReportLevel.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSingleTranslationSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />

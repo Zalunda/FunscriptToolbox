@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 var filename = Path.GetFileName(fullpath);
                 var match = Regex.Match(
                     filename, 
-                    Regex.Escape($"TODO-{transcription.Id}-{translation.Id}-DEEPL-") + $"(?<startIndex>\\d+)-(?<nbItems>\\d+).txt", 
+                    Regex.Escape($"TODO-{transcription.Id}-{translation.Id}-") + $"(?<startIndex>\\d+)-(?<nbItems>\\d+).txt", 
                     RegexOptions.IgnoreCase);
                 if (match.Success)
                 {

@@ -21,7 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
             {
                 context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
                     audio,
-                    context.GetPotentialVerboseFilePath(processStartTime, "audio-original.wav"));
+                    context.GetPotentialVerboseFilePath("audio-original.wav", processStartTime));
             }
 
             if (rules.Length > 0)
@@ -52,10 +52,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                         {
                             context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
                                 partialAudioOriginal,
-                                context.GetPotentialVerboseFilePath(processStartTime, $"audio-part-{i}-original.wav"));
+                                context.GetPotentialVerboseFilePath($"audio-part-{i}-original.wav", processStartTime));
                             context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
                                 partialAudioNormalized,
-                                context.GetPotentialVerboseFilePath(processStartTime, $"audio-part-{i}-normalized.wav"));
+                                context.GetPotentialVerboseFilePath($"audio-part-{i}-normalized.wav", processStartTime));
                         }
                     }
                 }
@@ -65,7 +65,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 {
                     context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
                         audio,
-                        context.GetPotentialVerboseFilePath(processStartTime, "audio-normalized.wav"));
+                        context.GetPotentialVerboseFilePath("audio-normalized.wav", processStartTime));
                 }
             }
             return audio;

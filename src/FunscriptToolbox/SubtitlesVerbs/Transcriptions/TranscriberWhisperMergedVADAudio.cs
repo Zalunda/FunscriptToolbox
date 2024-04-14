@@ -120,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var adjustedSrt = new SubtitleFile();
                 adjustedSrt.Subtitles.AddRange(transcribedTexts.Select(tt => new Subtitle(tt.StartTime, tt.EndTime, tt.Text)));
-                adjustedSrt.SaveSrt(context.GetPotentialVerboseFilePath(DateTime.Now, $"{this.TranscriptionId}-adjusted.srt"));                     
+                adjustedSrt.SaveSrt(context.GetPotentialVerboseFilePath($"{this.TranscriptionId}-adjusted.srt", DateTime.Now));
             }
 
             return new Transcription(

@@ -176,22 +176,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // 3. Transcribing the audio file, if not already done.
                     var sourceLanguage = Language.FromString(r_options.SourceLanguage);
                     foreach (var transcriber in config.Transcribers
-                        ?.Where(t => t.Enabled) 
+                        ?.Where(t => t.Enabled)
                         ?? Array.Empty<Transcriber>())
                     {
-                        // TODO Future: For all transcriber, analyze transcription subtitles vs forced timing (ex. how many missed transcription??)
-
                         var transcription = wipsub.Transcriptions.FirstOrDefault(
                             t => t.Id == transcriber.TranscriptionId);
                         if (transcription != null)
                         {
                             context.WriteInfoAlreadyDone($"Transcription '{transcriber.TranscriptionId}' have already been done:");
                             context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Length}");
+                            WriteTranscriptionAnalysis(context, transcription);
                             context.WriteInfoAlreadyDone();
                         }
                         else if (!transcriber.IsPrerequisitesMet(context, out var reason))
                         {
-                            context.WriteInfo($"Transcription '{transcriber.TranscriptionId}' cannot be done yet: {reason}");
+                            context.WriteInfo($"Transcription '{transcriber.TranscriptionId}' can't be done yet: {reason}");
                             context.WriteInfo();
                         }
                         else
@@ -207,6 +206,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                                 context.WriteInfo($"Finished in {watch.Elapsed}:");
                                 context.WriteInfo($"    Number of subtitles = {transcription.Items.Length}");
+                                WriteTranscriptionAnalysis(context, transcription);
                                 context.WriteInfo();
 
                                 wipsub.Transcriptions.Add(transcription);
@@ -217,8 +217,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 context.WriteError($"An error occured while transcribing '{transcriber.TranscriptionId}':\n{ex.Message}");
                             }
                         }
+                    }
 
-                        // 4. Translating the transcribed text, if not already done.
+                    // 4. Translating the transcribed text, if not already done.
+                    foreach (var transcriber in config.Transcribers
+                        ?.Where(t => t.Enabled)
+                        ?? Array.Empty<Transcriber>())
+                    {
+                        var transcription = wipsub.Transcriptions.FirstOrDefault(
+                            t => t.Id == transcriber.TranscriptionId);
                         if (transcription != null)
                         {
                             foreach (var translator in transcriber.Translators
@@ -273,10 +280,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         ?.Where(o => o.Enabled) 
                         ?? Array.Empty<SubtitleOutput>())
                     {
-                        // TODO Add logs,
-                        output.CreateOutput(
-                            context,
-                            wipsub);
+                        if (!output.IsPrerequisitesMet(context, out var reason))
+                        {
+                            context.WriteInfo($"Output '{output.Description}' can't be done yet: {reason}");
+                            context.WriteInfo();
+                        }
+                        else
+                        {
+                            context.WriteInfo($"Creating Output '{output.Description}'...");
+                            output.CreateOutput(context);
+                            context.WriteInfo($"Finished.");
+                            context.WriteInfo();
+                        }
                     }
 
                     context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
@@ -315,6 +330,61 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 context.WriteInfo();
             }
             return base.NbErrors;
+        }
+
+        private static void WriteTranscriptionAnalysis(
+            SubtitleGeneratorContext context, 
+            Transcription transcription)
+        {
+            var analysis = transcription.GetAnalysis(context);
+            if (analysis != null)
+            {
+                context.WriteInfoAlreadyDone($"    ForcedTimings Analysis:");
+                context.WriteInfoAlreadyDone($"       Number with transcription:    {analysis.NbWithTranscription}");
+                context.WriteInfoAlreadyDone($"       Number without transcription: {analysis.NbWithoutTranscription}");
+                if (analysis.ExtraTranscriptions.Length > 0)
+                {
+                    context.WriteInfoAlreadyDone($"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}");
+                }
+
+                if (context.IsVerbose)
+                {
+                    using (var writer = File.CreateText(context.GetPotentialVerboseFilePath($"{transcription.Id}-ANALYSIS-versus-ForcedTimings.txt")))
+                    {
+                        var extraTranscriptions = analysis.ExtraTranscriptions.ToList();
+                        foreach (var item in analysis
+                            .ForcedTimingsWithOverlapTranscribedTexts
+                            .OrderBy(f => f.Key.StartTime))
+                        {
+                            while (extraTranscriptions.FirstOrDefault()?.StartTime <= item.Key.StartTime)
+                            {
+                                var extra = extraTranscriptions.First();
+                                writer.WriteLine($"[Extra transcription, don't overlap with forced timings] {extra.StartTime} => {extra.EndTime}, {extra.GetFirstTranslatedIfPossible()}");
+                                extraTranscriptions.RemoveAt(0);
+                            }
+
+                            if (item.Value.Length == 0)
+                            {
+                                writer.WriteLine($"[No transcription found] {item.Key.StartTime} => {item.Key.EndTime}");
+                            }
+                            else if (item.Value.Length == 1)
+                            {
+                                var first = item.Value.First();
+                                writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}, {first.TranscribedText.GetFirstTranslatedIfPossible()} {first.OverlapInfo}");
+                            }
+                            else
+                            {
+                                writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}");
+                                foreach (var value in item.Value)
+                                {
+                                    var tt = value.TranscribedText;
+                                    writer.WriteLine($"     {tt.StartTime} => {tt.EndTime}, {tt.GetFirstTranslatedIfPossible()} {value.OverlapInfo}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

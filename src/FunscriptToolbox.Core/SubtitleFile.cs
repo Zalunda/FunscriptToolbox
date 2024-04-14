@@ -71,7 +71,7 @@ namespace FunscriptToolbox.Core
             this.Subtitles = subtitles == null ? new List<Subtitle>() : subtitles.ToList();
         }
 
-        public void ExpandTiming(TimeSpan durationAdded, TimeSpan minDuration)
+        public void ExpandTiming(TimeSpan minDuration, TimeSpan durationAdded)
         {
             var oldSubtitles = this.Subtitles.ToArray();
             this.Subtitles.Clear();
