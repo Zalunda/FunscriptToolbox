@@ -1,8 +1,8 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
 using FunscriptToolbox.MotionVectorsVerbs;
-using FunscriptToolbox.SubtitlesVerb;
-using FunscriptToolbox.SubtitlesVerbsV2;
+using FunscriptToolbox.SubtitlesVerbObsolete;
+using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
 using log4net.Appender;
 using System;
@@ -27,7 +27,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 60;
+            int test = 50;
 
             switch (test)
             {
@@ -88,66 +88,6 @@ namespace FunscriptToolbox
                     };
                     break;
 
-                case 30:
-                    args = new[]
-                    {
-                        "subtitles.video2vadsrt",
-                        "--verbose",
-                        "--suffix", ".temp.vad",
-                        @"*.mp4",
-                    };
-                    break;
-                case 31:
-                    args = new[]
-                    {
-                        "subtitles.srt2wavchunks",
-                        "--verbose",
-                        "*.perfect-vad.srt",
-                    };
-                    break;
-                case 32:
-                    args = new[]
-                    {
-                        "subtitles.srt2vadwav",
-                        "--verbose",
-                        "*.temp.perfect-vad.srt"
-                    };
-                    break;
-                case 33:
-                    args = new[]
-                    {
-                        "subtitles.wavchunks2srt",
-                        "--verbose",
-                        "--suffix", ".whisper.chunks",
-                        "*.perfect-vad.srt",
-                    };
-                    break;
-                case 34:
-                    args = new[]
-                    {
-                        "subtitles.vadwav2srt",
-                        "--verbose",
-                        "--suffix", ".jp",
-                        "*.whisper.wav",
-                    };
-                    break;
-                case 35:
-                    args = new[]
-                    {
-                        "subtitles.srt2gpt",
-                        "--verbose",
-                        "*.whisper.jp.srt", 
-                    };
-                    break;
-                case 36:
-                    args = new[]
-                    {
-                        "subtitles.gpt2srt",
-                        "--verbose",
-                        "*.gptresults",
-                    };
-                    break;
-
                 case 40:
                     args = new[]
                     {
@@ -167,22 +107,11 @@ namespace FunscriptToolbox
                     };
                     break;
 
-                case 51:
-                    args = new[]
-                    {
-                        "subtitles.srt2train",
-                        "--verbose",
-                        "--output", "JAVTranslator.data.json",
-                        "--force",
-                        "*.context",
-                    };
-                    break;
-
-                case 60:
+                case 50:
                     File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.0.json", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
                     args = new[]
                     {
-                        "subtitlesv2.create",
+                        "subtitles.create",
                         "--verbose",
                         "--recursive", 
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
@@ -210,6 +139,8 @@ namespace FunscriptToolbox
                     VerbAudioSyncCreateFunscript.Options,
                     VerbAudioSyncVerifyFunscript.Options,
 
+                    VerbSubtitlesCreate.Options,
+
                     VerbSubtitlesVideo2VADSrt.Options,
                     VerbSubtitlesSrt2VADWav.Options,
                     VerbSubtitlesSrt2WavChunks.Options,
@@ -217,10 +148,6 @@ namespace FunscriptToolbox
                     VerbSubtitlesVADWav2Srt.Options,
                     VerbSubtitlesGPT2Srt.Options,
                     VerbSubtitlesSrt2GPT.Options,
-
-                    VerbSubtitlesSrt2Training.Options,
-
-                    VerbSubtitlesV2Create.Options,
 
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
@@ -232,6 +159,8 @@ namespace FunscriptToolbox
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
 
+                          (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
+
                           (VerbSubtitlesVideo2VADSrt.Options options) => new VerbSubtitlesVideo2VADSrt(options).Execute(),
                           (VerbSubtitlesSrt2VADWav.Options options) => new VerbSubtitlesSrt2VADWav(options).Execute(),
                           (VerbSubtitlesSrt2WavChunks.Options options) => new VerbSubtitlesSrt2WavChunks(options).Execute(),
@@ -239,10 +168,6 @@ namespace FunscriptToolbox
                           (VerbSubtitlesVADWav2Srt.Options options) => new VerbSubtitlesVADWav2Srt(options).Execute(),
                           (VerbSubtitlesGPT2Srt.Options options) => new VerbSubtitlesGPT2Srt(options).Execute(),
                           (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
-
-                          (VerbSubtitlesSrt2Training.Options options) => new VerbSubtitlesSrt2Training(options).Execute(),
-
-                          (VerbSubtitlesV2Create.Options options) => new VerbSubtitlesV2Create(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),

@@ -1,7 +1,7 @@
 ﻿using CommandLine;
 using FunscriptToolbox.InstallationFiles;
 using FunscriptToolbox.Properties;
-using FunscriptToolbox.SubtitlesVerbsV2;
+using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
 using System;
 using System.IO;
@@ -34,11 +34,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             InstallOFSPlugin();
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat);
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
-
-            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitlesV2Alpha_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetExample());
-            CreateUseCaseFolder("FSTB-CreateSubtitles-V2-Alpha", "--FSTB-SubtitleGeneratorConfigExample-1.0", ".json", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfigExample-1.0", ".json", SubtitleGeneratorConfig.GetExample());
 
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat);
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);

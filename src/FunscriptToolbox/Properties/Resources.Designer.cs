@@ -62,52 +62,23 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to @echo off
-        ///REM ScriptVersion:1.3
-        ///
-        ///echo How to use:
-        ///echo see: https://discuss.eroscripts.com/t/how-to-create-subtitles-for-a-scene-even-if-you-dont-understand-the-language/90168
-        ///echo.
-        ///
-        ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
-        ///
-        ///echo --- subtitles.video2vadsrt ---
-        ///&quot;FunscriptToolbox.exe&quot; ^
-        ///		subtitles.video2vadsrt ^
-        ///		--suffix &quot;.temp.vad&quot; ^
-        ///		&quot;*.mp4&quot;
-        ///
-        ///echo.
-        ///echo --- subtitles.srt2wavchunks ---
-        ///&quot;FunscriptToolbox.exe&quot; ^
-        ///		subtitles.srt2wavchunks ^
-        ///		&quot;*.perfect-vad.srt&quot;
-        ///
-        ///echo.
-        ///echo --- sub [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string FSTB_CreateSubtitles_bat {
-            get {
-                return ResourceManager.GetString("FSTB-CreateSubtitles_bat", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to @echo off
         ///REM ScriptVersion:1.0
         ///
         ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
         ///
+        ///echo --- subtitles.create ---
         ///&quot;FunscriptToolbox.exe&quot; ^
-        ///		subtitlesV2.create ^
-        ///		--suffix &quot;.temp.vad&quot; ^
+        ///		subtitles.create ^
+        ///		--config &quot;.\--FSTB-SubtitleGeneratorConfig.json&quot; ^
+        ///		--sourcelanguage &quot;ja&quot; ^
+        ///		--verbose ^
         ///		&quot;*.mp4&quot;
-        ///
         ///pause
         ///.
         /// </summary>
-        internal static string FSTB_CreateSubtitlesV2Alpha_bat {
+        internal static string FSTB_CreateSubtitles_bat {
             get {
-                return ResourceManager.GetString("FSTB_CreateSubtitlesV2Alpha_bat", resourceCulture);
+                return ResourceManager.GetString("FSTB_CreateSubtitles_bat", resourceCulture);
             }
         }
         

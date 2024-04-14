@@ -178,80 +178,77 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="SubtitlesVerbsV2\AudioExtraction\AudioExtractor.cs" />
-    <Compile Include="SubtitlesVerbsV2\AudioExtraction\AudioNormalizationRule.cs" />
-    <Compile Include="SubtitlesVerbsV2\Cost.cs" />
-    <Compile Include="SubtitlesVerbsV2\Language.cs" />
-    <Compile Include="SubtitlesVerbsV2\LanguageConverter.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleForcedTimingParser.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorPrivateConfig.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerMultishot.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslationExample.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAI.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLWithFiles.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorDeepLAPI.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtraction\AudioExtractor.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtraction\AudioNormalizationRule.cs" />
+    <Compile Include="SubtitlesVerbs\Cost.cs" />
+    <Compile Include="SubtitlesVerbs\Language.cs" />
+    <Compile Include="SubtitlesVerbs\LanguageConverter.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleForcedTimingParser.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerMultishot.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslationExample.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorDeepLWithFiles.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorDeepLAPI.cs" />
     <Compile Include="VerbContext.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\CostReportLevel.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutput.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputSingleTranslationSrt.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputCostReport.cs" />
-    <Compile Include="SubtitlesVerbsV2\Outputs\SubtitleOutputWIPSrt.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorConfig.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\Transcriber.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriptionCost.cs" />
-    <Compile Include="SubtitlesVerbsV2\AudioExtraction\FfmpegAudioHelper.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberTool.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisper.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisperSingleVADAudio.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\Transcription.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscribedText.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscribedWord.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisperFullAudio.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberWhisperMergedVADAudio.cs" />
-    <Compile Include="SubtitlesVerbsV2\Transcriptions\TranscriberToolPurfviewWhisper.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandler.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerExpection.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIMessagesHandlerJson.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\AIPrompt.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorGoogleV1API.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIChatBot.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatorAIGenericAPI.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\Translation.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslationCost.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\Translator.cs" />
-    <Compile Include="SubtitlesVerbsV2\AudioExtraction\PcmAudio.cs" />
-    <Compile Include="SubtitlesVerbsV2\Translations\TranslatedText.cs" />
-    <Compile Include="SubtitlesVerbsV2\VerbSubtitlesV2Create.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleForcedTiming.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleForcedTimingCollection.cs" />
-    <Compile Include="SubtitlesVerbsV2\SubtitleGeneratorContext.cs" />
-    <Compile Include="SubtitlesVerbsV2\WorkInProgressSubtitles.cs" />
-    <Compile Include="SubtitlesVerbs\AlpacaData.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesGPT2Srt.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2Training.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesVADWav2Srt.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesWavChunks2Srt.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2WavChunks.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2VADWav.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesVideo2VADSrt.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesSrt2GPT.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\CostReportLevel.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSingleTranslationSrt.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWIPSrt.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionCost.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtraction\FfmpegAudioHelper.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberTool.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberWhisper.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberWhisperSingleVADAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\Transcription.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscribedText.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscribedWord.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberWhisperFullAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberWhisperMergedVADAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolPurfviewWhisper.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandler.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerExpection.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerJson.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIPrompt.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorGoogleV1API.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorAIChatBot.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorAIGenericAPI.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\Translation.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslationCost.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\Translator.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtraction\PcmAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatedText.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesCreate.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleForcedTiming.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleForcedTimingCollection.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleGeneratorContext.cs" />
+    <Compile Include="SubtitlesVerbs\WorkInProgressSubtitles.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesGPT2Srt.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesVADWav2Srt.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesWavChunks2Srt.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesSrt2WavChunks.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesSrt2VADWav.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesVideo2VADSrt.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesSrt2GPT.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitles.cs" />
+    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitles.cs" />
     <Compile Include="Verb.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateFunscript.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <EmbeddedResource Include="InstallationFiles\json.lua" />
-    <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />
     <EmbeddedResource Include="InstallationFiles\main.lua" />
     <EmbeddedResource Include="InstallationFiles\server_connection.lua" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareScriptForRelease.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareVideoForOFS.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-GenericCmd.bat" />
-    <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitlesV2Alpha.bat" />
+    <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />
     <None Include="InstallationFiles\--FSTB-VerifyDownloadedScripts.bat" />
     <None Include="InstallationFiles\virtual_actions.lua" />
     <None Include="packages.config" />
@@ -277,8 +274,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
