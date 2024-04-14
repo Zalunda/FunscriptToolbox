@@ -25,7 +25,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             [Option('f', "fix", Required = false, HelpText = "If a script is not synchronized, create a synchronized funscript", Default = false)]
             public bool FixSynchronization { get; set; }
 
-            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 20)]
+            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 60)]
             public int MinimumMatchLength { get => m_minimumMatchLength; set => m_minimumMatchLength = ValidateMinValue(value, 5); }
             private int m_minimumMatchLength;
 

@@ -21,7 +21,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             [Option('o', "output", Required = true, HelpText = "new .mp4 or .asig file", Separator = ';')]
             public IEnumerable<string> Outputs { get; set; }
 
-            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 30)]
+            [Option('m', "minimumMatchLength", Required = false, HelpText = "Minimum match length, in second (used by the 'matching algorythm')", Default = 60)]
             public int MinimumMatchLength { get => m_minimumMatchLength; set => m_minimumMatchLength = ValidateMinValue(value, 5); }
             private int m_minimumMatchLength;
 
