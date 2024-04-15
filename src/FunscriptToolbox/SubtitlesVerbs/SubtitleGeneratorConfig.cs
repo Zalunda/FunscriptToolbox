@@ -197,6 +197,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             translatorGoogleV1,
                             new TranslatorDeepLWithFiles()
                             {
+                                Enabled = false,
                                 TranslationId = "deepl-files",
                                 TargetLanguage = Language.FromString("en")
                             },

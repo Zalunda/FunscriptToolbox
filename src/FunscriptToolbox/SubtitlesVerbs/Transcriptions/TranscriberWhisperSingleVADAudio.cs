@@ -18,7 +18,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            reason = "SubtitlesForcedTiming not imported yet";
+            reason = "SubtitlesForcedTiming not imported yet.";
             return context.CurrentWipsub.SubtitlesForcedTiming != null;
         }
 

@@ -36,7 +36,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         {
             if (context.CurrentWipsub.Transcriptions.Count == 0)
             {
-                reason = "No transcription available";
+                reason = "No transcription available.";
+                return false;
+            }
+            else if (context.CurrentWipsub.SubtitlesForcedTiming == null)
+            {
+                reason = "SubtitlesForcedTiming not imported yet.";
                 return false;
             }
             else
