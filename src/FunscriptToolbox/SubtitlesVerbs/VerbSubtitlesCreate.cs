@@ -141,13 +141,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
 
                     // 2. Extracting PcmAudio, if not already done.
-                    if (wipsub.PcmAudio != null)
+                    var pcmFilePath = wipsub.OriginalFilePath + ".pcm";
+                    if (wipsub.PcmAudio != null && File.Exists(pcmFilePath))
                     {
                         // TODO Maybe? 
                         // if  (wipsub.PcmAudio.AudioNormalizationRules
                         //    .SequenceEqual(
                         //    wipsub.SubtitlesForcedTiming.GetAudioNormalizationRules()))
                         {
+                            wipsub.PcmAudio.RegisterLoadPcmFunc(() => File.ReadAllBytes(pcmFilePath));
                             context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
                             context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
                             context.WriteInfoAlreadyDone();
@@ -167,6 +169,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         var watchPcmAudio = Stopwatch.StartNew();
                         wipsub.PcmAudio = config.AudioExtractor.ExtractPcmAudio(context, inputMp4Fullpath);
                         wipsub.Save();
+                        File.WriteAllBytes(pcmFilePath, wipsub.PcmAudio.Data);
                    
                         context.WriteInfo($"Finished in {watchPcmAudio.Elapsed}:");
                         context.WriteInfo($"    Audio Duration = {wipsub.PcmAudio.Duration}");
@@ -185,7 +188,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             context.WriteInfoAlreadyDone($"Transcription '{transcriber.TranscriptionId}' have already been done:");
                             context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Length}");
-                            WriteTranscriptionAnalysis(context, transcription);
+                            foreach (var line in GetTranscriptionAnalysis(context, transcription))
+                            {
+                                context.WriteInfoAlreadyDone(line);
+                            }
                             context.WriteInfoAlreadyDone();
                         }
                         else if (!transcriber.IsPrerequisitesMet(context, out var reason))
@@ -206,7 +212,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                                 context.WriteInfo($"Finished in {watch.Elapsed}:");
                                 context.WriteInfo($"    Number of subtitles = {transcription.Items.Length}");
-                                WriteTranscriptionAnalysis(context, transcription);
+                                foreach (var line in GetTranscriptionAnalysis(context, transcription))
+                                {
+                                    context.WriteInfo(line);
+                                }
                                 context.WriteInfo();
 
                                 wipsub.Transcriptions.Add(transcription);
@@ -332,19 +341,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return base.NbErrors;
         }
 
-        private static void WriteTranscriptionAnalysis(
+        private static IEnumerable<string> GetTranscriptionAnalysis(
             SubtitleGeneratorContext context, 
             Transcription transcription)
         {
             var analysis = transcription.GetAnalysis(context);
             if (analysis != null)
             {
-                context.WriteInfoAlreadyDone($"    ForcedTimings Analysis:");
-                context.WriteInfoAlreadyDone($"       Number with transcription:    {analysis.NbWithTranscription}");
-                context.WriteInfoAlreadyDone($"       Number without transcription: {analysis.NbWithoutTranscription}");
+                yield return $"    ForcedTimings Analysis:";
+                yield return $"       Number with transcription:    {analysis.NbWithTranscription}";
+                yield return $"       Number without transcription: {analysis.NbWithoutTranscription}";
                 if (analysis.ExtraTranscriptions.Length > 0)
                 {
-                    context.WriteInfoAlreadyDone($"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}");
+                    yield return $"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}";
                 }
 
                 if (context.IsVerbose)

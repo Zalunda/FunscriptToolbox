@@ -21,14 +21,14 @@ namespace FunscriptToolbox.Core.Infra
                     baseType => baseType.IsAssignableFrom(x) && !x.IsAbstract));
 
             r_nameToType = matchingTypes.ToDictionary(
-                t => SimplyName(t.Name, baseTypes),
+                t => SimplifyName(t.Name, baseTypes),
                 t => t);
             r_typeToName = r_nameToType.ToDictionary(
                 t => t.Value,
                 t => t.Key);
         }
 
-        private string SimplyName(string originalName, Type[] baseTypes)
+        private string SimplifyName(string originalName, Type[] baseTypes)
         {
             var simplifiedName = originalName;
             foreach (var baseType in baseTypes) 

@@ -319,6 +319,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     new SubtitleOutputCostReport()
                     {
+                        FileSuffix = null
                     },
                     new SubtitleOutputSingleTranslationSrt()
                     {

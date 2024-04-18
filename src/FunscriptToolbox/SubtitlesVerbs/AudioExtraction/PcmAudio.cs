@@ -11,19 +11,44 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
         private const int NbBytesPerSamples = 2;
 
         public int SamplingRate { get; }
-        public byte[] Data { get; }
+
+        private Func<byte[]> r_loadPcmFunc;
+        private byte[] r_data = null;
+
+        [JsonIgnore]
+        public byte[] Data 
+        { 
+            get
+            {
+                r_data ??= r_loadPcmFunc();
+                return r_data;
+            }
+        }
         public TimeSpan Offset { get; }
-        public TimeSpan Duration => IndexToTimeSpan(Data.Length);
+        public TimeSpan Duration { get; }
 
         public AudioNormalizationRule[] AudioNormalizationRules { get; }
 
         [JsonConstructor]
-        public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null, IEnumerable<AudioNormalizationRule> audioNormalizationRules = null)
+        public PcmAudio(int samplingRate, TimeSpan duration, TimeSpan? offset = null, IEnumerable<AudioNormalizationRule> audioNormalizationRules = null)
         {
             SamplingRate = samplingRate;
-            Data = data;
+            r_data = null;
+            Duration = duration;
             Offset = offset ?? TimeSpan.Zero;
-            AudioNormalizationRules = audioNormalizationRules == null ? null : audioNormalizationRules.ToArray();
+            AudioNormalizationRules = audioNormalizationRules?.ToArray();
+        }
+
+
+        public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null, IEnumerable<AudioNormalizationRule> audioNormalizationRules = null)
+            : this(samplingRate, IndexToTimeSpan(data.Length, samplingRate), offset, audioNormalizationRules)
+        {
+            r_data = data;
+        }
+
+        internal void RegisterLoadPcmFunc(Func<byte[]> loadPcmFunc)
+        {
+            r_loadPcmFunc = loadPcmFunc;
         }
 
         public PcmAudio(IEnumerable<PcmAudio> parts, IEnumerable<AudioNormalizationRule> audioNormalizationRules)
@@ -34,7 +59,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
             { 
                 dataBuilder.Write(part.Data, 0, part.Data.Length);
             }
-            Data = dataBuilder.ToArray();
+            r_data = dataBuilder.ToArray();
+            Duration = IndexToTimeSpan(r_data.Length, SamplingRate);
             Offset = TimeSpan.Zero;
             AudioNormalizationRules = audioNormalizationRules.ToArray(); ;
         }
@@ -57,7 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
             return new PcmAudio(SamplingRate, data);
         }
 
-        private TimeSpan IndexToTimeSpan(int index) => TimeSpan.FromSeconds((double)index / SamplingRate / NbBytesPerSamples);
+        private static TimeSpan IndexToTimeSpan(int index, int samplingRate) => TimeSpan.FromSeconds((double)index / samplingRate / NbBytesPerSamples);
         private int TimeSpanToIndex(TimeSpan index) => (int)(index.TotalSeconds * SamplingRate) * NbBytesPerSamples;
     }
 }

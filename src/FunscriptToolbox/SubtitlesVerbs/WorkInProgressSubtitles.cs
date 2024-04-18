@@ -72,8 +72,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             if (File.Exists(path))
             {
-                File.Delete(path + ".bak");
-                File.Move(path, path + ".bak");
+                File.Delete(path);
             }
             File.Move(path + ".temp", path);
         }

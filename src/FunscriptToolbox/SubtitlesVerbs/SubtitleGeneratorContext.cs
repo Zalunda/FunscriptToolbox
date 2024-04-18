@@ -93,6 +93,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         internal string GetPotentialVerboseFilePath(string suffixe, DateTime? processStartTime = null)
         {
+            Directory.CreateDirectory(this.CurrentBackupFolder);
             return processStartTime == null
                 ? Path.Combine(
                     this.CurrentBackupFolder,
@@ -106,7 +107,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             if (IsVerbose)
             {
-                Directory.CreateDirectory(this.CurrentBackupFolder);
                 File.WriteAllText(
                     GetPotentialVerboseFilePath(suffixe, processStartTime),
                     content,
