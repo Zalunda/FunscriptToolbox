@@ -112,7 +112,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     if (File.Exists(forcedTimingPath))
                     {
                         var newForcedTimings = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
-                        if (newForcedTimings.SequenceEqual(wipsub.SubtitlesForcedTiming))
+                        if (wipsub.SubtitlesForcedTiming != null && newForcedTimings.SequenceEqual(wipsub.SubtitlesForcedTiming))
                         {
                             context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
                             context.WriteInfoAlreadyDone($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
