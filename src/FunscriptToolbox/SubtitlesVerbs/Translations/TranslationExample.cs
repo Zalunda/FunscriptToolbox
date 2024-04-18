@@ -71,15 +71,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 }
             };
 
-            var googleTranslator = new TranslatorGoogleV1API();
             return examples.Select(example =>
             {
                 var englishText = example.First(f => f.Language == "English").Text;
 
                 var original = example.FirstOrDefault(f => f.Language == originalLanguage.LongName)?.Text
-                    ?? googleTranslator.SimpleTranslate(englishText, "en", originalLanguage.ShortName);
+                    ?? TranslatorGoogleV1API.SimpleTranslate(englishText, "en", originalLanguage.ShortName);
                 var translation = example.FirstOrDefault(f => f.Language == translationLanguage.LongName)?.Text
-                    ?? googleTranslator.SimpleTranslate(englishText, "en", translationLanguage.ShortName);
+                    ?? TranslatorGoogleV1API.SimpleTranslate(englishText, "en", translationLanguage.ShortName);
 
                 return new TranslationExample(original, translation);
             }).ToArray();

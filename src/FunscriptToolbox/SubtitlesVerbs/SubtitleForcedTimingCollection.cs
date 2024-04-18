@@ -9,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
     public class SubtitleForcedTimingCollection : ReadOnlyCollection<SubtitleForcedTiming>
     {
         public SubtitleForcedTimingCollection(IEnumerable<SubtitleForcedTiming> vod)
-            : base(vod.ToArray())
+            : base(vod.Distinct().OrderBy(v => v.StartTime).ToArray()) // => To fix files with duplicate subtitle
         {
         }
 

@@ -115,9 +115,7 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive", 
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
-                        "--sourcelanguage", "ja",
-                        "--reimporttimings",
-                        "VRKM*.mp4"
+                        "*.mp4"
                     };
                     break;
             }

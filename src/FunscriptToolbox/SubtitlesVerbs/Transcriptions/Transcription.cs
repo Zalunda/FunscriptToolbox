@@ -21,8 +21,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             IEnumerable<Translation> translations = null)
         {
             Id = id;
-            Language = language;
             Items = items.ToArray();
+            Language = language ?? TranslatorGoogleV1API.DetectLanguage(Items);
             Costs = costs.ToArray();
             Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
         }
