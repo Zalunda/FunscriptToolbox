@@ -38,9 +38,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             [Option("sourcelanguage", Required = false, HelpText = "")]
             public string SourceLanguage { get; set; }
 
-            [Option("reimporttimings", Required = false, HelpText = "", Default = false)]
-            public bool ReimportTimings { get; set; }
-
             [Option("removetranslations", Required = false, HelpText = "")]
             public string RemoveTranslations { get; set; }
         }
@@ -112,32 +109,33 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     var forcedTimingPath = Path.ChangeExtension(
                         inputMp4Fullpath,
                         config.SubtitleForcedTimingsParser.FileSuffix);
-                    if (wipsub.SubtitlesForcedTiming != null && !r_options.ReimportTimings)
+                    if (File.Exists(forcedTimingPath))
                     {
-                        context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
-                        context.WriteInfoAlreadyDone($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
-                        context.WriteInfoAlreadyDone($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
-                        context.WriteInfoAlreadyDone();
-                    }
-                    else if (File.Exists(forcedTimingPath))
-                    {
-                        context.WriteInfo($"Importing forced subtitle timings from '{Path.GetFileName(forcedTimingPath)}'...");
+                        var newForcedTimings = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
+                        if (newForcedTimings.SequenceEqual(wipsub.SubtitlesForcedTiming))
+                        {
+                            context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
+                            context.WriteInfoAlreadyDone($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
+                            context.WriteInfoAlreadyDone($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
+                            context.WriteInfoAlreadyDone();
+                        }
+                        else
+                        {
+                            var importOrUpdate = wipsub.SubtitlesForcedTiming == null ? "Importing" : "Updating";
+                            context.WriteInfo($"{importOrUpdate} forced subtitle timings from '{Path.GetFileName(forcedTimingPath)}'...");
 
-                        wipsub.SubtitlesForcedTiming = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
-                        wipsub.Save();
+                            wipsub.SubtitlesForcedTiming = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
+                            wipsub.Save();
 
-                        context.WriteInfo($"Finished:");
-                        context.WriteInfo($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
-                        context.WriteInfo($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
-                        context.WriteInfo();
+                            context.WriteInfo($"Finished:");
+                            context.WriteInfo($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
+                            context.WriteInfo($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
+                            context.WriteInfo();
+                        }
                     }
                     else if (config.Outputs.Any(f => f.NeedSubtitleForcedTimings))
                     {
                         context.AddUserTodo($"Create the subtitle forced timings file '{Path.GetFileName(forcedTimingPath)}'.");
-                    }
-                    else
-                    {
-                        // Ignore subtitle forced timing since it's not used.
                     }
 
                     // 2. Extracting PcmAudio, if not already done.
