@@ -1,9 +1,9 @@
 @echo off
-REM ScriptVersion:1.5
+REM ScriptVersion:1.6
 
 set "path=[[FunscriptToolboxFolder]];%path%"
 
-start:
+:start
 echo --- subtitles.create ---
 "FunscriptToolbox.exe" ^
 		subtitles.create ^
@@ -12,4 +12,4 @@ echo --- subtitles.create ---
 		"*.mp4"
 pause
 REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)
-REM goto start:
+REM goto start
