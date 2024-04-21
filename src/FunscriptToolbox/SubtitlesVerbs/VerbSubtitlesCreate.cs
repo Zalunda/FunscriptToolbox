@@ -186,6 +186,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             context.WriteInfoAlreadyDone($"Transcription '{transcriber.TranscriptionId}' have already been done:");
                             context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Length}");
+                            context.WriteInfoAlreadyDone($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
                             if (transcriber.Language == null)
                             {
                                 context.WriteInfoAlreadyDone($"    Detected Language = {transcription.Language.LongName}");
@@ -214,6 +215,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                                 context.WriteInfo($"Finished in {watch.Elapsed}:");
                                 context.WriteInfo($"    Number of subtitles = {transcription.Items.Length}");
+                                context.WriteInfo($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
                                 if (transcriber.Language == null)
                                 {
                                     context.WriteInfo($"    Detected Language = {transcription.Language.LongName}");
