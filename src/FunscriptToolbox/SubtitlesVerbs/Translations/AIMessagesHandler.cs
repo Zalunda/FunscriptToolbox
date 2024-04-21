@@ -27,7 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 .Select(item =>
                 {
                     var previousContext = currentContext;
-                    currentContext = subtitlesForcedTiming.GetContextAt(item.StartTime);
+                    currentContext = subtitlesForcedTiming?.GetContextAt(item.StartTime);
                     return new ItemForAI(
                         item, 
                         currentContext == previousContext ? null : currentContext,
