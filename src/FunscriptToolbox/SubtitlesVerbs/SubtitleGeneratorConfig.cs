@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.Core.Infra;
+﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
 using FunscriptToolbox.SubtitlesVerbs.Outputs;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
@@ -170,8 +171,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var config = new SubtitleGeneratorConfig()
             {
                 SubtitleForcedTimingsParser = new SubtitleForcedTimingParser()
-                { 
-                    FileSuffix = ".perfect-vad.srt" 
+                {
+                    FileSuffix = ".perfect-vad.srt"
                 },
                 SharedObjects = new object[]
                 {
@@ -188,7 +189,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full",
                         TranscriberTool = transcriberTool,
-                        Translators = new Translator[] { translatorGoogleV1 }
+                        Translators = new Translator[] { 
+                            translatorGoogleV1,
+                            new TranslatorAIGenericAPI()
+                            {
+                                Enabled = false,
+                                TranslationId = "local-llama-3-api",
+                                BaseAddress = "http://localhost:10000",
+                                Model = "3thn/dolphin-2.9-llama3-8b-GGUF/dolphin-2.9-llama3-8b.Q8_0.gguf",
+                                ValidateModelNameInResponse = true,
+                                TargetLanguage = Language.FromString("en"),
+                                RequestBodyExtension = null,
+                                MessagesHandler = new AIMessagesHandlerMultishot
+                                {
+                                    SystemPrompt = systemPromptMultiShot,
+                                    MaxPreviousShot = 50
+                                }
+                            }
+                        }
                     },
                     new TranscriberWhisperMergedVADAudio()
                     {
@@ -276,15 +294,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             new TranslatorAIGenericAPI()
                             {
                                 Enabled = false,
-                                TranslationId = "local-mistral-7b",
+                                TranslationId = "local-llama-3-api",
                                 BaseAddress = "http://localhost:10000",
-                                Model = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF/mistral-7b-instruct-v0.2.Q8_0.gguf",
+                                Model = "3thn/dolphin-2.9-llama3-8b-GGUF/dolphin-2.9-llama3-8b.Q8_0.gguf",
                                 ValidateModelNameInResponse = true,
                                 TargetLanguage = Language.FromString("en"),
-                                RequestBodyExtension = requestBodyExtensionMistral7b,
+                                RequestBodyExtension = null,
                                 MessagesHandler = new AIMessagesHandlerMultishot
                                 {
-                                    SystemPrompt = systemPromptMultiShot
+                                    SystemPrompt = systemPromptMultiShot,
+                                    MaxPreviousShot = 50
                                 }
                             },
                             new TranslatorAIGenericAPI()
@@ -327,18 +346,56 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranslationId = "google",
                         FileSuffix = ".perfect-vad-potential.srt"
                     },
+                    new SubtitleOutputSingleTranslationSrt()
+                    {
+                        Enabled = false,
+                        TranscriptionId = "full",
+                        TranslationId = "local-llama-3-api",
+                        FileSuffix = ".quicky.srt",
+                        SubtitlesToInject = new []
+                        {
+                            new SubtitleToInject()
+                            {
+                                Origin = SubtitleToInjectOrigin.Start,
+                                OffsetTime = TimeSpan.FromSeconds(5),
+                                Duration = TimeSpan.FromSeconds(10),
+                                Lines = new []
+                                {
+                                    "Created using the FunscriptToolbox.",
+                                    "The transcription was generated with Whisper, and the translation was provided by a llama-3 model.",
+                                    "No manual ajustement were made. Quality might be low."
+                                }
+                            }
+                        }
+
+                    },
                     new SubtitleOutputMultiTranslationSrt()
                     {
                         Enabled = false,
-                        TranscriptionId = "mv",
+                        TranscriptionId = "mergedvad",
                         TranslationsOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
-                        FileSuffix = ".mv.srt"
+                        FileSuffix = ".mergedvad.srt"
                     },
                     new SubtitleOutputWIPSrt()
                     {
                         TranscriptionsOrder = new [] { "singlevad", "mergedvad", "*" },
                         TranslationsOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
-                        FileSuffix = ".wip.srt"
+                        FileSuffix = ".wip.srt",
+                        SubtitlesToInject = new []
+                        {
+                            new SubtitleToInject()
+                            {
+                                Origin = SubtitleToInjectOrigin.Start,
+                                OffsetTime = TimeSpan.FromSeconds(5),
+                                Duration = TimeSpan.FromSeconds(10),
+                                Lines = new []
+                                {
+                                    "Created using the FunscriptToolbox and SubtitleEdit.",
+                                    "The initial transcription was generated with Whisper, and the translation was provided by the Claude-3-Opus model.",
+                                    "Both the transcription and translation underwent manual review and adjustment to improve their accuracy and quality."
+                                }
+                            }
+                        }
                     }
                 }
             };

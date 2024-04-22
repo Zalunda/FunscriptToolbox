@@ -92,7 +92,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     var userContent = new StringBuilder();
                     if (item.Context != currentContext)
                     {
-                        currentContext= item.Context;
+                        currentContext = item.Context;
                     }
                     if (IncludeContext && currentContext != null)
                     {

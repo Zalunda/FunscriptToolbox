@@ -180,11 +180,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     currentText = (currentText ?? string.Empty) + word.Text;
                                     currentWords.Add(word);
 
-                                    if (indexWord != words.Count - 1 && (currentText.EndsWith(".") || currentText.EndsWith(",") || currentText.EndsWith("?") || currentText.EndsWith("!")))
-                                    {
-                                        var m = 0;
-                                    }
-
                                     // Check for punctuation marks or if its the last word in the segment to create segments.
                                     if (indexWord == words.Count - 1 ||
                                         (this.ForceSplitOnComma && (currentText.EndsWith("\u3001") || currentText.EndsWith(",")) /* , */) ||

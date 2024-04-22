@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FunscriptToolbox.Core.Infra;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -73,7 +74,10 @@ namespace FunscriptToolbox.Core
 
         public void ExpandTiming(TimeSpan minDuration, TimeSpan durationAdded)
         {
-            var oldSubtitles = this.Subtitles.ToArray();
+            var oldSubtitles = this.Subtitles
+                .OrderBy(f => f.StartTime)
+                .ThenBy(f => f.EndTime)
+                .ToArray();
             this.Subtitles.Clear();
             for (int i = 0; i < oldSubtitles.Length; i++)
             {
@@ -92,7 +96,11 @@ namespace FunscriptToolbox.Core
                     newEndTime = nextSubtitle.StartTime;
                 }
 
-                this.Subtitles.Add(new Subtitle(subtitle.StartTime, newEndTime, subtitle.Lines));
+                this.Subtitles.Add(
+                    new Subtitle(
+                        subtitle.StartTime, 
+                        newEndTime, 
+                        subtitle.Lines));
             }
         }
 

@@ -20,31 +20,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public string FileSuffix { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]
         public string TranscriptionId { get; set; }
-        [JsonProperty(Order = 12, Required = Required.Always)]
+        [JsonProperty(Order = 12)]
         public string TranslationId { get; set; }
+
+        [JsonProperty(Order = 20)]
+        public SubtitleToInject[] SubtitlesToInject { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
             reason = $"Cannot create file because transcription '{this.TranscriptionId}' doesn't exists yet.";
-            return null != (context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId)
-                ?? context.CurrentWipsub.Transcriptions.FirstOrDefault());
+            return (this.TranscriptionId == null) || (null != (context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId)
+                ?? context.CurrentWipsub.Transcriptions.FirstOrDefault()));
         }
 
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
-            var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId) 
-                ?? context.CurrentWipsub.Transcriptions.FirstOrDefault();
-            if (transcription == null)
-            {
-                context.WriteError($"Cannot create file '{this.FileSuffix}' because transcription '{this.TranscriptionId}' doesn't exists.");
-                return;
-            }
-
-            var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId)
-                ?? transcription.Translations.FirstOrDefault();
+            var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+            var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId);
 
             var subtitleFile = new SubtitleFile();
             foreach (var item in transcription.Items)
@@ -53,6 +48,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     ?? item.Text;
                 subtitleFile.Subtitles.Add(new Subtitle(item.StartTime, item.EndTime, text));
             }
+
+            subtitleFile.Subtitles.AddRange(
+                GetAdjustedSubtitlesToInject(subtitleFile.Subtitles, this.SubtitlesToInject, context.CurrentWipsub.PcmAudio.Duration));
 
             var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);

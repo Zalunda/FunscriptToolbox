@@ -187,7 +187,9 @@
     <Compile Include="SubtitlesVerbs\Cost.cs" />
     <Compile Include="SubtitlesVerbs\Language.cs" />
     <Compile Include="SubtitlesVerbs\LanguageConverter.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionAnalysis.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />

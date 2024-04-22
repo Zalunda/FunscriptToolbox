@@ -26,9 +26,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 12, Required = Required.Always)]
         public string[] TranslationsOrder { get; set; }
 
+        [JsonProperty(Order = 13)]
+        public bool IncludeExtraTranscriptions { get; set; } = true;
+
+        [JsonProperty(Order = 14)]
         public int MinimumOverlapPercentage { get; set; } = 10;
+        [JsonProperty(Order = 15)]
         public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        [JsonProperty(Order = 16)]
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
+
+        [JsonProperty(Order = 20)]
+        public SubtitleToInject[] SubtitlesToInject { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -116,10 +125,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     previousEnd = forcedTiming.EndTime;
                 }
             }
-            wipSubtitleFile.Subtitles.AddRange(
-                GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder));
 
             wipSubtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+            wipSubtitleFile.Subtitles.AddRange(
+                GetAdjustedSubtitlesToInject(wipSubtitleFile.Subtitles, this.SubtitlesToInject, context.CurrentWipsub.PcmAudio.Duration));
+
+            if (IncludeExtraTranscriptions)
+            {
+                wipSubtitleFile.Subtitles.AddRange(
+                    GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder));
+            }
 
             var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);

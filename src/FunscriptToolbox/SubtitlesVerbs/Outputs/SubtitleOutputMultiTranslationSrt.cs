@@ -24,6 +24,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 12, Required = Required.Always)]
         public string[] TranslationsOrder { get; set; }
 
+        [JsonProperty(Order = 20)]
+        public SubtitleToInject[] SubtitlesToInject { get; set; }
+
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
@@ -59,6 +62,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 }
                 subtitleFile.Subtitles.Add(new Subtitle(transcribedText.StartTime, transcribedText.EndTime, builder.ToString()));
             }
+
+            subtitleFile.Subtitles.AddRange(
+                GetAdjustedSubtitlesToInject(subtitleFile.Subtitles, this.SubtitlesToInject, context.CurrentWipsub.PcmAudio.Duration));
 
             var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);
