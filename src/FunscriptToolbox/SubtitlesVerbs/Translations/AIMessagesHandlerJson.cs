@@ -38,6 +38,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             var currentIndex = 0;
             int requestNumber = 1;
+            string ongoingContext = null;
             while (currentIndex < itemsWithoutTranslations.Length)
             {
                 currentIndex = Math.Max(0, currentIndex - this.OverlapItemsInRequest);
@@ -81,8 +82,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 userContent.AppendLine(
                     JsonConvert.SerializeObject(
                         itemsForRequest.Select(
-                            f => new {
+                            (f, index) => new {
                                 Context = this.IncludeContext ? f.Context : null,
+                                OngoingContext = (this.IncludeContext && index == 0 && f.Context == null) ? ongoingContext : null,
                                 Talker = this.IncludeTalker ? f.Talker : null,
                                 StartTime = this.IncludeStartTime ? f.StartTime : null,
                                 f.Original
@@ -108,6 +110,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     data,
                     itemsForRequest);
                 currentIndex += itemsForRequest.Length;
+
+                ongoingContext = itemsForRequest.LastOrDefault(f => f.Context != null)?.Context ?? ongoingContext;
             }
         }
 
