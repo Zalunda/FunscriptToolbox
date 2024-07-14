@@ -147,7 +147,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             long total = 0;
             foreach (var rule in this.Rules)
             {
-                total += lookup[frame.MotionsX[rule.Index], frame.MotionsY[rule.Index], rule.Direction];
+                total += lookup[(byte)frame.Motions[rule.Index].X, (byte)frame.Motions[rule.Index].Y, rule.Direction];
             }
             return total;
         }

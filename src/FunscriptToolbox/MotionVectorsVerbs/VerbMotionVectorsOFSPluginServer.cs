@@ -221,7 +221,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             var tempFile = Path.GetTempFileName() + ".png";
             try
             {
-                var mvsVisualFullPath = mvsFullPath.Replace(".mvs", ".mvs-visual.mp4");
+                var mvsVisualFullPath = mvsFullPath.Replace(".mvs2", ".mvs2-visual.mp4");
 
                 string path;
                 if (File.Exists(mvsVisualFullPath))

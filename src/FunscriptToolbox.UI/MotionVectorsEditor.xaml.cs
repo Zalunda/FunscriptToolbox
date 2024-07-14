@@ -37,7 +37,7 @@ namespace FunscriptToolbox.UI
         {
             r_mvsReader = mvsReader;
             r_originalFrameAnalyser = createRulesRequest.CreateInitialFrameAnalyser(mvsReader);
-            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
+            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlockSize);
             
             var snapshotContentResult = snapshotContent.Result;
             if (snapshotContentResult != null)
@@ -204,12 +204,12 @@ namespace FunscriptToolbox.UI
                 var rules = new List<BlocAnalyserRule>();
                 for (int indexBlocY = 0; indexBlocY < r_mvsReader.NbBlocY; indexBlocY++)
                 {
-                    var blocY = indexBlocY * r_mvsReader.BlocSize;
+                    var blocY = indexBlocY * r_mvsReader.BlockSize;
                     if (blocY >= selection.Top && blocY < selection.Bottom)
                     {
                         for (int indexBlocX = 0; indexBlocX < r_mvsReader.NbBlocX; indexBlocX++)
                         {
-                            var blocX = indexBlocX * r_mvsReader.BlocSize;
+                            var blocX = indexBlocX * r_mvsReader.BlockSize;
                             if (blocX >= selection.Left && blocX < selection.Right)
                             {
                                 rules.Add(

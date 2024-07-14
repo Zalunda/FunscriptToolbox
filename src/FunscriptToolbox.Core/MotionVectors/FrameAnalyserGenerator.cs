@@ -49,7 +49,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 actions.First().AtAsTimeSpan,
                 actions.Last().AtAsTimeSpan))
             {
-                if (currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan)
+                if ((currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan) && indexAction + 1 < actions.Length)
                 {
                     currentAction = nextAction;
                     nextAction = actions[indexAction++];
@@ -59,21 +59,18 @@ namespace FunscriptToolbox.Core.MotionVectors
                 var posOrNegInFunscript = (diff > 0) ? 1 : (diff < 0) ? -1 : 0;
 
                 fixed (short* pLookup = lookupTable)
-                fixed (byte* pMotionX = frame.MotionsX)
-                fixed (byte* pMotionY = frame.MotionsY)
+                fixed (Motion* pMotions = frame.Motions)
                 fixed (TempValue* pTemp = temp)
                 {
-                    var pCurrentMotionX = pMotionX;
-                    var pCurrentMotionY = pMotionY;
+                    var pCurrentMotion = pMotions;
                     var pCurrentTemp = pTemp;
 
                     for (int i = 0; i < reader.NbBlocTotalPerFrame; i++)
                     {
-                        var motionXAsByte = *(pMotionX + i);
-                        var motionYAsByte = *(pMotionY + i);
+                        var motion = *(pMotions + i);
                         for (int k = 0; k < MotionVectorsHelper.NbBaseDirection / 2; k++, pCurrentTemp++)
                         {
-                            var motionWeight = *(pLookup + ((motionXAsByte * 256 + motionYAsByte) * MotionVectorsHelper.NbBaseDirection + k));
+                            var motionWeight = *(pLookup + (((byte)motion.X * 256 + (byte)motion.Y) * MotionVectorsHelper.NbBaseDirection + k));
                             var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
                             if (posOrNegInFunscript == posOrNeg)
                             {
@@ -179,11 +176,9 @@ namespace FunscriptToolbox.Core.MotionVectors
 
                 for (int i = 0; i < reader.NbBlocTotalPerFrame; i++)
                 {
-                    var motionXAsByte = frame.MotionsX[i];
-                    var motionYAsByte = frame.MotionsY[i];
                     for (int k = 0; k < MotionVectorsHelper.NbBaseDirection; k++)
                     {
-                        var motionWeight = lookupTable[motionXAsByte, motionYAsByte, k];
+                        var motionWeight = lookupTable[(byte)frame.Motions[i].X, (byte)frame.Motions[i].Y, k];
                         var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
 
                         if (posOrNegInFunscript == posOrNeg)
