@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.Core.Infra;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -31,35 +30,50 @@ namespace FunscriptToolbox.Core
 
         private static IEnumerable<Subtitle> ReadSrtSubtitles(string[] lines)
         {
+            var frCulture = CultureInfo.GetCultureInfo("fr-FR"); // fr culture will accept "," for the milliseconds separator
+
+            int currentSubtitleNumber = 0;
+            TimeSpan currentStartTime = TimeSpan.Zero;
+            TimeSpan currentEndTime = TimeSpan.Zero;
+            var texts = new List<string>();
+
             var index = 0;
             while (index < lines.Length)
             {
-                var numberLine = lines[index++];
-                if (!int.TryParse(numberLine, out var number))
+                var currentLine = lines[index];
+                var subtitleTimesLine = (index + 1 < lines.Length) ? lines[index + 1].Trim() : string.Empty;
+                var matchTimes = rs_timesRegex.Match(subtitleTimesLine);
+                if (int.TryParse(currentLine.Trim(), out var subtitleNumber) && matchTimes.Success)
                 {
-                    throw new Exception($"{index}: Invalid number format on line: {numberLine}");
-                }
-                var times = lines[index++];
-                var match = rs_timesRegex.Match(times);
-                if (!match.Success)
-                {
-                    throw new FormatException($"{index}: Invalid format for start/end time: {times}");
-                }
+                    if (texts.Count > 0)
+                    {
+                        yield return new Subtitle(
+                            currentStartTime,
+                            currentEndTime,
+                            texts.Where(line => line.Length > 0).ToArray(),
+                            currentSubtitleNumber);
+                    }
 
-                var texts = new List<string>();
-                while (index < lines.Length && !int.TryParse(lines[index], out var _))
-                {
-                    var line = lines[index++];
-                    if (!string.IsNullOrWhiteSpace(line))
-                        texts.Add(line);
+                    currentSubtitleNumber = subtitleNumber;
+                    currentStartTime = TimeSpan.Parse(matchTimes.Groups["StartTime"].Value, frCulture);
+                    currentEndTime = TimeSpan.Parse(matchTimes.Groups["EndTime"].Value, frCulture);
+                    texts.Clear();
+                    index += 2;
                 }
+                else
+                {
+                    texts.Add(currentLine);
+                    index++;
+                }
+            }
 
-                var frCulture = CultureInfo.GetCultureInfo("fr-FR"); // fr culture will accept "," for the milliseconds separator
+            if (texts.Count > 0)
+            {
                 yield return new Subtitle(
-                    TimeSpan.Parse(match.Groups["StartTime"].Value, frCulture), 
-                    TimeSpan.Parse(match.Groups["EndTime"].Value, frCulture), 
-                    texts.ToArray(),
-                    number);
+                    currentStartTime,
+                    currentEndTime,
+                    texts.Where(line => line.Length > 0).ToArray(),
+                    currentSubtitleNumber);
             }
         }
 
