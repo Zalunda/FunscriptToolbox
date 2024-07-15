@@ -228,40 +228,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             new TranslatorAIChatBot()
                             {
                                 Enabled = false,
-                                TranslationId = "chatgpt-4",
-                                TargetLanguage = Language.FromString("en"),
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 20
-                                }
-                            },
-                            new TranslatorAIChatBot()
-                            {
-                                Enabled = true,
-                                TranslationId = "claude-3-haiku",
-                                TargetLanguage = Language.FromString("en"),
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 40
-                                }
-                            },
-                            new TranslatorAIChatBot()
-                            {
-                                Enabled = false,
-                                TranslationId = "claude-3-haiku-200k",
-                                TargetLanguage = Language.FromString("en"),
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 10000
-                                }
-                            },
-                            new TranslatorAIChatBot()
-                            {
-                                Enabled = false,
-                                TranslationId = "claude-3-sonnet",
+                                TranslationId = "claude-3.5-sonnet",
                                 TargetLanguage = Language.FromString("en"),
                                 MessagesHandler = new AIMessagesHandlerJson
                                 {
@@ -272,12 +239,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             new TranslatorAIChatBot()
                             {
                                 Enabled = false,
-                                TranslationId = "claude-3-opus",
+                                TranslationId = "GPT-4o",
                                 TargetLanguage = Language.FromString("en"),
                                 MessagesHandler = new AIMessagesHandlerJson
                                 {
                                     FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 40
+                                    MaxItemsInRequest = 20
                                 }
                             },
                             new TranslatorAIChatBot()
@@ -357,7 +324,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             new SubtitleToInject()
                             {
                                 Origin = SubtitleToInjectOrigin.Start,
-                                OffsetTime = TimeSpan.FromSeconds(5),
+                                OffsetTime = TimeSpan.FromSeconds(0),
                                 Duration = TimeSpan.FromSeconds(10),
                                 Lines = new []
                                 {
@@ -373,30 +340,55 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         Enabled = false,
                         TranscriptionId = "mergedvad",
-                        TranslationsOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
+                        TranslationsOrder = new [] { "claude-3.5-sonnet", "GPT-4o", "*" },
                         FileSuffix = ".mergedvad.srt"
                     },
                     new SubtitleOutputWIPSrt()
                     {
                         TranscriptionsOrder = new [] { "singlevad", "mergedvad", "*" },
-                        TranslationsOrder = new [] { "claude-3-opus", "claude-3-sonnet", "claude-3-haiku-200k", "claude-3-haiku", "chatgpt-4", "mistral-large", "local-mistral-7b", "deepl", "deepl-files", "google", "*" },
+                        TranslationsOrder = new [] { "claude-3.5-sonnet", "GPT-4o", "*" },
                         FileSuffix = ".wip.srt",
                         SubtitlesToInject = new []
                         {
                             new SubtitleToInject()
                             {
                                 Origin = SubtitleToInjectOrigin.Start,
-                                OffsetTime = TimeSpan.FromSeconds(5),
-                                Duration = TimeSpan.FromSeconds(10),
+                                OffsetTime = TimeSpan.FromSeconds(0),
+                                Duration = TimeSpan.FromSeconds(5),
                                 Lines = new []
                                 {
-                                    "Created using the FunscriptToolbox and SubtitleEdit.",
-                                    "The initial transcription was generated with Whisper, and the translation was provided by the Claude-3-Opus model.",
-                                    "Both the transcription and translation underwent manual review and adjustment to improve their accuracy and quality."
+                                    "Created by ???, using the FunscriptToolbox and SubtitleEdit."
                                 }
-                            }
+                            },
+                            new SubtitleToInject()
+                            {
+                                Origin = SubtitleToInjectOrigin.Start,
+                                OffsetTime = TimeSpan.FromSeconds(5),
+                                Duration = TimeSpan.FromSeconds(2.5),
+                                Lines = new []
+                                {
+                                    "The initial transcription was generated with Whisper,",
+                                    "and the translation was provided by the Claude-3.5-Sonnet model.",
+                                }
+                            },
+                            new SubtitleToInject()
+                            {
+                                Origin = SubtitleToInjectOrigin.Start,
+                                OffsetTime = TimeSpan.FromSeconds(7.5),
+                                Duration = TimeSpan.FromSeconds(2.5),
+                                Lines = new []
+                                {
+                                    "Both the transcription and translation underwent manual review",
+                                    "and adjustment to improve their accuracy and quality."
+                                }
+                            },
                         }
-                    }
+                    },
+                    new SubtitleOutputWav()
+                    {
+                        FileSuffix = ".wav",
+                        FfmpegWavParameters = "-af \"highpass=f=1000,loudnorm=I=-16:TP=-1\""
+                    },
                 }
             };
 
