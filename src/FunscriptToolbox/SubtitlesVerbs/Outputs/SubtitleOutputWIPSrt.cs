@@ -28,12 +28,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         [JsonProperty(Order = 13)]
         public bool IncludeExtraTranscriptions { get; set; } = true;
-
         [JsonProperty(Order = 14)]
-        public int MinimumOverlapPercentage { get; set; } = 10;
+        public bool AutoSelectSingleChoice { get; private set; } = false;
+
         [JsonProperty(Order = 15)]
-        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        public int MinimumOverlapPercentage { get; set; } = 10;
         [JsonProperty(Order = 16)]
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        [JsonProperty(Order = 17)]
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
 
         [JsonProperty(Order = 20)]
@@ -88,6 +90,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             {
                 wipSubtitleFile.Subtitles.AddRange(GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder, forcedTiming.StartTime));
 
+                string singleChoice = AutoSelectSingleChoice ? string.Empty : null;
                 if (forcedTiming.ScreengrabText != null)
                 {
                     wipSubtitleFile.Subtitles.Add(
@@ -115,6 +118,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                                     : string.Empty;
                                 builder.AppendLine($"[{ta.Transcription.Id}{number}] {overlap.TranscribedText.Text} {overlap.OverlapInfo}");
                                 AppendTranslationLines(builder, overlap.TranscribedText, finalTranslationsOrder);
+
+                                var translations = overlap.TranscribedText.TranslatedTexts.Where(f => finalTranslationsOrder.Contains(f.Id)).ToArray();
+                                singleChoice = (overlap.OverlapInfo != null) || (translations.Length != 1)
+                                    ? null
+                                    : singleChoice == string.Empty
+                                        ? translations.First().Text
+                                        : null;
                             }
                         }
                     }    
@@ -123,7 +133,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                         new Subtitle(
                             forcedTiming.StartTime,
                             forcedTiming.EndTime,
-                            builder.ToString()));
+                            singleChoice ?? builder.ToString()));
                     previousEnd = forcedTiming.EndTime;
                 }
             }
