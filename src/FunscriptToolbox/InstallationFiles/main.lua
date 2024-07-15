@@ -9,7 +9,6 @@ PluginVersion = "[[PluginVersion]]"
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
 
 config = {}
-sharedConfig = {}
 connection = nil
 virtualActions = {}
 lastVideoFullPath = nil
@@ -37,38 +36,39 @@ function loadOrCreateConfig()
     end
 
 	if not config.adjustVps then config.adjustVps = {} end
+	if not config.shared then config.shared = {} end
 	
 	if not loaded.config then loaded.config = {} end
 	if not loaded.config.adjustVps then loaded.config.adjustVps = {} end
-	if not loaded.config.sharedConfig then loaded.sharedConfig = {} end
+	if not loaded.config.shared then loaded.config.shared = {} end
 
-	config.EnableLogs 								= loaded.config.EnableLogs == nil and true or loaded.config.EnableLogs
-	config.ShowUIOnCreate							= loaded.config.ShowUIOnCreate == nil and true or loaded.config.ShowUIOnCreate
+	config.EnableLogs 								= loaded.EnableLogs == nil and true or loaded.EnableLogs
+	config.ShowUIOnCreate							= loaded.ShowUIOnCreate == nil and true or loaded.ShowUIOnCreate
 	
-	config.adjustVps.TopPointsOffset 				= loaded.config.adjustVps.TopPointsOffset 				or 0
-	config.adjustVps.TopPointsOffsetReset			= loaded.config.adjustVps.TopPointsOffsetReset == nil and true or loaded.config.adjustVps.TopPointsOffsetReset
-	config.adjustVps.BottomPointsOffset 			= loaded.config.adjustVps.BottomPointsOffset 			or 0
-	config.adjustVps.BottomPointsOffsetReset		= loaded.config.adjustVps.BottomPointsOffsetReset == nil and true or loaded.config.adjustVps.BottomPointsOffsetReset
-	config.adjustVps.MinimumPosition 				= loaded.config.adjustVps.MinimumPosition 				or 0
-	config.adjustVps.MinimumPositionReset			= loaded.config.adjustVps.MinimumPositionReset == nil and true or loaded.config.adjustVps.MinimumPositionReset
-	config.adjustVps.MaximumPosition 				= loaded.config.adjustVps.MaximumPosition 				or 100
-	config.adjustVps.MaximumPositionReset			= loaded.config.adjustVps.MaximumPositionReset == nil and true or loaded.config.adjustVps.MaximumPositionReset
-	config.adjustVps.MinimumPercentageFilled 		= loaded.config.adjustVps.MinimumPercentageFilled 		or 0
-	config.adjustVps.MinimumPercentageFilledReset	= loaded.config.adjustVps.MinimumPercentageFilledReset == nil and true or loaded.config.adjustVps.MinimumPercentageFilledReset
-	config.adjustVps.AmplitudeCenter 				= loaded.config.adjustVps.AmplitudeCenter 				or 50
-	config.adjustVps.AmplitudeCenterReset			= loaded.config.adjustVps.AmplitudeCenterReset == nil and true or loaded.config.adjustVps.AmplitudeCenterReset
-	config.adjustVps.ExtraAmplitudePercentage 		= loaded.config.adjustVps.ExtraAmplitudePercentage 		or 0
-	config.adjustVps.ExtraAmplitudePercentageReset	= loaded.config.adjustVps.ExtraAmplitudePercentageReset == nil and true or loaded.config.adjustVps.ExtraAmplitudePercentageReset
+	config.adjustVps.TopPointsOffset 				= loaded.adjustVps.TopPointsOffset 				or 0
+	config.adjustVps.TopPointsOffsetReset			= loaded.adjustVps.TopPointsOffsetReset == nil and true or loaded.adjustVps.TopPointsOffsetReset
+	config.adjustVps.BottomPointsOffset 			= loaded.adjustVps.BottomPointsOffset 			or 0
+	config.adjustVps.BottomPointsOffsetReset		= loaded.adjustVps.BottomPointsOffsetReset == nil and true or loaded.adjustVps.BottomPointsOffsetReset
+	config.adjustVps.MinimumPosition 				= loaded.adjustVps.MinimumPosition 				or 0
+	config.adjustVps.MinimumPositionReset			= loaded.adjustVps.MinimumPositionReset == nil and true or loaded.adjustVps.MinimumPositionReset
+	config.adjustVps.MaximumPosition 				= loaded.adjustVps.MaximumPosition 				or 100
+	config.adjustVps.MaximumPositionReset			= loaded.adjustVps.MaximumPositionReset == nil and true or loaded.adjustVps.MaximumPositionReset
+	config.adjustVps.MinimumPercentageFilled 		= loaded.adjustVps.MinimumPercentageFilled 		or 0
+	config.adjustVps.MinimumPercentageFilledReset	= loaded.adjustVps.MinimumPercentageFilledReset == nil and true or loaded.adjustVps.MinimumPercentageFilledReset
+	config.adjustVps.AmplitudeCenter 				= loaded.adjustVps.AmplitudeCenter 				or 50
+	config.adjustVps.AmplitudeCenterReset			= loaded.adjustVps.AmplitudeCenterReset == nil and true or loaded.adjustVps.AmplitudeCenterReset
+	config.adjustVps.ExtraAmplitudePercentage 		= loaded.adjustVps.ExtraAmplitudePercentage 		or 0
+	config.adjustVps.ExtraAmplitudePercentageReset	= loaded.adjustVps.ExtraAmplitudePercentageReset == nil and true or loaded.adjustVps.ExtraAmplitudePercentageReset
 
-	sharedConfig.MaximumMemoryUsageInMB 			= loaded.sharedConfig.MaximumMemoryUsageInMB 				or 1000
-	sharedConfig.LearningDurationInSeconds 			= loaded.sharedConfig.LearningDurationInSeconds 			or 10
-	sharedConfig.DefaultActivityFilter 				= loaded.sharedConfig.DefaultActivityFilter 				or 60
-	sharedConfig.DefaultQualityFilter 				= loaded.sharedConfig.DefaultQualityFilter 					or 90
-	sharedConfig.DefaultMinimumPercentageFilter 	= loaded.sharedConfig.DefaultMinimumPercentageFilter 		or 5
-	sharedConfig.MaximumDurationToGenerateInSeconds = loaded.sharedConfig.MaximumDurationToGenerateInSeconds	or 120
-	sharedConfig.MaximumNbStrokesDetectedPerSecond 	= loaded.sharedConfig.MaximumNbStrokesDetectedPerSecond		or 3.0
-	sharedConfig.TopMostUI							= loaded.sharedConfig.TopMostUI == nil and true or loaded.sharedConfig.TopMostUI
-	
+	config.shared.MaximumMemoryUsageInMB 			 = loaded.shared.MaximumMemoryUsageInMB 			    or 1000
+	config.shared.LearningDurationInSeconds 		 = loaded.shared.LearningDurationInSeconds 		    or 10
+	config.shared.DefaultActivityFilter 			 = loaded.shared.DefaultActivityFilter 			    or 60
+	config.shared.DefaultQualityFilter 				 = loaded.shared.DefaultQualityFilter 			    or 90
+	config.shared.DefaultMinimumPercentageFilter 	 = loaded.shared.DefaultMinimumPercentageFilter 		or 5
+	config.shared.MaximumDurationToGenerateInSeconds = loaded.shared.MaximumDurationToGenerateInSeconds	or 120
+	config.shared.MaximumNbStrokesDetectedPerSecond  = loaded.shared.MaximumNbStrokesDetectedPerSecond	or 3.0
+	config.shared.TopMostUI							 = loaded.shared.TopMostUI == nil and true or loaded.shared.TopMostUI
+
 	fullResetAdjustConfigToDefault()
 end
 
@@ -107,7 +107,7 @@ function partialResetAdjustConfigToDefault()
 end
 
 function saveConfig()
-	local encoded_data = json.encode({config = config, sharedConfig = sharedConfig})
+	local encoded_data = json.encode(config)
  	local requestFile = io.open(configFullPath , "w")
  	requestFile:write(encoded_data)
  	requestFile:close()
@@ -139,7 +139,7 @@ function createRequest(service)
 
 	return {
 		["$type"] = service,
-		SharedConfig = sharedConfig
+		SharedConfig = config.shared
 	}
 end
 
@@ -148,7 +148,7 @@ function sendCreateRulesRequest(showUI)
 	getVirtualActions():removeAllVirtualActionsInTimelime('sendCreateRulesRequest')
 
 	local script = ofs.Script(ofs.ActiveIdx())
-	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - sharedConfig.LearningDurationInSeconds)
+	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - config.shared.LearningDurationInSeconds)
 	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.001)
 	local nextAction = script:closestActionAfter(player.CurrentTime() + 0.001);
 
@@ -188,9 +188,9 @@ function sendCreateRulesRequest(showUI)
 		request.SelectedActions = {}
 
 		if nextAction then
-			request.DurationToGenerateInSeconds = math.min(sharedConfig.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
+			request.DurationToGenerateInSeconds = math.min(config.shared.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
 		else
-			request.DurationToGenerateInSeconds = sharedConfig.MaximumDurationToGenerateInSeconds
+			request.DurationToGenerateInSeconds = config.shared.MaximumDurationToGenerateInSeconds
 		end
 		request.ShowUI = showUI
 			
@@ -547,32 +547,32 @@ function gui()
 	end	
 
 	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Learn from script") then
-		sharedConfig.LearningDurationInSeconds, changed00 = ofs.InputInt("Script Duration (sec)", sharedConfig.LearningDurationInSeconds, 2)
-		sharedConfig.LearningDurationInSeconds = clamp(sharedConfig.LearningDurationInSeconds, 0, 1000)	
-		sharedConfig.DefaultActivityFilter, changed01 = ofs.InputInt("Default Activity Filter", sharedConfig.DefaultActivityFilter, 5)
-		sharedConfig.DefaultActivityFilter = clamp(sharedConfig.DefaultActivityFilter, 0, 100)
-		sharedConfig.DefaultQualityFilter, changed02 = ofs.InputInt("Default Quality Filter", sharedConfig.DefaultQualityFilter, 5)
-		sharedConfig.DefaultQualityFilter = clamp(sharedConfig.DefaultQualityFilter, 50, 100)
+		config.shared.LearningDurationInSeconds, changed00 = ofs.InputInt("Script Duration (sec)", config.shared.LearningDurationInSeconds, 2)
+		config.shared.LearningDurationInSeconds = clamp(config.shared.LearningDurationInSeconds, 0, 1000)	
+		config.shared.DefaultActivityFilter, changed01 = ofs.InputInt("Default Activity Filter", config.shared.DefaultActivityFilter, 5)
+		config.shared.DefaultActivityFilter = clamp(config.shared.DefaultActivityFilter, 0, 100)
+		config.shared.DefaultQualityFilter, changed02 = ofs.InputInt("Default Quality Filter", config.shared.DefaultQualityFilter, 5)
+		config.shared.DefaultQualityFilter = clamp(config.shared.DefaultQualityFilter, 50, 100)
 		local increment = 1
-		if sharedConfig.DefaultMinimumPercentageFilter <= 2 then
+		if config.shared.DefaultMinimumPercentageFilter <= 2 then
 			increment = 0.1
 		end
-		sharedConfig.DefaultMinimumPercentageFilter, changed03 = ofs.Input("Default Min % Filter", sharedConfig.DefaultMinimumPercentageFilter, increment)
-		sharedConfig.DefaultMinimumPercentageFilter = clamp(sharedConfig.DefaultMinimumPercentageFilter, 0, 100)
+		config.shared.DefaultMinimumPercentageFilter, changed03 = ofs.Input("Default Min % Filter", config.shared.DefaultMinimumPercentageFilter, increment)
+		config.shared.DefaultMinimumPercentageFilter = clamp(config.shared.DefaultMinimumPercentageFilter, 0, 100)
 		ofs.Separator()
 	end	
 	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Actions generation") then
-		sharedConfig.MaximumDurationToGenerateInSeconds, changed04 = ofs.InputInt("Maximum Generation (sec)", sharedConfig.MaximumDurationToGenerateInSeconds, 10)
-		sharedConfig.MaximumDurationToGenerateInSeconds = clamp(sharedConfig.MaximumDurationToGenerateInSeconds, 20, 100000)
+		config.shared.MaximumDurationToGenerateInSeconds, changed04 = ofs.InputInt("Maximum Generation (sec)", config.shared.MaximumDurationToGenerateInSeconds, 10)
+		config.shared.MaximumDurationToGenerateInSeconds = clamp(config.shared.MaximumDurationToGenerateInSeconds, 20, 100000)
 	
-		sharedConfig.MaximumNbStrokesDetectedPerSecond, changed05 = ofs.Input("Maximum Strokes per sec", sharedConfig.MaximumNbStrokesDetectedPerSecond, 0.5)
-		sharedConfig.MaximumNbStrokesDetectedPerSecond = clamp(sharedConfig.MaximumNbStrokesDetectedPerSecond, 1.0, 5.0)
+		config.shared.MaximumNbStrokesDetectedPerSecond, changed05 = ofs.Input("Maximum Strokes per sec", config.shared.MaximumNbStrokesDetectedPerSecond, 0.5)
+		config.shared.MaximumNbStrokesDetectedPerSecond = clamp(config.shared.MaximumNbStrokesDetectedPerSecond, 1.0, 5.0)
 		ofs.Separator()
 	end
 	if not ofs.CollapsingHeader or ofs.CollapsingHeader("Others config") then
-		sharedConfig.TopMostUI, topMostUIChanged = ofs.Checkbox('TopMost UI', sharedConfig.TopMostUI)
-		sharedConfig.MaximumMemoryUsageInMB, changed06 = ofs.InputInt("Maximum Memory Usage (MB)", sharedConfig.MaximumMemoryUsageInMB, 50)
-		sharedConfig.MaximumMemoryUsageInMB = clamp(sharedConfig.MaximumMemoryUsageInMB, 0, 100000)
+		config.shared.TopMostUI, topMostUIChanged = ofs.Checkbox('TopMost UI', config.shared.TopMostUI)
+		config.shared.MaximumMemoryUsageInMB, changed06 = ofs.InputInt("Maximum Memory Usage (MB)", config.shared.MaximumMemoryUsageInMB, 50)
+		config.shared.MaximumMemoryUsageInMB = clamp(config.shared.MaximumMemoryUsageInMB, 0, 100000)
 		config.EnableLogs, changed07 = ofs.Checkbox("Enable Logs", config.EnableLogs)		
 		ofs.Separator()
 	end
