@@ -73,11 +73,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             var transcriptionsAnalysis = finalTranscriptionsOrder
                 .Select(id => context.CurrentWipsub.Transcriptions.First(t => t.Id == id).GetAnalysis(context, MinimumOverlapPercentage))
                 .ToArray();
-            var extraTranscriptions = transcriptionsAnalysis
-                .SelectMany(ta => ta.ExtraTranscriptions.Select(tt => new ExtraTranscription(ta.Transcription.Id, tt)))
-                .OrderBy(item => item.TranscribedText.StartTime)
-                .ThenBy(item => Array.IndexOf(finalTranscriptionsOrder, item.TranscriptionId))
-                .ToList();
+            var extraTranscriptions = IncludeExtraTranscriptions 
+                ? transcriptionsAnalysis
+                    .SelectMany(ta => ta.ExtraTranscriptions.Select(tt => new ExtraTranscription(ta.Transcription.Id, tt)))
+                    .OrderBy(item => item.TranscribedText.StartTime)
+                    .ThenBy(item => Array.IndexOf(finalTranscriptionsOrder, item.TranscriptionId))
+                    .ToList()
+                : new List<ExtraTranscription>();
 
             var wipSubtitleFile = new SubtitleFile();
 
@@ -129,12 +131,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             wipSubtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
             wipSubtitleFile.Subtitles.AddRange(
                 GetAdjustedSubtitlesToInject(wipSubtitleFile.Subtitles, this.SubtitlesToInject, context.CurrentWipsub.PcmAudio.Duration));
-
-            if (IncludeExtraTranscriptions)
-            {
-                wipSubtitleFile.Subtitles.AddRange(
-                    GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder));
-            }
+            wipSubtitleFile.Subtitles.AddRange(
+                GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder));
 
             var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);
