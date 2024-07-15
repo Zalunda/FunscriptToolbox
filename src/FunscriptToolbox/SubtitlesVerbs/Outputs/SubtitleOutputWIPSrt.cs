@@ -97,7 +97,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                         new Subtitle(
                             forcedTiming.StartTime,
                             forcedTiming.EndTime,
-                            $"Screengrab: {forcedTiming.ScreengrabText}"));
+                            $"{forcedTiming.ScreengrabText}"));
                 }
                 else if (forcedTiming.VoiceText != null)
                 {
