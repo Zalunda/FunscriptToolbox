@@ -259,7 +259,7 @@ namespace FunscriptToolbox
             {
                 var parent = Path.GetDirectoryName(filename);
                 return Directory.GetFiles(
-                        string.IsNullOrEmpty(parent) ? "." : parent,
+                        string.IsNullOrEmpty(parent) ? Environment.CurrentDirectory : parent,
                         Path.GetFileName(filename),
                         recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
                     .OrderBy(f => f);
