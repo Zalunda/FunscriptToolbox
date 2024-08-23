@@ -19,13 +19,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
         }
 
+        public virtual bool IsReadyToStart(
+            Transcription transcription, 
+            out string reason)
+        {
+            reason = null;
+            return true;
+        }
+
         public bool IsFinished(
             Transcription transcription,
             Translation translation)
         {
-            return !transcription
-                .Items
-                .Any(t => t.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation.Id)?.Text == null);
+            return translation.IsFinished(transcription);
         }
 
         public abstract void Translate(

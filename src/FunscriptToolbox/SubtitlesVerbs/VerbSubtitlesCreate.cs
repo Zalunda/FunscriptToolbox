@@ -142,23 +142,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     var pcmFilePath = wipsub.OriginalFilePath + ".pcm";
                     if (wipsub.PcmAudio != null && File.Exists(pcmFilePath))
                     {
-                        // TODO Maybe? 
-                        // if  (wipsub.PcmAudio.AudioNormalizationRules
-                        //    .SequenceEqual(
-                        //    wipsub.SubtitlesForcedTiming.GetAudioNormalizationRules()))
-                        {
-                            wipsub.PcmAudio.RegisterLoadPcmFunc(() => File.ReadAllBytes(pcmFilePath));
-                            context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
-                            context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
-                            context.WriteInfoAlreadyDone();
-                        }
-                        // else
-                        // {
-                            // context.WriteInfoAlreadyDone($"Normalization rules changed. Redoing audio extraction.");
-                            // cleanup files not processed yet
-                            // rename old id for transcription already done
-                            // redo extraction
-                        //}
+                        wipsub.PcmAudio.RegisterLoadPcmFunc(() => File.ReadAllBytes(pcmFilePath));
+                        context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
+                        context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
+                        context.WriteInfoAlreadyDone();
                     }
                     else
                     {
@@ -266,6 +253,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 if (translator.IsFinished(transcription, translation))
                                 {
                                     context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' have already been done.");
+                                    context.WriteInfoAlreadyDone();
+                                }
+                                else if (!translator.IsReadyToStart(transcription, out var reason))
+                                {
+                                    context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' cannot start yet because {reason}");
                                     context.WriteInfoAlreadyDone();
                                 }
                                 else

@@ -34,6 +34,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 18)]
         public string TranslationTextExtractionRegex { get; set; } = "{+(?<text>[^}]*)";
 
+        internal override bool IsReadyToStart(
+            Transcription transcription,
+            out string reason)
+        {
+            reason = null;
+            return true;
+        }
+
         public override IEnumerable<RequestForAIService> CreateRequests(
             Transcription transcription,
             Translation translation,

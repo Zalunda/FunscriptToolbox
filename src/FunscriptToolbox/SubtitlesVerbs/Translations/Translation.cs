@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -22,6 +23,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             Language = language;
             TranslationExamples = (translationExamples ?? Array.Empty<TranslationExample>()).ToArray();
             Costs = new List<TranslationCost>(costs ?? Array.Empty<TranslationCost>());
+        }
+
+        internal bool IsFinished(Transcription transcription)
+        {
+            return !transcription
+                .Items
+                .Any(t => t.TranslatedTexts.FirstOrDefault(tt => tt.Id == this.Id)?.Text == null);
         }
 
         internal IEnumerable<TranslationExample> GetTranslationExamples(Language originalLanguage, int nbToReturn)

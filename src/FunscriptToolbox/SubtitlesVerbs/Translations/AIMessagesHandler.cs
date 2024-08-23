@@ -46,6 +46,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             string responseReceived,
             ItemForAI[] requestItems = null);
 
+        internal abstract bool IsReadyToStart(
+            Transcription transcription,
+            out string reason);
+
         public class ItemForAI
         {
             [JsonIgnore]

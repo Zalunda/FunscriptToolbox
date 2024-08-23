@@ -227,13 +227,29 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             },
                             new TranslatorAIChatBot()
                             {
-                                Enabled = false,
+                                Enabled = true,
                                 TranslationId = "claude-3.5-sonnet",
                                 TargetLanguage = Language.FromString("en"),
                                 MessagesHandler = new AIMessagesHandlerJson
                                 {
                                     FirstUserPrompt = userPrompt,
                                     MaxItemsInRequest = 30
+                                }
+                            },
+                            new TranslatorAIChatBot()
+                            {
+                                Enabled = true,
+                                TranslationId = "claude-3.5-sonnet-refined",
+                                TargetLanguage = Language.FromString("en"),                                
+                                MessagesHandler = new AIMessagesHandlerJson
+                                {
+                                    FirstUserPrompt = new AIPrompt(new[]
+                                    {
+                                        "I would like you to \"refine\" the translation. Can you make them more natural (i.e. avoid term like \"Properly\" or avoid \"tag question\" form if the original text was short).",
+                                        "Also, try to make the translation a bit more \"tongue in cheek\". Thanks.",
+                                    }),
+                                    MaxItemsInRequest = 30,
+                                    PreviousTranslationId = "claude-3.5-sonnet"
                                 }
                             },
                             new TranslatorAIChatBot()
@@ -346,7 +362,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new SubtitleOutputWIPSrt()
                     {
                         TranscriptionsOrder = new [] { "singlevad", "mergedvad", "*" },
-                        TranslationsOrder = new [] { "claude-3.5-sonnet", "GPT-4o", "*" },
+                        TranslationsOrder = new [] { "claude-3.5-sonnet-refined", "claude-3.5-sonnet", "GPT-4o", "*" },
                         FileSuffix = ".wip.srt",
                         SubtitlesToInject = new []
                         {

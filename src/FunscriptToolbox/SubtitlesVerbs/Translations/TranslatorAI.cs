@@ -12,6 +12,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 100, Required = Required.Always)]
         public AIMessagesHandler MessagesHandler { get; set; }
 
+        public override bool IsReadyToStart(
+            Transcription transcription,
+            out string reason)
+        {
+            return this.MessagesHandler.IsReadyToStart(transcription, out reason);
+        }
+
         protected int HandlePreviousFiles(
             SubtitleGeneratorContext context,
             Transcription transcription,

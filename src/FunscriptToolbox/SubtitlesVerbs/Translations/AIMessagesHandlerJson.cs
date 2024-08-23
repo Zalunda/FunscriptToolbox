@@ -11,8 +11,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
     public class AIMessagesHandlerJson : AIMessagesHandler
     {
-        public AIMessagesHandlerJson() 
-        { 
+        public AIMessagesHandlerJson()
+        {
         }
 
 
@@ -22,12 +22,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public int OverlapItemsInRequest { get; set; } = 0;
         [JsonProperty(Order = 12)]
         public bool IncludeStartTime { get; set; } = true;
-        // [JsonProperty(Order = 13)]
-        // TODO but not easy. => public bool IncludeDuration { get; set; } = true;
         [JsonProperty(Order = 14)]
         public bool IncludeContext { get; set; } = true;
         [JsonProperty(Order = 15)]
         public bool IncludeTalker { get; set; } = true;
+
+        [JsonProperty(Order = 16)]
+        public string PreviousTranslationId { get; set; }
+
+        internal override bool IsReadyToStart(
+            Transcription transcription,
+            out string reason)
+        {
+            var previousTranslation = transcription.Translations.FirstOrDefault(f => f.Id == PreviousTranslationId);
+            if (PreviousTranslationId != null && previousTranslation != null && !previousTranslation.IsFinished(transcription))
+            {
+                reason = $"previous translation '{PreviousTranslationId}' is not finished yet.";
+                return false;
+            }
+
+            reason = null;
+            return true;
+        }
 
         public override IEnumerable<RequestForAIService> CreateRequests(
             Transcription transcription,
@@ -87,7 +103,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                                 OngoingContext = (this.IncludeContext && index == 0 && f.Context == null) ? ongoingContext : null,
                                 Talker = this.IncludeTalker ? f.Talker : null,
                                 StartTime = this.IncludeStartTime ? f.StartTime : null,
-                                f.Original
+                                f.Original,                                    
+                                PreviousTranslation = f.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == PreviousTranslationId)?.Text
                             }),
                         Formatting.Indented, 
                         new JsonSerializerSettings
