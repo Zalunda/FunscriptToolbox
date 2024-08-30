@@ -68,7 +68,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             public ItemForAI(TranscribedText tag, string context, string talker)
             {
                 this.Tag = tag;
-                this.StartTime = tag.StartTime.TotalSeconds.ToString("F1");
+                this.StartTime = $"{(int)tag.StartTime.TotalMinutes}:{(int)tag.StartTime.Seconds:D2}.{(int)tag.StartTime.Milliseconds:D3}";
                 this.Original = tag.Text;
                 this.Context = context;
                 this.Talker = talker;
