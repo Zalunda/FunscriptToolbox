@@ -21,8 +21,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TimeSpan startTime, 
             TimeSpan endTime, 
             string text, 
-            double noSpeechProbability, 
-            IEnumerable<TranscribedWord> words, 
+            double noSpeechProbability = 0.0, 
+            IEnumerable<TranscribedWord> words = null, 
             IEnumerable<TranslatedText> translatedTexts = null)
         {
             StartTime = startTime;
@@ -30,7 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Text = text;
 
             NoSpeechProbability = noSpeechProbability;
-            Words = words.ToArray();
+            Words = words?.ToArray() ?? Array.Empty<TranscribedWord>();
 
             TranslatedTexts = new List<TranslatedText>(
                 translatedTexts ?? Array.Empty<TranslatedText>());

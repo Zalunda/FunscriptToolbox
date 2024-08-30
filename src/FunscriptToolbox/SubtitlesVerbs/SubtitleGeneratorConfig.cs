@@ -315,6 +315,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Translators = new Translator[] {
                             translatorGoogleV1
                         }
+                    },
+                    new TranscriberImportSrt()
+                    {
+                        TranscriptionId = "import",
+                        FileSuffix = ".import.srt"
                     }
                 },
                 Outputs = new SubtitleOutput[]
