@@ -2,9 +2,9 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberWhisperFullAudio : TranscriberWhisper
+    public class TranscriberFullAudio : Transcriber
     {
-        public TranscriberWhisperFullAudio()
+        public TranscriberFullAudio()
         {
         }
 

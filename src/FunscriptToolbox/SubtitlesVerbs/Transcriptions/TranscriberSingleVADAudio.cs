@@ -4,15 +4,14 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberWhisperSingleVADAudio : TranscriberWhisper
+    public class TranscriberSingleVADAudio : Transcriber
     {
-        public TranscriberWhisperSingleVADAudio()
+        public TranscriberSingleVADAudio()
         {
         }
 
         public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
         public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
-
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,

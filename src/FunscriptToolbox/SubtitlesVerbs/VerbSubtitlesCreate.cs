@@ -216,6 +216,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 wipsub.Transcriptions.Add(transcription);
                                 wipsub.Save();
                             }
+                            catch (TranscriberNotReadyException ex)
+                            {
+                                context.WriteInfo($"Transcription '{transcriber.TranscriptionId}' can't be done yet: {ex.Reason}");
+                                context.WriteInfo();
+                                foreach (var userTodo in ex.UserTodos)
+                                {
+                                    context.AddUserTodo(userTodo);
+                                }
+                            }
                             catch (Exception ex)
                             {
                                 context.WriteError($"An error occured while transcribing '{transcriber.TranscriptionId}':\n{ex.Message}");

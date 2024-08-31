@@ -78,7 +78,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             var jtokenIdOverrides = new List<JTokenIdOverride>();
 
-            var transcriberTool = new TranscriberToolPurfviewWhisper
+            var transcriberToolWhisper = new TranscriberToolPurfviewWhisper
             {
                 ApplicationFullPath = @"[PathToPurfview]\Purfview-Whisper-Faster\whisper-faster.exe",
                 Model = "Large-V2",
@@ -176,7 +176,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 },
                 SharedObjects = new object[]
                 {
-                    transcriberTool,
+                    transcriberToolWhisper,
                     translatorGoogleV1,
                     systemPromptJson,
                     systemPromptMultiShot,
@@ -185,16 +185,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 AudioExtractor = new AudioExtractor(),
                 Transcribers = new Transcriber[]
                 {
-                    new TranscriberWhisperFullAudio()
+                    new TranscriberFullAudio()
                     {
                         TranscriptionId = "full",
-                        TranscriberTool = transcriberTool,
+                        TranscriberTool = transcriberToolWhisper,
                         Translators = new Translator[] { 
                             translatorGoogleV1,
                             new TranslatorAIGenericAPI()
                             {
                                 Enabled = false,
-                                TranslationId = "local-llama-3-api",
+                                TranslationId = "local-api",
                                 BaseAddress = "http://localhost:10000",
                                 Model = "3thn/dolphin-2.9-llama3-8b-GGUF/dolphin-2.9-llama3-8b.Q8_0.gguf",
                                 ValidateModelNameInResponse = true,
@@ -208,23 +208,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
                     },
-                    new TranscriberWhisperMergedVADAudio()
+                    new TranscriberMergedVADAudio()
                     {
                         TranscriptionId = "mergedvad",
                         Translators = new Translator[] {
                             translatorGoogleV1,
-                            new TranslatorDeepLWithFiles()
-                            {
-                                Enabled = false,
-                                TranslationId = "deepl-files",
-                                TargetLanguage = Language.FromString("en")
-                            },
-                            new TranslatorDeepLAPI()
-                            {
-                                Enabled = false,
-                                TranslationId = "deepl",
-                                TargetLanguage = Language.FromString("en")
-                            },
                             new TranslatorAIChatBot()
                             {
                                 Enabled = true,
@@ -245,8 +233,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 {
                                     FirstUserPrompt = new AIPrompt(new[]
                                     {
-                                        "I would like you to \"refine\" the translation. Can you make them more natural (i.e. avoid term like \"Properly\" or avoid \"tag question\" form if the original text was short).",
-                                        "Also, try to make the translation a bit more \"tongue in cheek\". Thanks.",
+                                        "I would like you to \"refine\" the translations.",
+                                        "Make sure that the translation feel natural and sound like something someone would really say in the current context of the scene.",
+                                        "And if they say basicly the same thing multiple times (ex. are you about to cum, you came, look at how much you came, it's so good), try to find interesting way to say it.",
+                                        "Also, make sure that the new translation length are more or less in line with the original text length (if someone spoke the word), unless a longer translation would better capture the nuance of the original text."
                                     }),
                                     MaxItemsInRequest = 30,
                                     PreviousTranslationId = "claude-3.5-sonnet"
@@ -263,6 +253,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     MaxItemsInRequest = 20
                                 }
                             },
+                            new TranslatorDeepLWithFiles()
+                            {
+                                Enabled = false,
+                                TranslationId = "deepl-files",
+                                TargetLanguage = Language.FromString("en")
+                            },
+                            new TranslatorDeepLAPI()
+                            {
+                                Enabled = false,
+                                TranslationId = "deepl",
+                                TargetLanguage = Language.FromString("en")
+                            },
                             new TranslatorAIChatBot()
                             {
                                 Enabled = false,
@@ -272,21 +274,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 {
                                     FirstUserPrompt = userPrompt,
                                     MaxItemsInRequest = 100
-                                }
-                            },
-                            new TranslatorAIGenericAPI()
-                            {
-                                Enabled = false,
-                                TranslationId = "local-llama-3-api",
-                                BaseAddress = "http://localhost:10000",
-                                Model = "3thn/dolphin-2.9-llama3-8b-GGUF/dolphin-2.9-llama3-8b.Q8_0.gguf",
-                                ValidateModelNameInResponse = true,
-                                TargetLanguage = Language.FromString("en"),
-                                RequestBodyExtension = null,
-                                MessagesHandler = new AIMessagesHandlerMultishot
-                                {
-                                    SystemPrompt = systemPromptMultiShot,
-                                    MaxPreviousShot = 50
                                 }
                             },
                             new TranslatorAIGenericAPI()
@@ -306,20 +293,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 }
                             }
                         },
-                        TranscriberTool = transcriberTool
+                        TranscriberTool = transcriberToolWhisper
                     },
-                    new TranscriberWhisperSingleVADAudio()
+                    new TranscriberSingleVADAudio()
                     {
                         TranscriptionId = "singlevad",
-                        TranscriberTool = transcriberTool,
+                        TranscriberTool = transcriberToolWhisper,
                         Translators = new Translator[] {
                             translatorGoogleV1
                         }
-                    },
-                    new TranscriberImportSrt()
-                    {
-                        TranscriptionId = "import",
-                        FileSuffix = ".import.srt"
                     }
                 },
                 Outputs = new SubtitleOutput[]
@@ -338,7 +320,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         Enabled = false,
                         TranscriptionId = "full",
-                        TranslationId = "local-llama-3-api",
+                        TranslationId = "local-api",
                         FileSuffix = ".quicky.srt",
                         SubtitlesToInject = new []
                         {
@@ -366,7 +348,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new SubtitleOutputWIPSrt()
                     {
-                        TranscriptionsOrder = new [] { "singlevad", "mergedvad", "*" },
+                        TranscriptionsOrder = new [] { "mergedvad", "singlevad", "*" },
                         TranslationsOrder = new [] { "claude-3.5-sonnet-refined", "claude-3.5-sonnet", "GPT-4o", "*" },
                         FileSuffix = ".wip.srt",
                         SubtitlesToInject = new []

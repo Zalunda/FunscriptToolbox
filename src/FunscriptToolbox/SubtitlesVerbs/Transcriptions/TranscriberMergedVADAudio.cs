@@ -9,9 +9,9 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberWhisperMergedVADAudio : TranscriberWhisper
+    public class TranscriberMergedVADAudio : Transcriber
     {
-        public TranscriberWhisperMergedVADAudio()
+        public TranscriberMergedVADAudio()
         {
         }
 

@@ -21,11 +21,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
         }
 
-        [JsonProperty(Order = 10, Required = Required.Always)]
+        [JsonProperty(Order = 1, Required = Required.Always)]
+        public string ApplicationFullPath { get; set; }
+        [JsonProperty(Order = 2)]
+        public string AdditionalParameters { get; set; } = "";
+        [JsonProperty(Order = 3, Required = Required.Always)]
         public string Model { get; set; } = "Large-V2";
-        [JsonProperty(Order = 11)]
+        [JsonProperty(Order = 4)]
         public bool ForceSplitOnComma { get; set; } = true;
-        [JsonProperty(Order = 12)]
+        [JsonProperty(Order = 5)]
         public TimeSpan RedoBlockLargerThen { get; set; } = TimeSpan.FromSeconds(15);
 
         public override TranscribedText[] TranscribeAudio(
@@ -46,7 +50,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 costsList);
             costs = costsList.ToArray();
             return transcribedTexts;
-
         }
 
         private TranscribedText[] TranscribeAudioInternal(
