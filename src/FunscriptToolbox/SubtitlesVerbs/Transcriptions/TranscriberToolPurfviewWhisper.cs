@@ -31,6 +31,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public bool ForceSplitOnComma { get; set; } = true;
         [JsonProperty(Order = 5)]
         public TimeSpan RedoBlockLargerThen { get; set; } = TimeSpan.FromSeconds(15);
+        [JsonProperty(Order = 6)]
+        public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
 
         public override TranscribedText[] TranscribeAudio(
             SubtitleGeneratorContext context,
@@ -256,7 +258,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
 
                     var subtitleFile = new SubtitleFile();
-                    subtitleFile.Subtitles.AddRange(texts.Select(f => new Subtitle(f.StartTime, f.EndTime, f.Text)));
+                    subtitleFile.Subtitles.AddRange(
+                        texts
+                        .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
+                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Text)));
                     subtitleFile.SaveSrt(fullSrtTempFile);
                     return texts.ToArray();
                 }
