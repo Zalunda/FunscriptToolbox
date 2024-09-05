@@ -32,7 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 FFmpeg.Conversions.New()
                     .AddStream(audioStream)
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-f s16le -acodec pcm_s16le -ac 1 -ar {SamplingRate} {extractionParameters}")
+                    .AddParameter($"-f s16le -acodec pcm_s16le -vn -ac 1 -ar {SamplingRate} {extractionParameters}")
                     .SetOutput(tempPcmFile)
                     .Start()
                     .Wait();
@@ -58,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 }
                 FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -ar 16000 {ffmpegParameters}")
+                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -vn -ar 16000 {ffmpegParameters}")
                     .SetOutput(outputWavFilepath)
                     .Start()
                     .Wait();
@@ -83,7 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 }
                 FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmSourceFile}\" {ffmpegParameters} -f s16le -acodec pcm_s16le -ar {pcmAudio.SamplingRate} -ac 1")
+                    .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmSourceFile}\" {ffmpegParameters} -f s16le -acodec pcm_s16le -vn -ar {pcmAudio.SamplingRate} -ac 1")
                     .SetOutput(tempPcmDestinationFile)
                     .Start()
                     .Wait();

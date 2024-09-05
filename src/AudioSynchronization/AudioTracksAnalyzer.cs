@@ -29,7 +29,7 @@ namespace AudioSynchronization
             FFmpeg.Conversions.New()
                 .AddStream(audioStream)
                 .SetOverwriteOutput(true)
-                .AddParameter($"-f s16le -acodec pcm_s16le -ac 1 -ar {nbSamplesPerSeconds * nbSamplesPerPeak}")
+                .AddParameter($"-f s16le -acodec pcm_s16le -vn -ac 1 -ar {nbSamplesPerSeconds * nbSamplesPerPeak}")
                 .SetOutput(tempFile)
                 .Start()
                 .Wait();
