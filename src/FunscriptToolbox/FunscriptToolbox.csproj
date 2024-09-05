@@ -235,16 +235,8 @@
     <Compile Include="SubtitlesVerbs\SubtitleForcedTimingCollection.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorContext.cs" />
     <Compile Include="SubtitlesVerbs\WorkInProgressSubtitles.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesGPT2Srt.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesVADWav2Srt.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesWavChunks2Srt.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesSrt2WavChunks.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesSrt2VADWav.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesVideo2VADSrt.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitlesSrt2GPT.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SubtitlesVerbsObsolete\VerbSubtitles.cs" />
     <Compile Include="Verb.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateFunscript.cs" />
   </ItemGroup>

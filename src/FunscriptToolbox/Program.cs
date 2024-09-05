@@ -1,7 +1,6 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
 using FunscriptToolbox.MotionVectorsVerbs;
-using FunscriptToolbox.SubtitlesVerbObsolete;
 using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
 using log4net.Appender;
@@ -53,14 +52,15 @@ namespace FunscriptToolbox
                     };
                     break;
                 case 10:
+                    Environment.CurrentDirectory = @"P:\";
                     args = new[]
                     {
                         "as.cfs",
                         "--verbose",
                         "--minimumMatchLength", "20",
                         "--nbLocationsPerMinute", "3",
-                        "-i", "JAV - 3DSVR-0628-* - Sarina Kurokawa - Mirror Massage [zalunda].mp4", 
-                        "-o", "JAV - 3DSVR-0628 (SLR) - Magic Mirror Couple’s Room Cuckold Massage - 19512 [zalunda].mp4"
+                        "-i", "VRKM-722.mp4",
+                        "-o", "VRKM-722-*.mp4"
                     };
                     break;
                 case 11:
@@ -100,22 +100,24 @@ namespace FunscriptToolbox
                     args = new[]
                     {
                         "motionvectors.ofspluginserver",
-                        "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors\Channel-1-"),
-                        "--channellockfilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors\Channel-1.lock"),
+                        "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.V2BETA\Channel-999-"),
+                        "--channellockfilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.V2BETA\Channel-999.lock"),
                         "--timeout", "300",
-                        "--debugmode"
+                        "--debugmode",
+                        "--skipupdate"
                     };
                     break;
 
                 case 50:
-                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.0.json", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.2.json", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
+                    // Environment.CurrentDirectory = @"P:\...";
                     args = new[]
                     {
                         "subtitles.create",
                         "--verbose",
-                        "--recursive", 
+                        "--recursive",
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
-                        "*.mp4"
+                        "00000-WIP\\*.mp4"
                     };
                     break;
             }
@@ -139,17 +141,9 @@ namespace FunscriptToolbox
 
                     VerbSubtitlesCreate.Options,
 
-                    VerbSubtitlesVideo2VADSrt.Options,
-                    VerbSubtitlesSrt2VADWav.Options,
-                    VerbSubtitlesSrt2WavChunks.Options,
-                    VerbSubtitlesWavChunks2Srt.Options,
-                    VerbSubtitlesVADWav2Srt.Options,
-                    VerbSubtitlesGPT2Srt.Options,
-                    VerbSubtitlesSrt2GPT.Options,
-
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
-                    > (args)
+                    >(args)
                     .MapResult(
                           (VerbInstallation.Options options) => new VerbInstallation(options).Execute(),
 
@@ -158,14 +152,6 @@ namespace FunscriptToolbox
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
 
                           (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
-
-                          (VerbSubtitlesVideo2VADSrt.Options options) => new VerbSubtitlesVideo2VADSrt(options).Execute(),
-                          (VerbSubtitlesSrt2VADWav.Options options) => new VerbSubtitlesSrt2VADWav(options).Execute(),
-                          (VerbSubtitlesSrt2WavChunks.Options options) => new VerbSubtitlesSrt2WavChunks(options).Execute(),
-                          (VerbSubtitlesWavChunks2Srt.Options options) => new VerbSubtitlesWavChunks2Srt(options).Execute(),
-                          (VerbSubtitlesVADWav2Srt.Options options) => new VerbSubtitlesVADWav2Srt(options).Execute(),
-                          (VerbSubtitlesGPT2Srt.Options options) => new VerbSubtitlesGPT2Srt(options).Execute(),
-                          (VerbSubtitlesSrt2GPT.Options options) => new VerbSubtitlesSrt2GPT(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),
