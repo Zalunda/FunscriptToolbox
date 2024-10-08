@@ -17,6 +17,25 @@ namespace FunscriptToolbox.Core
                 : WIPFunscriptActionDirection.Flat;
         }
 
+        private const int MAX_ERROR = 300*300*300;
+        static WIPFunscriptAction()
+        {
+            rs_errorScale = new int[200];
+            for (int i = 0; i < rs_errorScale.Length; i++)
+            {                
+                if (i < 3)
+                {
+                    rs_errorScale[i] = i * i; // 0, 1, 4
+                }
+                else
+                {
+                    rs_errorScale[i] = i * i * i; // 27, 81, 4
+                }
+            }
+        }
+
+        private static readonly int[] rs_errorScale;
+
         public WIPFunscriptAction(
             IEnumerable<FunscriptAction> originalActions,
             WIPFunscriptAction previousAction)
@@ -25,57 +44,83 @@ namespace FunscriptToolbox.Core
 
             this.PreviousAction = previousAction;
             this.At = this.OriginalActions.Last().At;
+            this.Duration = previousAction == null ? 0 : this.At - previousAction.At;
             this.OriginalPos = this.OriginalActions.Last().Pos;
             this.OriginalDistance = previousAction == null ? 0 : this.OriginalPos - previousAction.OriginalPos;
+            this.OriginalSpeed = ComputeSpeed(this.OriginalDistance, this.Duration);
             this.Direction = GetDirection(this.OriginalPos, previousAction?.OriginalPos);
+
+            this.WantedDistance = this.OriginalDistance;
+            this.MinSpeed = null;
+            this.MaxSpeed = null;
+
             this.NewPos = this.OriginalPos;
         }
 
-        // Set by the constructors
+        private static double ComputeSpeed(int originalDistance, int originalDuration)
+        {
+            return (originalDuration == 0)
+                ? 0
+                : (double)1000 * originalDistance / originalDuration;
+        }
+
+        // Set by constructor
         public FunscriptAction[] OriginalActions { get; }
         public WIPFunscriptAction PreviousAction { get; }
         public int At { get; }
+        public int Duration { get; }
+        public WIPFunscriptActionDirection Direction { get; }
         public int OriginalPos { get; }
         public int OriginalDistance { get; }
-        public WIPFunscriptActionDirection Direction { get; }
+        public double OriginalSpeed { get; }
 
-        // Set by the SetNextAction()
+        // Set by SetNextAction()
         public WIPFunscriptAction NextAction { get; private set; }
 
-        // Set by the Scale()
-        public int ExpectedDistance { get; private set; }
+        // Set by SetDistance, SetMinSpeed, SetMaxSpeed
+        public double WantedDistance { get; private set; }
+        public double? MinSpeed { get; private set; }
+        public double? MaxSpeed { get; private set; }
 
-        // Changed by Nudge()
+        // Changed Nudge()
         public int NewPos { get; private set; }
 
         // Computed dynamically
         public int ComputedNewDistance => NewPos - PreviousAction?.NewPos ?? 0;
+        public double ComputedNewSpeed => ComputeSpeed(this.ComputedNewDistance, this.Duration);
         public int ComputedPositionError => Math.Abs(OriginalPos - NewPos);
-        public int ComputedDistanceError => Math.Abs(ExpectedDistance - ComputedNewDistance);
+        public double ComputedDistanceError => Math.Abs(WantedDistance - ComputedNewDistance);
+        public double ComputedSpeedError => Math.Abs(OriginalSpeed - ComputedNewSpeed);
 
         public double ComputedError
         {
             get
             {
-                double NonLinearFunctionPosition(int error)
+                var totalError = 0.0;
+
+                var newSpeed = this.ComputedNewSpeed;
+                // DISABLED MinSpeed check for now. It's not working yet.
+                //if (this.MinSpeed != null && newSpeed != 0 && Math.Abs(newSpeed) < this.MinSpeed)
+                //{
+                //    totalError += (Math.Abs(this.MinSpeed.Value) - newSpeed) * MAX_ERROR + rs_errorScale[100 - (int)ComputedDistanceError];
+                //}
+                if (this.MaxSpeed != null && Math.Abs(newSpeed) > this.MaxSpeed)
                 {
-                    // Only considerer the error for the point nearest to the border (0 or 100) of the center of the orinal wave.
-                    if ((Direction == WIPFunscriptActionDirection.Up && ((OriginalPos + PreviousAction.OriginalPos) / 2) > 50)
-                        || (Direction == WIPFunscriptActionDirection.Down && ((PreviousAction.OriginalPos + OriginalPos) / 2) < 50))
-                    {
-                        return Math.Pow(error, 1.2);
-                    }
-                    else
-                    {
-                        return 0;
-                    }
-                }
-                double NonLinearFunctionDistance(int error)
-                {
-                    return Math.Pow(error, 5);
+                    totalError += (Math.Abs(newSpeed) - this.MaxSpeed.Value) * MAX_ERROR + rs_errorScale[(int)ComputedDistanceError];
                 }
 
-                return NonLinearFunctionPosition(ComputedPositionError) + 10 * NonLinearFunctionDistance(ComputedDistanceError);
+                // If scale increase or don't change, always compute both error.
+                // If scale decrease, only considered the error for the point nearest to the border (0 or 100) of the center of the orinal wave.
+                if ((Math.Abs(OriginalSpeed) <= Math.Abs(ComputedNewSpeed)) || (Direction == WIPFunscriptActionDirection.Up && ((PreviousAction.OriginalPos + OriginalPos) / 2) > 50))
+                {
+                    totalError += rs_errorScale[ComputedPositionError];
+                }
+                if ((Math.Abs(OriginalSpeed) <= Math.Abs(ComputedNewSpeed)) || (Direction == WIPFunscriptActionDirection.Down && ((PreviousAction.OriginalPos + OriginalPos) / 2) < 50))
+                {
+                    totalError += rs_errorScale[ComputedPositionError];
+                }
+
+                return totalError + rs_errorScale[(int)ComputedDistanceError + 7] + ComputedDistanceError;
             }
         }
 
@@ -84,9 +129,18 @@ namespace FunscriptToolbox.Core
             this.NextAction = nextAction;
         }
 
-        internal void Scale(double scale, double add = 0.0)
+        internal void SetWantedDistance(double wantedDistance)
         {
-            this.ExpectedDistance = Math.Min(100, (int)Math.Round(this.OriginalDistance * scale + add));
+            this.WantedDistance = Math.Max(-100.0, Math.Min(100.0, wantedDistance));
+        }
+
+        internal void SetMinSpeed(double minSpeed) 
+        { 
+            this.MinSpeed = minSpeed;
+        }
+        internal void SetMaxSpeed(double maxSpeed)
+        {
+            this.MaxSpeed = maxSpeed;
         }
 
         public bool Nudge()
@@ -112,10 +166,10 @@ namespace FunscriptToolbox.Core
                 }
                 return totalError;
             }
-
+            
             double currentError = CalculateLocalError();
 
-            // Try moving up
+            // Try moving up (both point first, then only the current point)
             if (NewPos < 100 && PreviousAction?.NewPos < 100)
             {
                 NewPos++;
@@ -140,7 +194,7 @@ namespace FunscriptToolbox.Core
                 NewPos--; // Revert if no improvement
             }
 
-            // Try moving down
+            // Try moving down  (both point first, then only the current point)
             if (NewPos > 0 && PreviousAction?.NewPos > 0)
             {
                 NewPos--;
@@ -170,8 +224,7 @@ namespace FunscriptToolbox.Core
 
         public override string ToString()
         {
-            return $"ERROR: {this.ComputedError}, OriginalPos: {this.OriginalPos}, OriginalDistance: {this.OriginalDistance}, NewPos: {this.NewPos}, ExpectedDistance: {this.ExpectedDistance}, NewDistance: {this.ComputedNewDistance}, Error: P:{this.ComputedPositionError}, d:{this.ComputedDistanceError}";
+            return $"ERROR: {this.ComputedError}, OriginalPos: {this.OriginalPos}, OriginalDistance: {this.OriginalDistance}, NewPos: {this.NewPos}, ExpectedDistance: {this.WantedDistance}, NewDistance: {this.ComputedNewDistance}, Error: P:{this.ComputedPositionError}, d:{this.ComputedDistanceError}";
         }
     }
-
 }

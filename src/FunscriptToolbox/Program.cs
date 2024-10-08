@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using FunscriptToolbox.AudioSyncVerbs;
+using FunscriptToolbox.Core;
 using FunscriptToolbox.MotionVectorsVerbs;
 using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
@@ -116,10 +117,28 @@ namespace FunscriptToolbox
                         "subtitles.create",
                         "--verbose",
                         "--recursive",
+                        "--sourcelanguage", "Japanese",
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
                         "00000-WIP\\*.mp4"
                     };
                     break;
+
+                case 51:
+                    var filename = "Test.funscript";
+                    var minSpeed = 20;
+                    var maxSpeed = 600;
+                    foreach (var scale in new[] { 0.5, 1.5 })
+                    {
+                        var funscript = Funscript.FromFile(filename);
+                        var wipActions = WIPFunscriptActionCollection.FromFunscriptActions(funscript.Actions);
+                        wipActions.Scale(scale); // scale : 0.5, 0.8, 1.2, etc
+                        wipActions.SetMinSpeed(minSpeed);
+                        wipActions.SetMaxSpeed(maxSpeed);
+                        funscript.Actions = wipActions.ToFunscriptActions();
+                        funscript.Save($"Test.{scale}.{minSpeed}.{maxSpeed}.funscript");
+                    }
+                    return 0;
+
             }
 #endif
             try

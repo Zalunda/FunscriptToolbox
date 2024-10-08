@@ -64,19 +64,34 @@ namespace FunscriptToolbox.Core
         {
         }
 
-        public int Scale(double scale, double add = 0.0, int maxIterations, out int nbNudges)
+        public void Scale(double scale, double add = 0.0)
         {
             foreach (var action in this)
             {
-                action.Scale(scale, add);
+                action.SetWantedDistance(action.OriginalDistance * scale + add);
             }
-            return NudgePoints(maxIterations, out nbNudges);
+        }
+
+        public void SetMinSpeed(double minSpeed)
+        {
+            foreach (var action in this)
+            {
+                action.SetMinSpeed(minSpeed);
+            }
+        }
+
+        public void SetMaxSpeed(double maxSpeed)
+        {
+            foreach (var action in this)
+            {
+                action.SetMaxSpeed(maxSpeed);
+            }
         }
 
         private int NudgePoints(int maxIterations, out int nbNudges)
         {
             nbNudges = 0;
-            for (int iteration = 0; iteration < 100; iteration++)
+            for (int iteration = 0; iteration < maxIterations; iteration++)
             {
                 bool anyImprovement = false;
 
@@ -100,8 +115,9 @@ namespace FunscriptToolbox.Core
 
         public FunscriptAction[] ToFunscriptActions()
         {
-            var result = new List<FunscriptAction>();
+            NudgePoints(100, out var nbNudges);
 
+            var result = new List<FunscriptAction>();
             foreach (var wipAction in this)
             {
                 if (wipAction.OriginalActions.Length == 1)
