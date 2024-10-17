@@ -38,13 +38,11 @@ function loadOrCreateConfig()
 	if not config.adjustVps then config.adjustVps = {} end
 	if not config.shared then config.shared = {} end
 	
-	if not loaded.config then loaded.config = {} end
-	if not loaded.config.adjustVps then loaded.config.adjustVps = {} end
-	if not loaded.config.shared then loaded.config.shared = {} end
+	if not loaded.adjustVps then loaded.adjustVps = {} end
+	if not loaded.shared then loaded.shared = {} end
 
 	config.EnableLogs 								= loaded.EnableLogs == nil and true or loaded.EnableLogs
 	config.ShowUIOnCreate							= loaded.ShowUIOnCreate == nil and true or loaded.ShowUIOnCreate
-	
 	config.adjustVps.TopPointsOffset 				= loaded.adjustVps.TopPointsOffset 				or 0
 	config.adjustVps.TopPointsOffsetReset			= loaded.adjustVps.TopPointsOffsetReset == nil and true or loaded.adjustVps.TopPointsOffsetReset
 	config.adjustVps.BottomPointsOffset 			= loaded.adjustVps.BottomPointsOffset 			or 0
