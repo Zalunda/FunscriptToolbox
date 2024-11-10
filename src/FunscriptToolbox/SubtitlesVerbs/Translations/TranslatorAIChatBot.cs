@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using System.IO;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -38,7 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     var filepath = $"{context.CurrentBaseFilePath}.TODO-{transcription.Id}-{translation.Id}-{request.Number:D04}.txt";
                     context.WriteInfo($"        Creating file '{Path.GetFileName(filepath)}' (contains {request.Items.Length} texts)...");
                     context.SoftDelete(filepath);
-                    File.WriteAllText(filepath, request.FullPrompt);
+                    File.WriteAllText(filepath, request.FullPrompt, Encoding.UTF8);
 
                     context.AddUserTodo($"Feed the content of '{Path.GetFileName(filepath)}' to an AI, then replace the content of the file with the AI's answer.");
                 }
