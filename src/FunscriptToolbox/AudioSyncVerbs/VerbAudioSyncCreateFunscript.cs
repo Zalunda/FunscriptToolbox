@@ -71,6 +71,13 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 throw new Exception($"No output files found.");
             }
 
+            if (inputFiles.Any(input => 
+                outputFiles.Any(output =>
+                string.Equals(input.BaseFullPath, output.BaseFullPath, StringComparison.OrdinalIgnoreCase))))
+            {
+                throw new Exception($"A file has been added to both input and output lists.");
+            }
+
             var virtualInput = new VirtualMergedFile("MergedInput", inputFiles);
             var virtualOutput = new VirtualMergedFile("MergedOutput", outputFiles);
 
