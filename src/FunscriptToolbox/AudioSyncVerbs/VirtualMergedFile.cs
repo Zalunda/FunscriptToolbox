@@ -138,7 +138,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
                 foreach (var transform in transformFunc(ItemType.Chapters, startTime, endTime))
                 {
-                    var newChapter = chapter.Clone();
+                    var newChapter = chapter.DeepClone();
                     newChapter.startTime = Funscript.ToChapterTime(transform.RelativeStartTime);
                     newChapter.endTime = Funscript.ToChapterTime(transform.RelativeEndTime);
 

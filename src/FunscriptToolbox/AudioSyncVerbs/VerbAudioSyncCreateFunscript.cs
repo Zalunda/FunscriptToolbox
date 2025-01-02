@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
@@ -122,11 +123,25 @@ namespace FunscriptToolbox.AudioSyncVerbs
             WriteInfo($"   {new string('-', 114)}");
             foreach (var item in mergedOffsets)
             {
-                var offsetStr = item.Offset == null 
-                    ? "DROPPED" 
-                    : FormatTimeSpan(item.Offset.Value);
+                var sb = new StringBuilder();
+                sb.Append("   ");
+                sb.Append((item.InputFile == null)
+                    ? new string('.', 33) + "  "
+                    : $"{item.InputFile.Id,-5} {FormatTimeSpan(item.InputStartTime),-14} {FormatTimeSpan(item.InputStartTime + item.Duration),-14}");
+                sb.Append($" ");
+                sb.Append($"{FormatTimeSpan(item.Offset),-14}");
+                sb.Append($" ");
+                sb.Append((item.OutputFile == null)
+                    ? new string('.', 33) + "  "
+                    : $"{item.OutputFile.Id,-5} {FormatTimeSpan(item.OutputStartTime),-14} {FormatTimeSpan(item.OutputStartTime + item.Duration),-14}");
+                sb.Append($" ");
+                sb.Append(item.Usage.All(u => u.Value == 0)
+                    ? new string(' ', 26)
+                    : item.OutputFile == null
+                    ? $"{-item.Usage[ItemType.Actions],7} {-item.Usage[ItemType.Chapters],8} {-item.Usage[ItemType.Subtitles],9}"
+                    : $"{item.Usage[ItemType.Actions],7} {item.Usage[ItemType.Chapters],8} {item.Usage[ItemType.Subtitles],9}");
 
-                WriteInfo($"   {item.InputFile.Id,-5} {FormatTimeSpan(item.InputStartTime), -14} {FormatTimeSpan(item.InputStartTime + item.Duration), -14} {offsetStr,-14} {item.OutputFile?.Id,-6} {FormatTimeSpan(item.OutputStartTime),-14} {FormatTimeSpan(item.OutputStartTime + item.Duration),-14} {item.Usage[ItemType.Actions],7} {item.Usage[ItemType.Chapters],8} {item.Usage[ItemType.Subtitles],9}");
+                WriteInfo(sb.ToString());
             }
 
             if (r_options.DumpOffsets)

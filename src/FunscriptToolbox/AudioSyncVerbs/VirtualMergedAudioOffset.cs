@@ -20,7 +20,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
         [JsonProperty("InputFile")]
         private string InputFilePath => InputFile?.FullPath;
 
-        public TimeSpan InputStartTime { get; set; }
+        public TimeSpan? InputStartTime { get; set; }
 
         [JsonIgnore]
         public AudioSignatureWithLinkedFiles OutputFile { get; set; }

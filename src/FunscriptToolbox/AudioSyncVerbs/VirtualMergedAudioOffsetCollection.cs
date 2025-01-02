@@ -20,6 +20,24 @@ namespace FunscriptToolbox.AudioSyncVerbs
             VirtualMergedFile virtualOutput)
         {
             var result = new List<VirtualMergedAudioOffset>();
+            AudioSignatureWithLinkedFiles currentOutputFile = null;
+            TimeSpan lastEndTime = TimeSpan.Zero;
+
+            void AddUnmatchedSection(AudioSignatureWithLinkedFiles outputFile, TimeSpan start, TimeSpan end)
+            {
+                if (end > start)
+                {
+                    result.Add(new VirtualMergedAudioOffset
+                    {
+                        InputFile = null,
+                        InputStartTime = null,
+                        OutputFile = outputFile,
+                        OutputStartTime = start - outputFile.StartTime,
+                        Duration = end - start,
+                        Offset = null
+                    });
+                }
+            }
 
             foreach (var offset in audioOffsets)
             {
@@ -48,6 +66,24 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
                     foreach (var outputRange in outputRanges)
                     {
+                        // If we've changed output files, handle any unmatched section
+                        if (currentOutputFile != outputRange.File)
+                        {
+                            if (currentOutputFile != null)
+                            {
+                                // Add unmatched section at the end of the previous file
+                                AddUnmatchedSection(
+                                    currentOutputFile,
+                                    lastEndTime,
+                                    currentOutputFile.StartTime + currentOutputFile.Duration);
+                            }
+                            currentOutputFile = outputRange.File;
+                            lastEndTime = currentOutputFile.StartTime;
+                        }
+
+                        // Add unmatched section before this match if needed
+                        AddUnmatchedSection(currentOutputFile, lastEndTime, outputRange.StartTime);
+
                         // Calculate the intersection of input and output ranges
                         var intersectStart = inputRange.StartTime;
                         var intersectEnd = inputRange.EndTime;
@@ -55,13 +91,11 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
                         if (outputRange.StartTime > outputStartTime)
                         {
-                            // Adjust input range start to match output file boundary
                             intersectStart = outputRange.StartTime - offset.Offset.Value;
                             outputIntersectStart = outputRange.StartTime;
                         }
                         if (outputRange.EndTime < outputEndTime)
                         {
-                            // Adjust input range end to match output file boundary
                             intersectEnd = outputRange.EndTime - offset.Offset.Value;
                         }
 
@@ -74,6 +108,35 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             Duration = intersectEnd - intersectStart,
                             Offset = offset.Offset
                         });
+
+                        lastEndTime = outputIntersectStart + (intersectEnd - intersectStart);
+                    }
+                }
+            }
+
+            // Handle any unmatched section in the last file
+            if (currentOutputFile != null)
+            {
+                AddUnmatchedSection(currentOutputFile,
+                    lastEndTime,
+                    currentOutputFile.StartTime + currentOutputFile.Duration);
+            }
+
+            // Handle any completely unmatched output files that come after the last matched file
+            if (currentOutputFile != null)
+            {
+                bool foundLastFile = false;
+                foreach (var outputFile in virtualOutput.Files)
+                {
+                    if (foundLastFile)
+                    {
+                        AddUnmatchedSection(outputFile,
+                            outputFile.StartTime,
+                            outputFile.StartTime + outputFile.Duration);
+                    }
+                    else if (outputFile == currentOutputFile)
+                    {
+                        foundLastFile = true;
                     }
                 }
             }
@@ -123,13 +186,18 @@ namespace FunscriptToolbox.AudioSyncVerbs
         {
             foreach (var offset in this)
             {
+                if (offset.InputFile == null)
+                    continue;
+
                 // Calculate the input time range for this offset
-                var offsetInputStart = offset.InputFile.StartTime + offset.InputStartTime;
+                var offsetInputStart = offset.InputFile.StartTime + offset.InputStartTime.Value;
                 var offsetInputEnd = offsetInputStart + offset.Duration;
 
                 // Skip if there's no overlap with this offset's range
                 if (startTime >= offsetInputEnd || endTime <= offsetInputStart)
                     continue;
+
+                offset.Usage[itemType]++;
 
                 // Skip dropped content
                 if (!offset.Offset.HasValue)
@@ -139,22 +207,20 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 var intersectStart = TimeSpan.FromTicks(Math.Max(startTime.Ticks, offsetInputStart.Ticks));
                 var intersectEnd = TimeSpan.FromTicks(Math.Min(endTime.Ticks, offsetInputEnd.Ticks));
 
-                // Calculate the relative position within this offset
-                var relativeStart = intersectStart - offsetInputStart;
-                var relativeEnd = intersectEnd - offsetInputStart;
+                // Calculate how far into the input section we are
+                var inputTimeOffset = intersectStart - offsetInputStart;
 
                 // Transform to output time
-                var newStartTime = offset.OutputStartTime.Value + relativeStart;
-                var newEndTime = offset.OutputStartTime.Value + relativeEnd;
+                var relativeStartTime = offset.OutputStartTime.Value + inputTimeOffset;
+                var relativeEndTime = relativeStartTime + (intersectEnd - intersectStart);
 
-                offset.Usage[itemType]++;
                 yield return new TransformedTimeRange
                 {
                     OutputFile = offset.OutputFile,
-                    RelativeStartTime = newStartTime - offset.OutputFile.StartTime,
-                    RelativeEndTime = newEndTime - offset.OutputFile.StartTime
+                    RelativeStartTime = relativeStartTime,
+                    RelativeEndTime = relativeEndTime
                 };
             }
-        }
+        }        
     }
 }
