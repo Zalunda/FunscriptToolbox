@@ -4,6 +4,7 @@ using log4net;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.AudioSyncVerbs
@@ -71,11 +72,16 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 throw new Exception($"No output files found.");
             }
 
-            if (inputFiles.Any(input => 
-                outputFiles.Any(output =>
-                string.Equals(input.BaseFullPath, output.BaseFullPath, StringComparison.OrdinalIgnoreCase))))
+            var duplicates = inputFiles
+                .Where(input => outputFiles.Any(output =>
+                    string.Equals(input.BaseFullPath, output.BaseFullPath, StringComparison.OrdinalIgnoreCase)))
+                .Select(input => input.BaseFilename)
+                .ToList();
+
+            if (duplicates.Any())
             {
-                throw new Exception($"A file has been added to both input and output lists.");
+                var duplicateList = string.Join(Environment.NewLine, duplicates);
+                throw new Exception($"The following files have been added to both input and output lists:{Environment.NewLine}{duplicateList}");
             }
 
             var virtualInput = new VirtualMergedFile("MergedInput", inputFiles);
