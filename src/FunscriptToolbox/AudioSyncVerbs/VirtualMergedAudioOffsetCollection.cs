@@ -2,10 +2,16 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
+    internal class TransformedTimeRange
+    {
+        public AudioSignatureWithLinkedFiles OutputFile { get; set; }
+        public TimeSpan RelativeStartTime { get; set; }  // Time relative to the OutputFile
+        public TimeSpan RelativeEndTime { get; set; }    // Time relative to the OutputFile
+    }
+
     internal class VirtualMergedAudioOffsetCollection : ReadOnlyCollection<VirtualMergedAudioOffset>
     {
         internal static VirtualMergedAudioOffsetCollection Create(
@@ -31,8 +37,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             OutputFile = null,
                             OutputStartTime = null,
                             Duration = inputRange.Duration,
-                            Offset = null,
-                            NbTimesUsed = offset.NbTimesUsed
+                            Offset = null
                         });
                         continue;
                     }
@@ -67,8 +72,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
                             OutputFile = outputRange.File,
                             OutputStartTime = outputIntersectStart - outputRange.File.StartTime,
                             Duration = intersectEnd - intersectStart,
-                            Offset = offset.Offset,
-                            NbTimesUsed = offset.NbTimesUsed
+                            Offset = offset.Offset
                         });
                     }
                 }
@@ -114,52 +118,43 @@ namespace FunscriptToolbox.AudioSyncVerbs
         public VirtualMergedAudioOffsetCollection(IList<VirtualMergedAudioOffset> list) : base(list)
         {
         }
-    }
 
-    internal class VirtualMergedAudioOffsetCollection2 : ReadOnlyCollection<VirtualMergedAudioOffset>
-    {
-        internal static VirtualMergedAudioOffsetCollection2 Create(
-            AudioOffsetCollection audioOffsets, 
-            VirtualMergedFile virtualInput, 
-            VirtualMergedFile virtualOutput)
+        public IEnumerable<TransformedTimeRange> TransformTimeRange(ItemType itemType, TimeSpan startTime, TimeSpan endTime)
         {
-            var result = new List<VirtualMergedAudioOffset>();
-
-            foreach (var offset in audioOffsets)
+            foreach (var offset in this)
             {
-                var sourceFile = virtualInput.Files.FirstOrDefault(f =>
-                    offset.StartTime >= f.StartTime &&
-                    offset.StartTime < (f.StartTime + f.Duration));
+                // Calculate the input time range for this offset
+                var offsetInputStart = offset.InputFile.StartTime + offset.InputStartTime;
+                var offsetInputEnd = offsetInputStart + offset.Duration;
 
-                var destinationTime = offset.Offset.HasValue ?
-                    offset.StartTime + offset.Offset.Value :
-                    offset.StartTime;
+                // Skip if there's no overlap with this offset's range
+                if (startTime >= offsetInputEnd || endTime <= offsetInputStart)
+                    continue;
 
-                var destinationFile = virtualOutput.Files.FirstOrDefault(f =>
-                    destinationTime >= f.StartTime &&
-                    destinationTime < (f.StartTime + f.Duration));
+                // Skip dropped content
+                if (!offset.Offset.HasValue)
+                    continue;
 
-                result.Add(new VirtualMergedAudioOffset
+                // Calculate the intersection of the item's time range with this offset's range
+                var intersectStart = TimeSpan.FromTicks(Math.Max(startTime.Ticks, offsetInputStart.Ticks));
+                var intersectEnd = TimeSpan.FromTicks(Math.Min(endTime.Ticks, offsetInputEnd.Ticks));
+
+                // Calculate the relative position within this offset
+                var relativeStart = intersectStart - offsetInputStart;
+                var relativeEnd = intersectEnd - offsetInputStart;
+
+                // Transform to output time
+                var newStartTime = offset.OutputStartTime.Value + relativeStart;
+                var newEndTime = offset.OutputStartTime.Value + relativeEnd;
+
+                offset.Usage[itemType]++;
+                yield return new TransformedTimeRange
                 {
-                    InputFile = sourceFile,
-                    InputStartTime = sourceFile != null ?
-                        offset.StartTime - sourceFile.StartTime :
-                        offset.StartTime,
-                    OutputFile = destinationFile,
-                    OutputStartTime = destinationFile != null && offset.Offset.HasValue ?
-                        destinationTime - destinationFile.StartTime :
-                        TimeSpan.Zero,
-                    Duration = offset.Duration,
-                    Offset = offset.Offset,
-                    NbTimesUsed = offset.NbTimesUsed
-                });
+                    OutputFile = offset.OutputFile,
+                    RelativeStartTime = newStartTime - offset.OutputFile.StartTime,
+                    RelativeEndTime = newEndTime - offset.OutputFile.StartTime
+                };
             }
-
-            return new VirtualMergedAudioOffsetCollection2(result);
-        }
-
-        public VirtualMergedAudioOffsetCollection2(IList<VirtualMergedAudioOffset> list) : base(list)
-        {
         }
     }
 }

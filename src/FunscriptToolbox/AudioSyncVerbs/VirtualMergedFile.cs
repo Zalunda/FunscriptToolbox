@@ -112,81 +112,56 @@ namespace FunscriptToolbox.AudioSyncVerbs
                 return result;
             }
         }
-
         internal void AddFunscriptFile(
             string suffixe,
             Funscript funscript,
-            Func<TimeSpan, TimeSpan?> transformFunc)
+            Func<ItemType, TimeSpan, TimeSpan, IEnumerable<TransformedTimeRange>> transformFunc)
         {
             foreach (var action in funscript.Actions)
             {
-                var newAt = (int?)transformFunc(TimeSpan.FromMilliseconds(action.At))?.TotalMilliseconds;
-                if (newAt != null)
+                var time = TimeSpan.FromMilliseconds(action.At);
+                foreach (var transform in transformFunc(ItemType.Actions, time, time))
                 {
-                    foreach (var file in this.Files)
-                    {
-                        int fileStartAt = (int)file.StartTime.TotalMilliseconds;
-                        int fileDurationInMs = (int)file.Duration.TotalMilliseconds;
-                        if (newAt >= fileStartAt && newAt < fileStartAt + fileDurationInMs)
-                        {
-                            file.AddAction(
-                                suffixe,
-                                funscript,
-                                new FunscriptAction(newAt.Value - fileStartAt, action.Pos));
-                        }
-                        else
-                        {
-                            var m = 0;
-                        }
-                    }
+                    transform.OutputFile.AddAction(
+                        suffixe,
+                        funscript,
+                        new FunscriptAction(
+                            (int)transform.RelativeStartTime.TotalMilliseconds,
+                            action.Pos));
                 }
             }
 
             foreach (var chapter in funscript.GetClonedChapters())
             {
                 var startTime = Funscript.FromChapterTime(chapter.startTime);
-                var chapterDuration = Funscript.FromChapterTime(chapter.endTime) - startTime;
-                var newStartTime = transformFunc(startTime);
-                if (newStartTime != null)
+                var endTime = Funscript.FromChapterTime(chapter.endTime);
+
+                foreach (var transform in transformFunc(ItemType.Chapters, startTime, endTime))
                 {
-                    foreach (var file in this.Files)
-                    {
-                        if (newStartTime >= file.StartTime && newStartTime < file.StartTime + file.Duration)
-                        {
-                            chapter.startTime = Funscript.ToChapterTime(newStartTime - file.StartTime);
-                            chapter.endTime = Funscript.ToChapterTime(newStartTime + chapterDuration - file.StartTime);
-                            file.AddChapter(
-                                suffixe,
-                                funscript,
-                                chapter);
-                        }
-                    }
+                    var newChapter = chapter.Clone();
+                    newChapter.startTime = Funscript.ToChapterTime(transform.RelativeStartTime);
+                    newChapter.endTime = Funscript.ToChapterTime(transform.RelativeEndTime);
+
+                    transform.OutputFile.AddChapter(suffixe, funscript, newChapter);
                 }
             }
         }
 
         internal void AddSubtitleFile(
-            string suffixe, 
-            SubtitleFile subtitleFile, 
-            Func<TimeSpan, TimeSpan?> transformFunc)
+            string suffixe,
+            SubtitleFile subtitleFile,
+            Func<ItemType, TimeSpan, TimeSpan, IEnumerable<TransformedTimeRange>> transformFunc)
         {
             foreach (var subtitle in subtitleFile.Subtitles)
             {
-                var newStartTime = transformFunc(subtitle.StartTime);
-                if (newStartTime != null)
+                foreach (var transform in transformFunc(ItemType.Subtitles, subtitle.StartTime, subtitle.EndTime))
                 {
-                    foreach (var file in this.Files)
-                    {
-                        if (newStartTime >= file.StartTime && newStartTime < file.StartTime + file.Duration)
-                        {
-                            file.AddSubtitle(
-                                suffixe,
-                                new Subtitle(
-                                    newStartTime.Value - file.StartTime,
-                                    newStartTime.Value + subtitle.Duration - file.StartTime,
-                                    subtitle.Lines));
-                        }
-                    }
+                    transform.OutputFile.AddSubtitle(
+                        suffixe,
+                        new Subtitle(
+                            transform.RelativeStartTime,
+                            transform.RelativeEndTime,
+                            subtitle.Lines));
                 }
             }
         }

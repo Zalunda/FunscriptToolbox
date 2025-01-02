@@ -1,8 +1,17 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
+    internal enum ItemType
+    {
+        Actions,
+        Chapters,
+        Subtitles
+    }
+
     internal class VirtualMergedAudioOffset
     {
         [JsonIgnore]
@@ -24,6 +33,9 @@ namespace FunscriptToolbox.AudioSyncVerbs
         public TimeSpan? Offset { get; set; }
 
         [JsonIgnore]
-        public int NbTimesUsed { get; set; }
+        public Dictionary<ItemType, int> Usage { get; } = Enum
+            .GetValues(typeof(ItemType))
+            .Cast<ItemType>()
+            .ToDictionary(type => type, _ => 0);
     }
 }

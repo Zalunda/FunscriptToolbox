@@ -108,25 +108,25 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
             foreach (var item in virtualInput.MergedFunscriptFiles)
             {
-                virtualOutput.AddFunscriptFile(item.Key, item.Value, audioOffsets.TransformPosition);
+                virtualOutput.AddFunscriptFile(item.Key, item.Value, mergedOffsets.TransformTimeRange);
             }
 
             foreach (var item in virtualInput.MergedSubtitleFiles)
             {
-                virtualOutput.AddSubtitleFile(item.Key, item.Value, audioOffsets.TransformPosition);
+                virtualOutput.AddSubtitleFile(item.Key, item.Value, mergedOffsets.TransformTimeRange);
             }
 
             WriteInfo();
             WriteInfo($"Differences (Merged Inputs vs. Merged Outputs)");
-            WriteInfo($"   {"Input",-5} {"Start",-14} {"End",-14} {"Offset",-14} {"Output",-5} {"Start",-14} {"End",-14} Actions");
-            WriteInfo($"   {new string('-', 110)}");
+            WriteInfo($"   {"Input",-5} {"Start",-14} {"End",-14} {"Offset",-14} {"Output",-5} {"Start",-14} {"End",-14} Actions Chapters Subtitles");
+            WriteInfo($"   {new string('-', 114)}");
             foreach (var item in mergedOffsets)
             {
                 var offsetStr = item.Offset == null 
                     ? "DROPPED" 
                     : FormatTimeSpan(item.Offset.Value);
 
-                WriteInfo($"   {item.InputFile.Id,-5} {FormatTimeSpan(item.InputStartTime), -14} {FormatTimeSpan(item.InputStartTime + item.Duration), -14} {offsetStr,-14} {item.OutputFile?.Id,-5} {FormatTimeSpan(item.OutputStartTime),-14} {FormatTimeSpan(item.OutputStartTime + item.Duration),-14} {item.NbTimesUsed} actions, chapters or subtitles");
+                WriteInfo($"   {item.InputFile.Id,-5} {FormatTimeSpan(item.InputStartTime), -14} {FormatTimeSpan(item.InputStartTime + item.Duration), -14} {offsetStr,-14} {item.OutputFile?.Id,-6} {FormatTimeSpan(item.OutputStartTime),-14} {FormatTimeSpan(item.OutputStartTime + item.Duration),-14} {item.Usage[ItemType.Actions],7} {item.Usage[ItemType.Chapters],8} {item.Usage[ItemType.Subtitles],9}");
             }
 
             if (r_options.DumpOffsets)
