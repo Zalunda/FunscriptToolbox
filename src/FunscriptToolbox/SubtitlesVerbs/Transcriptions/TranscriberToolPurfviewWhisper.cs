@@ -46,7 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var transcribedTexts = TranscribeAudioInternal(
                 context,
                 progressUpdateCallback,
-                audios, 
+                audios,
                 sourceLanguage,
                 filesPrefix,
                 costsList);
@@ -95,11 +95,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (sourceLanguage != null)
                         arguments.Append($" --language {sourceLanguage.ShortName}");
                     arguments.Append($" --task transcribe");
+                    arguments.Append($" --output_format json");
+                    arguments.Append($" {this.AdditionalParameters}");
                     arguments.Append($" --batch_recursive");
                     arguments.Append($" --print_progress");
                     arguments.Append($" --beep_off");
-                    arguments.Append($" --output_format json");
-                    arguments.Append($" {this.AdditionalParameters}");
                     arguments.Append($" \"{context.GetPotentialVerboseFilePath($"*.wav", processStartTime)}\"");
 
                     // Start a new process to perform transcription
@@ -219,7 +219,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                                        word.EndTime,
                                                        currentText,
                                                        (double)segment.no_speech_prob,
-                                                       currentWords));
+                                                       NormalizeWordsTimings(currentWords)));
                                             }
                                             else
                                             {
@@ -241,7 +241,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                                    word.EndTime,
                                                    currentText,
                                                    (double)segment.no_speech_prob,
-                                                   currentWords));
+                                                   NormalizeWordsTimings(currentWords)));
                                         }
                                         currentStartTime = null;
                                         currentText = null;
@@ -279,6 +279,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                 }
             }
+        }
+
+        private IEnumerable<TranscribedWord> NormalizeWordsTimings(List<TranscribedWord> words)
+        {
+            return words.Select(w => new TranscribedWord(w.StartTime - words[0].StartTime, w.EndTime - words[0].StartTime, w.Text, w.Probability));            
         }
     }
 }
