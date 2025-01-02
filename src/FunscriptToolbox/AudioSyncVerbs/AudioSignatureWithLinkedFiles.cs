@@ -3,7 +3,6 @@ using FunscriptToolbox.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace FunscriptToolbox.AudioSyncVerbs
 {
@@ -11,13 +10,14 @@ namespace FunscriptToolbox.AudioSyncVerbs
     {    
         public AudioSignatureWithLinkedFiles(
             string id, 
-            string baseFileName, 
+            string fullpath, 
             AudioSignature audioSignature)
         {
             this.Id = id;
             this.StartTime = TimeSpan.Zero;
-            this.BaseFolder = Path.GetDirectoryName(Path.GetFullPath(baseFileName));
-            this.BaseFilename = Path.GetFileNameWithoutExtension(baseFileName);
+            this.FullPath = fullpath;
+            this.BaseFolder = Path.GetDirectoryName(Path.GetFullPath(fullpath));
+            this.BaseFilename = Path.GetFileNameWithoutExtension(fullpath);
             this.BaseFullPath = Path.Combine(BaseFolder, BaseFilename);
             this.AudioSignature = audioSignature;
             this.Funscripts = new Dictionary<string, Funscript>(StringComparer.OrdinalIgnoreCase);
@@ -26,6 +26,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
         public string Id { get; }
         public TimeSpan StartTime { get; set; }
+        public string FullPath { get; }
         public string BaseFolder { get; }
         public string BaseFilename { get; }
         public string BaseFullPath { get; }

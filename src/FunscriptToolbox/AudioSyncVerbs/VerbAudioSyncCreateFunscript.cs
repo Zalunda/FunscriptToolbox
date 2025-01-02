@@ -1,6 +1,7 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using log4net;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -38,6 +39,9 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
             [Option('c', "alwayscreate", Required = false, HelpText = "Always create funscript even if empty", Default = false)]
             public bool AlwaysCreate { get; internal set; }
+
+            [Option('d', "dumpoffsets", Required = false, HelpText = "Dump the offset in a file [first output filename].offsets.json", Default = false)]
+            public bool DumpOffsets { get; internal set; }
         }
 
         private readonly Options r_options;
@@ -54,7 +58,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             var inputFiles = r_options
                 .Inputs
                 .SelectMany(file => HandleStarAndRecusivity(file)
-                .Select((mainFilename) => LoadAudioSignatureWithExtras($"Input-{index++:D2}", mainFilename)))
+                .Select((mainFilename) => LoadAudioSignatureWithExtras($"I-{index++:D2}", mainFilename)))
                 .ToArray();
             if (inputFiles.Length == 0)
             {
@@ -65,7 +69,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             var outputFiles = r_options
                 .Outputs
                 .SelectMany(file => HandleStarAndRecusivity(file)
-                .Select((mainFilename) => LoadAudioSignature($"Output-{index++:D2}", mainFilename)))
+                .Select((mainFilename) => LoadAudioSignature($"O-{index++:D2}", mainFilename)))
                 .ToArray();
             if (outputFiles.Length == 0)
             {
@@ -99,7 +103,8 @@ namespace FunscriptToolbox.AudioSyncVerbs
                         });
             var watchFindMatches = Stopwatch.StartNew();
             var audioOffsets = comparer.FindAudioOffsets(WriteVerbose);
-            WriteInfo($"Time to compare: {watchFindMatches.Elapsed}");
+            var mergedOffsets = VirtualMergedAudioOffsetCollection.Create(audioOffsets, virtualInput, virtualOutput);
+            WriteInfo($"Time to compare: {watchFindMatches.Elapsed}");           
 
             foreach (var item in virtualInput.MergedFunscriptFiles)
             {
@@ -113,14 +118,30 @@ namespace FunscriptToolbox.AudioSyncVerbs
 
             WriteInfo();
             WriteInfo($"Differences (Merged Inputs vs. Merged Outputs)");
-            foreach (var item in audioOffsets)
+            WriteInfo($"   {"Input",-5} {"Start",-14} {"End",-14} {"Offset",-14} {"Output",-5} {"Start",-14} {"End",-14} Actions");
+            WriteInfo($"   {new string('-', 110)}");
+            foreach (var item in mergedOffsets)
             {
-                if (item.Offset == null)
-                    WriteInfo($"   From {FormatTimeSpan(item.StartTime),-12} to {FormatTimeSpan(item.EndTime),-12}, {item.NbTimesUsed,5} actions, chapters or subtitles have been DROPPED");
-                else if (item.Offset == TimeSpan.Zero)
-                    WriteInfo($"   From {FormatTimeSpan(item.StartTime),-12} to {FormatTimeSpan(item.EndTime),-12}, {item.NbTimesUsed,5} actions, chapters or subtitles copied as is");
-                else
-                    WriteInfo($"   From {FormatTimeSpan(item.StartTime),-12} to {FormatTimeSpan(item.EndTime),-12}, {item.NbTimesUsed,5} actions, chapters or subtitles have been MOVED by {FormatTimeSpan(item.Offset.Value)}");
+                var offsetStr = item.Offset == null 
+                    ? "DROPPED" 
+                    : FormatTimeSpan(item.Offset.Value);
+
+                WriteInfo($"   {item.InputFile.Id,-5} {FormatTimeSpan(item.InputStartTime), -14} {FormatTimeSpan(item.InputStartTime + item.Duration), -14} {offsetStr,-14} {item.OutputFile?.Id,-5} {FormatTimeSpan(item.OutputStartTime),-14} {FormatTimeSpan(item.OutputStartTime + item.Duration),-14} {item.NbTimesUsed} actions, chapters or subtitles");
+            }
+
+            if (r_options.DumpOffsets)
+            {
+                WriteInfo();
+                WriteInfo($"Saving .offsets.json file.");
+                File.WriteAllText(
+                    outputFiles.First().BaseFullPath + ".offsets.json",
+                    JsonConvert.SerializeObject(
+                        mergedOffsets,
+                        Formatting.Indented,
+                        new JsonSerializerSettings
+                        {
+                            NullValueHandling = NullValueHandling.Ignore
+                        }));
             }
 
             WriteInfo();

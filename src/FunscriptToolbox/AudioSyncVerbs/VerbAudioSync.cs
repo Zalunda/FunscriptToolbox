@@ -128,8 +128,10 @@ namespace FunscriptToolbox.AudioSyncVerbs
             return newSubtitles.ToArray();
         }
 
-        protected static string FormatTimeSpan(TimeSpan value)
+        protected static string FormatTimeSpan(TimeSpan? value)
         {
+            if (value == null)
+                return string.Empty;
             return Regex.Replace(value.ToString(), @"\d{4}$", "");
         }
     }

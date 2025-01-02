@@ -166,6 +166,8 @@
     <Compile Include="AudioSyncVerbs\VerbAudioSync.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncCreateAudioSignature.cs" />
     <Compile Include="AudioSyncVerbs\VerbAudioSyncVerifyFunscript.cs" />
+    <Compile Include="AudioSyncVerbs\VirtualMergedAudioOffset.cs" />
+    <Compile Include="AudioSyncVerbs\VirtualMergedAudioOffsetCollection.cs" />
     <Compile Include="AudioSyncVerbs\VirtualMergedFile.cs" />
     <Compile Include="InstallationFiles\PluginClient.cs" />
     <Compile Include="InstallationVerbs\VerbInstallation.cs" />
