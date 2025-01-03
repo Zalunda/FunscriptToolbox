@@ -118,7 +118,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         logs.AppendLine(e.Data);
 
-                        var match = Regex.Match(e.Data ?? string.Empty, "Starting transcription.*-(?<Index>\\d+).wav$", RegexOptions.IgnoreCase);
+                        var match = Regex.Match(e.Data ?? string.Empty, "Starting.*:.*-(?<Index>\\d+).wav$", RegexOptions.IgnoreCase);
                         if (match.Success)
                         {
                             currentFileIndex = int.Parse(match.Groups["Index"].Value) + 1;
