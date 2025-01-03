@@ -32,7 +32,6 @@ namespace FunscriptToolbox.AudioSyncVerbs
         public TimeSpan Duration { get; set; }
         public TimeSpan? Offset { get; set; }
 
-        [JsonIgnore]
         public Dictionary<ItemType, int> Usage { get; } = Enum
             .GetValues(typeof(ItemType))
             .Cast<ItemType>()
