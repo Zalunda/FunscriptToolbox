@@ -13,6 +13,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
     [JsonObject(IsReference = false)]
     public class WorkInProgressSubtitles
     {
+        public const string CURRENT_FORMAT_VERSION = "1.1";
+
         private readonly static JsonSerializer rs_serializer = JsonSerializer
             .Create(new JsonSerializerSettings
             {
@@ -57,10 +59,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonIgnore]
         public string OriginalFilePath { get; private set; }
 
-        public string FormatVersion { get; set; } = "1.0";
+        public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
         public PcmAudio PcmAudio { get; set; }
         public SubtitleForcedTimingCollection SubtitlesForcedTiming { get; set; }
         public List<Transcription> Transcriptions { get; set; }
+
+        public void UpdateFormatVersion()
+        {
+            this.FormatVersion = CURRENT_FORMAT_VERSION;
+        }
 
         public void Save(string filepath = null)
         {

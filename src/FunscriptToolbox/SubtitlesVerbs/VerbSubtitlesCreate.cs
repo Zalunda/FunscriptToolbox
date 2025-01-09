@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs
@@ -85,7 +86,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     : new WorkInProgressSubtitles(wipsubFullpath);
 
                 context.ChangeCurrentFile(wipsub);
-                
+
+                UpdateWipSubFileIfNeeded(context, config);
+
                 // 0. Remove translations 
                 var translationsToRemove = r_options.RemoveTranslations?.Split(';').ToArray();
                 if (translationsToRemove != null)
@@ -348,6 +351,60 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 context.WriteInfo();
             }
             return base.NbErrors;
+        }
+
+        private void UpdateWipSubFileIfNeeded(SubtitleGeneratorContext context, SubtitleGeneratorConfig config)
+        {
+            switch (context.CurrentWipsub.FormatVersion)
+            {
+                case "1.0":
+                    context.WriteInfo($"Updating WIPSub file format from {context.CurrentWipsub.FormatVersion} to {WorkInProgressSubtitles.CURRENT_FORMAT_VERSION}...");
+                    context.CurrentWipsub.Save(Path.ChangeExtension(context.CurrentWipsub.OriginalFilePath, ".wipsubtitles-1.0"));
+                    context.CurrentWipsub.UpdateFormatVersion();
+
+                    foreach (var transcriber in config.Transcribers.OfType<TranscriberMergedVADAudio>())
+                    {
+                        foreach (var transcription in context.CurrentWipsub.Transcriptions
+                            .Where(t => t.Id == transcriber.TranscriptionId))
+                        {
+                            var oldId = transcription.Id;
+                            var newId = transcription.Id + "-1.0";
+                            context.WriteInfo($"   Renaming transcription '{oldId}' to '{newId}', and updating word timings.");
+                            transcription.Rename(newId);
+
+                            foreach (var fullpath in Directory.GetFiles(
+                                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
+                                "*.*"))
+                            {
+                                var filename = Path.GetFileName(fullpath);
+                                if (Regex.IsMatch(
+                                    filename,
+                                    $"^" + Regex.Escape($"{Path.GetFileName(context.CurrentBaseFilePath)}.TODO-{oldId}-") + $".*",
+                                    RegexOptions.IgnoreCase))
+                                {
+                                    context.WriteInfo($"      Softdeleting file {Path.GetFileName(filename)}...");
+                                    context.SoftDelete(fullpath);
+                                }
+                            }
+
+                            foreach (var item in transcription.Items)
+                            {
+                                var updatedWords = new List<TranscribedWord>();
+                                var firstWordStartTime = item.Words.FirstOrDefault()?.StartTime ?? item.StartTime;
+                                foreach (var word in item.Words)
+                                {
+                                    word.FixTiming(
+                                        word.StartTime - firstWordStartTime + item.StartTime,
+                                        word.EndTime - firstWordStartTime + item.StartTime);
+                                }                                
+                            }
+                        }
+                    }
+                    context.CurrentWipsub.Save();
+                    context.WriteInfo($"Update of WIPSub complete.");
+                    context.WriteInfo();
+                    break;
+            }
         }
 
         private static IEnumerable<string> GetTranscriptionAnalysis(

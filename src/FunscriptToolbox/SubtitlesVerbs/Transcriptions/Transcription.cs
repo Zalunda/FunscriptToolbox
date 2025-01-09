@@ -7,7 +7,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class Transcription
     {
-        public string Id { get; }
+        public string Id { get; private set; }
         public Language Language { get; }
         public TranscribedText[] Items { get; }
         public TranscriptionCost[] Costs { get; }
@@ -25,6 +25,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Language = language ?? TranslatorGoogleV1API.DetectLanguage(Items);
             Costs = costs.ToArray();
             Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
+        }
+
+        public void Rename(string newId)
+        {
+            this.Id = newId;
         }
 
         public TranscriptionAnalysis<SubtitleForcedTiming> GetAnalysis(

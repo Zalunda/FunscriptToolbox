@@ -4,8 +4,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscribedWord : ITiming
     {
-        public TimeSpan StartTime { get; }
-        public TimeSpan EndTime { get; }
+        public TimeSpan StartTime { get; private set; }
+        public TimeSpan EndTime { get; private set; }
         public TimeSpan Duration => EndTime - StartTime;
         public string Text { get; }
         public double Probability { get; }
@@ -20,6 +20,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             EndTime = endTime;
             Text = text;
             Probability = probability;
+        }
+
+        public void FixTiming(TimeSpan newStartTime, TimeSpan newEndTime)
+        {
+            this.StartTime = newStartTime;
+            this.EndTime = newEndTime;
         }
     }
 }
