@@ -359,7 +359,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 case "1.0":
                     context.WriteInfo($"Updating WIPSub file format from {context.CurrentWipsub.FormatVersion} to {WorkInProgressSubtitles.CURRENT_FORMAT_VERSION}...");
-                    context.CurrentWipsub.Save(Path.ChangeExtension(context.CurrentWipsub.OriginalFilePath, ".wipsubtitles-1.0"));
+                    context.WriteInfo($"   Softdeleting file {Path.GetFileName(context.CurrentWipsub.OriginalFilePath)}...");
+                    context.SoftDelete(context.CurrentWipsub.OriginalFilePath);
                     context.CurrentWipsub.UpdateFormatVersion();
 
                     foreach (var transcriber in config.Transcribers.OfType<TranscriberMergedVADAudio>())
