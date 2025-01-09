@@ -74,7 +74,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 5)]
         public SubtitleOutput[] Outputs { get; set; }
 
-        public static string GetExample()
+        public static string GetDefaultExample()
         {
             var jtokenIdOverrides = new List<JTokenIdOverride>();
 
@@ -82,8 +82,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 ApplicationFullPath = @"[PathToPurfview]\Purfview-Whisper-Faster\whisper-faster.exe",
                 Model = "Large-V2",
-                ForceSplitOnComma = true,
-                RedoBlockLargerThen = TimeSpan.FromSeconds(15)
+                ForceSplitOnComma = false,
+                RedoBlockLargerThen = TimeSpan.FromSeconds(30)
             };
             jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
 
@@ -146,6 +146,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "* Talker (optional): if it's not provided, it mean it's the woman talking.",
                 "* StartTime: the start time for the subtitle.",
                 "* Original:  The transcribed text in the original language (for example, " + AIPrompt.TranscriptionLanguageToken + ").",
+                "* Parts (optional): If this field is provided, that mean that the person said the sentence with pause between each part. In those case, please return a translation that make sense splitted, usually with each part ending \"...\" or something like that.",
                 "Can you return me a JSON where nodes have the following fields:",
                 "* StartTime",
                 "* Original",
@@ -228,17 +229,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 Enabled = true,
                                 TranslationId = "claude-3.5-sonnet-refined",
-                                TargetLanguage = Language.FromString("en"),                                
+                                TargetLanguage = Language.FromString("en"),    
                                 MessagesHandler = new AIMessagesHandlerJson
                                 {
                                     FirstUserPrompt = new AIPrompt(new[]
                                     {
                                         "I would like you to \"refine\" the translations.",
-                                        "Make sure that the translation feel natural and sound like something someone would really say in the current context of the scene.",
-                                        "And if they say basicly the same thing multiple times (ex. are you about to cum, you came, look at how much you came, it's so good), try to find interesting way to say it.",
-                                        "Also, make sure that the new translation length are more or less in line with the original text length (if someone spoke the word), unless a longer translation would better capture the nuance of the original text."
+                                        "Make sure that the translation feels natural and sound like something someone would really say in the current context of the scene.",
+                                        "And if they say basically the same thing multiple times (ex. are you about to cum, you came, look at how much you came, it's so good), try to find interesting way to say it.",
+                                        "Don't forget to take into account the ones that have a 'Parts' attribute."
                                     }),
                                     MaxItemsInRequest = 30,
+                                    IncludeParts = true,
                                     PreviousTranslationId = "claude-3.5-sonnet"
                                 }
                             },
@@ -392,6 +394,63 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".wav",
                         FfmpegWavParameters = "-af \"highpass=f=1000,loudnorm=I=-16:TP=-1\""
                     },
+                }
+            };
+
+            return OverridesIdInJObject(JObject.FromObject(config, rs_serializer), jtokenIdOverrides)
+                .ToString();
+        }
+
+        public static string GetTrainingDataExample()
+        {
+            var jtokenIdOverrides = new List<JTokenIdOverride>();
+
+            var transcriberToolWhisper = new TranscriberToolPurfviewWhisper
+            {
+                ApplicationFullPath = @"[PathToPurfview]\Purfview-Whisper-Faster\whisper-faster.exe",
+                Model = "Large-V2",
+                ForceSplitOnComma = false,
+                RedoBlockLargerThen = TimeSpan.FromMinutes(60)
+            };
+            jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
+
+            var config = new SubtitleGeneratorConfig()
+            {
+                SubtitleForcedTimingsParser = new SubtitleForcedTimingParser()
+                {
+                    FileSuffix = ".perfect-vad.srt"
+                },
+                SharedObjects = new object[]
+                {
+                    transcriberToolWhisper
+                },
+                AudioExtractor = new AudioExtractor(),
+                Transcribers = new Transcriber[]
+                {
+                    new TranscriberFullAudio()
+                    {
+                        TranscriptionId = "import-finished-srt",
+                        TranscriberTool = new TranscriberToolExternalSrt(),
+                    },
+                    new TranscriberMergedVADAudio()
+                    {
+                        TranscriptionId = "mergedvad",
+                        UseTimingsFromId = "import-finished-srt",
+                        TranscriberTool = transcriberToolWhisper
+                    }
+                },
+                Outputs = new SubtitleOutput[]
+                {
+                    new SubtitleOutputCostReport()
+                    {
+                        FileSuffix = null
+                    },
+                    new SubtitleOutputTrainingData()
+                    {
+                        FileSuffix = ".training.json",
+                        ImportId = "import-finished-srt",
+                        MergedVadId = "mergedvad"
+                    }
                 }
             };
 

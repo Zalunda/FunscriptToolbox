@@ -117,17 +117,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                                     ? $",{index++}/{overlaps.Length}"
                                     : string.Empty;
                                 var overlapInfo = string.Empty;
+                                var text = overlap.TranscribedText.Text;
                                 if (ta.TranscribedTextWithOverlapTimings.TryGetValue(overlap.TranscribedText, out var overlapOtherSide) 
                                     && overlapOtherSide.Length > 1)
                                 {
                                     var matchIndex = Array.FindIndex(overlapOtherSide, x => x.Timing == forcedTiming);
-                                    if (matchIndex > 0)
+                                    if (matchIndex >= 0)
                                     {
                                         overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {overlapOtherSide[matchIndex].WordsText}]";
                                     }
+                                    text = string.Join(" | ", overlapOtherSide.Select(o => o.WordsText));
                                 }
 
-                                builder.AppendLine($"[{ta.Transcription.Id}{number}] {overlap.TranscribedText.Text} {overlapInfo}");
+                                builder.AppendLine($"[{ta.Transcription.Id}{number}] {text} {overlapInfo}");
                                 AppendTranslationLines(builder, overlap.TranscribedText, finalTranslationsOrder);
 
                                 var translations = overlap.TranscribedText.TranslatedTexts.Where(f => finalTranslationsOrder.Contains(f.Id)).ToArray();

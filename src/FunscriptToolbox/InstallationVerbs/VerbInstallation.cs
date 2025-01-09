@@ -6,6 +6,7 @@ using log4net;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.MotionVectorsVerbs
@@ -34,8 +35,10 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             InstallOFSPlugin();
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat);
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetExample());
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfigExample-1.2", ".json", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetDefaultExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfigExample-1.2", ".json", SubtitleGeneratorConfig.GetDefaultExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitlesTrainingDataConfig", ".json", SubtitleGeneratorConfig.GetTrainingDataExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitlesTrainingDataExample-1.0", ".json", SubtitleGeneratorConfig.GetTrainingDataExample());
 
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat);
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
@@ -106,7 +109,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 content
                 .Replace("[[FunscriptToolboxExePathInLuaFormat]]", funscriptToolboxExe.Replace(@"\", @"\\")) // Need to double the backslash for lua
                 .Replace("[[FunscriptToolboxFolder]]", funscriptToolboxFolder)
-                .Replace("[[PluginVersion]]", PluginClient.Version));
+                .Replace("[[PluginVersion]]", PluginClient.Version), 
+                Encoding.UTF8);
         }
     }
 }

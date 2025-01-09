@@ -79,8 +79,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                             Context = currentContext == lastContext ? null : currentContext,
                             Talker = currentTalker,
                             Original = mergedOverlap.First(x => x.Timing == importItem).WordsText,
+                            OriginalIsPartOfSingleTranscription = importM.Select(f => f.WordsText).ToArray(),
                             Translation = importItem.Text,
-                            PartsOfSingleTranscription = importM.Select(f => f.WordsText).ToArray(),
                         });
                     }
                     else

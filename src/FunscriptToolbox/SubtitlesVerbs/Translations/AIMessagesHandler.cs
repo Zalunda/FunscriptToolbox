@@ -21,6 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             SubtitleForcedTimingCollection subtitlesForcedTiming)
         {
             string currentContext = null;
+            var analysis = transcription.GetAnalysis(subtitlesForcedTiming.ToArray());
             return new ItemForAICollection(
                 transcription
                 .Items
@@ -28,10 +29,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 {
                     var previousContext = currentContext;
                     currentContext = subtitlesForcedTiming?.GetContextAt(item.StartTime);
+                    analysis.TranscribedTextWithOverlapTimings.TryGetValue(item, out var parts);
                     return new ItemForAI(
                         item, 
                         currentContext == previousContext ? null : currentContext,
-                        subtitlesForcedTiming?.GetTalkerAt(item.StartTime, item.EndTime));
+                        subtitlesForcedTiming?.GetTalkerAt(item.StartTime, item.EndTime),
+                        parts?.Select(f => f.WordsText).ToArray());
                 }));
         }
 
@@ -64,14 +67,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             public string StartTime { get; set; }
             [JsonProperty(Order = 4)]
             public string Original { get; set; }
+            public string[] Parts { get; set; }
 
-            public ItemForAI(TranscribedText tag, string context, string talker)
+            public ItemForAI(TranscribedText tag, string context, string talker, string[] parts)
             {
                 this.Tag = tag;
                 this.StartTime = $"{(int)tag.StartTime.TotalMinutes}:{(int)tag.StartTime.Seconds:D2}.{(int)tag.StartTime.Milliseconds:D3}";
                 this.Original = tag.Text;
                 this.Context = context;
                 this.Talker = talker;
+                this.Parts = parts;
             }
         }
 

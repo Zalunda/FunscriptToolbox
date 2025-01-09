@@ -26,8 +26,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public bool IncludeContext { get; set; } = true;
         [JsonProperty(Order = 15)]
         public bool IncludeTalker { get; set; } = true;
-
         [JsonProperty(Order = 16)]
+        public bool IncludeParts { get; set; } = false;
+
+        [JsonProperty(Order = 17)]
         public string PreviousTranslationId { get; set; }
 
         internal override bool IsReadyToStart(
@@ -103,7 +105,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                                 OngoingContext = (this.IncludeContext && index == 0 && f.Context == null) ? ongoingContext : null,
                                 Talker = this.IncludeTalker ? f.Talker : null,
                                 StartTime = this.IncludeStartTime ? f.StartTime : null,
-                                f.Original,                                    
+                                f.Original,
+                                Parts = this.IncludeParts && f.Parts.Length > 1 ? f.Parts : null,
                                 PreviousTranslation = f.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == PreviousTranslationId)?.Text
                             }),
                         Formatting.Indented, 
