@@ -27,12 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (context.CurrentWipsub.SubtitlesForcedTiming == null)
-            {
-                reason = "SubtitlesForcedTiming not imported yet.";
-                return false;
-            }
-            else if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.ImportId && f.Items.Length > 0))
+            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.ImportId && f.Items.Length > 0))
             {
                 reason = $"Transcription '{ImportId}' not done yet.";
                 return false;
@@ -62,8 +57,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             var result = new List<dynamic>();
             foreach (var importItem in importTranscription.Items)
             {
-                var currentContext = forcedTimings.GetContextAt(importItem.StartTime);
-                var currentTalker = forcedTimings.GetTalkerAt(importItem.StartTime, importItem.EndTime);
+                var currentContext = forcedTimings?.GetContextAt(importItem.StartTime);
+                var currentTalker = forcedTimings?.GetTalkerAt(importItem.StartTime, importItem.EndTime);
                 if (analysis.TimingsWithOverlapTranscribedTexts.TryGetValue(importItem, out var mergedOverlap))
                 {
                     var originalText = string.Join("\n", mergedOverlap.Select(t => t.TranscribedText.Text));
