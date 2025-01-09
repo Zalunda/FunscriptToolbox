@@ -358,8 +358,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             if (analysis != null)
             {
                 yield return $"    ForcedTimings Analysis:";
-                yield return $"       Number with transcription:    {analysis.NbWithTranscription}";
-                yield return $"       Number without transcription: {analysis.NbWithoutTranscription}";
+                yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}";
+                yield return $"       Number without transcription: {analysis.NbTimingsWithoutTranscription}";
                 if (analysis.ExtraTranscriptions.Length > 0)
                 {
                     yield return $"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}";
@@ -371,7 +371,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         var extraTranscriptions = analysis.ExtraTranscriptions.ToList();
                         foreach (var item in analysis
-                            .ForcedTimingsWithOverlapTranscribedTexts
+                            .TimingsWithOverlapTranscribedTexts
                             .OrderBy(f => f.Key.StartTime))
                         {
                             while (extraTranscriptions.FirstOrDefault()?.StartTime <= item.Key.StartTime)
@@ -388,7 +388,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             else if (item.Value.Length == 1)
                             {
                                 var first = item.Value.First();
-                                writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}, {first.TranscribedText.GetFirstTranslatedIfPossible()} {first.OverlapInfo}");
+                                writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}, {first.TranscribedText.GetFirstTranslatedIfPossible()}");
                             }
                             else
                             {
@@ -396,7 +396,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 foreach (var value in item.Value)
                                 {
                                     var tt = value.TranscribedText;
-                                    writer.WriteLine($"     {tt.StartTime} => {tt.EndTime}, {tt.GetFirstTranslatedIfPossible()} {value.OverlapInfo}");
+                                    writer.WriteLine($"     {tt.StartTime} => {tt.EndTime}, {tt.GetFirstTranslatedIfPossible()}");
                                 }
                             }
                         }

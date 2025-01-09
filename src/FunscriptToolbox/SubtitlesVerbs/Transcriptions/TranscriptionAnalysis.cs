@@ -1,153 +1,193 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System;
+using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriptionAnalysis
+    public class TranscriptionAnalysis<T> where T : class, ITiming
     {
-        public static TranscriptionAnalysis From(
-            Transcription transcription,
-            SubtitleForcedTiming[] forcedTimings,
-            int minimumPercentage)
+        public class TranscriptionTimingMatch
         {
-            var extraTranscriptions = new List<TranscribedText>();
-            var matchedTranscribedTexts = new List<TimingOverlap>();
-            foreach (var tt in transcription.Items)
-            {
-                var matches = forcedTimings
-                    .Select(forcedTiming => TimingOverlap.From(transcription.Id, tt, forcedTiming))
-                    .Where(f => f != null)
-                    .ToArray();
-                if (matches.Length == 0)
-                {
-                    extraTranscriptions.Add(tt);
-                }
-                else if (matches.Length == 1)
-                {
-                    matchedTranscribedTexts.Add(matches.First());
-                }
-                else 
-                {
-                    var totalTimeMatched = matches.Select(m => m.Duration.TotalMilliseconds).Sum();
+            public TranscribedText TranscribedText { get; }
+            public T Timing { get; }
+            public List<TranscribedWord> Words { get; } = new List<TranscribedWord>();
 
-                    var index = 1;
-                    foreach (var match in matches)
+            public string WordsText => string.Join(string.Empty, this.Words.Select(f => f.Text));
+
+            public TranscriptionTimingMatch(TranscribedText item, T timing)
+            {
+                TranscribedText = item;
+                Timing = timing;
+            }
+        }
+
+        public static TranscriptionAnalysis<T> From(
+            Transcription transcription,
+            T[] timings)
+        {
+            var matchAccumulator = new List<TranscriptionTimingMatch>();
+            var lastAssignedMatch = new Dictionary<TranscribedText, TranscriptionTimingMatch>();
+
+            foreach (var item in transcription.Items)
+            {
+                bool lastWordWasException = false;
+
+                foreach (var word in item.Words)
+                {
+                    // Check if this is a special case that should follow previous word
+                    bool isSpecialCase = word.Text.EndsWith("...") ||
+                                        word.Text.EndsWith(",") || word.Text.EndsWith("\u3001") || /* , */
+                                        word.Text.EndsWith(".") || word.Text.EndsWith("\u3002") || /* . */
+                                        word.Text.EndsWith("?") ||
+                                        word.Text.EndsWith("!");
+
+                    if (isSpecialCase && lastAssignedMatch.ContainsKey(item))
                     {
-                        match.OverlapInfo = new MultiTimingsOverlap()
+                        // Add to the same timing as the previous word
+                        lastAssignedMatch[item].Words.Add(word);
+                        lastWordWasException = true;
+                        continue;
+                    }
+
+                    // Find all overlapping timings for this word
+                    var overlappingTimings = new List<(T Timing, TimingOverlap<TranscribedWord, T> Overlap)>();
+                    var wordMidpoint = word.StartTime.Ticks + (word.EndTime.Ticks - word.StartTime.Ticks) / 2;
+                    var closestTiming = (Timing: default(T), Distance: Int64.MaxValue);
+
+                    foreach (var timing in timings)
+                    {
+                        var overlap = TimingOverlap<TranscribedWord, T>.CalculateOverlap(word, timing);
+                        if (overlap != null)
                         {
-                            Index = index++,
-                            NumberOverlap = matches.Length,
-                            PercentageTime = (int)(100 * match.Duration.TotalMilliseconds / totalTimeMatched)
-                        };
-                        if (match.OverlapInfo.PercentageTime > minimumPercentage)
+                            overlappingTimings.Add((timing, overlap));
+                        }
+
+                        var timingMidpoint = timing.StartTime.Ticks + (timing.EndTime.Ticks - timing.StartTime.Ticks) / 2;
+                        var distance = Math.Abs(timingMidpoint - wordMidpoint);
+                        if (distance < closestTiming.Distance)
                         {
-                            matchedTranscribedTexts.Add(match);
+                            if (!lastWordWasException || timingMidpoint > wordMidpoint)
+                            {
+                                closestTiming = (timing, distance);
+                            }
                         }
                     }
+
+                    TranscriptionTimingMatch match;
+                    if (overlappingTimings.Count == 0)
+                    {
+                        // No overlap - use closest timing
+                        match = matchAccumulator.FirstOrDefault(m =>
+                            m.TranscribedText == item &&
+                            m.Timing == closestTiming.Timing);
+                        if (match == null)
+                        {
+                            match = new TranscriptionTimingMatch(item, closestTiming.Timing);
+                            matchAccumulator.Add(match);
+                        }
+                        match.Words.Add(word);
+                    }
+                    else if (overlappingTimings.Count == 1)
+                    {
+                        // Word fits completely in one timing
+                        match = matchAccumulator.FirstOrDefault(m =>
+                            m.TranscribedText == item &&
+                            m.Timing == overlappingTimings[0].Timing);
+                        if (match == null)
+                        {
+                            match = new TranscriptionTimingMatch(item, overlappingTimings[0].Timing);
+                            matchAccumulator.Add(match);
+                        }
+
+                        match.Words.Add(word);
+                    }
+                    else
+                    {
+                        // Word overlaps multiple timings - decision logic
+                        var bestMatch = lastWordWasException
+                            ? overlappingTimings.Last()
+                            : overlappingTimings
+                            .OrderByDescending(x => x.Overlap.OverlapB) // Order by how much of the timing is covered
+                            .ThenByDescending(x => x.Overlap.OverlapA) // Then by how much of the word is covered
+                            .First();
+
+                        match = matchAccumulator.FirstOrDefault(m =>
+                            m.TranscribedText == item &&
+                            m.Timing == bestMatch.Timing);
+                        if (match == null)
+                        {
+                            match = new TranscriptionTimingMatch(item, bestMatch.Timing);
+                            matchAccumulator.Add(match);
+                        }
+
+                        match.Words.Add(word);
+                    }
+
+                    // Remember this match for the next word
+                    lastAssignedMatch[item] = match;
+                    lastWordWasException = false;
                 }
             }
 
-            return new TranscriptionAnalysis(
+            using (var writer = File.CreateText("xxx.log"))
+            {
+                foreach (var match in matchAccumulator)
+                {
+                    writer.WriteLine($"Timing ({match.Timing.StartTime:hh\\:mm\\:ss\\.fff} - {match.Timing.EndTime:hh\\:mm\\:ss\\.fff})");
+                    writer.WriteLine($"{match.TranscribedText.Text} => Transcription Item ({match.TranscribedText.StartTime:hh\\:mm\\:ss\\.fff} - {match.TranscribedText.EndTime:hh\\:mm\\:ss\\.fff})");
+                    writer.WriteLine("Words:");
+                    foreach (var word in match.Words)
+                    {
+                        writer.WriteLine($"    {word.Text} ({word.StartTime:hh\\:mm\\:ss\\.fff} - {word.EndTime:hh\\:mm\\:ss\\.fff})");
+                    }
+                    // writer.WriteLine($"{string.Join("", match.Words.Select(w => w.Text))} => Words");
+                    writer.WriteLine();
+                }
+            }
+
+            // Convert to the expected format           
+            return new TranscriptionAnalysis<T>(
                 transcription,
-                forcedTimings
-                .ToDictionary(
-                    forcedTiming => forcedTiming,
-                    forcedTiming => matchedTranscribedTexts
-                            .Where(match => match.ForcedTiming == forcedTiming)
-                            .ToArray()),
-                extraTranscriptions.ToArray());
+                timings,
+                matchAccumulator
+                    .GroupBy(m => m.Timing)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.ToArray()
+                    ),
+                matchAccumulator
+                    .GroupBy(m => m.TranscribedText)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.ToArray()
+                    ));
         }
 
         public TranscriptionAnalysis(
             Transcription transcription,
-            Dictionary<SubtitleForcedTiming, TimingOverlap[]> forcedTimingsWithOverlapTranscribedTexts,
-            TranscribedText[] unmatchedTranscribedTexts)
+            T[] timings,
+            Dictionary<T, TranscriptionTimingMatch[]> timingsWithOverlapTranscribedTexts,
+            Dictionary<TranscribedText, TranscriptionTimingMatch[]> transcribedTextWithOverlapTimings)
         {
             Transcription = transcription;
-            ForcedTimingsWithOverlapTranscribedTexts = forcedTimingsWithOverlapTranscribedTexts;
-            ExtraTranscriptions = unmatchedTranscribedTexts.ToArray();
-            NbWithTranscription = forcedTimingsWithOverlapTranscribedTexts.Count(f => f.Value.Length > 0);
-            NbWithoutTranscription = forcedTimingsWithOverlapTranscribedTexts.Count - NbWithTranscription;
+            Timings = timings;
+            TimingsWithOverlapTranscribedTexts = timingsWithOverlapTranscribedTexts;
+            TranscribedTextWithOverlapTimings = transcribedTextWithOverlapTimings;
+            ExtraTranscriptions = transcription.Items
+                .Where(item => !transcribedTextWithOverlapTimings.ContainsKey(item))
+                .ToArray();
+            NbTimingsWithoutTranscription = timings
+                .Count(timing => !timingsWithOverlapTranscribedTexts.ContainsKey(timing));
+            NbTimingsWithoutTranscription = timings.Length - NbTimingsWithoutTranscription;
         }
 
         public Transcription Transcription { get; }
-        public Dictionary<SubtitleForcedTiming, TimingOverlap[]> ForcedTimingsWithOverlapTranscribedTexts { get; }
+        public T[] Timings { get; }
+        public Dictionary<T, TranscriptionTimingMatch[]> TimingsWithOverlapTranscribedTexts { get; }
+        public Dictionary<TranscribedText, TranscriptionTimingMatch[]> TranscribedTextWithOverlapTimings { get; }
         public TranscribedText[] ExtraTranscriptions { get; }
-        public int NbWithTranscription { get; }
-        public int NbWithoutTranscription { get; }
-
-        public class TimingOverlap
-        {
-            public static TimingOverlap From(
-                string transcriptionId,
-                TranscribedText tt)
-            {
-                return new TimingOverlap(
-                        transcriptionId,
-                        tt.StartTime,
-                        tt.EndTime,
-                        tt,
-                        null);
-            }
-
-            public static TimingOverlap From(
-                string transcriptionId,
-                TranscribedText tt,
-                SubtitleForcedTiming forcedTiming)
-            {
-                var overlapStartTime = forcedTiming.StartTime > tt.StartTime ? forcedTiming.StartTime : tt.StartTime;
-                var overlapEndTime = forcedTiming.EndTime < tt.EndTime ? forcedTiming.EndTime : tt.EndTime;
-                return (overlapStartTime < overlapEndTime)
-                    ? new TimingOverlap(
-                        transcriptionId,
-                        overlapStartTime,
-                        overlapEndTime,
-                        tt,
-                        forcedTiming)
-                    : null;
-            }
-
-            private TimingOverlap(
-                string transcriptionId,
-                TimeSpan overlapStartTime,
-                TimeSpan overlapEndTime,
-                TranscribedText tt,
-                SubtitleForcedTiming forcedTiming)
-            {
-                TranscriptionId = transcriptionId;
-                StartTime = overlapStartTime;
-                EndTime = overlapEndTime;
-                ForcedTiming = forcedTiming;
-                TranscribedText = tt;
-                if (forcedTiming != null)
-                {
-                    MatchPercentage = (int)(100 * (Math.Min(overlapEndTime.TotalMilliseconds, forcedTiming.EndTime.TotalMilliseconds)
-                        - Math.Max(overlapStartTime.TotalMilliseconds, forcedTiming.StartTime.TotalMilliseconds)) / forcedTiming.Duration.TotalMilliseconds);
-                }
-            }
-
-            public string TranscriptionId { get; }
-            public TimeSpan StartTime { get; }
-            public TimeSpan EndTime { get; }
-            public TimeSpan Duration => EndTime - StartTime;
-            public TranscribedText TranscribedText { get; }
-            public SubtitleForcedTiming ForcedTiming { get; }
-            public int MatchPercentage { get; }
-
-            public MultiTimingsOverlap OverlapInfo { get; set; }
-        }
-
-        public class MultiTimingsOverlap
-        {
-            public int Index { get; set; }
-            public int NumberOverlap { get; set; }
-            public int PercentageTime { get; set; }
-
-            public override string ToString()
-            {
-                return $"[{Index}/{NumberOverlap}, {PercentageTime}%]";
-            }
-        }
+        public int NbTimingsWithoutTranscription { get; }
+        public int NbTimingsWithTranscription { get; }
     }
 }

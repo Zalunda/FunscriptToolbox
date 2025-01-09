@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
-    public class SubtitleForcedTiming
+    public class SubtitleForcedTiming : ITiming
     {
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }

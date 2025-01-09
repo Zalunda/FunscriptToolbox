@@ -73,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             var finalTranslationsOrder = CreateFinalOrder(this.TranslationsOrder, context.CurrentWipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
 
             var transcriptionsAnalysis = finalTranscriptionsOrder
-                .Select(id => context.CurrentWipsub.Transcriptions.First(t => t.Id == id).GetAnalysis(context, MinimumOverlapPercentage))
+                .Select(id => context.CurrentWipsub.Transcriptions.First(t => t.Id == id).GetAnalysis(context))
                 .ToArray();
             var extraTranscriptions = IncludeExtraTranscriptions 
                 ? transcriptionsAnalysis
@@ -104,7 +104,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     var builder = new StringBuilder();
                     foreach (var ta in transcriptionsAnalysis)
                     {
-                        if (!ta.ForcedTimingsWithOverlapTranscribedTexts.TryGetValue(forcedTiming, out var overlaps) || overlaps.Length == 0)
+                        if (!ta.TimingsWithOverlapTranscribedTexts.TryGetValue(forcedTiming, out var overlaps) || overlaps.Length == 0)
                         {
                             builder.AppendLine($"[{ta.Transcription.Id}] ** NO TRANSCRIPTION FOUND **");
                         }
@@ -116,11 +116,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                                 var number = (overlaps.Length > 1)
                                     ? $",{index++}/{overlaps.Length}"
                                     : string.Empty;
-                                builder.AppendLine($"[{ta.Transcription.Id}{number}] {overlap.TranscribedText.Text} {overlap.OverlapInfo}");
+                                var overlapInfo = string.Empty;
+                                if (ta.TranscribedTextWithOverlapTimings.TryGetValue(overlap.TranscribedText, out var overlapOtherSide) 
+                                    && overlapOtherSide.Length > 1)
+                                {
+                                    var matchIndex = Array.FindIndex(overlapOtherSide, x => x.Timing == forcedTiming);
+                                    if (matchIndex > 0)
+                                    {
+                                        overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {overlapOtherSide[matchIndex].WordsText}]";
+                                    }
+                                }
+
+                                builder.AppendLine($"[{ta.Transcription.Id}{number}] {overlap.TranscribedText.Text} {overlapInfo}");
                                 AppendTranslationLines(builder, overlap.TranscribedText, finalTranslationsOrder);
 
                                 var translations = overlap.TranscribedText.TranslatedTexts.Where(f => finalTranslationsOrder.Contains(f.Id)).ToArray();
-                                singleChoice = (overlap.OverlapInfo != null) || (translations.Length != 1)
+                                singleChoice = (overlapInfo != null) || (translations.Length != 1)
                                     ? null
                                     : singleChoice == string.Empty
                                         ? translations.First().Text

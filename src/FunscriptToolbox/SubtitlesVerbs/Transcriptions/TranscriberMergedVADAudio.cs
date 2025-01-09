@@ -18,12 +18,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 20)]
         public TimeSpan SilentGapDuration { get; set; } = TimeSpan.FromSeconds(0.3);
 
+        [JsonProperty(Order = 21)]
+        public string UseTimingsFromId { get; set; } = null;
+        
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
-            reason = "SubtitlesForcedTiming not imported yet.";
-            return context.CurrentWipsub.SubtitlesForcedTiming != null;
+            if (this.UseTimingsFromId != null && !context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.UseTimingsFromId))
+            {
+                reason = $"Transcription '{this.UseTimingsFromId}' not done yet.";
+                return false;
+            }
+            else
+            {
+                reason = "SubtitlesForcedTiming not imported yet.";
+                return context.CurrentWipsub.SubtitlesForcedTiming != null;
+            }
         }
 
         public override Transcription Transcribe(
@@ -40,11 +51,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var audioOffsets = new List<AudioOffset>();
             var mergedAudio = new MemoryStream();
 
-            var forcedTimings = context.CurrentWipsub.SubtitlesForcedTiming;
+            var timings = UseTimingsFromId == null 
+                ? context.CurrentWipsub.SubtitlesForcedTiming.Where(f => f.VoiceText != null).Cast<ITiming>().ToArray()
+                : context.CurrentWipsub.Transcriptions.FirstOrDefault(f => f.Id == this.UseTimingsFromId).Items.Cast<ITiming>().ToArray();
 
-            for (int i = 0; i < forcedTimings.Count; i++)
+            for (int i = 0; i < timings.Length; i++)
             {
-                var gapLengthBefore = i == 0 ? TimeSpan.Zero : forcedTimings[i].StartTime - forcedTimings[i - 1].EndTime;
+                var gapLengthBefore = i == 0 ? TimeSpan.Zero : timings[i].StartTime - timings[i - 1].EndTime;
 
                 var startDuration = currentDuration;
                 if (gapLengthBefore > this.SilentGapDuration)
@@ -58,14 +71,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
 
                 var partAudio = pcmAudio.ExtractSnippet(
-                    forcedTimings[i].StartTime,
-                    forcedTimings[i].EndTime);
+                    timings[i].StartTime,
+                    timings[i].EndTime);
                 mergedAudio.Write(partAudio.Data, 0, partAudio.Data.Length);
                 currentDuration += partAudio.Duration;
 
-                if (i + 1 < forcedTimings.Count)
+                if (i + 1 < timings.Length)
                 {
-                    var gapLengthAfter = forcedTimings[i + 1].StartTime - forcedTimings[i].EndTime;
+                    var gapLengthAfter = timings[i + 1].StartTime - timings[i].EndTime;
                     if (gapLengthAfter > this.SilentGapDuration)
                     {
                         mergedAudio.Write(silenceGapSamples.Data, 0, silenceGapSamples.Data.Length / 2);
@@ -74,8 +87,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     else if (gapLengthAfter > TimeSpan.Zero)
                     {
                         var audioInGap = pcmAudio.ExtractSnippet(
-                            forcedTimings[i].EndTime,
-                            forcedTimings[i + 1].StartTime);
+                            timings[i].EndTime,
+                            timings[i + 1].StartTime);
                         mergedAudio.Write(audioInGap.Data, 0, audioInGap.Data.Length);
                         currentDuration += audioInGap.Duration;
                     }
@@ -85,7 +98,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     new AudioOffset(
                         startDuration,
                         currentDuration,
-                        forcedTimings[i].StartTime - startDuration));
+                        timings[i].StartTime - startDuration));
             }
 
             var offsetCollection = new AudioOffsetCollection(audioOffsets);
@@ -112,7 +125,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         newEndTime.Value,
                         original.Text,
                         original.NoSpeechProbability,
-                        original.Words));
+                        original
+                            .Words
+                            .Select(word => new TranscribedWord(
+                                offsetCollection.TransformPosition(word.StartTime).Value,
+                                offsetCollection.TransformPosition(word.EndTime).Value, 
+                                word.Text, word.Probability))));
 
             }
 

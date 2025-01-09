@@ -2,7 +2,7 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscribedWord
+    public class TranscribedWord : ITiming
     {
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }

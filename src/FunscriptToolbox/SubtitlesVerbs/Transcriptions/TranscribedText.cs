@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscribedText
+    public class TranscribedText : ITiming
     {
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }

@@ -190,9 +190,12 @@
     <Compile Include="SubtitlesVerbs\Language.cs" />
     <Compile Include="SubtitlesVerbs\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputTrainingData.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
+    <Compile Include="SubtitlesVerbs\ITiming.cs" />
+    <Compile Include="SubtitlesVerbs\TimingOverlap.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolExternalSrt.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionAnalysis.cs" />

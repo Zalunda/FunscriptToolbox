@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using Newtonsoft.Json;
 using System;
 using System.Linq;
 
@@ -10,15 +11,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
         }
 
+        [JsonProperty(Order = 21)]
+        public string UseTimingsFromId { get; set; } = null;
+        [JsonProperty(Order = 22)]
         public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
+        [JsonProperty(Order = 23)]
         public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
-            reason = "SubtitlesForcedTiming not imported yet.";
-            return context.CurrentWipsub.SubtitlesForcedTiming != null;
+            if (this.UseTimingsFromId != null && !context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.UseTimingsFromId))
+            {
+                reason = $"Transcription '{this.UseTimingsFromId}' not done yet.";
+                return false;
+            }
+            else
+            {
+                reason = "SubtitlesForcedTiming not imported yet.";
+                return context.CurrentWipsub.SubtitlesForcedTiming != null;
+            }
         }
 
         public override Transcription Transcribe(
@@ -27,10 +40,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Language overrideLanguage)
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            var audioSections = context
-                .CurrentWipsub
-                .SubtitlesForcedTiming
-                .Where(f => f.VoiceText != null)
+            var timings = UseTimingsFromId == null
+                ? context.CurrentWipsub.SubtitlesForcedTiming.Where(f => f.VoiceText != null).Cast<ITiming>().ToArray()
+                : context.CurrentWipsub.Transcriptions.FirstOrDefault(f => f.Id == this.UseTimingsFromId).Items.Cast<ITiming>().ToArray();
+            var audioSections = timings
                 .Select(
                     vad => pcmAudio.ExtractSnippet(vad.StartTime - this.ExpandStart, vad.EndTime + this.ExpandEnd))
                 .ToArray();

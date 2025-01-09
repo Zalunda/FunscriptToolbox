@@ -219,7 +219,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                                        word.EndTime,
                                                        currentText,
                                                        (double)segment.no_speech_prob,
-                                                       NormalizeWordsTimings(currentWords)));
+                                                       currentWords));
                                             }
                                             else
                                             {
@@ -241,7 +241,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                                    word.EndTime,
                                                    currentText,
                                                    (double)segment.no_speech_prob,
-                                                   NormalizeWordsTimings(currentWords)));
+                                                   currentWords));
                                         }
                                         currentStartTime = null;
                                         currentText = null;
@@ -279,11 +279,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                 }
             }
-        }
-
-        private IEnumerable<TranscribedWord> NormalizeWordsTimings(List<TranscribedWord> words)
-        {
-            return words.Select(w => new TranscribedWord(w.StartTime - words[0].StartTime, w.EndTime - words[0].StartTime, w.Text, w.Probability));            
         }
     }
 }
