@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System;
-using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -127,22 +126,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     // Remember this match for the next word
                     lastAssignedMatch[item] = match;
                     lastWordWasException = false;
-                }
-            }
-
-            using (var writer = File.CreateText("xxx.log"))
-            {
-                foreach (var match in matchAccumulator)
-                {
-                    writer.WriteLine($"Timing ({match.Timing.StartTime:hh\\:mm\\:ss\\.fff} - {match.Timing.EndTime:hh\\:mm\\:ss\\.fff})");
-                    writer.WriteLine($"{match.TranscribedText.Text} => Transcription Item ({match.TranscribedText.StartTime:hh\\:mm\\:ss\\.fff} - {match.TranscribedText.EndTime:hh\\:mm\\:ss\\.fff})");
-                    writer.WriteLine("Words:");
-                    foreach (var word in match.Words)
-                    {
-                        writer.WriteLine($"    {word.Text} ({word.StartTime:hh\\:mm\\:ss\\.fff} - {word.EndTime:hh\\:mm\\:ss\\.fff})");
-                    }
-                    // writer.WriteLine($"{string.Join("", match.Words.Select(w => w.Text))} => Words");
-                    writer.WriteLine();
                 }
             }
 
