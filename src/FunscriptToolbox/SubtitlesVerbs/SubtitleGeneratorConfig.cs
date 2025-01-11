@@ -311,7 +311,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "import-finished-srt",
                         TranscriberTool = new TranscriberToolExternalSrt()
                         {
-                            OverrideFileSuffixe = ".srt"
+                            OverrideFileSuffixe = ".final.srt"
                         }
                     },
                     new TranscriberMergedVADAudio()
@@ -407,7 +407,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new SubtitleOutputTrainingData()
                     {
                         FileSuffix = ".training.json",
-                        SrtSuffix = ".srt",
+                        SrtSuffix = ".final.srt",
                         MergedVadId = "mergedvad-finished-srt"
                     },
                     new SubtitleOutputWav()
