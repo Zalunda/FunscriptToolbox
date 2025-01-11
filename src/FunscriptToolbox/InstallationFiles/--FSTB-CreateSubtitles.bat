@@ -1,5 +1,5 @@
 @echo off
-REM ScriptVersion:1.6
+REM ScriptVersion:1.7
 
 set "path=[[FunscriptToolboxFolder]];%path%"
 
@@ -8,6 +8,8 @@ echo --- subtitles.create ---
 "FunscriptToolbox.exe" ^
 		subtitles.create ^
 		--config ".\--FSTB-SubtitleGeneratorConfig.json" ^
+		--sourcelanguage Japanese ^
+		--recursive ^
 		--verbose ^
 		"*.mp4"
 pause
