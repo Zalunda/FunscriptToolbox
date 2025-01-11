@@ -179,7 +179,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .ToArray();
             NbTimingsWithoutTranscription = timings
                 .Count(timing => !timingsWithOverlapTranscribedTexts.ContainsKey(timing));
-            NbTimingsWithoutTranscription = timings.Length - NbTimingsWithoutTranscription;
+            NbTimingsWithTranscription = timings.Length - NbTimingsWithoutTranscription;
         }
 
         public Transcription Transcription { get; }

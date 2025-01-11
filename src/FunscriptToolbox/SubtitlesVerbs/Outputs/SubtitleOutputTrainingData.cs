@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.Core;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,7 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string FileSuffix { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]
-        public string ImportId { get; set; }
+        public string SrtSuffix { get; set; }
         [JsonProperty(Order = 12, Required = Required.Always)]
         public string MergedVadId { get; set; }
 
@@ -27,14 +29,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.ImportId && f.Items.Length > 0))
-            {
-                reason = $"Transcription '{ImportId}' not done yet.";
-                return false;
-            }
-            else if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.MergedVadId && f.Items.Length > 0))
+            var srtFullpath = context.CurrentBaseFilePath + this.SrtSuffix;
+            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.MergedVadId && f.Items.Length > 0))
             {
                 reason = $"Transcription '{MergedVadId}' not done yet.";
+                return false;
+            }
+            else if (!File.Exists(srtFullpath))
+            {
+                reason = $"File '{Path.GetFileName(srtFullpath)}' does not exists.";
                 return false;
             }
             else
@@ -44,22 +47,40 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
         }
 
+        private class SimpleSubtitle : ITiming
+        {
+            public SimpleSubtitle(TimeSpan startTime, TimeSpan endTime, string text)
+            {
+                StartTime = startTime;
+                EndTime = endTime;
+                Text = text;
+            }
+
+            public TimeSpan StartTime { get; }
+            public TimeSpan EndTime { get; }
+            public string Text { get; }
+        }
+
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
             var forcedTimings = context.CurrentWipsub.SubtitlesForcedTiming;
 
-            var importTranscription = context.CurrentWipsub.Transcriptions.First(f => f.Id == this.ImportId);
+            var srtFullpath = context.CurrentBaseFilePath + this.SrtSuffix;
+            var finalSubtitles = SubtitleFile.FromSrtFile(srtFullpath)
+                .Subtitles
+                .Select(sub => new SimpleSubtitle(sub.StartTime, sub.EndTime, sub.Text))
+                .ToArray();
             var mergedVadTranscription = context.CurrentWipsub.Transcriptions.First(f => f.Id == this.MergedVadId);
 
-            var analysis = mergedVadTranscription.GetAnalysis(importTranscription.Items);
+            var analysis = mergedVadTranscription.GetAnalysis(finalSubtitles);
             string lastContext = null;
             var result = new List<dynamic>();
-            foreach (var importItem in importTranscription.Items)
+            foreach (var finalItem in finalSubtitles)
             {
-                var currentContext = forcedTimings?.GetContextAt(importItem.StartTime);
-                var currentTalker = forcedTimings?.GetTalkerAt(importItem.StartTime, importItem.EndTime);
-                if (analysis.TimingsWithOverlapTranscribedTexts.TryGetValue(importItem, out var mergedOverlap))
+                var currentContext = forcedTimings?.GetContextAt(finalItem.StartTime);
+                var currentTalker = forcedTimings?.GetTalkerAt(finalItem.StartTime, finalItem.EndTime);
+                if (analysis.TimingsWithOverlapTranscribedTexts.TryGetValue(finalItem, out var mergedOverlap))
                 {
                     var originalText = string.Join("\n", mergedOverlap.Select(t => t.TranscribedText.Text));
                     var importM = mergedOverlap
@@ -70,12 +91,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     {
                         result.Add(new
                         {
-                            importItem.StartTime,
+                            finalItem.StartTime,
                             Context = currentContext == lastContext ? null : currentContext,
                             Talker = currentTalker,
-                            Original = mergedOverlap.First(x => x.Timing == importItem).WordsText,
+                            Original = mergedOverlap.First(x => x.Timing == finalItem).WordsText,
                             OriginalIsPartOfSingleTranscription = importM.Select(f => f.WordsText).ToArray(),
-                            Translation = importItem.Text,
+                            Translation = finalItem.Text,
                         });
                     }
                     else
@@ -84,16 +105,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                         {
                             Context = currentContext == lastContext ? null : currentContext,
                             Talker = currentTalker,
-                            importItem.StartTime,
+                            finalItem.StartTime,
                             Original = originalText,
-                            Translation = importItem.Text,
+                            Translation = finalItem.Text,
                         });
                     }
                     lastContext = currentContext;
                 }
                 else
                 {
-                    // Ignore
+                    result.Add(new
+                    {
+                        finalItem.StartTime,
+                        Original = "** tool was not able to transcribe that part **",
+                        Translation = finalItem.Text,
+                    });
                 }
             }
 

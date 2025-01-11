@@ -36,9 +36,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat);
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfig", ".json", SubtitleGeneratorConfig.GetDefaultExample());
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfigExample-1.2", ".json", SubtitleGeneratorConfig.GetDefaultExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitleGeneratorConfigExample-1.3", ".json", SubtitleGeneratorConfig.GetDefaultExample());
             CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitlesTrainingDataConfig", ".json", SubtitleGeneratorConfig.GetTrainingDataExample());
-            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitlesTrainingDataExample-1.0", ".json", SubtitleGeneratorConfig.GetTrainingDataExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles", "--FSTB-SubtitlesTrainingDataExample-1.1", ".json", SubtitleGeneratorConfig.GetTrainingDataExample());
 
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat);
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);

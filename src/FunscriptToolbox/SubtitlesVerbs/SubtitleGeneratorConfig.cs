@@ -301,9 +301,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "singlevad",
                         TranscriberTool = transcriberToolWhisper,
+                        Enabled = false,
                         Translators = new Translator[] {
                             translatorGoogleV1
                         }
+                    },
+                    new TranscriberFullAudio()
+                    {
+                        TranscriptionId = "import-finished-srt",
+                        TranscriberTool = new TranscriberToolExternalSrt()
+                        {
+                            OverrideFileSuffixe = ".srt"
+                        }
+                    },
+                    new TranscriberMergedVADAudio()
+                    {
+                        TranscriptionId = "mergedvad-finished-srt",
+                        UseTimingsFromId = "import-finished-srt",
+                        TranscriberTool = transcriberToolWhisper
                     }
                 },
                 Outputs = new SubtitleOutput[]
@@ -388,6 +403,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 }
                             },
                         }
+                    },                    
+                    new SubtitleOutputTrainingData()
+                    {
+                        FileSuffix = ".training.json",
+                        SrtSuffix = ".srt",
+                        MergedVadId = "mergedvad-finished-srt"
                     },
                     new SubtitleOutputWav()
                     {
@@ -430,11 +451,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberFullAudio()
                     {
                         TranscriptionId = "import-finished-srt",
-                        TranscriberTool = new TranscriberToolExternalSrt(),
+                        TranscriberTool = new TranscriberToolExternalSrt() 
+                        { 
+                            OverrideFileSuffixe = ".srt"
+                        }
                     },
                     new TranscriberMergedVADAudio()
                     {
-                        TranscriptionId = "mergedvad",
+                        TranscriptionId = "mergedvad-finished-srt",
                         UseTimingsFromId = "import-finished-srt",
                         TranscriberTool = transcriberToolWhisper
                     }
@@ -448,7 +472,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new SubtitleOutputTrainingData()
                     {
                         FileSuffix = ".training.json",
-                        ImportId = "import-finished-srt",
+                        SrtSuffix = ".srt",
                         MergedVadId = "mergedvad"
                     }
                 }

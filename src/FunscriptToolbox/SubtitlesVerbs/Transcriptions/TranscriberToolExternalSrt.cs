@@ -1,5 +1,7 @@
 ﻿using FunscriptToolbox.Core;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -15,6 +17,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
         }
 
+        [JsonProperty(Order = 21)]
+        public string OverrideFileSuffixe { get; set; } = null;
+
         public override TranscribedText[] TranscribeAudio(
             SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
@@ -23,22 +28,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             string filesPrefix,
             out TranscriptionCost[] costs)
         {
-            var namedItems = audios.Select((audio, index) => new
-                {
-                    Filename = context.CurrentBaseFilePath + $".TODO-{filesPrefix}{index + 1:D5}.wav",
-                    Audio = audio
-                });
+            var namedItems = audios.Select((audio, index) => (
+                    WavFilename: context.CurrentBaseFilePath + $".TODO-{filesPrefix}{index + 1:D5}.wav",
+                    SrtFilename: context.CurrentBaseFilePath + $".TODO-{filesPrefix}{index + 1:D5}.srt",
+                    Audio: audio
+                )).ToArray();
+            if (this.OverrideFileSuffixe != null && namedItems.Length > 0)
+            {
+                namedItems[0].SrtFilename = (namedItems.Length <= 1)
+                    ? context.CurrentBaseFilePath + this.OverrideFileSuffixe 
+                    : throw new Exception($"Can't use OverrideFileSuffixe when the number of audio file is more then 1.");
+            }
 
-            if (namedItems.Any(item => !File.Exists(Path.ChangeExtension(item.Filename, ".srt"))))
+            if (namedItems.Any(item => !File.Exists(item.SrtFilename)))
             {
                 var userTodos = new List<string>();
                 foreach (var item in namedItems)
                 {
-                    if (!File.Exists(item.Filename))
+                    if (!File.Exists(item.WavFilename))
                     {
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(item.Audio, item.Filename);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(item.Audio, item.WavFilename);
                     }
-                    userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(item.Filename)}'.");
+                    userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(item.WavFilename)}'.");
                 }
 
                 throw new TranscriberNotReadyException("Transcribed .srt not provided yet.", userTodos);
@@ -50,7 +61,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 foreach (var item in namedItems)
                 {
                     var watch = Stopwatch.StartNew();
-                    var srtFilename = Path.ChangeExtension(item.Filename, ".srt");
+                    var srtFilename = item.SrtFilename;
                     var subtitlesFile = SubtitleFile.FromSrtFile(srtFilename);
 
                     transcribedTexts.AddRange(
@@ -67,8 +78,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             1,
                             item.Audio.Duration));
 
-                    context.SoftDelete(item.Filename);
-                    context.SoftDelete(srtFilename);
+                    context.SoftDelete(item.WavFilename);
+                    if (this.OverrideFileSuffixe == null)
+                        context.SoftDelete(item.SrtFilename);
                 }
                 costs = costsList.ToArray();
                 return transcribedTexts.ToArray();
