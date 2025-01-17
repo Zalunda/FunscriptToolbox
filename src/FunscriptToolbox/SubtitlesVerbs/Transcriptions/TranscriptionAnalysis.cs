@@ -149,11 +149,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     ));
         }
 
-        private static TranscribedWord[] GetWordsOrFakeWords(TranscribedText item)
-        {
-            if ;
-        }
-
         public TranscriptionAnalysis(
             Transcription transcription,
             T[] timings,
