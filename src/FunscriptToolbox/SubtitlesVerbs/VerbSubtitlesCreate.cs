@@ -412,12 +412,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             SubtitleGeneratorContext context, 
             Transcription transcription)
         {
-            if (!transcription.Items.Any(f => f.Words?.Any() == true))
-            {
-                // Need transcribed words to do the analysis
-                yield break; 
-            }
-                
             var analysis = transcription.GetAnalysis(context);
             if (analysis != null)
             {

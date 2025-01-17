@@ -32,7 +32,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 bool lastWordWasException = false;
 
-                foreach (var word in item.Words)
+                foreach (var word in (item.Words.Length > 0)
+                    ? item.Words
+                    : new[] { new TranscribedWord(item.StartTime, item.EndTime, item.Text, 0) })
                 {
                     // Check if this is a special case that should follow previous word
                     bool isSpecialCase = word.Text.EndsWith("...") ||
@@ -145,6 +147,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         g => g.Key,
                         g => g.ToArray()
                     ));
+        }
+
+        private static TranscribedWord[] GetWordsOrFakeWords(TranscribedText item)
+        {
+            if ;
         }
 
         public TranscriptionAnalysis(
