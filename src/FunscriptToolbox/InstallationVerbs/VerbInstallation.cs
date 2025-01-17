@@ -109,8 +109,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 content
                 .Replace("[[FunscriptToolboxExePathInLuaFormat]]", funscriptToolboxExe.Replace(@"\", @"\\")) // Need to double the backslash for lua
                 .Replace("[[FunscriptToolboxFolder]]", funscriptToolboxFolder)
-                .Replace("[[PluginVersion]]", PluginClient.Version), 
-                Encoding.UTF8);
+                .Replace("[[PluginVersion]]", PluginClient.Version));
         }
     }
 }
