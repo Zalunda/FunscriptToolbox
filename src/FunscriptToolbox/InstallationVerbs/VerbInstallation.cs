@@ -59,7 +59,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             {
                 foreach (var ofsVersionFullPath in Directory.GetDirectories(ofsFolder))
                 {
-                    var extensionName = "FunscriptToolBox.MotionVectors";
+                    var extensionName = "FunscriptToolBox.MotionVectors.V2BETA";
                     var ofsVersionName = Path.GetFileName(ofsVersionFullPath);
 
                     WriteInfo($@"Adding extension '{extensionName} to OpenFunscripter folder '<appdata>\OFS\{ofsVersionName}'.");

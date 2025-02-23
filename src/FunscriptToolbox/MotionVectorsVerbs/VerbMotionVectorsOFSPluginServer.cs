@@ -147,7 +147,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                         {
                             m_currentFrameAnalyser = Test.TestAnalyser(
                                 TakeSnapshot(
-                                    createRulesRequest.MvsFullPath, 
                                     createRulesRequest.VideoFullPath,
                                     createRulesRequest.CurrentVideoTimeAsTimeSpan),
                                 mvsReader,
@@ -216,25 +215,12 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             }
         }
 
-        private async Task<byte[]> TakeSnapshot(string mvsFullPath, string videoFullPath, TimeSpan time)
+        private async Task<byte[]> TakeSnapshot(string videoFullPath, TimeSpan time)
         {
             var tempFile = Path.GetTempFileName() + ".png";
             try
             {
-                var mvsVisualFullPath = mvsFullPath.Replace(".mvs", ".mvs-visual.mp4");
-
-                string path;
-                if (File.Exists(mvsVisualFullPath))
-                {
-                    path = mvsVisualFullPath;
-                }
-                else
-                {
-                    rs_log.Info($"{Path.GetFileName(mvsVisualFullPath)} missing, extracting image from {Path.GetFileName(videoFullPath)}");
-                    path = videoFullPath;
-                }
-
-                var conversion = await FFmpeg.Conversions.FromSnippet.Snapshot(path, tempFile, time);
+                var conversion = await FFmpeg.Conversions.FromSnippet.Snapshot(videoFullPath, tempFile, time);
                 var result = await conversion.Start();
                 return File.ReadAllBytes(tempFile);
             }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
@@ -11,16 +12,8 @@ namespace FunscriptToolbox.Core.MotionVectors
             FunscriptAction[] actions)
         {
             var watchload = Stopwatch.StartNew();
-            var optimized = AnalyseActionsOptimized(reader, actions);
+            var optimized = AnalyseActions(reader, actions);
             watchload.Stop();
-
-            // Set to true to make sure that the optimized version works as expected
-            var validate = false;
-            if (validate)
-            {
-                var clean = AnalyseActionsSlowAndSafe(reader, actions);
-                Validate(clean, optimized);
-            }
 
             return optimized;
         }
@@ -35,12 +28,19 @@ namespace FunscriptToolbox.Core.MotionVectors
             public long WeightWhenNeutral;
         }
 
-        public static unsafe FrameAnalyser AnalyseActionsOptimized(
+        public static unsafe FrameAnalyser AnalyseActions(
             MotionVectorsFileReader reader,
-            FunscriptAction[] actions)
+            FunscriptAction[] actions,
+            int framesToIgnoreAroundAction = 3)
         {
+            var frameCounter = 0;
+            var currentSegmentFrames = 0;
             var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
-            var temp = new TempValue[reader.NbBlocTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
+            var temp = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
+
+            var storedFrames = new List<MotionVectorsFrame<CellMotionInt>>();
+            var topPointIndexes = new List<int>();
+            var bottomPointIndexes = new List<int>();
 
             FunscriptAction currentAction = null;
             FunscriptAction nextAction = actions.First();
@@ -49,31 +49,49 @@ namespace FunscriptToolbox.Core.MotionVectors
                 actions.First().AtAsTimeSpan,
                 actions.Last().AtAsTimeSpan))
             {
-                if (currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan)
+                storedFrames.Add(frame.Simplify(frame.Layout.CellWidth * 4, frame.Layout.CellHeight * 4));
+
+                // Handle action transition
+                if ((currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan) && indexAction < actions.Length)
                 {
                     currentAction = nextAction;
                     nextAction = actions[indexAction++];
+                    if (currentAction.Pos > nextAction.Pos)
+                    {
+                        topPointIndexes.Add(storedFrames.Count - 1);
+                    }
+                    else
+                    {
+                        bottomPointIndexes.Add(storedFrames.Count - 1);
+                    }
+                    frameCounter = 0;
+                    // Calculate total frames in this segment
+                    currentSegmentFrames = (int)((nextAction.AtAsTimeSpan - currentAction.AtAsTimeSpan).TotalSeconds * (double)reader.VideoFramerate);
+                }
+
+                // Skip frames at start and end of segments
+                if (frameCounter < framesToIgnoreAroundAction || frameCounter >= (currentSegmentFrames - framesToIgnoreAroundAction))
+                {
+                    frameCounter++;
+                    continue;
                 }
 
                 var diff = nextAction.Pos - currentAction.Pos;
-                var posOrNegInFunscript = (diff > 0) ? 1 : (diff < 0) ? -1 : 0;
+                var posOrNegInFunscript = Math.Sign(diff);
 
                 fixed (short* pLookup = lookupTable)
-                fixed (byte* pMotionX = frame.MotionsX)
-                fixed (byte* pMotionY = frame.MotionsY)
+                fixed (CellMotionSByte* pMotion = frame.Motions)
                 fixed (TempValue* pTemp = temp)
                 {
-                    var pCurrentMotionX = pMotionX;
-                    var pCurrentMotionY = pMotionY;
+                    var pCurrentMotion = pMotion;
                     var pCurrentTemp = pTemp;
 
-                    for (int i = 0; i < reader.NbBlocTotalPerFrame; i++)
+                    for (int i = 0; i < reader.FrameLayout.NbCellsTotalPerFrame; i++, pCurrentMotion++)
                     {
-                        var motionXAsByte = *(pMotionX + i);
-                        var motionYAsByte = *(pMotionY + i);
+                        var baseOffset = ((byte)pCurrentMotion->X * 256 + (byte)pCurrentMotion->Y) * MotionVectorsHelper.NbBaseDirection;
                         for (int k = 0; k < MotionVectorsHelper.NbBaseDirection / 2; k++, pCurrentTemp++)
                         {
-                            var motionWeight = *(pLookup + ((motionXAsByte * 256 + motionYAsByte) * MotionVectorsHelper.NbBaseDirection + k));
+                            var motionWeight = *(pLookup + baseOffset + k);
                             var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
                             if (posOrNegInFunscript == posOrNeg)
                             {
@@ -93,48 +111,50 @@ namespace FunscriptToolbox.Core.MotionVectors
                         }
                     }
                 }
+                frameCounter++;
             }
 
-            // TODO Use: WeightWhenRight vs WeightWhenWrong to get the best ??
-            var rules = new BlocAnalyserRule[reader.NbBlocTotalPerFrame];
-            fixed (TempValue* pTemp = temp)
+            // Create final rules
+            var rules = new List<BlocAnalyserRule>();
+            for (int i = 0; i < reader.FrameLayout.NbCellsTotalPerFrame; i++)
             {
-                var pCurrentTemp = pTemp;
+                TempValue best = new TempValue();
+                var bestScore = float.MinValue;
+                var bestDirection = (byte)0;
 
-                for (int i = 0; i < reader.NbBlocTotalPerFrame; i++)
+                // Find best direction for this cell
+                for (int j = 0; j < MotionVectorsHelper.NbBaseDirection / 2; j++)
                 {
-                    TempValue bestMatchValue = *pCurrentTemp;
-                    var bestMatchAngle = 0;
-                    for (int j = 0; j < MotionVectorsHelper.NbBaseDirection / 2; j++, pCurrentTemp++)
+                    var current = temp[i, j];
+                    var score = 1000 * current.WeightWhenRight / (current.WeightWhenRight + current.WeightWhenWrong + 1);
+
+                    if (score > bestScore)
                     {
-                        if ((pCurrentTemp->NbRightDirection > bestMatchValue.NbRightDirection)
-                            || (pCurrentTemp->NbRightDirection == bestMatchValue.NbRightDirection && pCurrentTemp->WeightWhenRight > bestMatchValue.WeightWhenRight))
-                        {
-                            bestMatchValue = *pCurrentTemp;
-                            bestMatchAngle = j;
-                        }
-
-                        if (pCurrentTemp->NbWrongDirection > bestMatchValue.NbRightDirection || (pCurrentTemp->NbWrongDirection == bestMatchValue.NbRightDirection && pCurrentTemp->WeightWhenWrong > bestMatchValue.WeightWhenRight))
-                        {
-                            bestMatchValue.NbRightDirection = pCurrentTemp->NbWrongDirection;
-                            bestMatchValue.NbWrongDirection = pCurrentTemp->NbRightDirection;
-                            bestMatchValue.NbNeutralDirection = pCurrentTemp->NbNeutralDirection;
-                            bestMatchValue.WeightWhenRight = pCurrentTemp->WeightWhenWrong;
-                            bestMatchValue.WeightWhenWrong = pCurrentTemp->WeightWhenRight;
-                            bestMatchValue.WeightWhenNeutral = pCurrentTemp->WeightWhenNeutral;
-                            bestMatchAngle = j + 6;
-                        }
+                        best = current;
+                        bestScore = score;
+                        bestDirection = (byte)j;
                     }
-
-                    var nbFrames = bestMatchValue.NbRightDirection + bestMatchValue.NbNeutralDirection + bestMatchValue.NbWrongDirection;
-                    var nbDirection = bestMatchValue.NbRightDirection + bestMatchValue.NbWrongDirection;
-                    var activity = (float)(100f * nbDirection) / nbFrames;
-                    var quality = nbDirection == 0 ? 50 : (float)100f * bestMatchValue.NbRightDirection / nbDirection;
-                    var weigth = nbDirection == 0 ? 0 : (float)(bestMatchValue.WeightWhenRight - bestMatchValue.WeightWhenWrong) / nbDirection;
-                    rules[i] = new BlocAnalyserRule((ushort)i, (byte)bestMatchAngle, activity, quality, weigth);
                 }
+
+                var nbFrames = best.NbRightDirection + best.NbNeutralDirection + best.NbWrongDirection;
+                var nbDirection = best.NbRightDirection + best.NbWrongDirection;
+                var activity = (float)(100f * nbDirection) / nbFrames;
+                var quality = nbDirection == 0 ? 50 : (float)100f * best.NbRightDirection / nbDirection;
+                rules.Add(new BlocAnalyserRule(
+                    (ushort)i,
+                    bestDirection,
+                    activity,
+                    quality,
+                    bestScore
+                ));
             }
-            return new FrameAnalyser(reader.NbBlocX, reader.NbBlocY, rules);
+
+            return new FrameAnalyser(
+                reader.FrameLayout,
+                rules.ToArray(),
+                storedFrames.ToArray(),
+                topPointIndexes.ToArray(),
+                bottomPointIndexes.ToArray());
         }
 
         private static void Validate(FrameAnalyser clean, FrameAnalyser optimized)
@@ -152,86 +172,6 @@ namespace FunscriptToolbox.Core.MotionVectors
                     throw new Exception("Validation Error");
                 }
             }
-        }
-
-        public static FrameAnalyser AnalyseActionsSlowAndSafe(
-            MotionVectorsFileReader reader,
-            FunscriptAction[] actions)
-        {
-            var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
-            var temp = new TempValue[reader.NbBlocTotalPerFrame, MotionVectorsHelper.NbBaseDirection];
-
-            FunscriptAction currentAction = null;
-            FunscriptAction nextAction = actions.First();
-            var indexAction = 1;
-            foreach (var frame in reader.ReadFrames(
-                actions.First().AtAsTimeSpan,
-                actions.Last().AtAsTimeSpan))
-            {
-                if (currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan)
-                {
-                    currentAction = nextAction;
-                    nextAction = actions[indexAction++];
-                }
-
-                var diff = nextAction.Pos - currentAction.Pos;
-                var posOrNegInFunscript = (diff > 0) ? 1 : (diff < 0) ? -1 : 0;
-
-                for (int i = 0; i < reader.NbBlocTotalPerFrame; i++)
-                {
-                    var motionXAsByte = frame.MotionsX[i];
-                    var motionYAsByte = frame.MotionsY[i];
-                    for (int k = 0; k < MotionVectorsHelper.NbBaseDirection; k++)
-                    {
-                        var motionWeight = lookupTable[motionXAsByte, motionYAsByte, k];
-                        var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
-
-                        if (posOrNegInFunscript == posOrNeg)
-                        {
-                            temp[i, k].NbRightDirection++;
-                            temp[i, k].WeightWhenRight += Math.Abs(motionWeight);
-                        }
-                        else if (posOrNeg == 0)
-                        {
-                            temp[i, k].NbNeutralDirection++;
-                            temp[i, k].WeightWhenNeutral += Math.Abs(motionWeight);
-                        }
-                        else
-                        {
-                            temp[i, k].NbWrongDirection++;
-                            temp[i, k].WeightWhenWrong += Math.Abs(motionWeight);
-                        }
-                    }
-                }
-            }
-
-            var rules = new BlocAnalyserRule[reader.NbBlocTotalPerFrame];
-            for (int i = 0; i < reader.NbBlocTotalPerFrame; i++)
-            {
-                TempValue bestMatchValue = temp[i, 0];
-                var bestMatchAngle = 0;
-
-                // Complicated way to iterate to be consistent with the way the optimized version works (i.e. 0, 6, 1, 7, 2, 8, ...)
-                for (int jA = 0; jA < MotionVectorsHelper.NbBaseDirection / 2; jA++)
-                {
-                    for (int jB = jA; jB < MotionVectorsHelper.NbBaseDirection; jB += MotionVectorsHelper.NbBaseDirection / 2)
-                    {
-                        if (temp[i, jB].NbRightDirection > bestMatchValue.NbRightDirection || (temp[i, jB].NbRightDirection == bestMatchValue.NbRightDirection && temp[i, jB].WeightWhenRight > bestMatchValue.WeightWhenRight))
-                        {
-                            bestMatchValue = temp[i, jB];
-                            bestMatchAngle = jB;
-                        }
-                    }
-                }
-
-                var nbFrames = bestMatchValue.NbRightDirection + bestMatchValue.NbNeutralDirection + bestMatchValue.NbWrongDirection;
-                var nbDirection = bestMatchValue.NbRightDirection + bestMatchValue.NbWrongDirection;
-                var activity = (float)(100f * nbDirection) / nbFrames;
-                var quality = nbDirection == 0 ? 50 : (float)100f * bestMatchValue.NbRightDirection / nbDirection;
-                var weigth = nbDirection == 0 ? 0 : (float)(bestMatchValue.WeightWhenRight - bestMatchValue.WeightWhenWrong) / nbDirection;
-                rules[i] = new BlocAnalyserRule((ushort)i, (byte)bestMatchAngle, activity, quality, weigth);
-            }
-            return new FrameAnalyser(reader.NbBlocX, reader.NbBlocY, rules);
         }
     }
 }

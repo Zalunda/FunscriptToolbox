@@ -2,7 +2,6 @@
 
 namespace FunscriptToolbox.Core.MotionVectors.PluginMessages
 {
-
     public class CreateRulesPluginRequest : PluginRequest
     {
         public string VideoFullPath { get; set; }
@@ -22,7 +21,7 @@ namespace FunscriptToolbox.Core.MotionVectors.PluginMessages
                     ? this.Actions
                     : null;
             return learningActions == null
-                ? new FrameAnalyser(mvsReader.NbBlocX, mvsReader.NbBlocY)
+                ? new FrameAnalyser(mvsReader.FrameLayout)
                 : FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, learningActions);
         }
     }

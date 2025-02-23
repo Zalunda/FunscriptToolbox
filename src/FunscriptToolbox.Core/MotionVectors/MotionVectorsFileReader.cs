@@ -10,17 +10,18 @@ namespace FunscriptToolbox.Core.MotionVectors
     {
         public string FilePath { get; }
         public int MaximumMemoryUsageInMB { get; }
+        public int FormatType { get; }
         public int FormatVersion { get; }
+
+        public MotionVectorsFrameLayout FrameLayout { get; }
+        public int VideoWidth => FrameLayout.Width;
+        public int VideoHeight => FrameLayout.Height;
         public TimeSpan VideoDuration { get; }
+        public decimal VideoFramerate { get; }
         public double FrameDurationInMs => 1000.0 / (double)VideoFramerate;
         public int NbFrames { get; }
-        public decimal VideoFramerate { get; }
-        public int VideoWidth { get; }
-        public int VideoHeight { get; }
-        public int BlocSize => 16;
-        public int NbBlocX { get; }
-        public int NbBlocY { get; }
-        public int NbBlocTotalPerFrame { get; }
+        public int SensorWidth { get; }
+        public int SensorHeight { get; }
 
         private readonly BinaryReader r_reader;
         private readonly long r_maximumMemoryUsage;
@@ -38,47 +39,56 @@ namespace FunscriptToolbox.Core.MotionVectors
 
             // Read the headers
             var shouldBeFTMV = Encoding.ASCII.GetString(r_reader.ReadBytes(4));
-            if (shouldBeFTMV != "FTMV")
+            if (shouldBeFTMV != "FMVS")
             {
                 throw new Exception($"Trying to open .mvs file '{filepath}' but it's not in .mvs format.");
             }
-            FormatVersion = r_reader.ReadInt32();
+            FormatType = r_reader.ReadByte();
+            if (FormatType != 2)
+            {
+                throw new Exception($"Trying to open .mvs file '{filepath}' but the type is {FormatType} instead of 2 (Matrix).");
+            }
+            FormatVersion = r_reader.ReadByte();
 
+            var videoWidth = r_reader.ReadInt16();
+            var videoHeight = r_reader.ReadInt16();
             VideoDuration = TimeSpan.FromMilliseconds(r_reader.ReadInt32());
-            VideoFramerate = (decimal)r_reader.ReadInt32() / 1000;
+            VideoFramerate = (decimal)r_reader.ReadInt32() / 100;
             NbFrames = r_reader.ReadInt32();
-            VideoWidth = r_reader.ReadInt32();
-            VideoHeight = r_reader.ReadInt32();
-            NbBlocX = r_reader.ReadInt32();
-            NbBlocY = r_reader.ReadInt32();
-            NbBlocTotalPerFrame = NbBlocX * NbBlocY;
+            var cellWidth = r_reader.ReadInt16();
+            var cellHeight = r_reader.ReadInt16();
+            SensorWidth = r_reader.ReadInt16();
+            SensorHeight = r_reader.ReadInt16();
+            var nbColumns = r_reader.ReadInt16();
+            var nbRows = r_reader.ReadInt16();
             r_reader.ReadBytes(24); // Read "forFutureUse" bytes
+            this.FrameLayout = new MotionVectorsFrameLayout(videoWidth, videoHeight, cellWidth, cellHeight, nbColumns, nbRows);
 
             r_maximumMemoryUsage = maximumMemoryUsageInMB * 1024 * 1024;
             r_posAfterHeader = r_reader.BaseStream.Position;
-            r_frameSize = NbBlocTotalPerFrame * 2 + 20; // 20 => Taille du headers (int=4, int=4, byte=1, future_use=11)
+            r_frameSize = this.FrameLayout.NbCellsTotalPerFrame * 2 + 20; // 20 => Taille du headers (int=4, int=4, byte=1, future_use=11)
             r_framesInMemory = new Dictionary<int, MotionVectorsFrameWithLastUsedTime>();
             m_memoryUsed = 0;
         }
 
         private class MotionVectorsFrameWithLastUsedTime
         {
-            public MotionVectorsFrameWithLastUsedTime(DateTime dateTimeForFrameInMemory, MotionVectorsFrame frameFromFile)
+            public MotionVectorsFrameWithLastUsedTime(DateTime dateTimeForFrameInMemory, MotionVectorsFrame<CellMotionSByte> frameFromFile)
             {
                 LastTimeRead = dateTimeForFrameInMemory;
                 Frame = frameFromFile;
             }
 
             public DateTime LastTimeRead { get; set; }
-            public MotionVectorsFrame Frame { get; }
+            public MotionVectorsFrame<CellMotionSByte> Frame { get; }
         }
 
         public int GetFrameNumberFromTime(TimeSpan time)
         {
-            return (int)Math.Round(time.TotalSeconds / (double)(1 / VideoFramerate));
+            return 1 + (int)Math.Round(time.TotalSeconds / (double)(1 / VideoFramerate));
         }
 
-        public IEnumerable<MotionVectorsFrame> ReadFrames(TimeSpan start, TimeSpan end)
+        public IEnumerable<MotionVectorsFrame<CellMotionSByte>> ReadFrames(TimeSpan start, TimeSpan end)
         {
             m_framesThatCanBeDelete = null;
             var dateTimeForFrameInMemory = DateTime.Now;
@@ -94,9 +104,9 @@ namespace FunscriptToolbox.Core.MotionVectors
             }
         }
 
-        public IEnumerable<MotionVectorsFrame> ReadFrames(int startingFrameNumber = 0, DateTime dateTimeForFrameInMemory = default)
+        public IEnumerable<MotionVectorsFrame<CellMotionSByte>> ReadFrames(int startingFrameNumber = 1, DateTime dateTimeForFrameInMemory = default)
         {
-            r_reader.BaseStream.Seek(r_posAfterHeader + (long)startingFrameNumber * r_frameSize, SeekOrigin.Begin);
+            r_reader.BaseStream.Seek(r_posAfterHeader + ((long)startingFrameNumber - 1) * r_frameSize, SeekOrigin.Begin);
 
             var currentFrameNumber = startingFrameNumber;
             while (r_reader.BaseStream.Position < r_reader.BaseStream.Length)
@@ -117,14 +127,12 @@ namespace FunscriptToolbox.Core.MotionVectors
                     var frameTimeInMsInFile = TimeSpan.FromMilliseconds(r_reader.ReadInt32());
                     var frameType = r_reader.ReadChar();
                     r_reader.ReadBytes(11); // Read "forFutureUseBytes" 
-                    var motionsX = r_reader.ReadBytes(NbBlocTotalPerFrame);
-                    var motionsY = r_reader.ReadBytes(NbBlocTotalPerFrame);
-                    var frameFromFile = new MotionVectorsFrame(
+                    var frameFromFile = new MotionVectorsFrame<CellMotionSByte>(
+                        this.FrameLayout,
                         frameNumberInFile, 
                         frameTimeInMsInFile,
                         frameType,
-                        motionsX, 
-                        motionsY);
+                        ReadMotions());
 
                     TryAddFrameToMemory(frameFromFile, dateTimeForFrameInMemory);
                     yield return frameFromFile;
@@ -134,7 +142,25 @@ namespace FunscriptToolbox.Core.MotionVectors
             }
         }
 
-        private void TryAddFrameToMemory(MotionVectorsFrame frameFromFile, DateTime dateTimeForFrameInMemory)
+        private CellMotionSByte[] ReadMotions()
+        {
+            var motions = new CellMotionSByte[this.FrameLayout.NbCellsTotalPerFrame];
+            unsafe
+            {
+                fixed (void* destination = &motions[0])
+                {
+                    // Read all motion vectors at once
+                    byte[] buffer = r_reader.ReadBytes(this.FrameLayout.NbCellsTotalPerFrame * 2); // 2 bytes per cell
+                    fixed (void* source = &buffer[0])
+                    {
+                        Buffer.MemoryCopy(source, destination, this.FrameLayout.NbCellsTotalPerFrame * 2, this.FrameLayout.NbCellsTotalPerFrame * 2);
+                    }
+                }
+            }
+            return motions;
+        }
+
+        private void TryAddFrameToMemory(MotionVectorsFrame<CellMotionSByte> frameFromFile, DateTime dateTimeForFrameInMemory)
         {
             if (m_memoryUsed + r_frameSize < r_maximumMemoryUsage)
             {
@@ -163,7 +189,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             }
         }
 
-        private MotionVectorsFrame GetFrameFromMemory(int frameNumber, DateTime dateTimeForFrameInMemory)
+        private MotionVectorsFrame<CellMotionSByte> GetFrameFromMemory(int frameNumber, DateTime dateTimeForFrameInMemory)
         {
             if (r_framesInMemory.TryGetValue(frameNumber, out var frameReference))
             {

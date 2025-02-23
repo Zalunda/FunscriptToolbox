@@ -37,7 +37,7 @@ namespace FunscriptToolbox.UI
         {
             r_mvsReader = mvsReader;
             r_originalFrameAnalyser = createRulesRequest.CreateInitialFrameAnalyser(mvsReader);
-            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.BlocSize);
+            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.FrameLayout.CellWidth, r_mvsReader.FrameLayout.CellHeight);
             
             var snapshotContentResult = snapshotContent.Result;
             if (snapshotContentResult != null)
@@ -67,12 +67,12 @@ namespace FunscriptToolbox.UI
             VirtualCanvas.ExtentSize = new System.Windows.Size(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
         }
 
-        private static Bitmap[] CreateVectorBitmaps(int blocSize)
+        private static Bitmap[] CreateVectorBitmaps(int cellWidth, int cellHeight)
         {
             var vectorBitmaps = new Bitmap[MotionVectorsHelper.NbBaseDirection];
             for (int i = 0; i < vectorBitmaps.Length; i++)
             {
-                var vectorBitmap = new Bitmap(blocSize, blocSize);
+                var vectorBitmap = new Bitmap(cellWidth, cellHeight);
                 using (var graphics = Graphics.FromImage(vectorBitmap))
                 {
                     graphics.Clear(Color.Transparent);
@@ -92,9 +92,9 @@ namespace FunscriptToolbox.UI
                         new PointF(0f, 1f)
                         });
                     var matrix = new Matrix();
-                    matrix.Scale(0.85f * (blocSize / 2), 0.85f * (blocSize / 2), MatrixOrder.Append);
+                    matrix.Scale(0.85f * (cellWidth / 2), 0.85f * (cellHeight / 2), MatrixOrder.Append);
                     matrix.RotateAt((i + 6) * (360 / vectorBitmaps.Length), new PointF(0, 0), MatrixOrder.Append);
-                    matrix.Translate(blocSize / 2, blocSize / 2, MatrixOrder.Append);
+                    matrix.Translate(cellWidth / 2, cellHeight / 2, MatrixOrder.Append);
                     path.Transform(matrix);
 
                     var brush = new SolidBrush(Color.Green);
@@ -122,8 +122,8 @@ namespace FunscriptToolbox.UI
                 foreach (var rule in analyser.Rules)
                 {
                     var vectorBitmap = r_vectorBitmaps[rule.Direction];
-                    var y = rule.Index / analyser.NbBlocX;
-                    var x = rule.Index % analyser.NbBlocX;
+                    var y = rule.Index / analyser.FrameLayout.NbColumns;
+                    var x = rule.Index % analyser.FrameLayout.NbColumns;
                     graphics.DrawImage(
                         vectorBitmap, 
                         new Rectangle(x * vectorBitmap.Width, y * vectorBitmap.Height, vectorBitmap.Width, vectorBitmap.Height));
@@ -202,26 +202,26 @@ namespace FunscriptToolbox.UI
 
                 var direction = m_currentManualFrameAnalyser.Rules.Select(f => f.Direction).FirstOrDefault();
                 var rules = new List<BlocAnalyserRule>();
-                for (int indexBlocY = 0; indexBlocY < r_mvsReader.NbBlocY; indexBlocY++)
+                for (int indexBlocY = 0; indexBlocY < r_mvsReader.FrameLayout.NbRows; indexBlocY++)
                 {
-                    var blocY = indexBlocY * r_mvsReader.BlocSize;
+                    var blocY = indexBlocY * r_mvsReader.FrameLayout.CellHeight;
                     if (blocY >= selection.Top && blocY < selection.Bottom)
                     {
-                        for (int indexBlocX = 0; indexBlocX < r_mvsReader.NbBlocX; indexBlocX++)
+                        for (int indexBlocX = 0; indexBlocX < r_mvsReader.FrameLayout.NbColumns; indexBlocX++)
                         {
-                            var blocX = indexBlocX * r_mvsReader.BlocSize;
+                            var blocX = indexBlocX * r_mvsReader.FrameLayout.CellWidth;
                             if (blocX >= selection.Left && blocX < selection.Right)
                             {
                                 rules.Add(
                                     new BlocAnalyserRule(
-                                        (ushort)(indexBlocY * r_mvsReader.NbBlocX + indexBlocX), 
+                                        (ushort)(indexBlocY * r_mvsReader.FrameLayout.NbColumns + indexBlocX), 
                                         GetDirection().Value));
                             }
                         }
                     }
                 }
 
-                m_currentManualFrameAnalyser = new FrameAnalyser(r_mvsReader.NbBlocX, r_mvsReader.NbBlocY, rules.ToArray());
+                m_currentManualFrameAnalyser = new FrameAnalyser(r_mvsReader.FrameLayout, rules.ToArray());
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));
@@ -240,8 +240,7 @@ namespace FunscriptToolbox.UI
             if (direction != null)
             {
                 m_currentManualFrameAnalyser = new FrameAnalyser(
-                    r_mvsReader.NbBlocX, 
-                    r_mvsReader.NbBlocY, 
+                    r_mvsReader.FrameLayout, 
                     m_currentManualFrameAnalyser
                         .Rules
                         .Select(r => new BlocAnalyserRule(r.Index, direction.Value))

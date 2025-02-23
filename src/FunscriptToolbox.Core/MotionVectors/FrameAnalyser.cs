@@ -1,22 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.Core.MotionVectors
 {
     public class FrameAnalyser
     {
-        public int NbBlocX { get; }
-        public int NbBlocY { get; }
+        public MotionVectorsFrameLayout FrameLayout { get; }
         public BlocAnalyserRule[] Rules { get; }
         public int ActivityLevel { get; }
         public int QualityLevel { get; }
+        public MotionVectorsFrame<CellMotionInt>[] StoredFrames { get; }
+        public int[] TopReferenceFrameIndexes { get; }
+        public int[] BottomReferenceFrameIndexes { get; }
 
-        public FrameAnalyser(int nbBlocX, int nbBlocY, BlocAnalyserRule[] rules = null, int activityLevel = 0, int qualityLevel = 0)
+        public FrameAnalyser(
+            MotionVectorsFrameLayout frameLayout, 
+            BlocAnalyserRule[] rules = null,
+            MotionVectorsFrame<CellMotionInt>[] storedFrames = null,
+            int[] topReferenceFrameIndexes = null,
+            int[] bottomReferenceFrameIndexes = null,
+            int activityLevel = 0, 
+            int qualityLevel = 0)
         {
-            this.NbBlocX = nbBlocX;
-            this.NbBlocY = nbBlocY;
+            this.FrameLayout = frameLayout;
             this.Rules = rules ?? Array.Empty<BlocAnalyserRule>();
+            this.StoredFrames = storedFrames;
+            this.TopReferenceFrameIndexes = topReferenceFrameIndexes;
+            this.BottomReferenceFrameIndexes = bottomReferenceFrameIndexes;
             this.ActivityLevel = activityLevel;
             this.QualityLevel = qualityLevel;
         }
@@ -27,7 +39,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                     .Where(rule => rule.Activity >= activityLevel)
                     .Where(rule => rule.Quality >= qualityLevel)
                     .ToArray();
-            var minRules = (int)(this.NbBlocX * this.NbBlocY * minPercentage / 100);
+            var minRules = (int)(this.FrameLayout.NbColumns * this.FrameLayout.NbRows * minPercentage / 100);
             if (rules.Length < minRules)
             {
                 rules = this.Rules
@@ -37,9 +49,11 @@ namespace FunscriptToolbox.Core.MotionVectors
                     .ToArray();
             }
             return new FrameAnalyser(
-                this.NbBlocX,
-                this.NbBlocY,
+                this.FrameLayout,
                 rules,
+                this.StoredFrames, 
+                this.TopReferenceFrameIndexes, 
+                this.BottomReferenceFrameIndexes,
                 activityLevel,
                 qualityLevel);
         }
@@ -53,15 +67,21 @@ namespace FunscriptToolbox.Core.MotionVectors
             var actions = new List<FunscriptActionWithWeight>();
 
             var previousFrameTime = TimeSpan.Zero;
-            var currentActionStartTime = TimeSpan.Zero;
+            var currentActionStartTime = TimeSpan.MinValue;
             var currentActionEndTime = TimeSpan.Zero;
             var lastFrameTotalWeight = 0L;
             var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (maximumNbStrokesDetectedPerSecond * 2) - 20);
             var actionsWithSameDirectionAccumulator = new List<long>();
 
+            var weights = new List<long>();
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
             {
                 var currentFrameTotalWeight = ComputeFrameTotalWeight(frame);
+                weights.Add(currentFrameTotalWeight);
+                if (currentActionStartTime < TimeSpan.Zero)
+                {
+                    currentActionStartTime = frame.FrameTime;
+                }
                 if (previousFrameTime == TimeSpan.Zero)
                 {
                     previousFrameTime = frame.FrameTime;
@@ -99,6 +119,14 @@ namespace FunscriptToolbox.Core.MotionVectors
                     actionsWithSameDirectionAccumulator.Add(currentFrameTotalWeight);
                 }
                 previousFrameTime = frame.FrameTime;
+            }
+
+            using (var writer = File.CreateText("weights.log"))
+            {
+                foreach (var weight in weights)
+                {
+                    writer.WriteLine(weight.ToString());
+                }
             }
 
             // TODO: Find a better way to compute amplitude ???
@@ -139,7 +167,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         }
 
         // TODO: See if unsafe code could be faster here
-        protected virtual long ComputeFrameTotalWeight(MotionVectorsFrame frame)
+        protected virtual long ComputeFrameTotalWeight(MotionVectorsFrame<CellMotionSByte> frame)
         {
             var lookup = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
 
@@ -147,7 +175,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             long total = 0;
             foreach (var rule in this.Rules)
             {
-                total += lookup[frame.MotionsX[rule.Index], frame.MotionsY[rule.Index], rule.Direction];
+                total += lookup[(byte)frame.Motions[rule.Index].X, (byte)frame.Motions[rule.Index].Y, rule.Direction];
             }
             return total;
         }
