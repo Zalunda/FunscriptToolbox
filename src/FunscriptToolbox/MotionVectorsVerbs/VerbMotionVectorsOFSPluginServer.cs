@@ -169,7 +169,10 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                                 mvsReader,
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan,
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesRequest.DurationToGenerateInSeconds),
-                                createRulesRequest.SharedConfig.MaximumNbStrokesDetectedPerSecond)
+                                new CreateActionsSettings
+                                {
+                                    MaximumNbStrokesDetectedPerSecond = createRulesRequest.SharedConfig.MaximumNbStrokesDetectedPerSecond
+                                })
                         };
                     }
                     else

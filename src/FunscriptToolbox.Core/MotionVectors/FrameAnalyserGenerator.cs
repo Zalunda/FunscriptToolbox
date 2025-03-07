@@ -12,7 +12,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             FunscriptAction[] actions)
         {
             var watchload = Stopwatch.StartNew();
-            var optimized = AnalyseActions(reader, actions);
+            var optimized = AnalyseReferenceActions(reader, actions);
             watchload.Stop();
 
             return optimized;
@@ -28,9 +28,9 @@ namespace FunscriptToolbox.Core.MotionVectors
             public long WeightWhenNeutral;
         }
 
-        public static unsafe FrameAnalyser AnalyseActions(
+        public static unsafe FrameAnalyser AnalyseReferenceActions(
             MotionVectorsFileReader reader,
-            FunscriptAction[] actions,
+            FunscriptAction[] referenceActions,
             int framesToIgnoreAroundAction = 3)
         {
             var frameCounter = 0;
@@ -38,35 +38,21 @@ namespace FunscriptToolbox.Core.MotionVectors
             var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
             var temp = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
 
-            var storedFrames = new List<MotionVectorsFrame<CellMotionInt>>();
-            var topPointIndexes = new List<int>();
-            var bottomPointIndexes = new List<int>();
-
             FunscriptAction currentAction = null;
-            FunscriptAction nextAction = actions.First();
+            FunscriptAction nextReferenceAction = referenceActions.First();
             var indexAction = 1;
             foreach (var frame in reader.ReadFrames(
-                actions.First().AtAsTimeSpan,
-                actions.Last().AtAsTimeSpan))
+                referenceActions.First().AtAsTimeSpan,
+                referenceActions.Last().AtAsTimeSpan))
             {
-                storedFrames.Add(frame.Simplify(frame.Layout.CellWidth * 4, frame.Layout.CellHeight * 4));
-
                 // Handle action transition
-                if ((currentAction == null || frame.FrameTime >= nextAction.AtAsTimeSpan) && indexAction < actions.Length)
+                if ((currentAction == null || frame.FrameTime >= nextReferenceAction.AtAsTimeSpan) && indexAction < referenceActions.Length)
                 {
-                    currentAction = nextAction;
-                    nextAction = actions[indexAction++];
-                    if (currentAction.Pos > nextAction.Pos)
-                    {
-                        topPointIndexes.Add(storedFrames.Count - 1);
-                    }
-                    else
-                    {
-                        bottomPointIndexes.Add(storedFrames.Count - 1);
-                    }
+                    currentAction = nextReferenceAction;
+                    nextReferenceAction = referenceActions[indexAction++];
                     frameCounter = 0;
                     // Calculate total frames in this segment
-                    currentSegmentFrames = (int)((nextAction.AtAsTimeSpan - currentAction.AtAsTimeSpan).TotalSeconds * (double)reader.VideoFramerate);
+                    currentSegmentFrames = (int)((nextReferenceAction.AtAsTimeSpan - currentAction.AtAsTimeSpan).TotalSeconds * (double)reader.VideoFramerate);
                 }
 
                 // Skip frames at start and end of segments
@@ -76,7 +62,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                     continue;
                 }
 
-                var diff = nextAction.Pos - currentAction.Pos;
+                var diff = nextReferenceAction.Pos - currentAction.Pos;
                 var posOrNegInFunscript = Math.Sign(diff);
 
                 fixed (short* pLookup = lookupTable)
@@ -152,9 +138,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             return new FrameAnalyser(
                 reader.FrameLayout,
                 rules.ToArray(),
-                storedFrames.ToArray(),
-                topPointIndexes.ToArray(),
-                bottomPointIndexes.ToArray());
+                referenceActions.ToArray());
         }
 
         private static void Validate(FrameAnalyser clean, FrameAnalyser optimized)
