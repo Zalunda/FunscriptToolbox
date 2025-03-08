@@ -19,8 +19,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 10)]
         public int MaxItemsInRequest { get; set; } = 20;
         [JsonProperty(Order = 11)]
-        public int OverlapItemsInRequest { get; set; } = 0;
+        public int IncludePreviousItems { get; set; } = 0;
         [JsonProperty(Order = 12)]
+        public int OverlapItemsInRequest { get; set; } = 0;
+        [JsonProperty(Order = 13)]
         public bool IncludeStartTime { get; set; } = true;
         [JsonProperty(Order = 14)]
         public bool IncludeContext { get; set; } = true;
@@ -29,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 16)]
         public bool IncludeParts { get; set; } = false;
 
-        [JsonProperty(Order = 17)]
+        [JsonProperty(Order = 18)]
         public string PreviousTranslationId { get; set; }
 
         internal override bool IsReadyToStart(
@@ -56,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             var currentIndex = 0;
             int requestNumber = 1;
-            string ongoingContext = null;
+            string ongoingContext = itemsWithoutTranslations.FirstOrDefault()?.OngoingContext;
             while (currentIndex < itemsWithoutTranslations.Length)
             {
                 currentIndex = Math.Max(0, currentIndex - this.OverlapItemsInRequest);
@@ -80,6 +82,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 }
 
                 var userContent = new StringBuilder();
+                if (this.IncludePreviousItems > 0)
+                {
+                    var previousItems = items.Take(items.IndexOf(itemsForRequest[0]) - 1).ToArray();
+                    if (previousItems.Length > 0)
+                    {
+                        userContent.AppendLine($"For context, here what was said before in the scene:");
+                        foreach (var item in previousItems.Skip(Math.Max(0, previousItems.Length - this.IncludePreviousItems)))
+                        {
+                            userContent.AppendLine("   " +
+                                ((this.PreviousTranslationId != null) && false
+                                ? item.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == PreviousTranslationId)?.Text
+                                : item.Original));
+                        }
+                        userContent.AppendLine();
+                    }
+                }
+
                 if (this.OtherUserPrompt != null && requestNumber > 1)
                 {
                     userContent.AppendLine(
@@ -106,7 +125,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                                 Talker = this.IncludeTalker ? f.Talker : null,
                                 StartTime = this.IncludeStartTime ? f.StartTime : null,
                                 f.Original,
-                                Parts = this.IncludeParts && f.Parts.Length > 1 ? f.Parts : null,
+                                Parts = this.IncludeParts && f.Parts?.Length > 1 ? f.Parts : null,
                                 PreviousTranslation = f.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == PreviousTranslationId)?.Text
                             }),
                         Formatting.Indented, 
@@ -170,16 +189,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
             try
             {
+                json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Singleline);
+
                 // Remove everything before the first '['
                 var indexOfFirstBracket = json.IndexOf('[');
-                if (indexOfFirstBracket < 0)
-                {
-                    var indexOfFirstCurlyBrace = json.IndexOf('{');
-                    json = (indexOfFirstCurlyBrace < 0)
-                        ? "[" + json.Substring(indexOfFirstCurlyBrace)
-                        : "[" + json;
-                }
-                else
+                if (indexOfFirstBracket >= 0)
                 {
                     json = json.Substring(indexOfFirstBracket);
                 }

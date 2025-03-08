@@ -50,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         lastWordWasException = true;
                         continue;
                     }
-
+                    
                     // Find all overlapping timings for this word
                     var overlappingTimings = new List<(T Timing, TimingOverlap<TranscribedWord, T> Overlap)>();
                     var wordMidpoint = word.StartTime.Ticks + (word.EndTime.Ticks - word.StartTime.Ticks) / 2;
@@ -73,6 +73,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 closestTiming = (timing, distance);
                             }
                         }
+                    }
+                    if (closestTiming.Timing == null)
+                    {
+                        // Fix for when the last subtitle of a file is a "LastWordException"
+                        closestTiming = (timings.Last(), 0);
                     }
 
                     TranscriptionTimingMatch match;

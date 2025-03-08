@@ -21,7 +21,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             SubtitleForcedTimingCollection subtitlesForcedTiming)
         {
             string currentContext = null;
-            var analysis = transcription.GetAnalysis(subtitlesForcedTiming.ToArray());
+            var analysis = subtitlesForcedTiming != null 
+                ? transcription.GetAnalysis(subtitlesForcedTiming.ToArray()) 
+                : null;
             return new ItemForAICollection(
                 transcription
                 .Items
@@ -29,9 +31,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 {
                     var previousContext = currentContext;
                     currentContext = subtitlesForcedTiming?.GetContextAt(item.StartTime);
-                    analysis.TranscribedTextWithOverlapTimings.TryGetValue(item, out var parts);
+                    TranscriptionAnalysis<SubtitleForcedTiming>.TranscriptionTimingMatch[] parts = null;
+                    analysis?.TranscribedTextWithOverlapTimings.TryGetValue(item, out parts);
                     return new ItemForAI(
                         item, 
+                        currentContext,
                         currentContext == previousContext ? null : currentContext,
                         subtitlesForcedTiming?.GetTalkerAt(item.StartTime, item.EndTime),
                         parts?.Select(f => f.WordsText).ToArray());
@@ -59,6 +63,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             public TranscribedText Tag { get; }
 
 
+            [JsonIgnore]
+            public string OngoingContext { get; set; }
             [JsonProperty(Order = 1, NullValueHandling = NullValueHandling.Ignore)]
             public string Context { get; set; }
             [JsonProperty(Order = 2, NullValueHandling = NullValueHandling.Ignore)]
@@ -69,11 +75,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             public string Original { get; set; }
             public string[] Parts { get; set; }
 
-            public ItemForAI(TranscribedText tag, string context, string talker, string[] parts)
+            public ItemForAI(TranscribedText tag, string ongoingContext, string context, string talker, string[] parts)
             {
                 this.Tag = tag;
                 this.StartTime = $"{(int)tag.StartTime.TotalMinutes}:{(int)tag.StartTime.Seconds:D2}.{(int)tag.StartTime.Milliseconds:D3}";
                 this.Original = tag.Text;
+                this.OngoingContext = ongoingContext;
                 this.Context = context;
                 this.Talker = talker;
                 this.Parts = parts;

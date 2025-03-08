@@ -95,6 +95,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
                     var verbosePrefix = $"{transcription.Id}-{translation.Id}-{request.Number:D04}";
+                    context.CreateVerboseFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
                     context.CreateVerboseFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
 
                     try
@@ -122,6 +123,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                         context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
 
                         string assistantMessage = responseBody.choices[0].message.content;
+                        context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
                         translation.Costs.Add(
                             new TranslationCost(
                                 $"{this.BaseAddress},{this.Model}",
@@ -149,10 +151,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                             lastTimeSaved = DateTime.Now;
                         }
 
-                        context.DefaultUpdateHandler(
-                            ToolName, 
-                            request.ToolAction, 
-                            request.Items.LastOrDefault()?.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == translation.Id)?.Text); // Display the last translated text
+                        foreach (var item in request.Items)
+                        {
+                            context.DefaultUpdateHandler(
+                                ToolName,
+                                request.ToolAction,
+                                item?.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == translation.Id)?.Text);
+                        }
                     }
                     catch (AIMessagesHandlerExpection ex)
                     {
