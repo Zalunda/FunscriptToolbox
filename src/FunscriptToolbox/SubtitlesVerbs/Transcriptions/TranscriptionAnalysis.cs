@@ -162,22 +162,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             Transcription = transcription;
             Timings = timings;
+            TimingsWithoutTranscription = timings
+                .Where(timing => !timingsWithOverlapTranscribedTexts.ContainsKey(timing))
+                .ToArray();
             TimingsWithOverlapTranscribedTexts = timingsWithOverlapTranscribedTexts;
             TranscribedTextWithOverlapTimings = transcribedTextWithOverlapTimings;
             ExtraTranscriptions = transcription.Items
                 .Where(item => !transcribedTextWithOverlapTimings.ContainsKey(item))
                 .ToArray();
-            NbTimingsWithoutTranscription = timings
-                .Count(timing => !timingsWithOverlapTranscribedTexts.ContainsKey(timing));
-            NbTimingsWithTranscription = timings.Length - NbTimingsWithoutTranscription;
+            NbTimingsWithTranscription = timings.Length - TimingsWithoutTranscription.Length;
         }
 
         public Transcription Transcription { get; }
         public T[] Timings { get; }
+        public T[] TimingsWithoutTranscription { get; }
         public Dictionary<T, TranscriptionTimingMatch[]> TimingsWithOverlapTranscribedTexts { get; }
         public Dictionary<TranscribedText, TranscriptionTimingMatch[]> TranscribedTextWithOverlapTimings { get; }
         public TranscribedText[] ExtraTranscriptions { get; }
-        public int NbTimingsWithoutTranscription { get; }
         public int NbTimingsWithTranscription { get; }
     }
 }

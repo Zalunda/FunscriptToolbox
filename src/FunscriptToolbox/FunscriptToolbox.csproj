@@ -196,6 +196,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
     <Compile Include="SubtitlesVerbs\ITiming.cs" />
     <Compile Include="SubtitlesVerbs\TimingOverlap.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberManualEdit.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolExternalSrt.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionAnalysis.cs" />

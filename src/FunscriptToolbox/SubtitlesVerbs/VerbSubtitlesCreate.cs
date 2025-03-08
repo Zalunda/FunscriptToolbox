@@ -417,7 +417,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 yield return $"    ForcedTimings Analysis:";
                 yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}";
-                yield return $"       Number without transcription: {analysis.NbTimingsWithoutTranscription}";
+                yield return $"       Number without transcription: {analysis.TimingsWithoutTranscription.Length}";
                 if (analysis.ExtraTranscriptions.Length > 0)
                 {
                     yield return $"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}";

@@ -11,6 +11,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
         }
 
+
+        [JsonProperty(Order = 20, Required = Required.Always)]
+        public TranscriberTool TranscriberTool { get; set; }
         [JsonProperty(Order = 21)]
         public string UseTimingsFromId { get; set; } = null;
         [JsonProperty(Order = 22)]

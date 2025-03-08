@@ -15,10 +15,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 3)]
         public Language Language { get; set; } = null;
 
-        [JsonProperty(Order = 4, Required = Required.Always)]
-        public TranscriberTool TranscriberTool { get; set; }
-
-
         [JsonProperty(Order = 100, TypeNameHandling = TypeNameHandling.None)]
         public Translator[] Translators { get; set; }
 
