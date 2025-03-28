@@ -163,7 +163,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     {
                         var filepath = $"{context.CurrentBaseFilePath}.TODO-{transcription.Id}-{translation.Id}-{request.Number:D04}.txt";
                         context.SoftDelete(filepath);
-                        File.WriteAllText(filepath, ex.PartiallyFixedResponse, Encoding.UTF8);
+                        File.WriteAllText(filepath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.PartiallyFixedResponse}", Encoding.UTF8);
                         context.WriteInfo($"Error while parsing response from the API: {ex.Message}");
                         context.AddUserTodo($"Manually fix the following error in file '{filepath}':\n{ex.Message}");
                         return;
@@ -188,6 +188,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     }
                     catch (Exception ex)
                     {
+                        if (ex.Data.Contains("response"))
+                        {
+                            var m = 0;
+                        }
                         context.WriteError($"Error while communicating or parsing response from the API: {ex.Message}");
                         context.CurrentWipsub.Save();
                         return;

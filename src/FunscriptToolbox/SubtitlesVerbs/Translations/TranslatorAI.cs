@@ -56,7 +56,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     catch (AIMessagesHandlerExpection ex)
                     {
                         nbErrors++;
-                        File.WriteAllText(fullpath, ex.PartiallyFixedResponse, Encoding.UTF8);
+                        File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.PartiallyFixedResponse}", Encoding.UTF8);
                         context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
                         context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
                     }
