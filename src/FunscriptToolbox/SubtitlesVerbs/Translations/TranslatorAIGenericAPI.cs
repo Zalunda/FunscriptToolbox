@@ -188,10 +188,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     }
                     catch (Exception ex)
                     {
-                        if (ex.Data.Contains("response"))
-                        {
-                            var m = 0;
-                        }
                         context.WriteError($"Error while communicating or parsing response from the API: {ex.Message}");
                         context.CurrentWipsub.Save();
                         return;
