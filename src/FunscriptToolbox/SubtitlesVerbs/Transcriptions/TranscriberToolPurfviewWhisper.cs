@@ -112,11 +112,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     var logs = new StringBuilder();
                     var stopwatch = Stopwatch.StartNew();
-                    var errors = new List<string>();
+                    var errorMessageIfJsonMissing = new StringBuilder();
+                    errorMessageIfJsonMissing.AppendLine("Command:");
+                    errorMessageIfJsonMissing.AppendLine($"{process.StartInfo.FileName} {process.StartInfo.Arguments}");
+                    errorMessageIfJsonMissing.AppendLine();
+                    errorMessageIfJsonMissing.AppendLine("Output:");
                     int currentFileIndex = 0;
                     void dataHandler(object s, DataReceivedEventArgs e)
                     {
                         logs.AppendLine(e.Data);
+                        errorMessageIfJsonMissing.AppendLine(e.Data);
 
                         var match = Regex.Match(e.Data ?? string.Empty, "Starting.*:.*-(?<Index>\\d+).wav$", RegexOptions.IgnoreCase);
                         if (match.Success)
@@ -154,6 +159,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                         // Read and parse the JSON file containing transcription results
                         var jsonFilename = Path.ChangeExtension(tempFile, ".json");
+                        if (!File.Exists(jsonFilename))
+                        {
+                            throw new Exception($"Whisper did not create needed file: {jsonFilename}\n\n{errorMessageIfJsonMissing}");
+                        }
+
                         using (var reader = File.OpenText(jsonFilename))
                         using (var jsonReader = new JsonTextReader(reader))
                         {
