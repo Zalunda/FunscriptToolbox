@@ -30,12 +30,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public bool IncludeExtraTranscriptions { get; set; } = true;
         [JsonProperty(Order = 14)]
         public bool AutoSelectSingleChoice { get; private set; } = false;
-
         [JsonProperty(Order = 15)]
-        public int MinimumOverlapPercentage { get; set; } = 10;
+        public string PartSeparator { get; private set; } = string.Empty;
+
         [JsonProperty(Order = 16)]
-        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        public int MinimumOverlapPercentage { get; set; } = 10;
         [JsonProperty(Order = 17)]
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        [JsonProperty(Order = 18)]
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
 
         [JsonProperty(Order = 20)]
@@ -126,7 +128,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                                     {
                                         overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {overlapOtherSide[matchIndex].WordsText}]";
                                     }
-                                    text = string.Join(" | ", overlapOtherSide.Select(o => o.WordsText));
+                                    text = string.Join(this.PartSeparator, overlapOtherSide.Select(o => o.WordsText));
                                 }
 
                                 builder.AppendLine($"[{ta.Transcription.Id}{number}] {text} {overlapInfo}");
