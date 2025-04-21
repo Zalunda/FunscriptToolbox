@@ -62,18 +62,22 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to @echo off
-        ///REM ScriptVersion:1.0
+        ///REM ScriptVersion:1.7
         ///
         ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
         ///
+        ///:start
         ///echo --- subtitles.create ---
         ///&quot;FunscriptToolbox.exe&quot; ^
         ///		subtitles.create ^
         ///		--config &quot;.\--FSTB-SubtitleGeneratorConfig.json&quot; ^
-        ///		--sourcelanguage &quot;ja&quot; ^
+        ///		--sourcelanguage Japanese ^
+        ///		--recursive ^
         ///		--verbose ^
         ///		&quot;*.mp4&quot;
         ///pause
+        ///REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)
+        ///REM goto start
         ///.
         /// </summary>
         internal static string FSTB_CreateSubtitles_bat {
@@ -192,16 +196,16 @@ namespace FunscriptToolbox.Properties {
         ///FTMVSFullPath = &quot;[[FunscriptToolboxExePathInLuaFormat]]&quot;
         ///PluginVersion = &quot;[[PluginVersion]]&quot;
         ///configFullPath = ofs.ExtensionDir() .. &quot;\\config.json&quot;
+        ///mvsExtension = &quot;.mvs32&quot;
         ///
         ///config = {}
-        ///sharedConfig = {}
         ///connection = nil
         ///virtualActions = {}
         ///lastVideoFullPath = nil
         ///lastMvsFullPath = nil
         ///
         ///function init()
-        ///    printWithTime(&quot;Plugin [rest of string was truncated]&quot;;.
+        ///    printWithTime(&quot; [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string main_lua {
             get {
@@ -225,11 +229,11 @@ namespace FunscriptToolbox.Properties {
         ///		lastTimeTaken = 0,
         ///		serverTimeout = 300,
         ///		status = &apos;&apos;,
-        ///		statusTooltip = nil
+        ///		statusTooltip = nil,
+        ///		debugMode = true
         ///	}
         ///	if not fileExist(o.FTMVSFullPath) then
-        ///		local message = &apos;missing &apos; .. o.FTMVSFullPath
-        ///	 [rest of string was truncated]&quot;;.
+        ///		local message = &apos;missing &apos;  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string server_connection_lua {
             get {

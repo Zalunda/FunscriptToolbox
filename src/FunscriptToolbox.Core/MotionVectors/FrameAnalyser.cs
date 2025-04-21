@@ -11,6 +11,37 @@ namespace FunscriptToolbox.Core.MotionVectors
         public TimeSpan MaximumGapSize { get; set; } = TimeSpan.FromSeconds(0.5);
     }
 
+    public class FunscriptActionWithWeight : FunscriptAction
+    {
+        public int NbResults { get; }
+        public List<WeightedMotionVectorsFrame> Frames { get; }
+        public long TotalWeight { get; }
+        public TimeSpan StartTime => this.Frames.FirstOrDefault().Original.FrameTime;
+        public TimeSpan EndTime => this.Frames.LastOrDefault().Original.FrameTime;
+
+        public FunscriptActionWithWeight(int at, int pos, List<WeightedMotionVectorsFrame> frames)
+            : base(at, pos)
+        {
+            if (frames == null)
+            {
+                NbResults = 0;
+                Frames = new List<WeightedMotionVectorsFrame>();
+                TotalWeight = 0;
+            }
+            else
+            {
+                Frames = frames;
+                NbResults = frames.Count;
+                TotalWeight = frames.Sum(f => f.Weight);
+            }
+        }
+
+        public override string ToString()
+        {
+            return $"{Pos,3}, {NbResults,3}, {TotalWeight,12}, {At}";
+        }
+    }
+
     public class FrameAnalyser
     {
         public MotionVectorsFrameLayout FrameLayout { get; }
@@ -115,12 +146,12 @@ namespace FunscriptToolbox.Core.MotionVectors
             public ActionPoint Start { get; }
             public ActionPoint End { get; }
             public TimeSpan Duration => this.End.Time - this.Start.Time;
-            public FrameWeight[] OriginalFrames { get; }
-            public FrameWeight[] FilteredFrames { get; }
+            public WeightedMotionVectorsFrame[] OriginalFrames { get; }
+            public WeightedMotionVectorsFrame[] FilteredFrames { get; }
             public TimeRange FilteredFramesRange { get; }
             public long TotalWeight { get; }
 
-            public ActionHalfStroke(ActionPoint start, ActionPoint end, IEnumerable<FrameWeight> frames)
+            public ActionHalfStroke(ActionPoint start, ActionPoint end, IEnumerable<WeightedMotionVectorsFrame> frames)
             {
                 Start = start;
                 End = end;
@@ -323,7 +354,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             return diff <= (avg * thresholdPercent);
         }
 
-        public FunscriptAction[] CreateActions(
+        public FunscriptAction[] CreateActionsOld(
             MotionVectorsFileReader mvsReader,
             TimeSpan startingTime,
             TimeSpan endTime,
@@ -338,11 +369,11 @@ namespace FunscriptToolbox.Core.MotionVectors
             var currentActionEndTime = TimeSpan.Zero;
             var lastFrameTotalWeight = 0L;
             var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (settings.MaximumNbStrokesDetectedPerSecond * 2) - 20);
-            var framesWithSameDirectionAccumulator = new List<FrameWeight>();
+            var framesWithSameDirectionAccumulator = new List<WeightedMotionVectorsFrame>();
 
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
             {
-                var currentFrameWithWeight = new FrameWeight(frame, ComputeFrameTotalWeight(frame));
+                var currentFrameWithWeight = new WeightedMotionVectorsFrame(frame, ComputeFrameTotalWeight(frame));
 
                 if (currentActionStartTime < TimeSpan.Zero)
                 {
@@ -399,7 +430,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 var startPoint = GetOrCreateActionPoint(points, currentActionStartTime, startValue);
                 var endPoint = GetOrCreateActionPoint(points, currentActionEndTime, endValue);
 
-                var movement = new ActionHalfStroke(startPoint, endPoint, new List<FrameWeight>(framesWithSameDirectionAccumulator));
+                var movement = new ActionHalfStroke(startPoint, endPoint, new List<WeightedMotionVectorsFrame>(framesWithSameDirectionAccumulator));
                 halfstrokes.Add(movement);
 
                 TryCreateFullStroke(halfstrokes, fullstrokes);
@@ -495,6 +526,129 @@ namespace FunscriptToolbox.Core.MotionVectors
             }).ToArray();
         }
 
+
+        public FunscriptActionExtended[] CreateActions(
+            MotionVectorsFileReader mvsReader,
+            TimeSpan startingTime,
+            TimeSpan endTime,
+            CreateActionsSettings settings)
+        {
+            var points = new List<FunscriptActionExtended>();
+
+            var previousFrameTime = TimeSpan.Zero;
+            var currentActionStartTime = TimeSpan.MinValue;
+            var currentActionEndTime = TimeSpan.Zero;
+            var lastFrameTotalWeight = 0L;
+            var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (settings.MaximumNbStrokesDetectedPerSecond * 2) - 20);
+            var framesWithSameDirectionAccumulator = new List<WeightedMotionVectorsFrame>();
+
+            foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
+            {
+                var currentFrameWithWeight = new WeightedMotionVectorsFrame(frame, ComputeFrameTotalWeight(frame));
+
+                if (currentActionStartTime < TimeSpan.Zero)
+                {
+                    currentActionStartTime = frame.FrameTime;
+                }
+                if (previousFrameTime == TimeSpan.Zero)
+                {
+                    previousFrameTime = frame.FrameTime;
+                }
+
+                if (currentFrameWithWeight.Weight == 0 // i.e. probably one of the rare I-frame
+                    || (currentFrameWithWeight.Weight > 0 && lastFrameTotalWeight > 0)
+                    || (currentFrameWithWeight.Weight < 0 && lastFrameTotalWeight < 0))
+                {
+                    // Same direction...
+                    framesWithSameDirectionAccumulator.Add(currentFrameWithWeight);
+                    currentActionEndTime = frame.FrameTime;
+                }
+                else
+                {
+                    // Direction has changed...
+                    if (currentActionEndTime - currentActionStartTime >= minimumActionDuration)
+                    {
+                        AddPoints(
+                            points, 
+                            currentActionStartTime, 
+                            currentActionEndTime, 
+                            lastFrameTotalWeight, 
+                            framesWithSameDirectionAccumulator);
+                    }
+
+                    lastFrameTotalWeight = currentFrameWithWeight.Weight;
+                    currentActionStartTime = previousFrameTime;
+
+                    framesWithSameDirectionAccumulator.Clear();
+                    framesWithSameDirectionAccumulator.Add(currentFrameWithWeight);
+                }
+                previousFrameTime = frame.FrameTime;
+            }
+
+            // Handle the last movement if any
+            if (framesWithSameDirectionAccumulator.Count > 0 && currentActionEndTime - currentActionStartTime >= minimumActionDuration)
+            {
+                AddPoints(
+                    points,
+                    currentActionStartTime,
+                    currentActionEndTime,
+                    lastFrameTotalWeight,
+                    framesWithSameDirectionAccumulator);
+            }
+
+            var sortedWeight = points
+                .Where(point => point.Pos == 100)
+                .Select(point => Math.Abs(point.Weight))
+                .OrderBy(w => w)
+                .ToArray();
+            var targetWeigth = (sortedWeight.Length > 0)
+                ? sortedWeight[sortedWeight.Length * 9 / 10]
+                : 0;
+            foreach (var point in points
+                .Where(point => point.Pos == 100))
+            {
+                point.Pos = Math.Max(1, Math.Min(100,
+                    (int)((double)100 * Math.Abs(point.Weight) / targetWeigth)));
+            }
+
+            return points.ToArray();
+        }
+
+        private void AddPoints(
+            List<FunscriptActionExtended> points, 
+            TimeSpan currentActionStartTime, 
+            TimeSpan currentActionEndTime, 
+            long lastFrameTotalWeight, 
+            List<WeightedMotionVectorsFrame> framesWithSameDirectionAccumulator)
+        {
+            int startValue = (lastFrameTotalWeight > 0) ? 0 : 100;
+            int endValue = (lastFrameTotalWeight > 0) ? 100 : 0;
+
+            // Create the action points
+            var startPoint = GetOrAddPoint(points, FunscriptActionExtended.TimeToAt(currentActionStartTime), startValue);
+            var endPoint = GetOrAddPoint(points, FunscriptActionExtended.TimeToAt(currentActionEndTime), endValue);
+
+            // Sort frames by weight (absolute value, descending)
+            // Take the top 70% of frames
+            // Remember the minimum and maximum time of those frames
+            var frameCountToKeep = (int)Math.Ceiling(framesWithSameDirectionAccumulator.Count * 0.7);
+            var mouvMin = int.MaxValue;
+            var mouvMax = int.MinValue;
+            var weight = 0L;
+            foreach (var frameX in framesWithSameDirectionAccumulator
+                .OrderByDescending(f => Math.Abs(f.Weight))
+                .Take(frameCountToKeep))
+            {
+                var currentFrameAt = FunscriptActionExtended.TimeToAt(frameX.Original.FrameTime);
+                if (currentFrameAt < mouvMin) mouvMin = currentFrameAt;
+                if (currentFrameAt > mouvMax) mouvMax = currentFrameAt;
+                weight += frameX.Weight;
+            }
+
+            startPoint.SetAtMax(mouvMin);
+            endPoint.SetAtMinAndWeight(mouvMax, weight);
+        }
+
         private ActionPoint GetOrCreateActionPoint(List<ActionPoint> points, TimeSpan time, int value)
         {
             var previousPoint = points.LastOrDefault();
@@ -506,6 +660,21 @@ namespace FunscriptToolbox.Core.MotionVectors
 
             // Create a new point and add it to the list
             var newPoint = new ActionPoint(time, value);
+            points.Add(newPoint);
+            return newPoint;
+        }
+
+        private FunscriptActionExtended GetOrAddPoint(List<FunscriptActionExtended> points, int at, int pos)
+        {
+            var previousPoint = points.LastOrDefault();
+            if (previousPoint?.At == at && previousPoint?.Pos == pos)
+            {
+                // time - previousPoint.Time < TimeSpan.FromMilliseconds(50) // TODO add to settings
+                return previousPoint;
+            }
+
+            // Create a new point and add it to the list
+            var newPoint = new FunscriptActionExtended(at, pos);
             points.Add(newPoint);
             return newPoint;
         }
@@ -546,49 +715,6 @@ namespace FunscriptToolbox.Core.MotionVectors
                 total += lookup[(byte)frame.Motions[rule.Index].X, (byte)frame.Motions[rule.Index].Y, rule.Direction];
             }
             return total;
-        }
-
-        private class FrameWeight
-        {
-            public MotionVectorsFrame<CellMotionSByte> Original { get; }
-            public long Weight { get; }
-
-            public FrameWeight(MotionVectorsFrame<CellMotionSByte> original, long weight)
-            {
-                Original = original;
-                Weight = weight;
-            }
-        }
-
-        private class FunscriptActionWithWeight : FunscriptAction
-        {
-            public int NbResults { get; }
-            public List<FrameWeight> Frames { get; }
-            public long TotalWeight { get; }
-            public TimeSpan StartTime => this.Frames.FirstOrDefault().Original.FrameTime;
-            public TimeSpan EndTime => this.Frames.LastOrDefault().Original.FrameTime;
-
-            public FunscriptActionWithWeight(int at, int pos, List<FrameWeight> frames)
-                : base(at, pos)
-            {
-                if (frames == null)
-                {
-                    NbResults = 0;
-                    Frames = new List<FrameWeight>();
-                    TotalWeight = 0;
-                }
-                else
-                {
-                    Frames = frames;
-                    NbResults = frames.Count;
-                    TotalWeight = frames.Sum(f => f.Weight);
-                }
-            }
-
-            public override string ToString()
-            {
-                return $"{Pos,3}, {NbResults,3}, {TotalWeight,12}, {At}";
-            }
         }
     }
 }

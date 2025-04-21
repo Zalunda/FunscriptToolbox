@@ -13,7 +13,8 @@ function server_connection:new(FTMVSFullPath, enableLogs)
 		lastTimeTaken = 0,
 		serverTimeout = 300,
 		status = '',
-		statusTooltip = nil
+		statusTooltip = nil,
+		debugMode = true
 	}
 	if not fileExist(o.FTMVSFullPath) then
 		local message = 'missing ' .. o.FTMVSFullPath
@@ -46,7 +47,6 @@ end
 function server_connection:setBaseCommunicationFilePath()
 
 	-- TODO cleanup old communicationChannel
-
 	for id = 1, 1000 do
         self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. id
         self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. id
@@ -73,6 +73,14 @@ function server_connection:startServerIfNeeded()
 	if self.cantFindFTMVSFullPath then
 		printWithTime('Cannot send request when .exe is missing')
 		return false
+	end
+
+	if self.debugMode then
+		local id = 999
+		self.channelCurrentTransactionNumber = id
+        self.requestBaseFilePath = ofs.ExtensionDir() .. "\\Channel-" .. id
+        self.responseBaseFilePath = ofs.ExtensionDir() .. "\\Responses\\Channel-" .. id
+		return true
 	end
 
     self:setBaseCommunicationFilePath()

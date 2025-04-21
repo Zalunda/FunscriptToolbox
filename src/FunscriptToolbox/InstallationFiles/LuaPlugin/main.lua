@@ -7,6 +7,7 @@ virtual_actions = require "virtual_actions"
 FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
 PluginVersion = "[[PluginVersion]]"
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
+mvsExtension = ".mvs32"
 
 config = {}
 connection = nil
@@ -38,11 +39,13 @@ function loadOrCreateConfig()
 	if not config.adjustVps then config.adjustVps = {} end
 	if not config.shared then config.shared = {} end
 	
-	if not loaded.adjustVps then loaded.adjustVps = {} end
-	if not loaded.shared then loaded.shared = {} end
+	if not loaded.config then loaded.config = {} end
+	if not loaded.config.adjustVps then loaded.config.adjustVps = {} end
+	if not loaded.config.shared then loaded.config.shared = {} end
 
 	config.EnableLogs 								= loaded.EnableLogs == nil and true or loaded.EnableLogs
 	config.ShowUIOnCreate							= loaded.ShowUIOnCreate == nil and true or loaded.ShowUIOnCreate
+	
 	config.adjustVps.TopPointsOffset 				= loaded.adjustVps.TopPointsOffset 				or 0
 	config.adjustVps.TopPointsOffsetReset			= loaded.adjustVps.TopPointsOffsetReset == nil and true or loaded.adjustVps.TopPointsOffsetReset
 	config.adjustVps.BottomPointsOffset 			= loaded.adjustVps.BottomPointsOffset 			or 0
@@ -158,11 +161,11 @@ function sendCreateRulesRequest(showUI)
 	if lastVideoFullPath == videoFullPath then
 		mvsFullPath = lastMvsFullPath
 	else
-		printWithTime('Trying to find .mvs file from videoFullPath...')
+		printWithTime('Trying to find ' .. mvsExtension .. ' file from videoFullPath...')
 		local combinedPart = nil
 		for part in string.gmatch(videoFullPath, "[^.]+") do
 			combinedPart = combinedPart and combinedPart .. "." .. part or part
-			potentialMvsFullPath = combinedPart .. ".mvs"
+			potentialMvsFullPath = combinedPart .. mvsExtension
 			local file = io.open(potentialMvsFullPath, "r")
 			if file then
 				printWithTime('   FOUND ' .. potentialMvsFullPath)
@@ -217,7 +220,7 @@ end
 function handleCreateRulesResponse(response)
 	if response.Actions then
 		partialResetAdjustConfigToDefault()
-		
+			
 		local scriptIdx = ofs.ActiveIdx() -- todo save in request/response
 		getVirtualActions(scriptIdx):init('handleCreateRulesResponse', response.Actions, response.FrameDurationInMs)
 	end

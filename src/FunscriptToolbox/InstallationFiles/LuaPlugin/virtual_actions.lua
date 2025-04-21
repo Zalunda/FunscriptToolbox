@@ -17,7 +17,11 @@ function virtual_actions:init(userAction, actions, frameDurationInMs)
 	self.GeneratedActionsOriginal = {}
 	self:removeAllVirtualActionsInTimelime(userAction .. ' init')
 	if #actions > 0 then	
+		self:updateDebugScriptIfNeeded(userAction, actions)
+
 		local script = ofs.Script(self.ScriptIdx)
+		printWithTime(userAction, 'actions[1].at', actions[1].at)
+		printWithTime(userAction, 'self.FrameDurationInSec', self.FrameDurationInSec)
 		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
 		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + self.FrameDurationInSec / 2)
 		local zoneStart = zoneStartAction and zoneStartAction.at or 0
@@ -59,6 +63,61 @@ function virtual_actions:init(userAction, actions, frameDurationInMs)
 		self.FrameDurationInSec = frameDurationInMs / 1000
 		self:update(userAction .. ' init')
 	end
+end
+
+function virtual_actions:updateDebugScriptIfNeeded(userAction, actions)
+    -- Loop through all scripts
+    for i = 1, ofs.ScriptCount(), 1 do
+        local scriptName = ofs.ScriptName(i)
+        
+        -- Check if script contains "debugFSTB"
+        if string.find(scriptName, "debugFSTB") then
+            local debugScript = ofs.Script(i)
+            
+            -- Remove all points from the debug script
+            for idx in pairs(debugScript.actions) do
+                debugScript:markForRemoval(idx)
+            end
+            debugScript:removeMarked()
+            
+            -- Add 3 points for each action from the received data
+            for _, action in ipairs(actions) do
+                -- Set position variables based on action.pos
+                local limitPos, defaultPos
+                
+                if action.pos == 0 then
+                    -- For bottom positions
+                    limitPos = 20
+                    defaultPos = 40
+                else
+                    -- For top positions
+                    limitPos = 90
+                    defaultPos = 70
+                end
+                
+                -- Add points using the position variables
+                -- Add point at AtMin with limitPos if at != AtMin
+                if action.at ~= action.AtMin then
+                    debugScript.actions:add(Action.new(action.AtMin / 1000.0, limitPos, false))
+                end
+                
+                -- Always add point at actual position with defaultPos
+                debugScript.actions:add(Action.new(action.at / 1000.0, defaultPos, false))
+                
+                -- Add point at AtMax with limitPos if at != AtMax
+                if action.at ~= action.AtMax then
+                    debugScript.actions:add(Action.new(action.AtMax / 1000.0, limitPos, false))
+                end
+            end
+            
+            -- Commit changes to the debug script
+            debugScript:commit()
+            
+            if config.EnableLogs then 
+                printWithTime(userAction, 'updateDebugScriptIfNeeded', 'Updated debug script: ' .. scriptName) 
+            end
+        end
+    end
 end
 
 function virtual_actions:removeAllVirtualActionsInTimelime(userAction)
