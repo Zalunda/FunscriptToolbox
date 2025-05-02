@@ -2,10 +2,8 @@
 json = require "json"
 server_connection = require "server_connection"
 virtual_actions = require "virtual_actions"
+require "static_config"
 
--- global var
-FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
-PluginVersion = "[[PluginVersion]]"
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
 mvsExtension = ".mvs32"
 
@@ -145,84 +143,139 @@ function createRequest(service)
 end
 
 function sendCreateRulesRequest(showUI)
-	getVirtualActions():unvirtualizeActionsBefore('sendCreateRulesRequest', player.CurrentTime())
-	getVirtualActions():removeAllVirtualActionsInTimelime('sendCreateRulesRequest')
+    getVirtualActions():unvirtualizeActionsBefore('sendCreateRulesRequest', player.CurrentTime())
+    getVirtualActions():removeAllVirtualActionsInTimelime('sendCreateRulesRequest')
 
-	local script = ofs.Script(ofs.ActiveIdx())
-	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - config.shared.LearningDurationInSeconds)
+	local scriptIndex = ofs.ActiveIdx()
+    local script = ofs.Script(scriptIndex)
+	local firstAction, indexBefore = script:closestActionAfter(player.CurrentTime() - 15)
 	local lastAction, indexAfter = script:closestActionBefore(player.CurrentTime() + 0.001)
 	local nextAction = script:closestActionAfter(player.CurrentTime() + 0.001);
 
- 	local request = createRequest("CreateRulesPluginRequest");
-	
-    local videoFullPath = player.CurrentVideo()			
-	local mvsFullPath = nil
-	
-	if lastVideoFullPath == videoFullPath then
-		mvsFullPath = lastMvsFullPath
-	else
-		printWithTime('Trying to find ' .. mvsExtension .. ' file from videoFullPath...')
-		local combinedPart = nil
-		for part in string.gmatch(videoFullPath, "[^.]+") do
-			combinedPart = combinedPart and combinedPart .. "." .. part or part
-			potentialMvsFullPath = combinedPart .. mvsExtension
-			local file = io.open(potentialMvsFullPath, "r")
-			if file then
-				printWithTime('   FOUND ' .. potentialMvsFullPath)
-				io.close(file)
-				mvsFullPath = potentialMvsFullPath
-			else
-				printWithTime('   ' .. potentialMvsFullPath)
-			end
-		end
+	local candidates = {}
+	for i = indexBefore, indexAfter do
+		table.insert(candidates, script.actions[i])
 	end
-	
-	if mvsFullPath then
-		lastRequestError = nil
-		lastVideoFullPath = videoFullPath
-		lastMvsFullPath = mvsFullPath
+    
+    local actionsToSend = getActionsForLastNHalfStrokes(candidates, config.shared.NumberHalfStrokesSample or 6)
+    
+    local request = createRequest("CreateRulesPluginRequest")
+    
+    local videoFullPath = player.CurrentVideo()            
+    local mvsFullPath = nil
+    
+    if lastVideoFullPath == videoFullPath then
+        mvsFullPath = lastMvsFullPath
+    else
+        printWithTime('Trying to find ' .. mvsExtension .. ' file from videoFullPath...')
+        local combinedPart = nil
+        for part in string.gmatch(videoFullPath, "[^.]+") do
+            combinedPart = combinedPart and combinedPart .. "." .. part or part
+            potentialMvsFullPath = combinedPart .. mvsExtension
+            local file = io.open(potentialMvsFullPath, "r")
+            if file then
+                printWithTime('   FOUND ' .. potentialMvsFullPath)
+                io.close(file)
+                mvsFullPath = potentialMvsFullPath
+            else
+                printWithTime('   ' .. potentialMvsFullPath)
+            end
+        end
+    end
+    
+    if mvsFullPath then
+        lastRequestError = nil
+        lastVideoFullPath = videoFullPath
+        lastMvsFullPath = mvsFullPath
 
-		request.VideoFullPath = videoFullPath
-		request.CurrentVideoTime = math.floor(player.CurrentTime() * 1000)
-		request.MvsFullPath = mvsFullPath
-		request.Actions = {}
-		request.SelectedActions = {}
+        request.VideoFullPath = videoFullPath
+        request.CurrentVideoTime = math.floor(player.CurrentTime() * 1000)
+        request.MvsFullPath = mvsFullPath
+		request.ScriptIndex = scriptIndex
+        request.Actions = {}
+        request.SelectedActions = {}
 
-		if nextAction then
-			request.DurationToGenerateInSeconds = math.min(config.shared.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
-		else
-			request.DurationToGenerateInSeconds = config.shared.MaximumDurationToGenerateInSeconds
-		end
-		request.ShowUI = showUI
-			
-		if firstAction and lastAction then	
-			for _, action in ipairs(script.actions) do
-				if (action.at >= firstAction.at and action.at <= lastAction.at) then
-					table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
-				end
-			end
-		end
-		
-		if script:hasSelection() then
-			for _, indice in ipairs(script:selectedIndices()) do
-				local action = script.actions[indice]
-				table.insert(request.SelectedActions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
-			end
-		end
+        if nextAction then
+            request.DurationToGenerateInSeconds = math.min(config.shared.MaximumDurationToGenerateInSeconds, nextAction.at - player.CurrentTime())
+        else
+            request.DurationToGenerateInSeconds = config.shared.MaximumDurationToGenerateInSeconds
+        end
+        request.ShowUI = showUI
+        
+        for _, action in ipairs(actionsToSend) do
+            table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
+        end
+        
+        if script:hasSelection() then
+            for _, indice in ipairs(script:selectedIndices()) do
+                local action = script.actions[indice]
+                table.insert(request.SelectedActions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })
+            end
+        end
 
-		connection:sendRequest(request, handleCreateRulesResponse)
-	else
-		lastRequestError = 'ERROR: Unable to find .mvs file for this video'
-		lastRequestErrorTooltip = 'You need to create a .mvs file using FunscriptToolbox.exe for this video.'
-	end
+        connection:sendRequest(request, handleCreateRulesResponse)
+    else
+        lastRequestError = 'ERROR: Unable to find .mvs file for this video'
+        lastRequestErrorTooltip = 'You need to create a .mvs file using FunscriptToolbox.exe for this video.'
+    end
+end
+
+-- TODO MOVE and/or rename
+function getActionsForLastNHalfStrokes(candidates, maxNumberHalfStrokes)
+    -- Need at least 2 actions to detect direction
+    if #candidates < 2 then
+        return candidates
+    end
+    
+    local actionsToInclude = {}
+    local directionChanges = 0
+    local previousDirection = nil
+    
+    -- Start from the most recent action (end of array) and work backwards
+    -- Always include the newest action
+    table.insert(actionsToInclude, candidates[#candidates])
+    
+    for i = #candidates - 1, 1, -1 do
+        local current = candidates[i]
+        local next = candidates[i+1]  -- The action after (more recent in time)
+        
+        -- Determine direction (still from older to newer perspective)
+        local direction = nil
+        if current.pos < next.pos then
+            direction = "up"
+        elseif current.pos > next.pos then
+            direction = "down"
+        else
+            direction = "neutral"
+        end
+        
+        -- Check for direction change (skip neutral)
+        if direction ~= "neutral" then
+            if previousDirection ~= nil and direction ~= previousDirection then
+                directionChanges = directionChanges + 1
+                
+                -- If we found enough direction changes, we're done
+                if directionChanges >= maxNumberHalfStrokes then
+                    break
+                end
+            end
+            
+            -- Update previous direction
+            previousDirection = direction
+        end
+
+        -- Include this action
+        table.insert(actionsToInclude, 1, current)  -- Insert at beginning to maintain chronological order        
+    end
+    
+    return actionsToInclude
 end
 
 function handleCreateRulesResponse(response)
 	if response.Actions then
 		partialResetAdjustConfigToDefault()
 			
-		local scriptIdx = ofs.ActiveIdx() -- todo save in request/response
-		getVirtualActions(scriptIdx):init('handleCreateRulesResponse', response.Actions, response.FrameDurationInMs)
+		getVirtualActions(response.ScriptIndex):init('handleCreateRulesResponse', response.Actions, response.FrameDurationInMs / 1000)
 	end
 end
 

@@ -1,0 +1,2 @@
+FTMVSFullPath = "[[FunscriptToolboxExePathInLuaFormat]]"
+PluginVersion = "[[PluginVersion]]"

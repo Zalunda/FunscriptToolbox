@@ -7,6 +7,7 @@ namespace FunscriptToolbox.Core.MotionVectors.PluginMessages
         public string VideoFullPath { get; set; }
         public int CurrentVideoTime { get; set; }
         public string MvsFullPath { get; set; }
+        public int ScriptIndex { get; set; }
         public FunscriptAction[] Actions { get; set; }
         public FunscriptAction[] SelectedActions { get; set; }
         public double DurationToGenerateInSeconds { get; set; }

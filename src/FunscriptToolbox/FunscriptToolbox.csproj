@@ -247,16 +247,19 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <EmbeddedResource Include="InstallationFiles\json.lua" />
-    <EmbeddedResource Include="InstallationFiles\main.lua" />
-    <EmbeddedResource Include="InstallationFiles\server_connection.lua" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareScriptForRelease.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareVideoForOFS.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-GenericCmd.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />
     <None Include="app.manifest" />
     <None Include="InstallationFiles\--FSTB-VerifyDownloadedScripts.bat" />
-    <None Include="InstallationFiles\virtual_actions.lua" />
+    <None Include="InstallationFiles\LuaPlugin\fullstroke.lua" />
+    <None Include="InstallationFiles\LuaPlugin\json.lua" />
+    <None Include="InstallationFiles\LuaPlugin\main.lua" />
+    <None Include="InstallationFiles\LuaPlugin\server_connection.lua" />
+    <None Include="InstallationFiles\LuaPlugin\static_config.lua" />
+    <None Include="InstallationFiles\LuaPlugin\virtual_actions.lua" />
+    <None Include="new_virtual_actions.lua" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

@@ -143,6 +143,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     {
                         var mvsReader = GetMvsReader(createRulesRequest.MvsFullPath, createRulesRequest.SharedConfig.MaximumMemoryUsageInMB);
 
+                        // TODO if actions is empty => auto generate rules
+
                         if (createRulesRequest.ShowUI)
                         {
                             m_currentFrameAnalyser = Test.TestAnalyser(
@@ -165,6 +167,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                         response = new CreateRulesPluginResponse
                         {
                             FrameDurationInMs = mvsReader.FrameDurationInMs,
+                            CurrentVideoTime = createRulesRequest.CurrentVideoTime,
+                            ScriptIndex = createRulesRequest.ScriptIndex,
                             Actions = m_currentFrameAnalyser?.CreateActions(
                                 mvsReader,
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan,

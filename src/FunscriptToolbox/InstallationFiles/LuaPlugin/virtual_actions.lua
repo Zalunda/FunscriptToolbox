@@ -5,7 +5,7 @@ function virtual_actions:new(scriptIdx, config)
 	local o = { 
 		ScriptIdx = scriptIdx,		
 		Config = config,
-		FrameDurationInSec = 167,
+		FrameDurationInSec = nil,
 		GeneratedActionsOriginal = {},
 		ActionsInTimeline = nil
 	}
@@ -13,56 +13,133 @@ function virtual_actions:new(scriptIdx, config)
 	return o
 end
 
-function virtual_actions:init(userAction, actions, frameDurationInMs)
+function virtual_actions:init(userAction, actions, frameDurationInSec)
 	self.GeneratedActionsOriginal = {}
 	self:removeAllVirtualActionsInTimelime(userAction .. ' init')
 	if #actions > 0 then	
 		self:updateDebugScriptIfNeeded(userAction, actions)
 
-		local script = ofs.Script(self.ScriptIdx)
-		printWithTime(userAction, 'actions[1].at', actions[1].at)
-		printWithTime(userAction, 'self.FrameDurationInSec', self.FrameDurationInSec)
-		local zoneStartAction = script:closestActionBefore(actions[1].at / 1000 - 0.001)
-		local zoneEndAction = script:closestActionAfter(actions[1].at / 1000 + self.FrameDurationInSec / 2)
-		local zoneStart = zoneStartAction and zoneStartAction.at or 0
-		local zoneEnd = zoneEndAction and zoneEndAction.at or 10000000
-		if config.EnableLogs then printWithTime(userAction, 'init', 'zoneStart', getFormattedTime(zoneStart)) end
-		if config.EnableLogs then printWithTime(userAction, 'init', 'zoneEnd', getFormattedTime(zoneEnd)) end
-
-		local logsInfo = ''
-		local previousAction = nil
-		local previousIsTop = nil
 		for i, action in ipairs(actions) do	
-			local isTop
-			if not previousAction then
-				isTop = action.pos > actions[i + 1].pos
-			elseif action.pos == previousAction.pos then
-				isTop = previousIsTop
-			else
-				isTop = action.pos > previousAction.pos
-			end		
 			local new_action = { 
+				originalAt = action.at / 1000.0,
+				originalPos = action.pos,
+				isTop = action.pos ~= 0,
 				at = action.at / 1000.0,
+				atMin = action.AtMin,
+				atMax = action.AtMax,
 				pos = action.pos,
-				isTop = isTop,
-				enabled = true
+				locked = false
 			}
+			printWithTime(userAction, 'new_action', new_action.at)
 
-			if new_action.at > zoneStart and new_action.at < zoneEnd then
-				table.insert(self.GeneratedActionsOriginal, new_action)
-				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(new_action.at) .. ', ' end
-			else
-				if config.EnableLogs then logsInfo = logsInfo .. 'SKIP:' .. getFormattedTime(new_action.at) .. ', ' end
-			end
-
-			previousIsTop = isTop
-			previousAction = action
+			table.insert(self.GeneratedActionsOriginal, new_action)
 		end
-		if config.EnableLogs then printWithTime(userAction, 'init.insert', #self.GeneratedActionsOriginal, logsInfo) end
-		
-		self.FrameDurationInSec = frameDurationInMs / 1000
+
+		-- Try to 'attach' the first and last generated actions to existing actions point
+		local script = ofs.Script(self.ScriptIdx)
+		local firstGeneratedAction = self.GeneratedActionsOriginal[1]
+		local firstActionMatched = script:closestAction(firstGeneratedAction.at)
+		if firstActionMatched and math.abs(firstGeneratedAction.at - firstActionMatched.at) < frameDurationInSec then
+			printWithTime(userAction, 'locking first point to existing point', getFormattedTime(firstActionMatched.at))
+			firstGeneratedAction.at = firstActionMatched.at
+			firstGeneratedAction.originalAt = firstActionMatched.at
+			firstGeneratedAction.locked = false
+		end
+
+		local lastGeneratedAction = self.GeneratedActionsOriginal[#self.GeneratedActionsOriginal]
+		local lastActionMatched = script:closestAction(lastGeneratedAction.at)
+		if lastActionMatched and math.abs(lastGeneratedAction.at - lastActionMatched.at) < frameDurationInSec then
+			printWithTime(userAction, 'locking last point to existing point', getFormattedTime(lastActionMatched.at))
+			lastGeneratedAction.at = lastActionMatched.at
+			lastGeneratedAction.originalAt = lastActionMatched.at
+			lastGeneratedAction.locked = false
+		end
+
+		if config.EnableLogs then printWithTime(userAction, 'init.insert', #self.GeneratedActionsOriginal) end
+
+		self.FrameDurationInSec = frameDurationInSec
 		self:update(userAction .. ' init')
 	end
+end
+
+
+-- Revised function to identify full strokes from a list of actions
+local function identifyFullStrokes(actions)
+    local fullStrokes = {}
+    local i = 1
+    
+    while i <= #actions - 2 do
+        local point1 = actions[i]
+        local point2 = actions[i+1]
+        local point3 = actions[i+2]
+        
+        -- Check if we have a valid bottom-top-bottom pattern
+        -- Using isTop property if available, otherwise use position
+        local isPattern = false
+        
+        if point1.isTop ~= nil and point2.isTop ~= nil and point3.isTop ~= nil then
+            -- Use isTop property
+            isPattern = (not point1.isTop and point2.isTop and not point3.isTop)
+        else
+            -- Fallback to position comparison
+            isPattern = (point1.pos < point2.pos and point3.pos < point2.pos)
+        end
+        
+        if isPattern then
+            -- This is a full stroke (bottom-top-bottom)
+            table.insert(fullStrokes, FullStroke:new(point1, point2, point3))
+            i = i + 2  -- Move to the start of next potential stroke
+        else
+            i = i + 1  -- Move to next point
+        end
+    end
+    
+    return fullStrokes
+end
+
+-- Function to update actions with optimized stroke timings
+local function updateActionsWithOptimizedStrokes(actions, fullStrokes)
+    local strokeIndex = 1
+    local i = 1
+    
+    while i <= #actions - 2 and strokeIndex <= #fullStrokes do
+        local point1 = actions[i]
+        local point2 = actions[i+1]
+        local point3 = actions[i+2]
+        
+        -- Check if we have a valid bottom-top-bottom pattern
+        local isPattern = false
+        
+        if point1.isTop ~= nil and point2.isTop ~= nil and point3.isTop ~= nil then
+            -- Use isTop property
+            isPattern = (not point1.isTop and point2.isTop and not point3.isTop)
+        else
+            -- Fallback to position comparison
+            isPattern = (point1.pos < point2.pos and point3.pos < point2.pos)
+        end
+        
+        if isPattern then
+            -- Update with optimized stroke timings
+            local optimizedStroke = fullStrokes[strokeIndex]
+            
+            -- Update original actions with optimized timings
+            -- Make sure we maintain order and minimum spacing
+            point2.at = optimizedStroke.top.at
+            point3.at = optimizedStroke.bottom2.at
+            
+            -- Ensure minimum spacing
+            if i+3 <= #actions and point3.at >= actions[i+3].at then
+                point3.at = actions[i+3].at - 0.01  -- Maintain spacing
+            end
+            
+            strokeIndex = strokeIndex + 1
+            i = i + 2  -- Move to the next potential stroke
+        else
+            i = i + 1  -- Move to next point
+        end
+    end
+    
+    return actions
 end
 
 function virtual_actions:updateDebugScriptIfNeeded(userAction, actions)
@@ -258,7 +335,7 @@ function virtual_actions:update(userAction)
 			end
 		end
 		
-		-- Remove the item that are would outside our 'zone' (i.e. they might overlap existing actions)
+		-- Remove the item that would be outside our 'zone' (i.e. they might overlap existing actions)
 		local logsInfo = ''
 		for i = #self.ActionsInTimeline, 1, -1 do
 			local action = self.ActionsInTimeline[i]

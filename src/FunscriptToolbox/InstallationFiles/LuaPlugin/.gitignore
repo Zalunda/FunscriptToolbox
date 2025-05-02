@@ -1,3 +1,5 @@
 Responses/*
 *.lock
 config.json
+static_config.lua
+Channel-*.json
