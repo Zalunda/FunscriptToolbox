@@ -2,6 +2,7 @@
 json = require "json"
 server_connection = require "server_connection"
 virtual_actions = require "virtual_actions"
+fullstroke = require "fullstroke"
 require "static_config"
 
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
@@ -157,7 +158,7 @@ function sendCreateRulesRequest(showUI)
 		table.insert(candidates, script.actions[i])
 	end
     
-    local actionsToSend = getActionsForLastNHalfStrokes(candidates, config.shared.NumberHalfStrokesSample or 6)
+    local actionsToSend = fullstroke.getActionsForLastNHalfStrokes(candidates, config.shared.NumberHalfStrokesSample or 6)
     
     local request = createRequest("CreateRulesPluginRequest")
     
@@ -218,57 +219,6 @@ function sendCreateRulesRequest(showUI)
         lastRequestError = 'ERROR: Unable to find .mvs file for this video'
         lastRequestErrorTooltip = 'You need to create a .mvs file using FunscriptToolbox.exe for this video.'
     end
-end
-
--- TODO MOVE and/or rename
-function getActionsForLastNHalfStrokes(candidates, maxNumberHalfStrokes)
-    -- Need at least 2 actions to detect direction
-    if #candidates < 2 then
-        return candidates
-    end
-    
-    local actionsToInclude = {}
-    local directionChanges = 0
-    local previousDirection = nil
-    
-    -- Start from the most recent action (end of array) and work backwards
-    -- Always include the newest action
-    table.insert(actionsToInclude, candidates[#candidates])
-    
-    for i = #candidates - 1, 1, -1 do
-        local current = candidates[i]
-        local next = candidates[i+1]  -- The action after (more recent in time)
-        
-        -- Determine direction (still from older to newer perspective)
-        local direction = nil
-        if current.pos < next.pos then
-            direction = "up"
-        elseif current.pos > next.pos then
-            direction = "down"
-        else
-            direction = "neutral"
-        end
-        
-        -- Check for direction change (skip neutral)
-        if direction ~= "neutral" then
-            if previousDirection ~= nil and direction ~= previousDirection then
-                directionChanges = directionChanges + 1
-                
-                -- If we found enough direction changes, we're done
-                if directionChanges >= maxNumberHalfStrokes then
-                    break
-                end
-            end
-            
-            -- Update previous direction
-            previousDirection = direction
-        end
-
-        -- Include this action
-        table.insert(actionsToInclude, 1, current)  -- Insert at beginning to maintain chronological order        
-    end
-    
-    return actionsToInclude
 end
 
 function handleCreateRulesResponse(response)

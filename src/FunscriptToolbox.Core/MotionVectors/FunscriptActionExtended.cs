@@ -9,6 +9,8 @@ namespace FunscriptToolbox.Core.MotionVectors
         public int AtMax { get; private set; }
         [JsonIgnore]
         public long Weight { get; private set; }
+        [JsonIgnore]
+        public long PartialWeight { get; private set; }
 
         public FunscriptActionExtended(int at, int pos)
             : base(at, pos)
@@ -16,12 +18,14 @@ namespace FunscriptToolbox.Core.MotionVectors
             AtMin = At;
             AtMax = At;
             Weight = 0;
+            PartialWeight = 0;
         }
 
-        internal void SetAtMinAndWeight(int atMin, long weight)
+        internal void SetAtMinAndWeight(int atMin, long weight, long partialWeight)
         {
             AtMin = Math.Min(At, atMin);
             Weight = weight;
+            PartialWeight = partialWeight;
         }
 
         internal void SetAtMax(int atMax)
@@ -36,7 +40,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 
         public override string ToString()
         {
-            return $"{At}, {Pos}, {At - AtMin}, {AtMax - At}, {Weight}";
+            return $"{At}, {Pos}, {At - AtMin}, {AtMax - At}, {Weight}, {PartialWeight}";
         }
     }
 }
