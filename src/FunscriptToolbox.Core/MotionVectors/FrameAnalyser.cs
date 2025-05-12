@@ -6,7 +6,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 {
     public class CreateActionsSettings
     {
-        public double MaximumNbStrokesDetectedPerSecond { get; set; }
+        public double MaximumStrokesDetectedPerSecond { get; set; }
         public TimeSpan MaximumGapSize { get; set; } = TimeSpan.FromSeconds(0.5);
     }
 
@@ -98,7 +98,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             var currentActionStartTime = TimeSpan.MinValue;
             var currentActionEndTime = TimeSpan.Zero;
             var lastFrameTotalWeight = 0L;
-            var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (settings.MaximumNbStrokesDetectedPerSecond * 2) - 20);
+            var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (settings.MaximumStrokesDetectedPerSecond * 2) - 20);
             var framesWithSameDirectionAccumulator = new List<WeightedMotionVectorsFrame>();
 
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
@@ -239,14 +239,27 @@ namespace FunscriptToolbox.Core.MotionVectors
             foreach (var rule in this.Rules)
             {
                 var weight = lookup[(byte)frame.Motions[rule.Index].X, (byte)frame.Motions[rule.Index].Y, rule.Direction];
-                partialWeights[i++] = Math.Abs(weight);
+                partialWeights[i++] = weight;
                 totalWeight += weight;
             }
             // TODO? How do I use that? Highest 100? Or percentage??
             Array.Sort(partialWeights);
-            for (int k = this.Rules.Length - Math.Min(100, this.Rules.Length); k < partialWeights.Length; k++)
+            var index0 = Array.BinarySearch(partialWeights, (short)0);
+            if (index0 < 0)
+                index0 = -(index0 + 1);
+            if (totalWeight > 0)
             {
-                partialWeight += partialWeights[k];
+                for (int k = index0; k < partialWeights.Length; k++)
+                {
+                    partialWeight += partialWeights[k];
+                }
+            }
+            else
+            {
+                for (int k = index0; k >= 0; k--)
+                {
+                    partialWeight -= partialWeights[k];
+                }
             }
             return totalWeight;
         }

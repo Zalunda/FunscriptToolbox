@@ -141,7 +141,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     }
                     else if (request is CreateRulesPluginRequest createRulesRequest)
                     {
-                        var mvsReader = GetMvsReader(createRulesRequest.MvsFullPath, createRulesRequest.SharedConfig.MaximumMemoryUsageInMB);
+                        var mvsReader = GetMvsReader(createRulesRequest.MvsFullPath, createRulesRequest.MaximumMemoryUsageInMB);
 
                         // TODO if actions is empty => auto generate rules
 
@@ -159,9 +159,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                             m_currentFrameAnalyser = createRulesRequest
                                 .CreateInitialFrameAnalyser(mvsReader)
                                 .Filter(
-                                    createRulesRequest.SharedConfig.DefaultActivityFilter,
-                                    createRulesRequest.SharedConfig.DefaultQualityFilter,
-                                    createRulesRequest.SharedConfig.DefaultMinimumPercentageFilter);
+                                    createRulesRequest.DefaultActivityFilter,
+                                    createRulesRequest.DefaultQualityFilter,
+                                    createRulesRequest.DefaultMinimumPercentageFilter);
                         }
 
                         response = new CreateRulesPluginResponse
@@ -175,7 +175,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesRequest.DurationToGenerateInSeconds),
                                 new CreateActionsSettings
                                 {
-                                    MaximumNbStrokesDetectedPerSecond = createRulesRequest.SharedConfig.MaximumNbStrokesDetectedPerSecond
+                                    MaximumStrokesDetectedPerSecond = createRulesRequest.MaximumStrokesDetectedPerSecond
                                 })
                         };
                     }

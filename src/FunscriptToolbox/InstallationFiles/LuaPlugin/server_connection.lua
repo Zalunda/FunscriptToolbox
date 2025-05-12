@@ -3,11 +3,10 @@ json = require "json"
 
 local server_connection = {}
 
-function server_connection:new(FTMVSFullPath, enableLogs)
+function server_connection:new(FTMVSFullPath)
 	local o = { 
 		FTMVSFullPath = FTMVSFullPath,
 		cantFindFTMVSFullPath = false,
-		enableLogs = enableLogs,
 		serverProcessHandle = nil,
 		requests = {},
 		lastTimeTaken = 0,
@@ -89,7 +88,7 @@ function server_connection:startServerIfNeeded()
     local cmd = self.FTMVSFullPath
     local args = {}
     table.insert(args, "motionvectors.ofspluginserver")
-    if self.enableLogs then;
+    if config_manager:IsLogEnabled() then
         table.insert(args, "--verbose")
     end
     table.insert(args, "--channelbasefilepath")
@@ -119,7 +118,7 @@ function server_connection:sendRequest(request, callback)
 	
 		printWithTime('Sending request #' .. transactionNumber)
 		local encoded_data = json.encode(request)
-		if self.enableLogs then
+		if config_manager:IsLogEnabled() then
 			printWithTime(encoded_data)
 		end
  		local requestFile = io.open(requestFilePath, "w")
@@ -149,7 +148,7 @@ function server_connection:getResponseForRequest(request)
 	printWithTime('Reading response #' .. request.transactionNumber)
     local content = f:read("*a")
     f:close()
-	if self.enableLogs then
+	if config_manager:IsLogEnabled() then
 		printWithTime(content)
 	end
     response_body = json.decode(content)

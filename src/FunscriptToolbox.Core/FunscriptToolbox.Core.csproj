@@ -74,7 +74,6 @@
     <Compile Include="MotionVectors\PluginMessages\ErrorPluginResponse.cs" />
     <Compile Include="MotionVectors\PluginMessages\KeepAlivePluginResponse.cs" />
     <Compile Include="MotionVectors\PluginMessages\PluginResponse.cs" />
-    <Compile Include="MotionVectors\PluginMessages\SharedConfig.cs" />
     <Compile Include="MotionVectors\PluginMessages\PluginRequest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SubtitleFile.cs" />

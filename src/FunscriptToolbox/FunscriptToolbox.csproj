@@ -253,6 +253,8 @@
     <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />
     <None Include="app.manifest" />
     <None Include="InstallationFiles\--FSTB-VerifyDownloadedScripts.bat" />
+    <None Include="InstallationFiles\LuaPlugin\gui_config_manager.lua" />
+    <None Include="InstallationFiles\LuaPlugin\gui_config_def.lua" />
     <None Include="InstallationFiles\LuaPlugin\fullstroke.lua" />
     <None Include="InstallationFiles\LuaPlugin\json.lua" />
     <None Include="InstallationFiles\LuaPlugin\main.lua" />

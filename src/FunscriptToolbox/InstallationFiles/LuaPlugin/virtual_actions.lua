@@ -63,7 +63,7 @@ function virtual_actions:init(userAction, generatedActions, frameDurationInSec)
 		local actionsNotInStrokes
         self.GeneratedFullStrokes, actionsNotInStrokes = fullstroke.identifyFullStrokes(self.GeneratedActions)
 
-        if config.EnableLogs then
+        if config_manager:IsLogEnabled() then
             printWithTime(userAction, 'init.insert', 
 						  #self.GeneratedActions, 'actions,', 
                           #self.GeneratedFullStrokes, 'strokes,', 
@@ -103,13 +103,13 @@ function virtual_actions:removeAllVirtualActionsInTimelime(userAction)
 		for idx, action in ipairs(script.actions) do
 			if action.at >= firstAction.at - self.FrameDurationInSec / 2 and action.at <= lastAction.at + self.FrameDurationInSec / 2 then
 				script:markForRemoval(idx)
-				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(action.at) .. ', ' end
+				if config_manager:IsLogEnabled() then logsInfo = logsInfo .. getFormattedTime(action.at) .. ', ' end
 			end
 		end
 		script:removeMarked()
 		script:commit()
 		
-		if config.EnableLogs and #logsInfo > 0 then printWithTime(userAction, 'removeAllVirtualActionsInTimelime', logsInfo) end
+		if config_manager:IsLogEnabled() and #logsInfo > 0 then printWithTime(userAction, 'removeAllVirtualActionsInTimelime', logsInfo) end
 	end
 end
 
@@ -119,17 +119,17 @@ function virtual_actions:unvirtualizeActionsBefore(userAction, time)
 		local logsInfo = ''
 		for i, generatedAction in ipairs(self.GeneratedActions) do
 			if generatedAction.at <= time and generatedAction.enabled then
-				if config.EnableLogs then logsInfo = logsInfo .. getFormattedTime(generatedAction.at) .. ', ' end
+				if config_manager:IsLogEnabled() then logsInfo = logsInfo .. getFormattedTime(generatedAction.at) .. ', ' end
 				generatedAction.enabled = false
 			end
 		end
-		if config.EnableLogs and #logsInfo > 0 then printWithTime(userAction, 'unvirtualizeActionsBefore.GeneratedActions', #self.GeneratedActions, logsInfo) end
+		if config_manager:IsLogEnabled() and #logsInfo > 0 then printWithTime(userAction, 'unvirtualizeActionsBefore.GeneratedActions', #self.GeneratedActions, logsInfo) end
  	end
 end
 
 function virtual_actions:deleteAllVirtualActions(userAction)
 
-	if config.EnableLogs then printWithTime(userAction, 'deleteAllVirtualActions') end
+	if config_manager:IsLogEnabled() then printWithTime(userAction, 'deleteAllVirtualActions') end
 	self:removeAllVirtualActionsInTimelime(userAction .. ' deleteAllVirtualActions')
 	self.GeneratedActions = {}
 end
@@ -199,10 +199,10 @@ function virtual_actions:update(userAction)
 		-- end
 			
 		-- Adjust position, according to the user preference
-		local totalAmplitude = self.Config.MaximumPosition - self.Config.MinimumPosition
+		local totalAmplitude = config_manager:getConfigValue("amplitude.MaximumPosition") - config_manager:getConfigValue("amplitude.MinimumPosition")
 		local ratio = totalAmplitude / 100
-		local minAmplitude = self.Config.MinimumPercentageFilled * ratio		
-		local amplitudeRange = (100 - self.Config.MinimumPercentageFilled) * ratio
+		local minAmplitude = config_manager:getConfigValue("amplitude.MinimumPercentageFilled") * ratio
+		local amplitudeRange = (100 - config_manager:getConfigValue("amplitude.MinimumPercentageFilled")) * ratio
 
 		local previousPos = self.GeneratedActions[1].pos
 		for i = 2, #self.GeneratedActions do
@@ -211,12 +211,12 @@ function virtual_actions:update(userAction)
 			
 				local distance = math.abs(previousPos - currentPos)
 				if distance > 0 then
-					local finalAmplitude = (minAmplitude + distance * amplitudeRange / 100) * (1 + self.Config.ExtraAmplitudePercentage / 100)
+					local finalAmplitude = (minAmplitude + distance * amplitudeRange / 100) * (1 + config_manager:getConfigValue("amplitude.ExtraPercentage") / 100)
 					local unusedAmplitude = totalAmplitude - finalAmplitude
-					minPosition = self.Config.MinimumPosition
-					maxPosition = self.Config.MaximumPosition
+					minPosition = config_manager:getConfigValue("amplitude.MinimumPosition")
+					maxPosition = config_manager:getConfigValue("amplitude.MaximumPosition")
 					if unusedAmplitude > 0 then									
-						minPosition = minPosition + unusedAmplitude * self.Config.AmplitudeCenter / 100
+						minPosition = minPosition + unusedAmplitude * config_manager:getConfigValue("amplitude.Center") / 100
 						maxPosition = minPosition + finalAmplitude
 					end
 				
@@ -326,9 +326,7 @@ function virtual_actions:updateDebugScriptIfNeeded(userAction, actions)
             -- Commit changes to the debug script
             debugScript:commit()
             
-            if config.EnableLogs then 
-                printWithTime(userAction, 'updateDebugScriptIfNeeded', 'Updated debug script: ' .. scriptName) 
-            end
+            printWithTime(userAction, 'updateDebugScriptIfNeeded', 'Updated debug script: ' .. scriptName) 
         end
     end
 end
