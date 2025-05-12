@@ -11,27 +11,34 @@ namespace FunscriptToolbox.Core.MotionVectors.PluginMessages
         public FunscriptAction[] Actions { get; set; }
         public FunscriptAction[] SelectedActions { get; set; }
 
-        public int DefaultActivityFilter { get; set; }
-        public int DefaultQualityFilter { get; set; }
-        public double DefaultMinimumPercentageFilter { get; set; }
-        public int MaximumMemoryUsageInMB { get; set; }
-        public bool ShowUI { get; set; }
-        public bool TopMostUI { get; set; }
+        public int LearnFromAction_NbFramesToIgnoreAroundAction { get; set; }
+        public int LearnFromAction_DefaultActivityFilter { get; set; }
+        public int LearnFromAction_DefaultQualityFilter { get; set; }
+        public double LearnFromAction_DefaultMinimumPercentageFilter { get; set; }
+        public bool LearnFromAction_ShowUI { get; set; }
+        public bool LearnFromAction_TopMostUI { get; set; }
 
-        public double DurationToGenerateInSeconds { get; set; }
-        public double MaximumStrokesDetectedPerSecond { get; set; }
+        public double GenerateActions_MaximumStrokesDetectedPerSecond { get; set; }
+        public int GenerateActions_PercentageOfFramesToKeep { get; set; }
+        public double GenerateActions_DurationToGenerateInSeconds { get; set; }
+
+        public int MaximumMemoryUsageInMB { get; set; }
 
         public TimeSpan CurrentVideoTimeAsTimeSpan => TimeSpan.FromMilliseconds(CurrentVideoTime);
         public FrameAnalyser CreateInitialFrameAnalyser(MotionVectorsFileReader mvsReader)
         {
             var learningActions = this.SelectedActions.Length > 0
                 ? this.SelectedActions
-                : this.Actions.Length > 0
+                : this.Actions.Length > 1
                     ? this.Actions
-                    : null;
+                    : null; // TODO Automatic
             return learningActions == null
                 ? new FrameAnalyser(mvsReader.FrameLayout)
-                : FrameAnalyserGenerator.CreateFromScriptSequence(mvsReader, learningActions);
+                : FrameAnalyserGenerator.CreateFromScriptSequence(
+                    mvsReader, 
+                    learningActions,
+                    new LearnFromActionsSettings { 
+                        NbFramesToIgnoreAroundAction = this.LearnFromAction_NbFramesToIgnoreAroundAction });
         }
     }
 }

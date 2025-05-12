@@ -145,7 +145,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
                         // TODO if actions is empty => auto generate rules
 
-                        if (createRulesRequest.ShowUI)
+                        if (createRulesRequest.LearnFromAction_ShowUI)
                         {
                             m_currentFrameAnalyser = Test.TestAnalyser(
                                 TakeSnapshot(
@@ -159,9 +159,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                             m_currentFrameAnalyser = createRulesRequest
                                 .CreateInitialFrameAnalyser(mvsReader)
                                 .Filter(
-                                    createRulesRequest.DefaultActivityFilter,
-                                    createRulesRequest.DefaultQualityFilter,
-                                    createRulesRequest.DefaultMinimumPercentageFilter);
+                                    createRulesRequest.LearnFromAction_DefaultActivityFilter,
+                                    createRulesRequest.LearnFromAction_DefaultQualityFilter,
+                                    createRulesRequest.LearnFromAction_DefaultMinimumPercentageFilter);
                         }
 
                         response = new CreateRulesPluginResponse
@@ -169,13 +169,14 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                             FrameDurationInMs = mvsReader.FrameDurationInMs,
                             CurrentVideoTime = createRulesRequest.CurrentVideoTime,
                             ScriptIndex = createRulesRequest.ScriptIndex,
-                            Actions = m_currentFrameAnalyser?.CreateActions(
+                            Actions = m_currentFrameAnalyser?.GenerateActions(
                                 mvsReader,
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan,
-                                createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesRequest.DurationToGenerateInSeconds),
-                                new CreateActionsSettings
+                                createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesRequest.GenerateActions_DurationToGenerateInSeconds),
+                                new GenerateActionsSettings
                                 {
-                                    MaximumStrokesDetectedPerSecond = createRulesRequest.MaximumStrokesDetectedPerSecond
+                                    MaximumStrokesDetectedPerSecond = createRulesRequest.GenerateActions_MaximumStrokesDetectedPerSecond,
+                                    PercentageOfFramesToKeep = createRulesRequest.GenerateActions_PercentageOfFramesToKeep
                                 })
                         };
                     }

@@ -9,10 +9,11 @@ namespace FunscriptToolbox.Core.MotionVectors
     {
         public static FrameAnalyser CreateFromScriptSequence(
             MotionVectorsFileReader reader,
-            FunscriptAction[] actions)
+            FunscriptAction[] actions,
+            LearnFromActionsSettings settings)
         {
             var watchload = Stopwatch.StartNew();
-            var optimized = AnalyseReferenceActions(reader, actions);
+            var optimized = AnalyseReferenceActions(reader, actions, settings);
             watchload.Stop();
 
             return optimized;
@@ -31,7 +32,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         public static unsafe FrameAnalyser AnalyseReferenceActions(
             MotionVectorsFileReader reader,
             FunscriptAction[] referenceActions,
-            int framesToIgnoreAroundAction = 3)
+            LearnFromActionsSettings settings)
         {
             var frameCounter = 0;
             var currentSegmentFrames = 0;
@@ -51,12 +52,13 @@ namespace FunscriptToolbox.Core.MotionVectors
                     currentAction = nextReferenceAction;
                     nextReferenceAction = referenceActions[indexAction++];
                     frameCounter = 0;
+
                     // Calculate total frames in this segment
                     currentSegmentFrames = (int)((nextReferenceAction.AtAsTimeSpan - currentAction.AtAsTimeSpan).TotalSeconds * (double)reader.VideoFramerate);
                 }
 
                 // Skip frames at start and end of segments
-                if (frameCounter < framesToIgnoreAroundAction || frameCounter >= (currentSegmentFrames - framesToIgnoreAroundAction))
+                if (frameCounter < settings.NbFramesToIgnoreAroundAction || frameCounter >= (currentSegmentFrames - settings.NbFramesToIgnoreAroundAction))
                 {
                     frameCounter++;
                     continue;

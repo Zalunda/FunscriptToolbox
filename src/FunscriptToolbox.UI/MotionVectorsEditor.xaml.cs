@@ -57,10 +57,10 @@ namespace FunscriptToolbox.UI
 
             InitializeComponent();
 
-            ActivitySlider.Value = createRulesRequest.DefaultActivityFilter;
-            QualitySlider.Value = createRulesRequest.DefaultQualityFilter;
-            MinPercentageSlider.Value = createRulesRequest.DefaultMinimumPercentageFilter;
-            this.Topmost = createRulesRequest.TopMostUI;
+            ActivitySlider.Value = createRulesRequest.LearnFromAction_DefaultActivityFilter;
+            QualitySlider.Value = createRulesRequest.LearnFromAction_DefaultQualityFilter;
+            MinPercentageSlider.Value = createRulesRequest.LearnFromAction_DefaultMinimumPercentageFilter;
+            this.Topmost = createRulesRequest.LearnFromAction_TopMostUI;
 
             ScreenShot.Width = r_mvsReader.VideoWidth;
             ScreenShot.Height = r_mvsReader.VideoHeight;

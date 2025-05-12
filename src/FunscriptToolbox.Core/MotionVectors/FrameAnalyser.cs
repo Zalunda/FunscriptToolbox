@@ -4,43 +4,6 @@ using System.Linq;
 
 namespace FunscriptToolbox.Core.MotionVectors
 {
-    public class CreateActionsSettings
-    {
-        public double MaximumStrokesDetectedPerSecond { get; set; }
-        public TimeSpan MaximumGapSize { get; set; } = TimeSpan.FromSeconds(0.5);
-    }
-
-    public class FunscriptActionWithWeight : FunscriptAction
-    {
-        public int NbResults { get; }
-        public List<WeightedMotionVectorsFrame> Frames { get; }
-        public long TotalWeight { get; }
-        public TimeSpan StartTime => this.Frames.FirstOrDefault().Original.FrameTime;
-        public TimeSpan EndTime => this.Frames.LastOrDefault().Original.FrameTime;
-
-        public FunscriptActionWithWeight(int at, int pos, List<WeightedMotionVectorsFrame> frames)
-            : base(at, pos)
-        {
-            if (frames == null)
-            {
-                NbResults = 0;
-                Frames = new List<WeightedMotionVectorsFrame>();
-                TotalWeight = 0;
-            }
-            else
-            {
-                Frames = frames;
-                NbResults = frames.Count;
-                TotalWeight = frames.Sum(f => f.Weight);
-            }
-        }
-
-        public override string ToString()
-        {
-            return $"{Pos,3}, {NbResults,3}, {TotalWeight,12}, {At}";
-        }
-    }
-
     public class FrameAnalyser
     {
         public MotionVectorsFrameLayout FrameLayout { get; }
@@ -86,11 +49,11 @@ namespace FunscriptToolbox.Core.MotionVectors
                 qualityLevel);
         }
 
-        public FunscriptActionExtended[] CreateActions(
+        public FunscriptActionExtended[] GenerateActions(
             MotionVectorsFileReader mvsReader,
             TimeSpan startingTime,
             TimeSpan endTime,
-            CreateActionsSettings settings)
+            GenerateActionsSettings settings)
         {
             var points = new List<FunscriptActionExtended>();
 
@@ -133,7 +96,8 @@ namespace FunscriptToolbox.Core.MotionVectors
                             currentActionStartTime, 
                             currentActionEndTime, 
                             lastFrameTotalWeight, 
-                            framesWithSameDirectionAccumulator);
+                            framesWithSameDirectionAccumulator,
+                            settings);
                     }
 
                     lastFrameTotalWeight = currentFrameWithWeight.Weight;
@@ -153,7 +117,8 @@ namespace FunscriptToolbox.Core.MotionVectors
                     currentActionStartTime,
                     currentActionEndTime,
                     lastFrameTotalWeight,
-                    framesWithSameDirectionAccumulator);
+                    framesWithSameDirectionAccumulator,
+                    settings);
             }
 
             var sortedWeight = points
@@ -179,7 +144,8 @@ namespace FunscriptToolbox.Core.MotionVectors
             TimeSpan currentActionStartTime, 
             TimeSpan currentActionEndTime, 
             long lastFrameTotalWeight, 
-            List<WeightedMotionVectorsFrame> framesWithSameDirectionAccumulator)
+            List<WeightedMotionVectorsFrame> framesWithSameDirectionAccumulator,
+            GenerateActionsSettings settings)
         {
             int startValue = (lastFrameTotalWeight > 0) ? 0 : 100;
             int endValue = (lastFrameTotalWeight > 0) ? 100 : 0;
@@ -189,9 +155,9 @@ namespace FunscriptToolbox.Core.MotionVectors
             var endPoint = GetOrAddPoint(points, FunscriptActionExtended.TimeToAt(currentActionEndTime), endValue);
 
             // Sort frames by weight (absolute value, descending)
-            // Take the top 70% of frames
+            // Take a percentage of frames.
             // Remember the minimum and maximum time of those frames
-            var frameCountToKeep = (int)Math.Ceiling(framesWithSameDirectionAccumulator.Count * 0.7);
+            var frameCountToKeep = Math.Max(2, (int)Math.Ceiling(framesWithSameDirectionAccumulator.Count * (double)settings.PercentageOfFramesToKeep / 100));
             var mouvMin = int.MaxValue;
             var mouvMax = int.MinValue;
             var weight = 0L;
@@ -242,24 +208,32 @@ namespace FunscriptToolbox.Core.MotionVectors
                 partialWeights[i++] = weight;
                 totalWeight += weight;
             }
+
             // TODO? How do I use that? Highest 100? Or percentage??
-            Array.Sort(partialWeights);
-            var index0 = Array.BinarySearch(partialWeights, (short)0);
-            if (index0 < 0)
-                index0 = -(index0 + 1);
-            if (totalWeight > 0)
+            if (partialWeights.Length > 0)
             {
-                for (int k = index0; k < partialWeights.Length; k++)
+                Array.Sort(partialWeights);
+                var index0 = Array.BinarySearch(partialWeights, (short)0);
+                if (index0 < 0)
+                    index0 = -(index0 + 1);
+                if (totalWeight > 0)
                 {
-                    partialWeight += partialWeights[k];
+                    for (int k = index0; k < partialWeights.Length; k++)
+                    {
+                        partialWeight += partialWeights[k];
+                    }
+                }
+                else
+                {
+                    for (int k = index0; k >= 0; k--)
+                    {
+                        partialWeight -= partialWeights[k];
+                    }
                 }
             }
             else
             {
-                for (int k = index0; k >= 0; k--)
-                {
-                    partialWeight -= partialWeights[k];
-                }
+                partialWeight = totalWeight;
             }
             return totalWeight;
         }

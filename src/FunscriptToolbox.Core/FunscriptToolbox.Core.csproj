@@ -50,6 +50,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MotionVectors\FunscriptActionExtended.cs" />
+    <Compile Include="MotionVectors\GenerateActionsSettings.cs" />
+    <Compile Include="MotionVectors\LearnFromActionsSettings.cs" />
     <Compile Include="MotionVectors\MotionVectorsFrameLayout.cs" />
     <Compile Include="MotionVectors\WeightedMotionVectorsFrame.cs" />
     <Compile Include="WIPFunscriptActionDirection.cs" />

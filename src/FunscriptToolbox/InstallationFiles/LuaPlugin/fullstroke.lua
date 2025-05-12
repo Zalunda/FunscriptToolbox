@@ -99,8 +99,8 @@ function fullstroke:new(bottom1, top, bottom2)
 end
 
 -- Optimize stroke timings based on surrounding strokes
-function fullstroke.optimizeActionPointTimings(fullstrokes, similarityThreshold)
-   
+function fullstroke.optimizeActionPointTimings(fullstrokes, similarityThreshold, minRatioUpDown, maxRatioUpDown)
+
     -- TimeRange helper functions
     local function isInRange(time, point)
         return time >= point.atMin and time <= point.atMax
@@ -164,18 +164,18 @@ function fullstroke.optimizeActionPointTimings(fullstrokes, similarityThreshold)
             -- Don't count previousStroke.bottom2 because it's the same point as stroke.bottom1
 
             local prevUpPerc = getUpPercentage(previousStroke)
-            if prevUpPerc < 50 then
-                error = error + (50 - prevUpPerc) * 50
-            elseif prevUpPerc > 60 then
-                error = error + (prevUpPerc - 60) * 50
+            if prevUpPerc < minRatioUpDown then
+                error = error + (minRatioUpDown - prevUpPerc) * 50
+            elseif prevUpPerc > maxRatioUpDown then
+                error = error + (prevUpPerc - maxRatioUpDown) * 50
             end
         end
     
         local upPerc = getUpPercentage(stroke)
-        if upPerc < 50 then
-            error = error + (50 - upPerc) * 50
-        elseif upPerc > 60 then
-            error = error + (upPerc - 60) * 50
+        if upPerc < minRatioUpDown then
+            error = error + (minRatioUpDown - upPerc) * 50
+        elseif upPerc > maxRatioUpDown then
+            error = error + (upPerc - maxRatioUpDown) * 50
         end
     
         return error

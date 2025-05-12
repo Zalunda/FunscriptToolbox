@@ -111,19 +111,21 @@ function sendCreateRulesRequest(showUI)
         request.ScriptIndex = scriptIndex
         request.Actions = {}
         request.SelectedActions = {}
-        request.ShowUI = showUI;
-        request.TopMostUI = config_manager:getConfigValue("learn.TopMostUI");
-        request.DefaultActivityFilter = config_manager:getConfigValue("learn.DefaultActivityFilter");
-        request.DefaultQualityFilter = config_manager:getConfigValue("learn.DefaultQualityFilter");
-        request.DefaultMinimumPercentageFilter = config_manager:getConfigValue("learn.DefaultMinimumPercentageFilter");
-        request.MaximumMemoryUsageInMB = config_manager:getConfigValue("learn.MaximumMemoryUsageInMB");
+        request.LearnFromAction_ShowUI = showUI;
+        request.LearnFromAction_TopMostUI = config_manager:getConfigValue("learn.TopMostUI");
+        request.LearnFromAction_NbFramesToIgnoreAroundAction = config_manager:getConfigValue("learn.NbFramesToIgnoreAroundAction");
+        request.LearnFromAction_DefaultActivityFilter = config_manager:getConfigValue("learn.DefaultActivityFilter");
+        request.LearnFromAction_DefaultQualityFilter = config_manager:getConfigValue("learn.DefaultQualityFilter");
+        request.LearnFromAction_DefaultMinimumPercentageFilter = config_manager:getConfigValue("learn.DefaultMinimumPercentageFilter");
 
+        request.GenerateActions_MaximumStrokesDetectedPerSecond = config_manager:getConfigValue("generate.MaximumStrokesDetectedPerSecond");
+        request.GenerateActions_PercentageOfFramesToKeep = config_manager:getConfigValue("generate.PercentageOfFramesToKeep");
         if nextAction then
-            request.DurationToGenerateInSeconds = math.min(config_manager:getConfigValue("generate.MaximumDurationToGenerateInSeconds"), nextAction.at - player.CurrentTime())
+            request.GenerateActions_DurationToGenerateInSeconds = math.min(config_manager:getConfigValue("generate.MaximumDurationToGenerateInSeconds"), nextAction.at - player.CurrentTime())
         else
-            request.DurationToGenerateInSeconds = config_manager:getConfigValue("generate.MaximumDurationToGenerateInSeconds")
+            request.GenerateActions_DurationToGenerateInSeconds = config_manager:getConfigValue("generate.MaximumDurationToGenerateInSeconds")
         end
-        request.MaximumStrokesDetectedPerSecond = config_manager:getConfigValue("generate.MaximumStrokesDetectedPerSecond");
+        request.MaximumMemoryUsageInMB = config_manager:getConfigValue("learn.MaximumMemoryUsageInMB");
 
         for _, action in ipairs(actionsToSend) do
             table.insert(request.Actions, { at = math.floor(action.at * 1000 + 0.5), pos = action.pos })

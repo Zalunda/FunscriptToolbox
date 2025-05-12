@@ -342,12 +342,15 @@ function ConfigManager:renderGuiItem(itemDef)
         local step = itemDef.step or 1
         if itemDef.stepFunction then step = itemDef.stepFunction(currentValue) end
         valueFromInput, changedByMainInput = ofs.InputInt(itemDef.label, newValueForInput, step)
+           ofs.Tooltip(itemDef.label) 
     elseif itemDef.type == "InputFloat" then
         local step = itemDef.step or 1.0
         if itemDef.stepFunction then step = itemDef.stepFunction(currentValue) end
         valueFromInput, changedByMainInput = ofs.Input(itemDef.label, newValueForInput, step)
+        ofs.Tooltip(itemDef.label) 
     elseif itemDef.type == "Checkbox" then
         valueFromInput, changedByMainInput = ofs.Checkbox(itemDef.label, newValueForInput)
+        ofs.Tooltip(itemDef.label) 
     else
         if itemDef.type ~= "Header" then
             ofs.Text("Unknown/unhandled control type: " .. itemDef.type)

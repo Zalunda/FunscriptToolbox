@@ -156,7 +156,11 @@ function virtual_actions:update(userAction)
 			action.pos = action.originalPos
 		end
 
-		fullstroke.optimizeActionPointTimings(self.GeneratedFullStrokes, 0.2)
+		fullstroke.optimizeActionPointTimings(
+			self.GeneratedFullStrokes, 
+			config_manager:getConfigValue("timing.SimilitudeThreshold") / 100,
+			config_manager:getConfigValue("timing.MinRatioUpDown"),
+			config_manager:getConfigValue("timing.MaxRatioUpDown"))
 
 		fullstroke.writeDebugTimingFile(self.GeneratedFullStrokes, "debugFSTB.FullStrokes.log")
 
@@ -312,6 +316,8 @@ function virtual_actions:updateDebugScriptIfNeeded(userAction, actions)
                 -- Add point at AtMin with limitPos if at != AtMin
                 if action.at ~= action.AtMin then
                     debugScript.actions:add(Action.new(action.AtMin / 1000.0, limitPos, false))
+				else
+                    debugScript.actions:add(Action.new(-0.001 + action.AtMin / 1000.0, limitPos, false))
                 end
                 
                 -- Always add point at actual position with defaultPos
@@ -320,6 +326,8 @@ function virtual_actions:updateDebugScriptIfNeeded(userAction, actions)
                 -- Add point at AtMax with limitPos if at != AtMax
                 if action.at ~= action.AtMax then
                     debugScript.actions:add(Action.new(action.AtMax / 1000.0, limitPos, false))
+				else
+                    debugScript.actions:add(Action.new(0.001 + action.AtMax / 1000.0, limitPos, false))
                 end
             end
             

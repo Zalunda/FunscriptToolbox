@@ -31,7 +31,33 @@
                         targetPath = "learn.MaxLearningStrokes",
                         type = "InputInt",
                         defaultValue = 3,
-                        step = 1, min = 1, max = 30
+                        step = 1, min = 0, max = 30
+                    },
+                    { 
+                        label = "Nb frames to ignore",
+                        targetPath = "learn.NbFramesToIgnoreAroundAction",
+                        type = "InputInt",
+                        defaultValue = 3,
+                        step = 1, min = 0, max = 10
+                    },
+                    { 
+                        label = "Show UI",
+                        targetPath = "learn.ShowUIOnCreate",
+                        type = "Checkbox", 
+                        defaultValue = true,
+                    },
+                    { 
+                        label = "TopMost UI",
+                        targetPath = "learn.TopMostUI",
+                        type = "Checkbox", 
+                        defaultValue = true
+                    },
+                    { 
+                        label = "Default Activity Filter",
+                        targetPath = "learn.DefaultActivityFilter",
+                        type = "InputInt",
+                        defaultValue = 60,
+                        step = 5, min = 0, max = 100
                     },
                     { 
                         label = "Default Quality Filter",
@@ -44,30 +70,11 @@
                         label = "Default Min % Filter",
                         targetPath = "learn.DefaultMinimumPercentageFilter",
                         type = "InputFloat", 
-                        defaultValue = 5, 
+                        defaultValue = 0.0, 
                         stepFunction = function(cv) 
                             return cv <= 2 and 0.1 or 1 
                         end, 
                         min = 0, max = 100 
-                    },
-                    { 
-                        label = "Default Activity Filter",
-                        targetPath = "learn.DefaultActivityFilter",
-                        type = "InputInt",
-                        defaultValue = 60,
-                        step = 5, min = 0, max = 100
-                    },
-                    { 
-                        label = "Show UI",
-                        targetPath = "learn.ShowUIOnCreate",
-                        type = "Checkbox", 
-                        defaultValue = true
-                    },
-                    { 
-                        label = "TopMost UI",
-                        targetPath = "learn.TopMostUI",
-                        type = "Checkbox", 
-                        defaultValue = true
                     },
                     { 
                         label = "Maximum Memory Usage for frame cache (MB)",
@@ -83,19 +90,26 @@
                 header = "    2. Generate Actions",
                 items = {
                     { 
-                        label = "Maximum Generation (sec)",
-                        targetPath = "generate.MaximumDurationToGenerateInSeconds", 
-                        type = "InputInt", 
-                        defaultValue = 120, 
-                        step = 10, min = 20, max = 100000 
-                    },
-                    { 
                         label = "Maximum Strokes per sec",
                         targetPath = "generate.MaximumStrokesDetectedPerSecond", 
                         type = "InputFloat", 
                         defaultValue = 3.0, 
                         step = 0.5, min = 1.0, max = 5.0 
-                    }
+                    },
+                    { 
+                        label = "% of high velocity frames to keep",
+                        targetPath = "generate.PercentageOfFramesToKeep", 
+                        type = "InputInt", 
+                        defaultValue = 70, 
+                        step = 10, min = 0, max = 100
+                    },
+                    { 
+                        label = "Maximum Generation (sec)",
+                        targetPath = "generate.MaximumDurationToGenerateInSeconds", 
+                        type = "InputInt", 
+                        defaultValue = 120, 
+                        step = 10, min = 20, max = 100000 
+                    }                 
                 }
             },
             {
@@ -109,7 +123,7 @@
                         defaultValue = 0,
                         defaultValueSet = "Amplitude",
                         groupTags = {"UpdateVirtualPoints"},
-                        step = 5, min = 0, max = 95,
+                        step = 5, min = 0, max = 99,
                         shortcuts = {{label = "0", value = 0}}
                     },
                     {
@@ -165,6 +179,36 @@
                 type = "Header",
                 header = "    4. Timing Adjustments",
                 items = {
+                    {
+                        label = "Similitude threshold %",
+                        targetPath = "timing.SimilitudeThreshold",
+                        type = "InputInt",
+                        defaultValue = 20,
+                        defaultValueSet = "Timing",
+                        groupTags = {"UpdateVirtualPoints"},
+                        step = 10, min = 0, max = 100
+                    },
+                    {
+                        label = "Minimum Ratio Up-Down",
+                        targetPath = "timing.MinRatioUpDown",
+                        type = "InputInt",
+                        defaultValue = 50,
+                        defaultValueSet = "Timing",
+                        groupTags = {"UpdateVirtualPoints"},
+                        step = 5, min = 0, max = 100
+                    },
+                    {
+                        label = "Maximum Ratio Up-Down",
+                        targetPath = "timing.MaxRatioUpDown",
+                        type = "InputInt",
+                        defaultValue = 60,
+                        defaultValueSet = "Timing",
+                        groupTags = {"UpdateVirtualPoints"},
+                        step = 5,
+                        customClamp = function(val)
+                            return clamp(val, config_manager:getConfigValue("timing.MinRatioUpDown"), 100)
+                        end
+                    },
                     {
                         label = "Top Points Offset",
                         targetPath = "timing.TopPointsOffset",
