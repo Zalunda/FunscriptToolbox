@@ -11,6 +11,7 @@ namespace FunscriptToolbox.UI
         public static FrameAnalyser TestAnalyser(
             Task<byte[]> snapshotContent, 
             MotionVectorsFileReader mvsReader, 
+            FrameAnalyser frameAnalyser,
             CreateRulesPluginRequest createRulesFromScriptActions)
         {
             MotionVectorsEditor editor = null;
@@ -20,7 +21,8 @@ namespace FunscriptToolbox.UI
                 {
                     editor = new MotionVectorsEditor(
                         snapshotContent, 
-                        mvsReader, 
+                        mvsReader,
+                        frameAnalyser,
                         createRulesFromScriptActions);
                     editor.ShowDialog();
                 }

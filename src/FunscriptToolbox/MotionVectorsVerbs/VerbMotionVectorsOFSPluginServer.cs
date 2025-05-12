@@ -142,8 +142,42 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     else if (request is CreateRulesPluginRequest createRulesRequest)
                     {
                         var mvsReader = GetMvsReader(createRulesRequest.MvsFullPath, createRulesRequest.MaximumMemoryUsageInMB);
+                        var learnFromActionsSettings = new LearnFromActionsSettings
+                        {
+                            NbFramesToIgnoreAroundAction = createRulesRequest.LearnFromAction_NbFramesToIgnoreAroundAction
+                        };
+                        var generateActionsSettings = new GenerateActionsSettings
+                        {
+                            MaximumStrokesDetectedPerSecond = createRulesRequest.GenerateActions_MaximumStrokesDetectedPerSecond,
+                            PercentageOfFramesToKeep = createRulesRequest.GenerateActions_PercentageOfFramesToKeep
+                        };
 
-                        // TODO if actions is empty => auto generate rules
+                        var learningActions = createRulesRequest.SelectedActions.Length > 2
+                            ? createRulesRequest.SelectedActions
+                            : createRulesRequest.Actions.Length > 2
+                                ? createRulesRequest.Actions
+                                : null;
+
+                        if (learningActions == null)
+                        {
+                            var rules = new List<BlocAnalyserRule>();
+                            for (ushort i = 0; i < mvsReader.FrameLayout.NbCellsTotalPerFrame; i++)
+                            {
+                                rules.Add(new BlocAnalyserRule(i, 6));
+                            }
+                            var tempAnalyser = new FrameAnalyser(mvsReader.FrameLayout, rules.ToArray());
+                            learningActions = tempAnalyser.GenerateActions(
+                                mvsReader, 
+                                createRulesRequest.CurrentVideoTimeAsTimeSpan, 
+                                createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(10),
+                                generateActionsSettings)
+                                .Take(7)  // 3 strokes
+                                .ToArray();
+                        }
+                        m_currentFrameAnalyser = FrameAnalyserGenerator.CreateFromScriptSequence(
+                                    mvsReader,
+                                    learningActions,
+                                    learnFromActionsSettings);
 
                         if (createRulesRequest.LearnFromAction_ShowUI)
                         {
@@ -152,12 +186,12 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                                     createRulesRequest.VideoFullPath,
                                     createRulesRequest.CurrentVideoTimeAsTimeSpan),
                                 mvsReader,
+                                m_currentFrameAnalyser,
                                 createRulesRequest);
                         }
                         else
                         {
-                            m_currentFrameAnalyser = createRulesRequest
-                                .CreateInitialFrameAnalyser(mvsReader)
+                            m_currentFrameAnalyser = m_currentFrameAnalyser
                                 .Filter(
                                     createRulesRequest.LearnFromAction_DefaultActivityFilter,
                                     createRulesRequest.LearnFromAction_DefaultQualityFilter,
@@ -173,11 +207,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                                 mvsReader,
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan,
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan + TimeSpan.FromSeconds(createRulesRequest.GenerateActions_DurationToGenerateInSeconds),
-                                new GenerateActionsSettings
-                                {
-                                    MaximumStrokesDetectedPerSecond = createRulesRequest.GenerateActions_MaximumStrokesDetectedPerSecond,
-                                    PercentageOfFramesToKeep = createRulesRequest.GenerateActions_PercentageOfFramesToKeep
-                                })
+                                generateActionsSettings)
                         };
                     }
                     else

@@ -68,8 +68,10 @@ function sendCreateRulesRequest(showUI)
     local nextAction = script:closestActionAfter(player.CurrentTime() + 0.001);
 
     local candidates = {}
-    for i = indexBefore, indexAfter do
-        table.insert(candidates, script.actions[i])
+    if indexBefore and indexAfter and indexBefore <= indexAfter then
+        for i = indexBefore, indexAfter do
+            table.insert(candidates, script.actions[i])
+        end
     end
 
     local actionsToSend = fullstroke.getActionsForLastNHalfStrokes(

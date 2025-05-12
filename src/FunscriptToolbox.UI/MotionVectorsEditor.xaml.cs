@@ -33,10 +33,11 @@ namespace FunscriptToolbox.UI
         public MotionVectorsEditor(
             Task<byte[]> snapshotContent,
             MotionVectorsFileReader mvsReader, 
+            FrameAnalyser originalFrameAnalyser,
             CreateRulesPluginRequest createRulesRequest)
         {
             r_mvsReader = mvsReader;
-            r_originalFrameAnalyser = createRulesRequest.CreateInitialFrameAnalyser(mvsReader);
+            r_originalFrameAnalyser = originalFrameAnalyser;
             r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.FrameLayout.CellWidth, r_mvsReader.FrameLayout.CellHeight);
             
             var snapshotContentResult = snapshotContent.Result;

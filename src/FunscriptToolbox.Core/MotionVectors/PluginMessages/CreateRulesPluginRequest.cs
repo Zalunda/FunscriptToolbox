@@ -25,21 +25,6 @@ namespace FunscriptToolbox.Core.MotionVectors.PluginMessages
         public int MaximumMemoryUsageInMB { get; set; }
 
         public TimeSpan CurrentVideoTimeAsTimeSpan => TimeSpan.FromMilliseconds(CurrentVideoTime);
-        public FrameAnalyser CreateInitialFrameAnalyser(MotionVectorsFileReader mvsReader)
-        {
-            var learningActions = this.SelectedActions.Length > 0
-                ? this.SelectedActions
-                : this.Actions.Length > 1
-                    ? this.Actions
-                    : null; // TODO Automatic
-            return learningActions == null
-                ? new FrameAnalyser(mvsReader.FrameLayout)
-                : FrameAnalyserGenerator.CreateFromScriptSequence(
-                    mvsReader, 
-                    learningActions,
-                    new LearnFromActionsSettings { 
-                        NbFramesToIgnoreAroundAction = this.LearnFromAction_NbFramesToIgnoreAroundAction });
-        }
     }
 }
 
