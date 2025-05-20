@@ -26,6 +26,7 @@ namespace FunscriptToolbox.UI
         private readonly Bitmap[] r_vectorBitmaps;
         private readonly Bitmap r_snapshot;
         private FrameAnalyser m_currentLearnFromScriptFrameAnalyser;
+        private Rect? m_currentLearnFromScriptMask;
         private FrameAnalyser m_currentManualFrameAnalyser;
 
         public FrameAnalyser FinalFrameAnalyser { get; private set; }
@@ -54,6 +55,7 @@ namespace FunscriptToolbox.UI
             }
 
             m_currentManualFrameAnalyser = r_originalFrameAnalyser;
+            m_currentLearnFromScriptMask = null;
             this.FinalFrameAnalyser = null;
 
             InitializeComponent();
@@ -177,17 +179,24 @@ namespace FunscriptToolbox.UI
             MinPercentageSlider.Value = Math.Round(MinPercentageSlider.Value, 2);
             MinPercentageSlider.SmallChange = (MinPercentageSlider.Value <= 2) ? 0.1 : 1.0;
         }
-        private async void LearnFromScriptFilterChanged(object sender, TextChangedEventArgs e)
+        private async void LearnFromScriptFilterChanged(object sender = null, TextChangedEventArgs e = null)
         {
             var activity = GetActivity();
             var quality = GetQuality();
             var minPercentage = GetMinPercentage();
             if (activity != null && quality != null && minPercentage != null)
             {
-                m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser.Filter(
-                    activity.Value,
-                    quality.Value,
-                    minPercentage.Value);
+                var maskedFrameAnalyser = 
+                m_currentLearnFromScriptFrameAnalyser = r_originalFrameAnalyser
+                    .Mask(
+                        m_currentLearnFromScriptMask?.X ?? 0,
+                        m_currentLearnFromScriptMask?.Y ?? 0,
+                        m_currentLearnFromScriptMask?.Width ?? 100000,
+                        m_currentLearnFromScriptMask?.Height ?? 10000)
+                    .Filter(
+                        activity.Value,
+                        quality.Value,
+                        minPercentage.Value);
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentLearnFromScriptFrameAnalyser));
@@ -229,13 +238,24 @@ namespace FunscriptToolbox.UI
                 });
             }
             else if (TabControl.SelectedItem == LearnFromScriptTab)
-            {
-                var selection = VirtualCanvas.SelectionRectangle;
-                // TODO Filter
+            {                
+                m_currentLearnFromScriptMask = VirtualCanvas.SelectionRectangle;
+                this.ResetMask.IsEnabled = true;
+                LearnFromScriptFilterChanged();
             }
         }
 
-        private async void DirectionTextBoxChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void ResetMaskButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (m_currentLearnFromScriptMask.HasValue)
+            {
+                m_currentLearnFromScriptMask = null; // Clear the mask
+                ResetMask.IsEnabled = false;   // Disable the reset button
+                LearnFromScriptFilterChanged();  // Re-apply filters (will use full image now)
+            }
+        }
+
+        private async void DirectionTextBoxChanged(object sender, TextChangedEventArgs e)
         {
             var direction = GetDirection();
             if (direction != null)
@@ -288,21 +308,6 @@ namespace FunscriptToolbox.UI
         {
             this.FinalFrameAnalyser = null;
             this.Close();
-        }
-
-        private void TestA_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private void TestB_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private void AcceptMotionVectors_Click(object sender, RoutedEventArgs e)
-        {
-
         }
     }
 }

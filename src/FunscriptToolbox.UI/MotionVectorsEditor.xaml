@@ -60,26 +60,32 @@
                             Width="250" ValueChanged="MinPercentageChanged"/>
                         <TextBlock Text="100" VerticalAlignment="Center" FontSize="9" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Right">
-                        <Button x:Name="AcceptLearnFromScript" Click="AcceptLearnFromScript_Click" FontSize="18" FontWeight="Bold">Accept</Button>
-                        <Button x:Name="CancelLearnFromScript" Margin="5,0,0,0" Click="Cancel_Click" FontSize="18">Cancel</Button>
-                    </StackPanel>
+                    <Grid Margin="10,5,10,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Reset Mask Button -->
+                        <Button x:Name="ResetMask" 
+                                Content="Reset Mask" 
+                                Grid.Column="0" 
+                                VerticalAlignment="Center" 
+                                HorizontalAlignment="Left" 
+                                Margin="0,0,10,0" 
+                                FontSize="18" 
+                                Click="ResetMaskButton_Click" 
+                                IsEnabled="False"/>
+
+                        <!-- Accept and Cancel Buttons -->
+                        <StackPanel Orientation="Horizontal" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button x:Name="AcceptLearnFromScript" Content="Accept" Click="AcceptLearnFromScript_Click" FontSize="18" FontWeight="Bold"/>
+                            <Button x:Name="CancelLearnFromScript" Content="Cancel" Margin="5,0,0,0" Click="Cancel_Click" FontSize="18"/>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </TabItem>
-            <!--
-            <TabItem x:Name="LearnFromMotionVectorsTab" Header="Learn From Motion Vectors">
-                <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
-                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Left">
-                        <Button x:Name="TestA" Click="TestA_Click" FontSize="18">Test A</Button>
-                        <Button x:Name="TestB" Click="TestB_Click" Margin="5,0,0,0" FontSize="18">Test B</Button>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="10,5,10,5" HorizontalAlignment="Right">
-                        <Button x:Name="AcceptLearnFromMotionVectors" Click="AcceptMotionVectors_Click" FontSize="18" FontWeight="Bold">Accept</Button>
-                        <Button x:Name="CancelLearnFromMotionVectors" Margin="5,0,0,0" Click="Cancel_Click" FontSize="18">Cancel</Button>
-                    </StackPanel>
-                </StackPanel>
-            </TabItem>
-            -->            
             <TabItem x:Name="ManualTab" Header="Manual">
                 <StackPanel HorizontalAlignment="Stretch" Orientation="Vertical">
                     <StackPanel Orientation="Horizontal" Margin="10,5,10,5">
