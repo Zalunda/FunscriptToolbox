@@ -1,1 +1,2 @@
 ffmpeg-master-latest-win64-gpl-shared from https://github.com/BtbN/FFmpeg-Builds/releases
+ffmpeg.exe from https://github.com/Zalunda/FFmpeg/releases

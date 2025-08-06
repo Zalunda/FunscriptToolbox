@@ -63,9 +63,7 @@ del FunscriptToolbox-0.0.0\CreateZipRelease.dll
 xcopy /y *.exe FunscriptToolbox-0.0.0\
 xcopy /y *.bat FunscriptToolbox-0.0.0\
 xcopy /y FunscriptToolbox.exe.config FunscriptToolbox-0.0.0\
-xcopy /y PythonSource\*.* FunscriptToolbox-0.0.0\PythonSource\
-xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.dll" FunscriptToolbox-0.0.0\MotionVectorsExtractor\
-xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.exe" FunscriptToolbox-0.0.0\MotionVectorsExtractor\
+xcopy /y "$(SolutionDir)\..\lib\precompiled-ffmpeg\ffmpeg.exe" FunscriptToolbox-0.0.0\
 </PostBuildEvent>
   </PropertyGroup>
 </Project>

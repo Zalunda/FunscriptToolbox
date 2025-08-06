@@ -26,6 +26,59 @@ namespace FunscriptToolbox.Core.MotionVectors
             this.QualityLevel = qualityLevel;
         }
 
+        public FrameAnalyser Mask(double maskX, double maskY, double maskWidth, double maskHeight)
+        {
+            var filteredRules = new List<BlocAnalyserRule>();
+
+            // Get block dimensions and number of columns from FrameLayout
+            int blockPixelWidth = this.FrameLayout.CellWidth;
+            int blockPixelHeight = this.FrameLayout.CellWidth;
+            int nbColumns = this.FrameLayout.NbColumns;
+
+            // Pre-calculate mask boundaries
+            double maskRight = maskX + maskWidth;
+            double maskBottom = maskY + maskHeight;
+
+            foreach (var rule in this.Rules)
+            {
+                // Calculate block's top-left corner coordinates (in pixels)
+                // rule.Index is a flattened index: 0, 1, ..., NbColumns-1 for the first row,
+                // NbColumns, ..., 2*NbColumns-1 for the second row, and so on.
+                int blockCol = rule.Index % nbColumns;
+                int blockRow = rule.Index / nbColumns; // Integer division gives the row index
+
+                double blockPixelX = blockCol * blockPixelWidth;
+                double blockPixelY = blockRow * blockPixelHeight;
+
+                // Calculate block boundaries
+                double blockRight = blockPixelX + blockPixelWidth;
+                double blockBottom = blockPixelY + blockPixelHeight;
+
+                // Standard AABB (Axis-Aligned Bounding Box) intersection test:
+                // Two rectangles overlap if (and only if)
+                // RectA.Left < RectB.Right AND
+                // RectA.Right > RectB.Left AND
+                // RectA.Top < RectB.Bottom AND
+                // RectA.Bottom > RectB.Top
+                bool overlaps = maskX < blockRight &&
+                                maskRight > blockPixelX &&
+                                maskY < blockBottom &&
+                                maskBottom > blockPixelY;
+                if (overlaps)
+                {
+                    filteredRules.Add(rule);
+                }
+            }
+
+            return new FrameAnalyser(
+                this.FrameLayout,       // FrameLayout itself doesn't change
+                filteredRules.ToArray(),
+                this.ReferenceActions,  // ReferenceActions are passed along
+                this.ActivityLevel,     // ActivityLevel is preserved
+                this.QualityLevel       // QualityLevel is preserved
+            );
+        }
+
         public FrameAnalyser Filter(int activityLevel, int qualityLevel, double minPercentage)
         {
             var rules = this.Rules
@@ -42,11 +95,11 @@ namespace FunscriptToolbox.Core.MotionVectors
                     .ToArray();
             }
             return new FrameAnalyser(
-                this.FrameLayout,
+                this.FrameLayout,       // FrameLayout itself doesn't change
                 rules,
-                this.ReferenceActions,
-                activityLevel,
-                qualityLevel);
+                this.ReferenceActions,  // ReferenceActions are passed along
+                this.ActivityLevel,     // ActivityLevel is preserved
+                this.QualityLevel);     // QualityLevel is preserved
         }
 
         public FunscriptActionExtended[] GenerateActions(
@@ -212,22 +265,20 @@ namespace FunscriptToolbox.Core.MotionVectors
             // TODO? How do I use that? Highest 100? Or percentage??
             if (partialWeights.Length > 0)
             {
-                Array.Sort(partialWeights);
-                var index0 = Array.BinarySearch(partialWeights, (short)0);
-                if (index0 < 0)
-                    index0 = -(index0 + 1);
                 if (totalWeight > 0)
                 {
-                    for (int k = index0; k < partialWeights.Length; k++)
+                    for (int k = 0; k < partialWeights.Length; k++)
                     {
-                        partialWeight += partialWeights[k];
+                        if (partialWeights[k] > 0)
+                            partialWeight += partialWeights[k];
                     }
                 }
                 else
                 {
-                    for (int k = index0; k >= 0; k--)
+                    for (int k = 0; k < partialWeights.Length; k++)
                     {
-                        partialWeight -= partialWeights[k];
+                        if (partialWeights[k] < 0)
+                            partialWeight += partialWeights[k];
                     }
                 }
             }

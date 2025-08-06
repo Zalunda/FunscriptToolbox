@@ -8,7 +8,7 @@ require "static_config" -- Defines PluginVersion, FTMVSFullPath etc.
 require "gui_config_def" -- Defines guiConfigDefinition
 
 configFullPath = ofs.ExtensionDir() .. "\\config.json"
-mvsExtension = ".mvs32"
+mvsExtension = ".mvs"
 
 -- Global config variable that will hold the configuration table from configManager
 -- These are effectively global because they are top-level in this main script.

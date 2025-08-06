@@ -17,9 +17,6 @@ using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.MotionVectorsVerbs
 {
-    // TODO LATER:
-    // mask in learn from script
-
     internal class VerbMotionVectorsOFSPluginServer : VerbMotionVectors
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);

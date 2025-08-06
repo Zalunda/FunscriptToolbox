@@ -4,22 +4,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.4.33213.308
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunscriptToolbox", "FunscriptToolbox\FunscriptToolbox.csproj", "{D38632A2-745C-478F-86B5-FB26B4C00570}"
-	ProjectSection(ProjectDependencies) = postProject
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F} = {0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioSynchronization", "AudioSynchronization\AudioSynchronization.csproj", "{EEECF34B-1BB8-4209-AF1D-99AD25A481A4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunscriptToolbox.Core", "FunscriptToolbox.Core\FunscriptToolbox.Core.csproj", "{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MotionVectorsExtractor", "MotionVectorsExtractor\MotionVectorsExtractor.vcxproj", "{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunscriptToolbox.UI", "FunscriptToolbox.UI\FunscriptToolbox.UI.csproj", "{1662D347-7920-40F8-94BD-8F0FEBD61980}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateZipRelease", "CreateZipRelease\CreateZipRelease.csproj", "{07DB2DE8-4A74-4ED9-945E-E75263B56CBD}"
-	ProjectSection(ProjectDependencies) = postProject
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F} = {0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -67,18 +59,6 @@ Global
 		{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}.Release|x64.Build.0 = Release|Any CPU
 		{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}.Release|x86.ActiveCfg = Release|Any CPU
 		{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}.Release|x86.Build.0 = Release|Any CPU
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Debug|Any CPU.Build.0 = Debug|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Debug|x64.ActiveCfg = Debug|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Debug|x64.Build.0 = Debug|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Debug|x86.ActiveCfg = Debug|Win32
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Debug|x86.Build.0 = Debug|Win32
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Release|Any CPU.ActiveCfg = Release|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Release|Any CPU.Build.0 = Release|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Release|x64.ActiveCfg = Release|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Release|x64.Build.0 = Release|x64
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Release|x86.ActiveCfg = Release|Win32
-		{0FE8AF61-A2B7-4D54-A585-AF36D1E83E2F}.Release|x86.Build.0 = Release|Win32
 		{1662D347-7920-40F8-94BD-8F0FEBD61980}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1662D347-7920-40F8-94BD-8F0FEBD61980}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1662D347-7920-40F8-94BD-8F0FEBD61980}.Debug|x64.ActiveCfg = Debug|Any CPU

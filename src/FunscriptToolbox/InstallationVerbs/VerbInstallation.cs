@@ -59,15 +59,19 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             {
                 foreach (var ofsVersionFullPath in Directory.GetDirectories(ofsFolder))
                 {
-                    var extensionName = "FunscriptToolBox.MotionVectors.V2BETA";
+                    var extensionName = "FSTB.MotionVectors";
                     var ofsVersionName = Path.GetFileName(ofsVersionFullPath);
 
                     WriteInfo($@"Adding extension '{extensionName} to OpenFunscripter folder '<appdata>\OFS\{ofsVersionName}'.");
                     var extensionFolder = Path.Combine(ofsVersionFullPath, "extensions", extensionName);
                     Directory.CreateDirectory(extensionFolder);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "fullstroke.lua"), Resources.fullstroke_lua);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "gui_config_def.lua"), Resources.gui_config_def_lua);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "gui_config_manager.lua"), Resources.gui_config_manager_lua);
                     CreateFileWithReplace(Path.Combine(extensionFolder, "json.lua"), Resources.json_lua);
                     CreateFileWithReplace(Path.Combine(extensionFolder, "main.lua"), Resources.main_lua);
                     CreateFileWithReplace(Path.Combine(extensionFolder, "server_connection.lua"), Resources.server_connection_lua);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "static_config.lua"), Resources.static_config_with_variables_lua);
                     CreateFileWithReplace(Path.Combine(extensionFolder, "virtual_actions.lua"), Resources.virtual_actions_lua);
                 }
             }

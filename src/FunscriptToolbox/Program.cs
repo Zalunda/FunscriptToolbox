@@ -53,15 +53,16 @@ namespace FunscriptToolbox
                     };
                     break;
                 case 10:
-                    Environment.CurrentDirectory = @"P:\";
+                    Environment.CurrentDirectory = @"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles";
                     args = new[]
                     {
                         "as.cfs",
                         "--verbose",
-                        "--minimumMatchLength", "20",
+                        "--minimumMatchLength", "90",
                         "--nbLocationsPerMinute", "3",
-                        "-i", "VRKM-722.mp4",
-                        "-o", "VRKM-722-*.mp4"
+                        "--dumpoffsets",
+                        "-o", "3DSVR-1410-* - Tsuzuki Ruisa - Can I swim 10 more minutes [zalunda].mp4",
+                        "-i", "3DSVR-1410-R*_sbs.mp4"
                     };
                     break;
                 case 11:
@@ -104,13 +105,13 @@ namespace FunscriptToolbox
                         "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.V2BETA\Channel-999-"),
                         "--channellockfilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.V2BETA\Channel-999.lock"),
                         "--timeout", "300",
-                        "--debugmode",
+                        //"--debugmode",
                         "--skipupdate"
                     };
                     break;
 
                 case 50:
-                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.2.json", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.2.json", SubtitleGeneratorConfig.GetDefaultExample(), Encoding.UTF8);
                     // Environment.CurrentDirectory = @"P:\...";
                     args = new[]
                     {
@@ -119,15 +120,28 @@ namespace FunscriptToolbox
                         "--recursive",
                         "--sourcelanguage", "Japanese",
                         "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
-                        "00000-WIP\\*.mp4"
+                        "XXX-DEBUG\\*.mp4"
                     };
                     break;
 
                 case 51:
+                    // Environment.CurrentDirectory = @"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles\XXX-ReimportFinishedSRT";
+                    args = new[]
+                    {
+                        "subtitles.create",
+                        "--verbose",
+                        "--recursive",
+                        "--sourcelanguage", "Japanese",
+                        "--config", ".\\--FSTB-SubtitleTrainingDataGeneratorConfig.json",
+                        "XXX-SubtitleTrainingDataGenerator\\*.mp4"
+                    };
+                    break;
+                case 52:
+                    Environment.CurrentDirectory = @"E:\FSTB-DebugFolder";
                     var filename = "Test.funscript";
-                    var minSpeed = 20;
+                    var minSpeed = 0;
                     var maxSpeed = 600;
-                    foreach (var scale in new[] { 0.5, 1.5 })
+                    foreach (var scale in new[] { 0.5, 0.8, 1.2, 1.5, 2.0 })
                     {
                         var funscript = Funscript.FromFile(filename);
                         var wipActions = WIPFunscriptActionCollection.FromFunscriptActions(funscript.Actions);
@@ -135,7 +149,7 @@ namespace FunscriptToolbox
                         wipActions.SetMinSpeed(minSpeed);
                         wipActions.SetMaxSpeed(maxSpeed);
                         funscript.Actions = wipActions.ToFunscriptActions();
-                        funscript.Save($"Test.{scale}.{minSpeed}.{maxSpeed}.funscript");
+                        funscript.Save($"Test.{scale}-{minSpeed}-{maxSpeed}.funscript");
                     }
                     return 0;
 

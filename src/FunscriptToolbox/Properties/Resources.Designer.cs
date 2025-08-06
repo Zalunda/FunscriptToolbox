@@ -167,6 +167,73 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to -- fullstroke class to represent a complete stroke (low-high-low)
+        ///local fullstroke = {}
+        ///
+        ///-- Static method to get actions for the last N half-strokes
+        ///function fullstroke.getActionsForLastNHalfStrokes(actions, maxNumberHalfStrokes)
+        ///    -- Need at least 2 actions to detect direction
+        ///    if #actions &lt; 2 then
+        ///        return actions
+        ///    end
+        ///    
+        ///    local actionsToInclude = {}
+        ///    local directionChanges = 0
+        ///    local previousDirection = nil
+        ///    
+        ///    -- Start from the most recent action (end of array [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string fullstroke_lua {
+            get {
+                return ResourceManager.GetString("fullstroke_lua", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to guiConfigDefinition = {
+        ///    {
+        ///        type = &quot;Header&quot;,
+        ///        header = &quot;Virtual Actions Settings&quot;,
+        ///        items = {
+        ///            {
+        ///                type = &quot;CustomControlsSet&quot;,
+        ///                createControlsFunction = function()
+        ///                    local configChangedByCustomControl = false
+        ///                    if ofs.Button(&quot;Create&quot;) then sendCreateRulesRequest(config_manager:getConfigValue(&quot;learn.ShowUIOnCreate&quot;)) end
+        ///                    ofs.SameLine()
+        ///                    if ofs.Button(&quot;Hide&quot;) th [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string gui_config_def_lua {
+            get {
+                return ResourceManager.GetString("gui_config_def_lua", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to -- gui_config_manager.lua
+        ///
+        ///-- Helper for string splitting by a single character delimiter
+        ///local function getPartsFromTargetPath(inputstr)
+        ///    if type(inputstr) ~= &quot;string&quot; or inputstr == &quot;&quot; then
+        ///        error(&quot;ConfigManager:getPartsFromTargetPath: pathString must be a non-empty string, got: &quot; .. tostring(inputstr))
+        ///    end
+        ///    local parts = {}
+        ///    for part in string.gmatch(inputstr, &quot;[^.]+&quot;) do
+        ///        table.insert(parts, part)
+        ///    end
+        ///    return parts
+        ///end
+        ///
+        ///local ConfigManager = {}
+        ///ConfigMana [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string gui_config_manager_lua {
+            get {
+                return ResourceManager.GetString("gui_config_manager_lua", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to --
         ///-- json.lua
         ///--
@@ -191,21 +258,15 @@ namespace FunscriptToolbox.Properties {
         ///json = require &quot;json&quot;
         ///server_connection = require &quot;server_connection&quot;
         ///virtual_actions = require &quot;virtual_actions&quot;
+        ///fullstroke = require &quot;fullstroke&quot;
+        ///configManager = require &quot;gui_config_manager&quot;
+        ///require &quot;static_config&quot; -- Defines PluginVersion, FTMVSFullPath etc.
+        ///require &quot;gui_config_def&quot; -- Defines guiConfigDefinition
         ///
-        ///-- global var
-        ///FTMVSFullPath = &quot;[[FunscriptToolboxExePathInLuaFormat]]&quot;
-        ///PluginVersion = &quot;[[PluginVersion]]&quot;
         ///configFullPath = ofs.ExtensionDir() .. &quot;\\config.json&quot;
-        ///mvsExtension = &quot;.mvs32&quot;
+        ///mvsExtension = &quot;.mvs&quot;
         ///
-        ///config = {}
-        ///connection = nil
-        ///virtualActions = {}
-        ///lastVideoFullPath = nil
-        ///lastMvsFullPath = nil
-        ///
-        ///function init()
-        ///    printWithTime(&quot; [rest of string was truncated]&quot;;.
+        ///-- Global config variable that will hold t [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string main_lua {
             get {
@@ -219,11 +280,10 @@ namespace FunscriptToolbox.Properties {
         ///
         ///local server_connection = {}
         ///
-        ///function server_connection:new(FTMVSFullPath, enableLogs)
+        ///function server_connection:new(FTMVSFullPath)
         ///	local o = { 
         ///		FTMVSFullPath = FTMVSFullPath,
         ///		cantFindFTMVSFullPath = false,
-        ///		enableLogs = enableLogs,
         ///		serverProcessHandle = nil,
         ///		requests = {},
         ///		lastTimeTaken = 0,
@@ -233,7 +293,9 @@ namespace FunscriptToolbox.Properties {
         ///		debugMode = true
         ///	}
         ///	if not fileExist(o.FTMVSFullPath) then
-        ///		local message = &apos;missing &apos;  [rest of string was truncated]&quot;;.
+        ///		local message = &apos;missing &apos; .. o.FTMVSFullPath
+        ///		print(message)
+        ///		 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string server_connection_lua {
             get {
@@ -242,24 +304,36 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to -- FunscriptToolbox.MotionVectors LUA virtual_actions
+        ///   Looks up a localized string similar to FTMVSFullPath = &quot;[[FunscriptToolboxExePathInLuaFormat]]&quot;
+        ///PluginVersion = &quot;[[PluginVersion]]&quot;
+        ///.
+        /// </summary>
+        internal static string static_config_with_variables_lua {
+            get {
+                return ResourceManager.GetString("static_config_with_variables_lua", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to fullstroke = require &quot;fullstroke&quot;
+        ///
+        ///-- FunscriptToolbox.MotionVectors LUA virtual_actions
         ///local virtual_actions = {}
         ///
         ///function virtual_actions:new(scriptIdx, config)
         ///	local o = { 
         ///		ScriptIdx = scriptIdx,		
         ///		Config = config,
-        ///		FrameDurationInSec = 167,
-        ///		GeneratedActionsOriginal = {},
-        ///		ActionsInTimeline = nil
+        ///		FrameDurationInSec = nil,
+        ///		GeneratedActions = nil,
+        ///		GeneratedFullStrokes = nil
         ///	}
         ///	setmetatable(o, {__index = virtual_actions})
         ///	return o
         ///end
         ///
-        ///function virtual_actions:init(userAction, actions, frameDurationInMs)
-        ///	self.GeneratedActionsOriginal = {}
-        ///	self:removeAllVirtualActionsInTimelime(userActi [rest of string was truncated]&quot;;.
+        ///function virtual_actions:init(userAction, generatedActions, frameDurationInSec)
+        ///	self:removeAllVirtualActionsInTimelime(us [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string virtual_actions_lua {
             get {
