@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -14,6 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
+            IEnumerable<Transcriber> transcribers,
             out string reason)
         {
             reason = null;

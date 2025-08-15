@@ -19,7 +19,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
         }
 
-        public virtual bool IsReadyToStart(
+        public virtual bool IsPrerequisitesMet(
             Transcription transcription, 
             out string reason)
         {

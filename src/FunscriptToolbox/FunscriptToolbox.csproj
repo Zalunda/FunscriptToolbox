@@ -191,6 +191,8 @@
     <Compile Include="SubtitlesVerbs\LanguageConverter.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputTrainingData.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleTask.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
@@ -202,6 +204,7 @@
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionAnalysis.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIEngine.cs" />
     <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerMultishot.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslationExample.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
@@ -211,7 +214,6 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSingleTranslationSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWIPSrt.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionCost.cs" />
@@ -229,8 +231,8 @@
     <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerJson.cs" />
     <Compile Include="SubtitlesVerbs\Translations\AIPrompt.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorGoogleV1API.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\TranslatorAIChatBot.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\TranslatorAIGenericAPI.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIEngineChatBot.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIEngineAPI.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translation.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslationCost.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translator.cs" />

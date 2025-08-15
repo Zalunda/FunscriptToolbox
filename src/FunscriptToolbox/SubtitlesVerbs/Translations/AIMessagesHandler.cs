@@ -72,6 +72,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             [JsonProperty(Order = 3)]
             public string StartTime { get; set; }
             [JsonProperty(Order = 4)]
+            public string EndTime { get; set; }
+            [JsonProperty(Order = 5)]
             public string Original { get; set; }
             public string[] Parts { get; set; }
 
@@ -79,6 +81,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             {
                 this.Tag = tag;
                 this.StartTime = $"{(int)tag.StartTime.TotalMinutes}:{(int)tag.StartTime.Seconds:D2}.{(int)tag.StartTime.Milliseconds:D3}";
+                this.EndTime = $"{(int)tag.EndTime.TotalMinutes}:{(int)tag.EndTime.Seconds:D2}.{(int)tag.EndTime.Milliseconds:D3}";
                 this.Original = tag.Text;
                 this.OngoingContext = ongoingContext;
                 this.Context = context;

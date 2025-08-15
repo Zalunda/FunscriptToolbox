@@ -1,10 +1,11 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
 using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public abstract class Transcriber
+    public abstract class Transcriber : SubtitleTask
     {
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;
@@ -24,6 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public abstract bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
+            IEnumerable<Transcriber> transcribers,
             out string reason);
 
         public abstract Transcription Transcribe(

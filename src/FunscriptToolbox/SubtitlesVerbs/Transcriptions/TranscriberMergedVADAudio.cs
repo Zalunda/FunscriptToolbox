@@ -26,6 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
+            IEnumerable<Transcriber> transcribers,
             out string reason)
         {
             if (this.UseTimingsFromId != null && !context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.UseTimingsFromId))

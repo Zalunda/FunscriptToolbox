@@ -25,12 +25,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 13)]
         public bool IncludeStartTime { get; set; } = true;
         [JsonProperty(Order = 14)]
-        public bool IncludeContext { get; set; } = true;
+        public bool IncludeEndTime { get; set; } = false;
         [JsonProperty(Order = 15)]
-        public bool IncludeTalker { get; set; } = true;
+        public bool IncludeContext { get; set; } = true;
         [JsonProperty(Order = 16)]
+        public bool IncludeTalker { get; set; } = true;
+        [JsonProperty(Order = 17)]
         public bool IncludeParts { get; set; } = false;
-
         [JsonProperty(Order = 18)]
         public string PreviousTranslationId { get; set; }
 
@@ -124,6 +125,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                                 OngoingContext = (this.IncludeContext && index == 0 && f.Context == null) ? ongoingContext : null,
                                 Talker = this.IncludeTalker ? f.Talker : null,
                                 StartTime = this.IncludeStartTime ? f.StartTime : null,
+                                EndTime = this.IncludeEndTime ? f.EndTime : null,
                                 f.Original,
                                 Parts = this.IncludeParts && f.Parts?.Length > 1 ? f.Parts : null,
                                 PreviousTranslation = f.Tag.TranslatedTexts.FirstOrDefault(f => f.Id == PreviousTranslationId)?.Text

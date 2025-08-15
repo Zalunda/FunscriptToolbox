@@ -9,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
     {
         public SubtitleOutputSingleTranslationSrt()
         {
-            
+
         }
 
         public override bool NeedSubtitleForcedTimings => false;
@@ -22,6 +22,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public string TranscriptionId { get; set; }
         [JsonProperty(Order = 12)]
         public string TranslationId { get; set; }
+        [JsonProperty(Order = 13)]
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        [JsonProperty(Order = 14)]
+        public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
+
+        [JsonProperty(Order = 15)]
+        public bool IncludeOriginalText { get; set; } = false;
 
         [JsonProperty(Order = 20)]
         public SubtitleToInject[] SubtitlesToInject { get; set; }
@@ -45,11 +52,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             {
                 var text = item.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation?.Id)?.Text
                     ?? item.Text;
+                if (this.IncludeOriginalText)
+                {
+                    text += $"\n\n{item.Text}";
+                }
                 subtitleFile.Subtitles.Add(new Subtitle(item.StartTime, item.EndTime, text));
             }
 
+            // Apply minimum duration and expansion
+            subtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+
+            // Apply injections
             subtitleFile.Subtitles.AddRange(
-                GetAdjustedSubtitlesToInject(subtitleFile.Subtitles, this.SubtitlesToInject, context.CurrentWipsub.PcmAudio.Duration));
+                GetAdjustedSubtitlesToInject(
+                    subtitleFile.Subtitles,
+                    this.SubtitlesToInject,
+                    context.CurrentWipsub.PcmAudio.Duration));
 
             var filename = context.CurrentBaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);

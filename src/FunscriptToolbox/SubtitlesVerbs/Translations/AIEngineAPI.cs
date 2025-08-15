@@ -11,13 +11,9 @@ using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
-    internal class TranslatorAIGenericAPI : TranslatorAI
+    public sealed class AIEngineAPI : AIEngine
     {
         public const string ToolName = "GenericAI-API";
-
-        public TranslatorAIGenericAPI()
-        {
-        }
 
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string BaseAddress { get; set; } = "http://localhost:10000";
@@ -40,8 +36,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 16)]
         public int? DebugNbRequestsLimit { get; set; } = null;
 
-        public override void Translate(
+        public override void Execute(
             SubtitleGeneratorContext context,
+            AIMessagesHandler messagesHandler,
             Transcription transcription,
             Translation translation)
         {
@@ -57,24 +54,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             }
 
             // Get only the items that have not been translated yet
-            var items = this.MessagesHandler.GetAllItems(
+            var items = messagesHandler.GetAllItems(
                 transcription,
                 context.CurrentWipsub.SubtitlesForcedTiming);
 
-            // Parse previous files, they might contains translations if the user fixed them
-            var nbErrors = this.HandlePreviousFiles(
+            // Parse previous files, they might contain translations if the user fixed them
+            var nbErrors = base.HandlePreviousFiles(
                 context,
+                messagesHandler,
                 transcription,
                 translation,
-                items,                
-                $"-\\d+\\.txt");
+                items,
+                "-\\d+\\.txt");
 
-            // If there are still translations to be done, create files for each batch of items
+            // If there are still translations to be done, create requests
             if (nbErrors == 0)
             {
                 var processStartTime = DateTime.Now;
                 var lastTimeSaved = DateTime.Now;
-                foreach (var request in this.MessagesHandler.CreateRequests(
+                foreach (var request in messagesHandler.CreateRequests(
                     transcription,
                     translation,
                     items))
@@ -140,7 +138,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                             return;
                         }
 
-                        var nbTranslationAdded = this.MessagesHandler.HandleResponse(
+                        var nbTranslationAdded = messagesHandler.HandleResponse(
                             translation,
                             items,
                             assistantMessage,

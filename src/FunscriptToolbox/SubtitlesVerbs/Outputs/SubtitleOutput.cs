@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    internal abstract class SubtitleOutput
+    internal abstract class SubtitleOutput : SubtitleTask
     {
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;
@@ -22,30 +22,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         public abstract void CreateOutput(
             SubtitleGeneratorContext context);
-
-        protected string[] CreateFinalOrder(string[] order, IEnumerable<string> allIds)
-        {
-            if (order == null)
-                return allIds.Distinct().ToArray();
-
-            var remainingCandidats = allIds.Distinct().ToList();
-            var finalOrder = new List<string>();
-            foreach (var id in order)
-            {
-                if (id == "*")
-                {
-                    finalOrder.AddRange(remainingCandidats);
-                    break;
-                }
-                else if (remainingCandidats.Contains(id))
-                {
-                    finalOrder.Add(id);
-                    remainingCandidats.Remove(id);
-                }
-            }
-
-            return finalOrder.ToArray();
-        }
 
         protected static IEnumerable<Subtitle> GetAdjustedSubtitlesToInject(
             List<Subtitle> currentSubtitles, 

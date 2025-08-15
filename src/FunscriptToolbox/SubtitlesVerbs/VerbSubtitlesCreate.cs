@@ -164,7 +164,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         context.WriteInfo();
                     }
 
-                    // 3. Transcribing the audio file, if not already done.
+                    // 3. Transcribing the audio file, if not already done. Then translating.
                     var sourceLanguage = Language.FromString(r_options.SourceLanguage);
                     foreach (var transcriber in config.Transcribers
                         ?.Where(t => t.Enabled)
@@ -187,7 +187,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                             context.WriteInfoAlreadyDone();
                         }
-                        else if (!transcriber.IsPrerequisitesMet(context, out var reason))
+                        else if (!transcriber.IsPrerequisitesMet(context, config.Transcribers, out var reason))
                         {
                             context.WriteInfo($"Transcription '{transcriber.TranscriptionId}' can't be done yet: {reason}");
                             context.WriteInfo();
@@ -233,15 +233,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 context.WriteError($"An error occured while transcribing '{transcriber.TranscriptionId}':\n{ex.Message}");
                             }
                         }
-                    }
 
-                    // 4. Translating the transcribed text, if not already done.
-                    foreach (var transcriber in config.Transcribers
-                        ?.Where(t => t.Enabled)
-                        ?? Array.Empty<Transcriber>())
-                    {
-                        var transcription = wipsub.Transcriptions.FirstOrDefault(
-                            t => t.Id == transcriber.TranscriptionId);
                         if (transcription != null)
                         {
                             foreach (var translator in transcriber.Translators
@@ -267,7 +259,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' have already been done.");
                                     context.WriteInfoAlreadyDone();
                                 }
-                                else if (!translator.IsReadyToStart(transcription, out var reason))
+                                else if (!translator.IsPrerequisitesMet(transcription, out var reason))
                                 {
                                     context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' cannot start yet because {reason}");
                                     context.WriteInfoAlreadyDone();

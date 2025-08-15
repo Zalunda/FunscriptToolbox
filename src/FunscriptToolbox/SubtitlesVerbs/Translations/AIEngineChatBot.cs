@@ -4,25 +4,23 @@ using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
-    internal class TranslatorAIChatBot : TranslatorAI
+    public sealed class AIEngineChatBot : AIEngine
     {
-        public TranslatorAIChatBot()
-        {
-        }
-
-        public override void Translate(
+        public override void Execute(
             SubtitleGeneratorContext context,
+            AIMessagesHandler messagesHandler,
             Transcription transcription,
             Translation translation)
         {
             // Get only the items that have not been translated yet
-            var items = this.MessagesHandler.GetAllItems(
+            var items = messagesHandler.GetAllItems(
                 transcription,
                 context.CurrentWipsub.SubtitlesForcedTiming);
 
-            // Parse previous files, they might contains translations if the user updated them
-            var nbErrors = this.HandlePreviousFiles(
+            // Parse previous files, they might contain translations if the user updated them
+            var nbErrors = base.HandlePreviousFiles(
                 context,
+                messagesHandler,
                 transcription,
                 translation,
                 items,
@@ -31,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             // If there are still translations to be done, create files for each batch of items
             if (nbErrors == 0)
             {
-                foreach (var request in this.MessagesHandler.CreateRequests(
+                foreach (var request in messagesHandler.CreateRequests(
                     transcription,
                     translation,
                     items))

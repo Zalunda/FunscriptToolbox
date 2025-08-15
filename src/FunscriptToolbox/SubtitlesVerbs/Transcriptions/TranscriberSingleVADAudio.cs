@@ -1,6 +1,7 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -23,6 +24,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
+            IEnumerable<Transcriber> transcribers,
             out string reason)
         {
             if (this.UseTimingsFromId != null && !context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.UseTimingsFromId))
