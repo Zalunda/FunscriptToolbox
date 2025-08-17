@@ -189,6 +189,7 @@
     <Compile Include="SubtitlesVerbs\Cost.cs" />
     <Compile Include="SubtitlesVerbs\Language.cs" />
     <Compile Include="SubtitlesVerbs\LanguageConverter.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWIPSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputTrainingData.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleTask.cs" />

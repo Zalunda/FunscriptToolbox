@@ -65,35 +65,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             // Check if the all transcription/translation have been done
-            if (this.Translators?.Count(f => f.Enabled) > 0)
+            foreach (var transcriber in transcribers?.Where(f => f.Enabled) ?? Array.Empty<Transcriber>())
             {
-                foreach (var transcriber in transcribers?.Where(f => f.Enabled) ?? Array.Empty<Transcriber>())
+                var transcription = context.CurrentWipsub.Transcriptions
+                    .FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
+                if (this.TranscriptionsOrder == null
+                    || this.TranscriptionsOrder.Contains("*")
+                    || this.TranscriptionsOrder.Contains(transcriber.TranscriptionId))
                 {
-                    var transcription = context.CurrentWipsub.Transcriptions
-                        .FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
-                    if (this.TranscriptionsOrder == null
-                        || this.TranscriptionsOrder.Contains("*")
-                        || this.TranscriptionsOrder.Contains(transcriber.TranscriptionId))
+                    if (transcription == null)
                     {
-                        if (transcription == null)
-                        {
-                            reason = $"Transcription '{transcriber.TranscriptionId}' not done yet.";
-                            return false;
-                        }
+                        reason = $"Transcription '{transcriber.TranscriptionId}' not done yet.";
+                        return false;
+                    }
 
-                        foreach (var translator in transcriber.Translators?.Where(f => f.Enabled) ?? Array.Empty<Translator>())
+                    foreach (var translator in transcriber.Translators?.Where(f => f.Enabled) ?? Array.Empty<Translator>())
+                    {
+                        if (this.TranslationsOrder == null
+                            || this.TranslationsOrder.Contains("*")
+                            || this.TranslationsOrder.Contains(translator.TranslationId))
                         {
-                            if (this.TranslationsOrder == null
-                                || this.TranslationsOrder.Contains("*")
-                                || this.TranslationsOrder.Contains(translator.TranslationId))
+                            var translation = transcription.Translations.FirstOrDefault(
+                                t => t.Id == translator.TranslationId);
+                            if (!translator.IsFinished(transcription, translation))
                             {
-                                var translation = transcription.Translations.FirstOrDefault(
-                                    t => t.Id == translator.TranslationId);
-                                if (!translator.IsFinished(transcription, translation))
-                                {
-                                    reason = $"Translation '{transcriber.TranscriptionId}/{translator.TranslationId}' not done yet.";
-                                    return false;
-                                }
+                                reason = $"Translation '{transcriber.TranscriptionId}/{translator.TranslationId}' not done yet.";
+                                return false;
                             }
                         }
                     }
