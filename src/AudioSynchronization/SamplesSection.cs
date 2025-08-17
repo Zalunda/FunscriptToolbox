@@ -20,6 +20,7 @@ namespace AudioSynchronization
 
         public int Length { get; }
 
+        public int MiddleIndex => (this.StartIndex + this.EndIndex) / 2;
         public int EndIndex => StartIndex + Length;
 
 

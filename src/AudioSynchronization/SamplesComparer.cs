@@ -121,7 +121,10 @@ namespace AudioSynchronization
                     if (candidateSectionA.Length >= r_minimumMatchLength && candidateSectionB.Length >= r_minimumMatchLength)
                     {
                         var newDiff = new SamplesSectionMatch(candidateSectionA, candidateSectionB);
-                        if (bestDiff == null || newDiff.TotalError < bestDiff.TotalError)
+                        // See if the diff is better and if it's equal, choose the section that is closer to the middle of the parent section
+                        if (bestDiff == null 
+                            || newDiff.TotalError < bestDiff.TotalError
+                            || (newDiff.TotalError == bestDiff.TotalError && Math.Abs(sectionA.MiddleIndex - newDiff.SectionA.MiddleIndex) < Math.Abs(sectionA.MiddleIndex - bestDiff.SectionA.MiddleIndex)))
                         {
                             bestDiff = newDiff;
                         }
