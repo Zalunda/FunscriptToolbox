@@ -9,21 +9,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     {
         public string Id { get; private set; }
         public Language Language { get; }
-        public TranscribedText[] Items { get; }
-        public TranscriptionCost[] Costs { get; }
+        public List<TranscribedText> Items { get; }
+        public List<TranscriptionCost> Costs { get; }
         public List<Translation> Translations { get; }
 
         public Transcription(
             string id,
             Language language,
-            IEnumerable<TranscribedText> items, 
-            IEnumerable<TranscriptionCost> costs,
+            IEnumerable<TranscribedText> items = null, 
+            IEnumerable<TranscriptionCost> costs = null,
             IEnumerable<Translation> translations = null)
         {
             Id = id;
-            Items = items.ToArray();
             Language = language ?? TranslatorGoogleV1API.DetectLanguage(Items);
-            Costs = costs.ToArray();
+            Items = new List<TranscribedText>(items ?? Array.Empty<TranscribedText>());
+            Costs = new List<TranscriptionCost>(costs ?? Array.Empty<TranscriptionCost>());
             Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
         }
 

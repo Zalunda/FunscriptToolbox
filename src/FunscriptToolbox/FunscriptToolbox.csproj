@@ -184,6 +184,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="SubtitlesVerbs\AIOptions.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtraction\AudioExtractor.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtraction\AudioNormalizationRule.cs" />
     <Compile Include="SubtitlesVerbs\Cost.cs" />
@@ -193,6 +194,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputTrainingData.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleTask.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\AIRequestForTranscription.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
@@ -202,11 +204,16 @@
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberManualEdit.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolExternalSrt.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolLLMMultimodalAPI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionAnalysis.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIEngine.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerMultishot.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionCost.cs" />
+    <Compile Include="SubtitlesVerbs\AIEngineException.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\AIRequestForTranslation.cs" />
+    <Compile Include="SubtitlesVerbs\AIRequest.cs" />
+    <Compile Include="SubtitlesVerbs\AIEngine.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslationCost.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslationExample.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorDeepLWithFiles.cs" />
@@ -217,7 +224,6 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionCost.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtraction\FfmpegAudioHelper.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberTool.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberSingleVADAudio.cs" />
@@ -227,15 +233,11 @@
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberFullAudio.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberMergedVADAudio.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolPurfviewWhisper.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandler.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerExpection.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIMessagesHandlerJson.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIPrompt.cs" />
+    <Compile Include="SubtitlesVerbs\AIPrompt.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorGoogleV1API.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIEngineChatBot.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\AIEngineAPI.cs" />
+    <Compile Include="SubtitlesVerbs\AIEngineChatBot.cs" />
+    <Compile Include="SubtitlesVerbs\AIEngineAPI.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translation.cs" />
-    <Compile Include="SubtitlesVerbs\Translations\TranslationCost.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translator.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtraction\PcmAudio.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatedText.cs" />

@@ -11,8 +11,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             string taskName,
             TimeSpan timeTaken,
             int nbAudios,
-            TimeSpan transcriptionDuration)
-            : base(taskName, timeTaken)
+            TimeSpan transcriptionDuration,
+            int? nbPromptTokens = null,
+            int? nbCompletionTokens = null,
+            int? nbTotalTokens = null)
+            : base(taskName, timeTaken, nbPromptTokens, nbCompletionTokens, nbTotalTokens)
         {
             NbAudios = nbAudios;
             TranscriptionDuration = transcriptionDuration;

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbs.Translations
+namespace FunscriptToolbox.SubtitlesVerbs
 {
     [JsonObject]
     public class AIPrompt

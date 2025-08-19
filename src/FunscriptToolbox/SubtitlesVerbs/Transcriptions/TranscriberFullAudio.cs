@@ -28,18 +28,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Language overrideLanguage)
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            var transcribedTexts = this.TranscriberTool.TranscribeAudio(
+            var transcription = new Transcription(
+                this.TranscriptionId,
+                transcribedLanguage);
+            this.TranscriberTool.TranscribeAudio(
                      context,
                      context.DefaultProgressUpdateHandler,
+                     transcription,
                      new[] { pcmAudio },
-                     transcribedLanguage,
-                     $"{this.TranscriptionId}-",
-                     out var costs);
-            return new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage,
-                transcribedTexts, 
-                costs);
+                     $"{this.TranscriptionId}-");
+            return transcription;
         }
     }
 }

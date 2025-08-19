@@ -107,15 +107,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var offsetCollection = new AudioOffsetCollection(audioOffsets);
             var mergedPcm = new PcmAudio(pcmAudio.SamplingRate, mergedAudio.ToArray());
-            var transcribedTexts = new List<TranscribedText>();
-            TranscriptionCost[] costs;
-            foreach (var original in this.TranscriberTool.TranscribeAudio(
+
+            var transcription = new Transcription(
+                this.TranscriptionId,
+                transcribedLanguage);
+            this.TranscriberTool.TranscribeAudio(
                                 context,
                                 context.DefaultProgressUpdateHandler,
+                                transcription,
                                 new[] { mergedPcm },
-                                transcribedLanguage,
-                                $"{this.TranscriptionId}-",
-                                out costs))
+                                $"{this.TranscriptionId}-");
+            var oldItems = transcription.Items;
+            transcription.Items.Clear();
+
+            foreach (var original in oldItems)
             {
                 var newStartTime = offsetCollection.TransformPosition(original.StartTime);
                 var newEndTime = offsetCollection.TransformPosition(original.EndTime);
@@ -123,7 +128,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     throw new Exception("BUG");
                 }
-                transcribedTexts.Add(
+                transcription.Items.Add(
                     new TranscribedText(
                         newStartTime.Value,
                         newEndTime.Value,
@@ -141,15 +146,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (context.IsVerbose)
             {
                 var adjustedSrt = new SubtitleFile();
-                adjustedSrt.Subtitles.AddRange(transcribedTexts.Select(tt => new Subtitle(tt.StartTime, tt.EndTime, tt.Text)));
+                adjustedSrt.Subtitles.AddRange(transcription.Items.Select(tt => new Subtitle(tt.StartTime, tt.EndTime, tt.Text)));
                 adjustedSrt.SaveSrt(context.GetPotentialVerboseFilePath($"{this.TranscriptionId}-adjusted.srt", DateTime.Now));
             }
 
-            return new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage,
-                transcribedTexts,
-                costs);
+            return transcription;
         }
     }
 }

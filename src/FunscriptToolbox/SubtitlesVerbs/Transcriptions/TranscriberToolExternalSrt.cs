@@ -20,13 +20,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 21)]
         public string OverrideFileSuffixe { get; set; } = null;
 
-        public override TranscribedText[] TranscribeAudio(
+        public override void TranscribeAudio(
             SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
+            Transcription transcription,
             PcmAudio[] audios,
-            Language sourceLanguage,
-            string filesPrefix,
-            out TranscriptionCost[] costs)
+            string filesPrefix)
         {
             var namedItems = audios.Select((audio, index) => (
                     WavFilename: context.CurrentBaseFilePath + $".TODO-{filesPrefix}{index + 1:D5}.wav",
@@ -71,7 +70,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             item.Audio.Offset + subtitle.StartTime,
                             item.Audio.Offset + subtitle.EndTime,
                             subtitle.Text)));
-                    costsList.Add(
+                    transcription.Costs.Add(
                         new TranscriptionCost(
                             ToolName,
                             watch.Elapsed,
@@ -82,8 +81,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (this.OverrideFileSuffixe == null)
                         context.SoftDelete(item.SrtFilename);
                 }
-                costs = costsList.ToArray();
-                return transcribedTexts.ToArray();
             }
         }
     }

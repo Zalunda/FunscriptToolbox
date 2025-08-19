@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     SerializationBinder = new SimpleTypeNameSerializationBinder(
                         new[] {
                             typeof(AIEngine),
-                            typeof(AIMessagesHandler),
+                            typeof(AIOptions),
                             typeof(AIPrompt),
                             typeof(SubtitleForcedTimingParser),
                             typeof(SubtitleOutput),
@@ -83,8 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 ApplicationFullPath = @"[PathToPurfview]\Purfview-Whisper-Faster\whisper-faster.exe",
                 Model = "Large-V2",
-                ForceSplitOnComma = false,
-                RedoBlockLargerThen = TimeSpan.FromSeconds(30)
+                ForceSplitOnComma = false
             };
             jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
 
@@ -203,11 +202,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     Model = "3thn/dolphin-2.9-llama3-8b-GGUF/dolphin-2.9-llama3-8b.Q8_0.gguf",
                                     ValidateModelNameInResponse = true,
                                     RequestBodyExtension = null,
-                                },
-                                MessagesHandler = new AIMessagesHandlerMultishot
-                                {
-                                    SystemPrompt = systemPromptMultiShot,
-                                    MaxPreviousShot = 50
                                 }
                             }
                         }
@@ -222,44 +216,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 Enabled = true,
                                 TranslationId = "claude-3.5-sonnet",
                                 TargetLanguage = Language.FromString("en"),
-                                Engine = new AIEngineChatBot {},
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 30
-                                }
+                                Engine = new AIEngineChatBot {}
                             },
                             new TranslatorAI()
                             {
                                 Enabled = true,
                                 TranslationId = "claude-3.5-sonnet-refined",
                                 TargetLanguage = Language.FromString("en"),
-                                Engine = new AIEngineChatBot {},
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = new AIPrompt(new[]
-                                    {
-                                        "I would like you to \"refine\" the translations.",
-                                        "Make sure that the translation feels natural and sound like something someone would really say in the current context of the scene.",
-                                        "And if they say basically the same thing multiple times (ex. are you about to cum, you came, look at how much you came, it's so good), try to find interesting way to say it.",
-                                        "Don't forget to take into account the ones that have a 'Parts' attribute."
-                                    }),
-                                    MaxItemsInRequest = 30,
-                                    IncludeParts = true,
-                                    PreviousTranslationId = "claude-3.5-sonnet"
-                                }
+                                Engine = new AIEngineChatBot {}
                             },
                             new TranslatorAI()
                             {
                                 Enabled = false,
                                 TranslationId = "GPT-4o",
                                 TargetLanguage = Language.FromString("en"),
-                                Engine = new AIEngineChatBot {},
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 20
-                                }
+                                Engine = new AIEngineChatBot {}
                             },
                             new TranslatorDeepLWithFiles()
                             {
@@ -278,12 +249,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 Enabled = false,
                                 TranslationId = "mistral-large",
                                 TargetLanguage = Language.FromString("en"),
-                                Engine = new AIEngineChatBot {},
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    FirstUserPrompt = userPrompt,
-                                    MaxItemsInRequest = 100
-                                }
+                                Engine = new AIEngineChatBot {}
                             },
                             new TranslatorAI()
                             {
@@ -295,12 +261,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     APIKeyName = "APIKeyMistral",
                                     Model = "mistral-large-latest",
                                     RequestBodyExtension = requestBodyExtensionMistralAPI,
-                                },
-                                MessagesHandler = new AIMessagesHandlerJson
-                                {
-                                    MaxItemsInRequest = 100,
-                                    OverlapItemsInRequest = 10,
-                                    SystemPrompt = systemPromptJson
                                 }
                             }
                         },
@@ -442,8 +402,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 ApplicationFullPath = @"[PathToPurfview]\Purfview-Whisper-Faster\whisper-faster.exe",
                 Model = "Large-V2",
-                ForceSplitOnComma = false,
-                RedoBlockLargerThen = TimeSpan.FromMinutes(60)
+                ForceSplitOnComma = false
             };
             jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
 

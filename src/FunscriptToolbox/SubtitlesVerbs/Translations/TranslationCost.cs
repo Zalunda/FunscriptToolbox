@@ -5,20 +5,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
     public class TranslationCost : Cost
     {
         public int NbTexts { get; }
-        public int? NbInputTokens { get; }
-        public int? NbOutputTokens { get; }
 
         public TranslationCost(
             string taskName,
             TimeSpan timeTaken,
-            int nbTexts, 
-            int? nbInputTokens = null,
-            int? nbOutputTokens = null)
-            : base(taskName, timeTaken)
+            int nbTexts,
+            int? nbPromptTokens = null,
+            int? nbCompletionTokens = null,
+            int? nbTotalTokens = null)
+            : base(taskName, timeTaken, nbPromptTokens, nbCompletionTokens, nbTotalTokens)
         {
             NbTexts = nbTexts;
-            NbInputTokens = nbInputTokens;
-            NbOutputTokens = nbOutputTokens;
         }
     }
 }

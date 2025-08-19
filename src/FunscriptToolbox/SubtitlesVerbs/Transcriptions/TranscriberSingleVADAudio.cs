@@ -52,18 +52,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .Select(
                     vad => pcmAudio.ExtractSnippet(vad.StartTime - this.ExpandStart, vad.EndTime + this.ExpandEnd))
                 .ToArray();
-            var transcribedTexts = this.TranscriberTool.TranscribeAudio(
+            var transcription = new Transcription(
+                this.TranscriptionId,
+                transcribedLanguage);
+            this.TranscriberTool.TranscribeAudio(
                 context,
                 context.DefaultProgressUpdateHandler,
+                transcription,
                 audioSections,
-                transcribedLanguage,
-                $"{this.TranscriptionId}-",
-                out var costs);
-            return new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage,
-                transcribedTexts,
-                costs);
+                $"{this.TranscriptionId}-");
+            return transcription;
         }
     }
 }

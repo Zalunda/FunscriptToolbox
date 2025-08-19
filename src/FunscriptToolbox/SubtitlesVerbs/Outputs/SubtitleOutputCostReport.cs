@@ -79,7 +79,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     TotalTranscriptionTime = g.Sum(c => c.TimeTaken),
                     TotalNbCalls = g.Count(),
                     TotalNbAudios = g.Sum(c => c.NbAudios),
-                    TotalTranscriptionDuration = g.Sum(c => c.TranscriptionDuration)
+                    TotalTranscriptionDuration = g.Sum(c => c.TranscriptionDuration),
+                    TotalNbPromptTokens = g.Sum(c => c.NbPromptTokens ?? 0),
+                    TotalNbCompletionTokens = g.Sum(c => c.NbCompletionTokens ?? 0),
+                    TotalNbTotalTokens = g.Sum(c => c.NbTotalTokens ?? 0)
                 });
             foreach (var task in transcriptionCosts)
             {
@@ -88,6 +91,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 yield return $"    Total Number of Calls: {task.TotalNbCalls}";
                 yield return $"    Total Number of Audios: {task.TotalNbAudios}";
                 yield return $"    Total Transcription Duration: {task.TotalTranscriptionDuration}";
+                yield return $"    Total Number of Prompt Tokens: {task.TotalNbPromptTokens}";
+                yield return $"    Total Number of Completion Tokens: {task.TotalNbCompletionTokens}";
+                yield return $"    Total Number of Total Tokens: {task.TotalNbTotalTokens}";
                 yield return string.Empty;
             }
 
@@ -101,8 +107,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                         TotalTranslationTime = g.Sum(c => c.TimeTaken),
                         TotalNbCalls = g.Count(),
                         TotalNbTexts = g.Sum(c => c.NbTexts),
-                        TotalNbInputTokens = g.Sum(c => c.NbInputTokens ?? 0),
-                        TotalNbOutputTokens = g.Sum(c => c.NbOutputTokens ?? 0)
+                        TotalNbPromptTokens = g.Sum(c => c.NbPromptTokens ?? 0),
+                        TotalNbCompletionTokens = g.Sum(c => c.NbCompletionTokens ?? 0),
+                        TotalNbTotalTokens = g.Sum(c => c.NbTotalTokens ?? 0)
                     });
 
             foreach (var task in translationCostsByTask)
@@ -111,8 +118,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 yield return $"    Total Translation Time: {task.TotalTranslationTime}";
                 yield return $"    Total Number of Calls: {task.TotalNbCalls}";
                 yield return $"    Total Number of Texts: {task.TotalNbTexts}";
-                yield return $"    Total Number of Input Tokens: {task.TotalNbInputTokens}";
-                yield return $"    Total Number of Output Tokens: {task.TotalNbOutputTokens}";
+                yield return $"    Total Number of Prompt Tokens: {task.TotalNbPromptTokens}";
+                yield return $"    Total Number of Completion Tokens: {task.TotalNbCompletionTokens}";
+                yield return $"    Total Number of Total Tokens: {task.TotalNbTotalTokens}";
                 yield return string.Empty;
             }
         }

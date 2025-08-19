@@ -30,7 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             out string reason)
         {
             var srtFullpath = context.CurrentBaseFilePath + this.SrtSuffix;
-            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.MergedVadId && f.Items.Length > 0))
+            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.MergedVadId && f.Items.Count > 0))
             {
                 reason = $"Transcription '{MergedVadId}' not done yet.";
                 return false;

@@ -30,37 +30,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 4)]
         public bool ForceSplitOnComma { get; set; } = true;
         [JsonProperty(Order = 5)]
-        public TimeSpan RedoBlockLargerThen { get; set; } = TimeSpan.FromSeconds(15);
-        [JsonProperty(Order = 6)]
         public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
 
-        public override TranscribedText[] TranscribeAudio(
+        public override void TranscribeAudio(
             SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
+            Transcription transcription,
             PcmAudio[] audios,
-            Language sourceLanguage,
-            string filesPrefix,
-            out TranscriptionCost[] costs)
+            string filesPrefix)
         {
-            var costsList = new List<TranscriptionCost>();
-            var transcribedTexts = TranscribeAudioInternal(
+            TranscribeAudioInternal(
                 context,
                 progressUpdateCallback,
+                transcription,
                 audios,
-                sourceLanguage,
-                filesPrefix,
-                costsList);
-            costs = costsList.ToArray();
-            return transcribedTexts;
+                filesPrefix);
         }
 
-        private TranscribedText[] TranscribeAudioInternal(
+        private void TranscribeAudioInternal(
             SubtitleGeneratorContext context,
             ProgressUpdateDelegate progressUpdateCallback,
+            Transcription transcription,
             PcmAudio[] audios,
-            Language sourceLanguage,
-            string filesPrefix,
-            List<TranscriptionCost> costs)
+            string filesPrefix)
         {
             if (!File.Exists(this.ApplicationFullPath))
             {
@@ -92,8 +84,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     // Construct command-line arguments for transcription
                     var arguments = new StringBuilder();
                     arguments.Append($" --model {this.Model}");
-                    if (sourceLanguage != null)
-                        arguments.Append($" --language {sourceLanguage.ShortName}");
+                    if (transcription.Language != null)
+                        arguments.Append($" --language {transcription.Language.ShortName}");
                     arguments.Append($" --task transcribe");
                     arguments.Append($" --output_format json");
                     arguments.Append($" {this.AdditionalParameters}");
@@ -143,7 +135,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     process.BeginOutputReadLine();
                     process.WaitForExit();
 
-                    costs.Add(
+                    transcription.Costs.Add(
                         new TranscriptionCost(
                             ToolName,
                             stopwatch.Elapsed,
@@ -203,56 +195,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         currentText.EndsWith("?") ||
                                         currentText.EndsWith("!"))
                                     {
-                                        // If a segment is longer than the configured duration, we rerun whisper on that block.
-                                        // Usually, it will be broken down into smaller pieces.
-                                        var currentDuration = word.EndTime - currentStartTime.Value;
-                                        if (pcmAudio.Offset == TimeSpan.Zero && currentDuration > this.RedoBlockLargerThen)
-                                        {
-                                            var redoId = $"REDO-{(int)currentStartTime.Value.TotalSeconds}-{(int)currentDuration.TotalSeconds}";
-                                            var redoResult = TranscribeAudioInternal(
-                                                    context,
-                                                    (toolName, toolAction, message) => progressUpdateCallback(ToolName, redoId, message),
-                                                    new[] {
-                                                        pcmAudio.ExtractSnippet(
-                                                            currentStartTime.Value,
-                                                            word.EndTime) },
-                                                    sourceLanguage,
-                                                    filesPrefix + redoId + "-",
-                                                    costs);
-                                            texts.AddRange(redoResult);
-
-                                            if (redoResult.Length == 0)
-                                            {
-                                                texts.Add(
-                                                   new TranscribedText(
-                                                       currentStartTime.Value,
-                                                       word.EndTime,
-                                                       currentText,
-                                                       (double)segment.no_speech_prob,
-                                                       currentWords));
-                                            }
-                                            else
-                                            {
-                                                context.WriteVerbose(redoId);
-                                                context.WriteVerbose("   Before");
-                                                context.WriteVerbose($"      {currentStartTime} => {word.EndTime}: {currentText}");
-                                                context.WriteVerbose("   After");
-                                                foreach (var x in redoResult)
-                                                {
-                                                    context.WriteVerbose($"      {x.StartTime} => {x.EndTime}: {x.Text}");
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            texts.Add(
-                                               new TranscribedText(
-                                                   currentStartTime.Value,
-                                                   word.EndTime,
-                                                   currentText,
-                                                   (double)segment.no_speech_prob,
-                                                   currentWords));
-                                        }
+                                        texts.Add(
+                                            new TranscribedText(
+                                                currentStartTime.Value,
+                                                word.EndTime,
+                                                currentText,
+                                                (double)segment.no_speech_prob,
+                                                currentWords));
                                         currentStartTime = null;
                                         currentText = null;
                                         currentWords.Clear();
@@ -273,7 +222,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
                         .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Text)));
                     subtitleFile.SaveSrt(fullSrtTempFile);
-                    return texts.ToArray();
                 }
                 finally
                 {
