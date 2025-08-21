@@ -34,6 +34,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 16)]
         public int? DebugNbRequestsLimit { get; set; } = null;
 
+        [JsonProperty(Order = 17)]
+        public bool UseStreaming { get; set; } = true;
+
         public override void Execute(
             SubtitleGeneratorContext context,
             IEnumerable<AIRequest> requests)
@@ -67,6 +70,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
                 requestBody = Merge(requestBody, RequestBodyExtension);
                 requestBody.messages = request.Messages;
+                if (UseStreaming)
+                {
+                    requestBody.stream = true;
+                }
 
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
@@ -75,45 +82,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 context.CreateVerboseFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
 
                 var watch = Stopwatch.StartNew();
-                var response = client.PostAsync(
-                    new Uri(client.BaseAddress, "chat/completions"),
-                    new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
-                ).Result;
 
-                if (!response.IsSuccessStatusCode)
+                if (UseStreaming)
                 {
-                    throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                    ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime, watch);
+                }
+                else
+                {
+                    ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime, watch);
                 }
 
-                string responseAsJson = response.Content.ReadAsStringAsync().Result;
                 watch.Stop();
-
-                dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-                context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
-
-                if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new AIRequestException(request, $"Invalid model name in response:\n" +
-                        $"   [API response] {responseBody.model}\n" +
-                        $"   [config]   {this.Model}");
-                }
-
-                string assistantMessage = responseBody.choices[0].message.content;
-                context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
-                if (assistantMessage == null)
-                {
-                    throw new AIRequestException(request, $"Empty response receive.");
-                }
-
-                // Let the request handle the response and store the api cost
-                request.HandleResponse(
-                    context,
-                    $"{this.BaseAddress},{this.Model}",
-                    watch.Elapsed,
-                    assistantMessage,
-                    (int?)responseBody?.usage?.prompt_tokens,
-                    (int?)responseBody?.usage?.completion_tokens,
-                    (int?)responseBody?.usage?.total_tokens);
 
                 if (DateTime.Now - lastTimeSaved > TimeSpan.FromMinutes(1))
                 {
@@ -121,6 +100,178 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     lastTimeSaved = DateTime.Now;
                 }
             }
+        }
+
+        private void ProcessNormalResponse(
+            HttpClient client,
+            AIRequest request,
+            string requestBodyAsJson,
+            SubtitleGeneratorContext context,
+            string verbosePrefix,
+            DateTime processStartTime,
+            Stopwatch watch)
+        {
+            var response = client.PostAsync(
+                new Uri(client.BaseAddress, "chat/completions"),
+                new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
+            ).Result;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+            }
+
+            string responseAsJson = response.Content.ReadAsStringAsync().Result;
+
+            dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+            context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
+
+            if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new AIRequestException(request, $"Invalid model name in response:\n" +
+                    $"   [API response] {responseBody.model}\n" +
+                    $"   [config]   {this.Model}");
+            }
+
+            string assistantMessage = responseBody.choices[0].message.content;
+            context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+            if (assistantMessage == null)
+            {
+                throw new AIRequestException(request, $"Empty response receive.");
+            }
+
+            // Let the request handle the response and store the api cost
+            request.HandleResponse(
+                context,
+                $"{this.BaseAddress},{this.Model}",
+                watch.Elapsed,
+                assistantMessage,
+                (int?)responseBody?.usage?.prompt_tokens,
+                (int?)responseBody?.usage?.completion_tokens,
+                (int?)responseBody?.usage?.total_tokens);
+        }
+
+        private void ProcessStreamingResponse(
+            HttpClient client,
+            AIRequest request,
+            string requestBodyAsJson,
+            SubtitleGeneratorContext context,
+            string verbosePrefix,
+            DateTime processStartTime,
+            Stopwatch watch)
+        {
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
+            {
+                Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
+            };
+
+            var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+            }
+
+            var dataReceived = new StringBuilder();
+            var fullContent = new StringBuilder();
+            string modelName = null;
+            int? promptTokens = null;
+            int? completionTokens = null;
+            int? totalTokens = null;
+            try
+            {
+                Console.WriteLine("... waiting for AI first token ...");
+                using (var stream = response.Content.ReadAsStreamAsync().Result)
+                using (var reader = new StreamReader(stream))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        dataReceived.AppendLine(line);
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
+
+                        if (line.StartsWith("data: "))
+                        {
+                            var data = line.Substring(6);
+                            if (data == "[DONE]")
+                                break;
+
+                            try
+                            {
+                                dynamic chunk = JsonConvert.DeserializeObject(data);
+
+                                // Extract model name from first chunk
+                                if (modelName == null && chunk.model != null)
+                                {
+                                    modelName = chunk.model;
+                                }
+
+                                // Extract content delta
+                                if (chunk.choices != null && chunk.choices.Count > 0)
+                                {
+                                    var delta = chunk.choices[0].delta;
+                                    if (delta != null && delta.content != null)
+                                    {
+                                        string contentChunk = delta.content;
+                                        fullContent.Append(contentChunk);
+
+                                        // Write to console as chunks arrive
+                                        Console.Write(contentChunk);
+                                    }
+                                }
+
+                                // Some APIs send usage information in streaming mode
+                                if (chunk.usage != null)
+                                {
+                                    promptTokens = (int?)chunk.usage.prompt_tokens;
+                                    completionTokens = (int?)chunk.usage.completion_tokens;
+                                    totalTokens = (int?)chunk.usage.total_tokens;
+                                }
+                            }
+                            catch (JsonException)
+                            {
+                                // Skip malformed JSON chunks
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                fullContent.AppendLine();
+                fullContent.AppendLine($"An exception occured while receiving the AI response: {ex.Message}");
+            }
+
+            Console.WriteLine(); // Add newline after streaming output
+
+            string assistantMessage = fullContent.ToString();
+
+            if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new AIRequestException(request, $"Invalid model name in response:\n" +
+                    $"   [API response] {modelName}\n" +
+                    $"   [config]   {this.Model}");
+            }
+
+            context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+
+            if (string.IsNullOrEmpty(assistantMessage))
+            {
+                throw new AIRequestException(request, $"Empty response received.");
+            }
+
+            context.CreateVerboseFile($"{verbosePrefix}-Resp.json", dataReceived.ToString(), processStartTime);
+
+            // Let the request handle the response and store the api cost
+            request.HandleResponse(
+                context,
+                $"{this.BaseAddress},{this.Model}",
+                watch.Elapsed,
+                assistantMessage,
+                promptTokens,
+                completionTokens,
+                totalTokens);
         }
 
         private static dynamic Merge(ExpandoObject item1, ExpandoObject item2)

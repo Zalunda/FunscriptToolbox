@@ -75,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             var guesses = new Dictionary<string, int>();
             var nbOccurencesToBeSure = 5;
-            foreach (var transcribedText in items)
+            foreach (var transcribedText in items ?? Array.Empty<TranscribedText>())
             {
                 string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
                     "?client=gtx" +

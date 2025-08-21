@@ -30,11 +30,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 23)]
         public bool IncludeExtraTranscriptions { get; set; } = true;
 
-        [JsonProperty(Order = 24)]
-        public bool AutoSelectSingleChoice { get; set; } = false;
-
         [JsonProperty(Order = 25)]
-        public string PartSeparator { get; set; } = string.Empty;
+        public string PartSeparator { get; set; } = " | ";
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -153,8 +150,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 // Emit any "extra" transcriptions occurring before (or at) current timing
                 result.AddRange(GetExtraSubtitles(extraTranscriptions, finalTranslationsOrder, forcedTiming.StartTime));
 
-                string singleChoice = AutoSelectSingleChoice ? string.Empty : null;
-
                 if (forcedTiming.ScreengrabText != null)
                 {
                     result.Add(new Subtitle(forcedTiming.StartTime, forcedTiming.EndTime, $"{forcedTiming.ScreengrabText}"));
@@ -187,9 +182,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     var matchIndex = Array.FindIndex(overlapOtherSide, x => x.Timing == forcedTiming);
                                     if (matchIndex >= 0)
                                     {
-                                        overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {overlapOtherSide[matchIndex].WordsText}]";
+                                        var allTextParts = string.Join(PartSeparator, overlapOtherSide.Select(o => o.WordsText));
+                                        overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {allTextParts}]";
                                     }
-                                    text = string.Join(PartSeparator ?? string.Empty, overlapOtherSide.Select(o => o.WordsText));
+                                    text = overlapOtherSide[matchIndex].WordsText;
                                 }
 
                                 builder.AppendLine($"[{ta.Transcription.Id}{number}] {text} {overlapInfo}");
@@ -199,24 +195,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     .TranslatedTexts
                                     .Where(f => finalTranslationsOrder.Contains(f.Id))
                                     .ToArray();
-
-                                // Only keep singleChoice if exactly one translation and no overlapInfo ambiguity
-                                if (!string.IsNullOrEmpty(overlapInfo) || translations.Length != 1)
-                                {
-                                    singleChoice = null;
-                                }
-                                else
-                                {
-                                    if (singleChoice == string.Empty)
-                                    {
-                                        singleChoice = translations.First().Text;
-                                    }
-                                    else
-                                    {
-                                        // Multiple distinct candidates => cancel singleChoice
-                                        singleChoice = null;
-                                    }
-                                }
                             }
                         }
                     }
@@ -224,7 +202,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     result.Add(new Subtitle(
                         forcedTiming.StartTime,
                         forcedTiming.EndTime,
-                        singleChoice ?? builder.ToString()));
+                        builder.ToString()));
                 }
             }
 

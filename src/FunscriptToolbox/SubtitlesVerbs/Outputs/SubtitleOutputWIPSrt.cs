@@ -41,7 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
 
         [JsonProperty(Order = 20)]
-        public SubtitleToInject[] SubtitlesToInject { get; set; }
+        public SubtitleToInjectCollection SubtitlesToInject { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -126,9 +126,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                                     var matchIndex = Array.FindIndex(overlapOtherSide, x => x.Timing == forcedTiming);
                                     if (matchIndex >= 0)
                                     {
-                                        overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {overlapOtherSide[matchIndex].WordsText}]";
+                                        var allTextParts = string.Join(PartSeparator, overlapOtherSide.Select(o => o.WordsText));
+                                        overlapInfo = $"[{matchIndex + 1}/{overlapOtherSide.Length}, {allTextParts}]";
                                     }
-                                    text = string.Join(this.PartSeparator, overlapOtherSide.Select(o => o.WordsText));
+                                    text = overlapOtherSide[matchIndex].WordsText;
                                 }
 
                                 builder.AppendLine($"[{ta.Transcription.Id}{number}] {text} {overlapInfo}");

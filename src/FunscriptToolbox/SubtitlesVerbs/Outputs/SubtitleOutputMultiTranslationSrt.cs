@@ -29,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
 
         [JsonProperty(Order = 20)]
-        public SubtitleToInject[] SubtitlesToInject { get; set; }
+        public SubtitleToInjectCollection SubtitlesToInject { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,

@@ -6,7 +6,6 @@ using log4net;
 using System;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.MotionVectorsVerbs
@@ -22,12 +21,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             public bool Recursive { get; set; }
         }
 
-        private readonly Options r_options;
-
         public VerbInstallation(Options options)
             : base(rs_log, options)
         {
-            r_options = options;
         }
 
         public int Execute()

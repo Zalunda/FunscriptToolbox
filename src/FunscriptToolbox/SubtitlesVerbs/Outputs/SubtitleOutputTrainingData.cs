@@ -23,16 +23,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 11, Required = Required.Always)]
         public string SrtSuffix { get; set; }
         [JsonProperty(Order = 12, Required = Required.Always)]
-        public string MergedVadId { get; set; }
+        public string TranscriptionId { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
             var srtFullpath = context.CurrentBaseFilePath + this.SrtSuffix;
-            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.MergedVadId && f.Items.Count > 0))
+            if (!context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.TranscriptionId && f.IsFinished))
             {
-                reason = $"Transcription '{MergedVadId}' not done yet.";
+                reason = $"Transcription '{TranscriptionId}' not done yet.";
                 return false;
             }
             else if (!File.Exists(srtFullpath))
@@ -71,7 +71,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 .Subtitles
                 .Select(sub => new SimpleSubtitle(sub.StartTime, sub.EndTime, sub.Text))
                 .ToArray();
-            var mergedVadTranscription = context.CurrentWipsub.Transcriptions.First(f => f.Id == this.MergedVadId);
+            var mergedVadTranscription = context.CurrentWipsub.Transcriptions.First(f => f.Id == this.TranscriptionId);
 
             var analysis = mergedVadTranscription.GetAnalysis(finalSubtitles);
             string lastContext = null;

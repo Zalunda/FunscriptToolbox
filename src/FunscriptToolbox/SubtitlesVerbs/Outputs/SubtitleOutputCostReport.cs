@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 11)]
         public bool OutputToConsole { get; set; } = true;
         [JsonProperty(Order = 12)]
-        public bool IsGlobalTranscriptionReport { get; set; } = true;
+        public bool IsGlobalTranscriptionReport { get; set; } = false;
         [JsonProperty(Order = 13)]
         public bool IsGlobalTranslationReport { get; set; } = false;
 
