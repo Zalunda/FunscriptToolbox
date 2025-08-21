@@ -39,8 +39,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        public override Transcription Transcribe(
+        public override void Transcribe(
             SubtitleGeneratorContext context,
+            Transcription transcription,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
@@ -52,16 +53,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .Select(
                     vad => pcmAudio.ExtractSnippet(vad.StartTime - this.ExpandStart, vad.EndTime + this.ExpandEnd))
                 .ToArray();
-            var transcription = new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage);
             this.TranscriberTool.TranscribeAudio(
                 context,
                 context.DefaultProgressUpdateHandler,
                 transcription,
                 audioSections,
                 $"{this.TranscriptionId}-");
-            return transcription;
+            transcription.MarkAsFinished();
         }
     }
 }

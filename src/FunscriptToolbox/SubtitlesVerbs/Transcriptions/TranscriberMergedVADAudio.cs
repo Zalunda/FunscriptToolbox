@@ -41,8 +41,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        public override Transcription Transcribe(
+        public override void Transcribe(
             SubtitleGeneratorContext context,
+            Transcription transcription,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
@@ -108,17 +109,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var offsetCollection = new AudioOffsetCollection(audioOffsets);
             var mergedPcm = new PcmAudio(pcmAudio.SamplingRate, mergedAudio.ToArray());
 
-            var transcription = new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage);
             this.TranscriberTool.TranscribeAudio(
                                 context,
                                 context.DefaultProgressUpdateHandler,
                                 transcription,
                                 new[] { mergedPcm },
                                 $"{this.TranscriptionId}-");
-            var oldItems = transcription.Items;
+            var oldItems = transcription.Items.ToArray();
             transcription.Items.Clear();
+            var remappedItems = new List<TranscribedText>();
 
             foreach (var original in oldItems)
             {
@@ -128,7 +127,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     throw new Exception("BUG");
                 }
-                transcription.Items.Add(
+                remappedItems.Add(
                     new TranscribedText(
                         newStartTime.Value,
                         newEndTime.Value,
@@ -150,7 +149,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 adjustedSrt.SaveSrt(context.GetPotentialVerboseFilePath($"{this.TranscriptionId}-adjusted.srt", DateTime.Now));
             }
 
-            return transcription;
+            transcription.Items.AddRange(remappedItems);
+            transcription.MarkAsFinished();
         }
     }
 }

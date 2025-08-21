@@ -11,6 +11,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private readonly Transcription _transcription;
         public PcmAudio[] Items { get; }
 
+        public override string NbItemsString() => $"{this.Items.Length} audio samples";
+
         public AIRequestForTranscription(
             string taskId,
             string toolAction,
@@ -33,18 +35,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             int? completionTokens = null,
             int? totalTokens = null)
         {
-            var transcribedTexts = ParseApiResponse(context, responseReceived);
-
-            // Add transcribed texts to the transcription
-            foreach (var text in transcribedTexts)
+            var transcribedTextsAdded = ParseAndAddTranscription(_transcription, responseReceived, this);
+            if (transcribedTextsAdded.Count > 0)
             {
-                _transcription.Items.Add(text);
-
-                // Update UI
-                context.DefaultUpdateHandler(
-                    "Transcription",
-                    this.ToolAction,
-                    text.Text);
+                // Add transcribed texts to the transcription
+                foreach (var tt in transcribedTextsAdded)
+                {
+                    // Update UI
+                    context.DefaultUpdateHandler(
+                        "Transcription",
+                        this.ToolAction,
+                        tt.Text);
+                }
             }
 
             // Add the cost to the transcription
@@ -59,16 +61,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     totalTokens));
         }
 
-        public override string NbItemsString() => $"{this.Items.Length} audio samples";
-
-        private List<TranscribedText> ParseApiResponse(SubtitleGeneratorContext context, string jsonResponse)
+        public static List<TranscribedText> ParseAndAddTranscription(
+            Transcription transcription, 
+            string responseReceived,
+            AIRequest request = null)
         {
-            var transcribedTexts = new List<TranscribedText>();
             try
             {
-                
-                dynamic transcriptionArray = ParseAndFixJson(jsonResponse);
+                dynamic transcriptionArray = ParseAndFixJson(request, responseReceived);
 
+                var transcribedTextsAdded = new List<TranscribedText>();
                 foreach (var segment in transcriptionArray)
                 {
                     var text = (string)segment.Transcription ?? (string)segment.Text;
@@ -77,17 +79,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var startTime = TimeSpan.Parse((string)segment.StartTime);
                     var endTime = TimeSpan.Parse((string)segment.EndTime);
 
-                    transcribedTexts.Add(
-                        new TranscribedText(startTime, endTime, text.Trim()));
+                    var newTT = new TranscribedText(startTime, endTime, text.Trim());
+                    transcribedTextsAdded.Add(newTT);
+                    transcription.Items.Add(newTT);
                 }
+                return transcribedTextsAdded;
+            }
+            catch (AIRequestException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                context.WriteError($"Failed to parse API response: {ex.Message}");
-                throw new AIEngineException(ex, jsonResponse);
+                throw new AIRequestException(ex, request, ex.Message);
             }
-
-            return transcribedTexts;
         }
     }
 }

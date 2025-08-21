@@ -3,9 +3,9 @@ using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -55,8 +55,71 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             if (nbErrors == 0)
             {
                 var requests = CreateRequests(context, transcription, translation).ToArray();
-                this.Engine.Execute(context, requests);
+                try
+                {
+                    this.Engine.Execute(context, requests);
+                }
+                catch (AIRequestException ex)
+                {
+                    var filepath = ex.Request.GetFilenamePattern(context.CurrentBaseFilePath);
+                    context.SoftDelete(filepath);
+                    var body = ex.ResponseBodyPartiallyFixed ?? $"Original Prompt:\n\n{ex.Request?.FullPrompt}";
+                    File.WriteAllText(filepath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{body}", Encoding.UTF8);
+                    context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(filepath)}':\n{ex.Message}");
+                    throw;
+                }
+                catch (Exception ex) when(ex is AggregateException || ex is HttpRequestException)
+                {
+                    context.WriteError($"Error while communicating with the API: {ex.Message}");
+                    context.WriteLog(ex.ToString());
+                    throw new AIRequestException(ex, null, $"Error while communicating with the 'client.BaseAddress' API: {ex.Message}");
+                }
             }
+        }
+
+        private int HandlePreviousFiles(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            Translation translation)
+        {
+            var nbErrors = 0;
+            var patternSuffix = "_\\d+\\.txt";
+
+            foreach (var fullpath in Directory.GetFiles(
+                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
+                "*.*"))
+            {
+                var filename = Path.GetFileName(fullpath);
+                if (Regex.IsMatch(
+                    filename,
+                    $"^" + Regex.Escape($"{Path.GetFileName(context.CurrentBaseFilePath)}.TODO_{transcription.Id}_{translation.Id}") + $"{patternSuffix}$",
+                    RegexOptions.IgnoreCase))
+                {
+                    var response = File.ReadAllText(fullpath);
+                    context.SoftDelete(fullpath);
+
+                    try
+                    {
+                        context.WriteInfo($"        Analysing existing file '{filename}'...");
+                        var nbAdded = AIRequestForTranslation.ParseAndAddTranslations(transcription, translation, response);
+                        context.WriteInfo($"        Finished:");
+                        context.WriteInfo($"            Nb translations added: {nbAdded}");
+                        if (nbAdded > 0)
+                        {
+                            context.CurrentWipsub.Save();
+                        }
+                    }
+                    catch (AIRequestException ex)
+                    {
+                        nbErrors++;
+                        File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}", Encoding.UTF8);
+                        context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
+                        context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
+                    }
+                }
+            }
+
+            return nbErrors;
         }
 
         private IEnumerable<AIRequest> CreateRequests(
@@ -183,7 +246,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 });
 
                 yield return new AIRequestForTranslation(
-                    $"{transcription.Id}-{translation.Id}",
+                    $"{transcription.Id}_{translation.Id}",
                     $"{currentIndex}/{itemsToTranslate.Length}",
                     requestNumber++,
                     messages,
@@ -194,48 +257,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 currentIndex += itemsForRequest.Length;
                 ongoingContext = currentContext ?? ongoingContext;
             }
-        }
-
-        private int HandlePreviousFiles(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            Translation translation)
-        {
-            var nbErrors = 0;
-            var patternSuffix = "-\\d+\\.txt";
-
-            foreach (var fullpath in Directory.GetFiles(
-                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
-                "*.*"))
-            {
-                var filename = Path.GetFileName(fullpath);
-                if (Regex.IsMatch(
-                    filename,
-                    $"^" + Regex.Escape($"{Path.GetFileName(context.CurrentBaseFilePath)}.TODO-{transcription.Id}-{translation.Id}") + $"{patternSuffix}$",
-                    RegexOptions.IgnoreCase))
-                {
-                    var response = File.ReadAllText(fullpath);
-                    context.SoftDelete(fullpath);
-
-                    try
-                    {
-                        context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var nbAdded = AIRequestForTranslation.ParseAndAddTranslations(transcription, translation, response);
-                        context.WriteInfo($"        Finished:");
-                        context.WriteInfo($"            Nb translations added: {nbAdded}");
-                        context.CurrentWipsub.Save();
-                    }
-                    catch (AIEngineException ex)
-                    {
-                        nbErrors++;
-                        File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.PartiallyFixedResponse}", Encoding.UTF8);
-                        context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
-                        context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
-                    }
-                }
-            }
-
-            return nbErrors;
         }
     }
 }

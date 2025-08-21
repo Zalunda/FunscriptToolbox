@@ -6,7 +6,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 {
     public sealed class AIEngineChatBot : AIEngine
     {
-        public override bool Execute(
+        public override void Execute(
             SubtitleGeneratorContext context,
             IEnumerable<AIRequest> requests)
         {
@@ -20,7 +20,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                 context.AddUserTodo($"Feed the content of '{Path.GetFileName(filepath)}' to an AI, then replace the content of the file with the AI's answer.");
             }
-            return true;
         }
     }
 }

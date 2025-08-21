@@ -101,8 +101,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        public override Transcription Transcribe(
+        public override void Transcribe(
             SubtitleGeneratorContext context,
+            Transcription transcription,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
@@ -119,18 +120,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             // Convert to TranscribedText items
-            var items = subtitles
-                .Select(s => new TranscribedText(s.StartTime, s.EndTime, s.Text))
-                .ToArray();
-
-            // No external cost; this is an internal collation step
-            var costs = Array.Empty<TranscriptionCost>();
-
-            return new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage,
-                items,
-                costs);
+            transcription.Items.AddRange(subtitles.Select(s => new TranscribedText(s.StartTime, s.EndTime, s.Text)));
+            transcription.MarkAsFinished();
         }
 
         private IEnumerable<Subtitle> BuildSubtitlesAggregation(SubtitleGeneratorContext context)

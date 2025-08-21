@@ -34,7 +34,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 16)]
         public int? DebugNbRequestsLimit { get; set; } = null;
 
-        public override bool Execute(
+        public override void Execute(
             SubtitleGeneratorContext context,
             IEnumerable<AIRequest> requests)
         {
@@ -57,8 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 if (DebugNbRequestsLimit != null && request.Number > DebugNbRequestsLimit.Value)
                 {
-                    context.WriteInfo($"    Stopping because DebugNbRequestsLimit reached ({DebugNbRequestsLimit.Value})");
-                    return false;
+                    throw new AIRequestException(request, $"Stopping because DebugNbRequestsLimit has been reached ({DebugNbRequestsLimit.Value})");
                 }
 
                 dynamic requestBody = new ExpandoObject();
@@ -75,76 +74,53 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 context.CreateVerboseFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
                 context.CreateVerboseFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
 
-                try
+                var watch = Stopwatch.StartNew();
+                var response = client.PostAsync(
+                    new Uri(client.BaseAddress, "chat/completions"),
+                    new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
+                ).Result;
+
+                if (!response.IsSuccessStatusCode)
                 {
-                    var watch = Stopwatch.StartNew();
-                    var response = client.PostAsync(
-                        new Uri(client.BaseAddress, "chat/completions"),
-                        new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
-                    ).Result;
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
-                        return false;
-                    }
-
-                    string responseAsJson = response.Content.ReadAsStringAsync().Result;
-                    watch.Stop();
-
-                    dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-                    context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
-
-                    if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
-                    {
-                        context.WriteError($"Invalid model name in response:\n" +
-                            $"   [API response] {responseBody.model}\n" +
-                            $"   [config]   {this.Model}");
-                        return false;
-                    }
-
-                    string assistantMessage = responseBody.choices[0].message.content;
-                    context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
-                    if (assistantMessage == null)
-                    {
-                        context.WriteError($"No message return by the AI");
-                        return false;
-                    }
-
-                    // Let the request handle the response and store the api cost
-                    request.HandleResponse(
-                        context,
-                        $"{this.BaseAddress},{this.Model}",
-                        watch.Elapsed,
-                        assistantMessage,
-                        (int?)responseBody?.usage?.prompt_tokens,
-                        (int?)responseBody?.usage?.completion_tokens,
-                        (int?)responseBody?.usage?.total_tokens);
-
-                    if (DateTime.Now - lastTimeSaved > TimeSpan.FromMinutes(1))
-                    {
-                        context.CurrentWipsub.Save();
-                        lastTimeSaved = DateTime.Now;
-                    }
+                    throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
                 }
-                catch (AIEngineException ex)
+
+                string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                watch.Stop();
+
+                dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+                context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
+
+                if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
                 {
-                    var filepath = request.GetFilenamePattern(context.CurrentBaseFilePath);
-                    context.SoftDelete(filepath);
-                    File.WriteAllText(filepath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.PartiallyFixedResponse}", Encoding.UTF8);
-                    context.WriteInfo($"Error while parsing response from the API: {ex.Message}");
-                    context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(filepath)}':\n{ex.Message}");
-                    return false;
+                    throw new AIRequestException(request, $"Invalid model name in response:\n" +
+                        $"   [API response] {responseBody.model}\n" +
+                        $"   [config]   {this.Model}");
                 }
-                catch (Exception ex) when (ex is AggregateException || ex is HttpRequestException)
+
+                string assistantMessage = responseBody.choices[0].message.content;
+                context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+                if (assistantMessage == null)
                 {
-                    context.WriteError($"Error while communicating with the API: {ex.Message}");
-                    context.WriteLog(ex.ToString());
+                    throw new AIRequestException(request, $"Empty response receive.");
+                }
+
+                // Let the request handle the response and store the api cost
+                request.HandleResponse(
+                    context,
+                    $"{this.BaseAddress},{this.Model}",
+                    watch.Elapsed,
+                    assistantMessage,
+                    (int?)responseBody?.usage?.prompt_tokens,
+                    (int?)responseBody?.usage?.completion_tokens,
+                    (int?)responseBody?.usage?.total_tokens);
+
+                if (DateTime.Now - lastTimeSaved > TimeSpan.FromMinutes(1))
+                {
                     context.CurrentWipsub.Save();
-                    return false;
+                    lastTimeSaved = DateTime.Now;
                 }
             }
-            return true;
         }
 
         private static dynamic Merge(ExpandoObject item1, ExpandoObject item2)

@@ -4,7 +4,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 {
     public abstract class AIEngine
     {
-        public abstract bool Execute(
+        public abstract void Execute(
             SubtitleGeneratorContext context,
             IEnumerable<AIRequest> requests);
     }

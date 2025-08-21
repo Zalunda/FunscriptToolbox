@@ -9,6 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     {
         public string Id { get; private set; }
         public Language Language { get; }
+        public bool IsFinished { get; private set; }
         public List<TranscribedText> Items { get; }
         public List<TranscriptionCost> Costs { get; }
         public List<Translation> Translations { get; }
@@ -16,12 +17,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public Transcription(
             string id,
             Language language,
+            bool? isFinished = false,
             IEnumerable<TranscribedText> items = null, 
             IEnumerable<TranscriptionCost> costs = null,
             IEnumerable<Translation> translations = null)
         {
             Id = id;
-            Language = language ?? TranslatorGoogleV1API.DetectLanguage(Items);
+            Language = language ?? TranslatorGoogleV1API.DetectLanguage(items);
+            IsFinished = isFinished ?? true;
             Items = new List<TranscribedText>(items ?? Array.Empty<TranscribedText>());
             Costs = new List<TranscriptionCost>(costs ?? Array.Empty<TranscriptionCost>());
             Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
@@ -30,6 +33,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public void Rename(string newId)
         {
             this.Id = newId;
+        }
+
+        public void MarkAsFinished()
+        {
+            this.IsFinished = true;
         }
 
         public TranscriptionAnalysis<SubtitleForcedTiming> GetAnalysis(

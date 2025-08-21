@@ -11,6 +11,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         private readonly Transcription _transcription;
         public TranscribedText[] Items { get; }
 
+        public override string NbItemsString() => $"{this.Items.Length} texts";
+
         public AIRequestForTranslation(
             string taskId,
             string toolAction,
@@ -39,15 +41,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             int? completionTokens,
             int? totalTokens)
         {
-            var nbTranslationsAdded = ParseAndAddTranslations(_transcription, _translation, responseReceived);
-
-            // Update UI for each item
-            foreach (var item in Items)
+            var nbTranslationsAdded = ParseAndAddTranslations(_transcription, _translation, responseReceived, this);
+            if (nbTranslationsAdded > 0) 
             {
-                context.DefaultUpdateHandler(
-                    "Translation",
-                    this.ToolAction,
-                    item.TranslatedTexts.FirstOrDefault(f => f.Id == _translation.Id)?.Text);
+                context.CurrentWipsub.Save();
+
+                // Update UI for each item
+                foreach (var item in Items)
+                {
+                    context.DefaultUpdateHandler(
+                        "Translation",
+                        this.ToolAction,
+                        item.TranslatedTexts.FirstOrDefault(f => f.Id == _translation.Id)?.Text);
+                }
             }
 
             // Add the cost to the translation
@@ -61,47 +67,57 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     totalTokens));
         }
 
-        public override string NbItemsString() => $"{this.Items.Length} texts";
-
-        public static int ParseAndAddTranslations(Transcription transcription, Translation translation, string responseReceived)
+        public static int ParseAndAddTranslations(
+            Transcription transcription, 
+            Translation translation, 
+            string jsonResponse, 
+            AIRequest request = null)
         {
-            var nbTranslationsAdded = 0;
-            var result = ParseAndFixJson(responseReceived);
-
-            foreach (var item in result)
+            try
             {
-                var startTime = (string)item.StartTime;
-                var original = (string)item.Original;
-                var translatedText = (string)item.Translation;
+                var nbTranslationsAdded = 0;
+                var result = ParseAndFixJson(request, jsonResponse);
 
-                if (translatedText != null)
+                foreach (var item in result)
                 {
-                    // Find the matching transcribed text
-                    var startTimeSpan = ParseTimeString(startTime);
-                    var originalItem = transcription.Items
-                        .FirstOrDefault(f => f.StartTime == startTimeSpan && f.Text == original)
-                        ?? transcription.Items.FirstOrDefault(f => f.StartTime == startTimeSpan)
-                        ?? transcription.Items.FirstOrDefault(f => f.Text == original);
+                    var startTime = (string)item.StartTime;
+                    var original = (string)item.Original;
+                    var translatedText = (string)item.Translation;
 
-                    if (originalItem != null)
+                    if (translatedText != null)
                     {
-                        nbTranslationsAdded++;
-                        originalItem.TranslatedTexts.Add(
-                            new TranslatedText(
-                                translation.Id,
-                                translatedText));
+                        // Find the matching transcribed text
+                        var startTimeSpan = ParseTimeString(startTime);
+                        var originalItem = transcription.Items
+                            .FirstOrDefault(f => f.StartTime == startTimeSpan && f.Text == original)
+                            ?? transcription.Items.FirstOrDefault(f => f.StartTime == startTimeSpan)
+                            ?? transcription.Items.FirstOrDefault(f => f.Text == original);
+
+                        if (originalItem != null)
+                        {
+                            nbTranslationsAdded++;
+                            originalItem.TranslatedTexts.Add(
+                                new TranslatedText(
+                                    translation.Id,
+                                    translatedText));
+                        }
                     }
                 }
-            }
 
-            return nbTranslationsAdded;
+                return nbTranslationsAdded;
+            }
+            catch (AIRequestException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new AIRequestException(ex, request, ex.Message);
+            }
         }
 
         private static TimeSpan ParseTimeString(string timeString)
         {
-            // TODO FIX
-
-            // Parse format like "1:23.456" or "01:23.456"
             var parts = timeString.Split(':');
             if (parts.Length == 2)
             {

@@ -34,8 +34,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        public override Transcription Transcribe(
+        public override void Transcribe(
             SubtitleGeneratorContext context,
+            Transcription transcription,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
@@ -63,24 +64,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
             else
             {
-                var transcribedTexts = new List<TranscribedText>();
                 var fixedSubtitleFile = SubtitleFile.FromSrtFile(fixedSrt);
                 var allWords = sourceTranscription.Items.SelectMany(item => item.Words).ToArray();
                 foreach (var subtitle in fixedSubtitleFile.Subtitles)
                 {
-                    transcribedTexts.Add(
+                    transcription.Items.Add(
                         new TranscribedText(
                             subtitle.StartTime,
                             subtitle.EndTime,
                             subtitle.Text,
-                    words: allWords
+                            words: allWords
                                 .Where(word => word.StartTime < subtitle.EndTime && word.EndTime > subtitle.StartTime)));
                 }
-                return new Transcription(
-                    this.TranscriptionId,
-                    transcribedLanguage,
-                    transcribedTexts,
-                    Array.Empty<TranscriptionCost>());
+                transcription.MarkAsFinished();
             }
         }
     }

@@ -172,7 +172,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         var transcription = wipsub.Transcriptions.FirstOrDefault(
                             t => t.Id == transcriber.TranscriptionId);
-                        if (transcription != null)
+                        if (transcription == null)
+                        {
+                            transcription = new Transcription(
+                                transcriber.TranscriptionId,
+                                transcriber.Language);
+                        }
+
+                        if (transcription.IsFinished)
                         {
                             context.WriteInfoAlreadyDone($"Transcription '{transcriber.TranscriptionId}' have already been done:");
                             context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Count}");
@@ -198,21 +205,29 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 var watch = Stopwatch.StartNew();
                                 context.WriteInfo($"Transcribing '{transcriber.TranscriptionId}'...");
-                                transcription = transcriber.Transcribe(
+                                transcriber.Transcribe(
                                     context,
+                                    transcription,
                                     wipsub.PcmAudio,
                                     sourceLanguage);
 
-                                context.WriteInfo($"Finished in {watch.Elapsed}:");
-                                context.WriteInfo($"    Number of subtitles = {transcription.Items.Count}");
-                                context.WriteInfo($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
-                                if (transcriber.Language == null)
+                                if (transcription.IsFinished)
                                 {
-                                    context.WriteInfo($"    Detected Language = {transcription.Language.LongName}");
+                                    context.WriteInfo($"Finished in {watch.Elapsed}:");
+                                    context.WriteInfo($"    Number of subtitles = {transcription.Items.Count}");
+                                    context.WriteInfo($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
+                                    if (transcriber.Language == null)
+                                    {
+                                        context.WriteInfo($"    Detected Language = {transcription.Language.LongName}");
+                                    }
+                                    foreach (var line in GetTranscriptionAnalysis(context, transcription))
+                                    {
+                                        context.WriteInfo(line);
+                                    }
                                 }
-                                foreach (var line in GetTranscriptionAnalysis(context, transcription))
+                                else
                                 {
-                                    context.WriteInfo(line);
+                                    context.WriteInfo($"Not finished yet in {watch.Elapsed}.");
                                 }
                                 context.WriteInfo();
 
@@ -234,7 +249,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
 
-                        if (transcription != null)
+                        if (transcription.IsFinished)
                         {
                             foreach (var translator in transcriber.Translators
                                 ?.Where(t => t.Enabled)
@@ -247,11 +262,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     translation = new Translation(
                                         translator.TranslationId,
                                         translator.TargetLanguage);
-                                    if (transcription != null)
-                                    {
-                                        transcription.Translations.Add(translation);
-                                        wipsub.Save();
-                                    }
+                                    transcription.Translations.Add(translation);
                                 }
 
                                 if (translator.IsFinished(transcription, translation))

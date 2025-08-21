@@ -209,7 +209,7 @@
     <Compile Include="SubtitlesVerbs\SubtitleForcedTimingParser.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriptionCost.cs" />
-    <Compile Include="SubtitlesVerbs\AIEngineException.cs" />
+    <Compile Include="SubtitlesVerbs\AIRequestException.cs" />
     <Compile Include="SubtitlesVerbs\Translations\AIRequestForTranslation.cs" />
     <Compile Include="SubtitlesVerbs\AIRequest.cs" />
     <Compile Include="SubtitlesVerbs\AIEngine.cs" />

@@ -28,8 +28,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             IEnumerable<Transcriber> transcribers,
             out string reason);
 
-        public abstract Transcription Transcribe(
+        public abstract void Transcribe(
             SubtitleGeneratorContext context,
+            Transcription transcription,
             PcmAudio pcmAudio,
             Language overrideLanguage);
     }

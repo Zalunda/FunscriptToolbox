@@ -22,22 +22,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        public override Transcription Transcribe(
+        public override void Transcribe(
             SubtitleGeneratorContext context,
+            Transcription transcription,
             PcmAudio pcmAudio,
             Language overrideLanguage)
         {
             var transcribedLanguage = overrideLanguage ?? this.Language;
-            var transcription = new Transcription(
-                this.TranscriptionId,
-                transcribedLanguage);
             this.TranscriberTool.TranscribeAudio(
                      context,
                      context.DefaultProgressUpdateHandler,
                      transcription,
                      new[] { pcmAudio },
                      $"{this.TranscriptionId}-");
-            return transcription;
+            transcription.MarkAsFinished();
         }
     }
 }

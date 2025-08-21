@@ -65,6 +65,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var tempFiles = new List<string>();
                 var processStartTime = DateTime.Now;
                 var fullSrtTempFile = context.GetPotentialVerboseFilePath(filesPrefix + $"all.srt", processStartTime);
+                var transcribedTexts = new List<TranscribedText>();
 
                 try
                 {
@@ -143,7 +144,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             totalDuration));
 
                     // Process transcription results for each temporary audio file
-                    var texts = new List<TranscribedText>();
                     for (int i = 0; i < tempFiles.Count; i++)
                     {
                         string tempFile = tempFiles[i];
@@ -195,7 +195,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         currentText.EndsWith("?") ||
                                         currentText.EndsWith("!"))
                                     {
-                                        texts.Add(
+                                        transcribedTexts.Add(
                                             new TranscribedText(
                                                 currentStartTime.Value,
                                                 word.EndTime,
@@ -218,10 +218,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     var subtitleFile = new SubtitleFile();
                     subtitleFile.Subtitles.AddRange(
-                        texts
+                        transcription.Items
                         .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
                         .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Text)));
                     subtitleFile.SaveSrt(fullSrtTempFile);
+
+                    // Add the text only when we are sure that everything is working
+                    transcription.Items.AddRange(transcribedTexts);
                 }
                 finally
                 {

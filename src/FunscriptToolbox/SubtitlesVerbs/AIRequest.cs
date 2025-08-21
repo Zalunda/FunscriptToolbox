@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Translations;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -68,7 +67,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public virtual string GetFilenamePattern(string baseFilePath)
         {
-            return $"{baseFilePath}.TODO-{this.TaskId}-{this.Number:D04}.txt";
+            return $"{baseFilePath}.TODO_{this.TaskId}_{this.Number:D04}.txt";
         }
 
         public virtual string GetVerbosePrefix()
@@ -78,7 +77,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public abstract string NbItemsString();
 
-        protected static dynamic ParseAndFixJson(string json)
+        protected static dynamic ParseAndFixJson(AIRequest request, string json)
         {
             try
             {
@@ -108,7 +107,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
             catch (Exception ex)
             {
-                throw new AIEngineException(ex, json);
+                throw new AIRequestException(ex, request, ex.Message, json);
             }
         }
     }
