@@ -84,7 +84,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         {
                             var translation = transcription.Translations.FirstOrDefault(
                                 t => t.Id == translator.TranslationId);
-                            if (!translator.IsFinished(transcription, translation))
+                            if (translation == null || !translator.IsFinished(transcription, translation))
                             {
                                 reason = $"Translation '{transcriber.TranscriptionId}/{translator.TranslationId}' not done yet.";
                                 return false;
@@ -118,7 +118,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             // Convert to TranscribedText items
             transcription.Items.AddRange(subtitles.Select(s => new TranscribedText(s.StartTime, s.EndTime, s.Text)));
-            transcription.MarkAsFinished();
+            if (transcription.Items.Count > 0)
+            {
+                transcription.MarkAsFinished();
+            }
         }
 
         private IEnumerable<Subtitle> BuildSubtitlesAggregation(SubtitleGeneratorContext context)

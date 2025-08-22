@@ -215,6 +215,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     // Always include the original text
                     metadata["Original"] = item.Text;
 
+                    foreach (var transcriptionMeta in item.Metadata)
+                    {
+                        metadata["AI-" + transcriptionMeta.Key] = transcriptionMeta.Value;
+                    }
+
                     // Add parts if available
                     if (Options.IncludeParts && analysis != null)
                     {

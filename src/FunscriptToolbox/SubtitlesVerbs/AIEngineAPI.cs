@@ -6,6 +6,7 @@ using System.Dynamic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
@@ -160,118 +161,152 @@ namespace FunscriptToolbox.SubtitlesVerbs
             DateTime processStartTime,
             Stopwatch watch)
         {
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
-            {
-                Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
-            };
+            Timer waitingTimer = null;
 
-            var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
-
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
-            }
-
-            var dataReceived = new StringBuilder();
-            var fullContent = new StringBuilder();
-            string modelName = null;
-            int? promptTokens = null;
-            int? completionTokens = null;
-            int? totalTokens = null;
             try
             {
-                Console.WriteLine("... waiting for AI first token ...");
-                using (var stream = response.Content.ReadAsStreamAsync().Result)
-                using (var reader = new StreamReader(stream))
+                var requestId = $"request #{request.Number}";
+                context.DefaultProgressUpdateHandler(ToolName, requestId, $"opening connection...");
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
                 {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
+                    Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
+                };
+
+                // Start a timer that will print waiting messages
+                var startTime = DateTime.Now;
+                waitingTimer = new Timer(_ =>
+                {
+                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"waiting for 1st token ({DateTime.Now - startTime})...");
+                }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+                context.DefaultProgressUpdateHandler(ToolName, requestId, $"sending request...");
+                var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                }
+
+                var dataReceived = new StringBuilder();
+                var fullContent = new StringBuilder();
+                string modelName = null;
+                int? promptTokens = null;
+                int? completionTokens = null;
+                int? totalTokens = null;
+                bool doneReceived = false;
+
+                try
+                {
+                    using (var stream = response.Content.ReadAsStreamAsync().Result)
+                    using (var reader = new StreamReader(stream))
                     {
-                        dataReceived.AppendLine(line);
-                        if (string.IsNullOrWhiteSpace(line))
-                            continue;
-
-                        if (line.StartsWith("data: "))
+                        string line;
+                        while ((line = reader.ReadLine()) != null)
                         {
-                            var data = line.Substring(6);
-                            if (data == "[DONE]")
-                                break;
+                            dataReceived.AppendLine(line);
+                            if (string.IsNullOrWhiteSpace(line))
+                                continue;
 
-                            try
+                            if (line.StartsWith("data: "))
                             {
-                                dynamic chunk = JsonConvert.DeserializeObject(data);
-
-                                // Extract model name from first chunk
-                                if (modelName == null && chunk.model != null)
+                                var data = line.Substring(6);
+                                if (data == "[DONE]")
                                 {
-                                    modelName = chunk.model;
+                                    doneReceived = true;
+                                    break;
                                 }
 
-                                // Extract content delta
-                                if (chunk.choices != null && chunk.choices.Count > 0)
+                                try
                                 {
-                                    var delta = chunk.choices[0].delta;
-                                    if (delta != null && delta.content != null)
-                                    {
-                                        string contentChunk = delta.content;
-                                        fullContent.Append(contentChunk);
+                                    dynamic chunk = JsonConvert.DeserializeObject(data);
 
-                                        // Write to console as chunks arrive
-                                        Console.Write(contentChunk);
+                                    // Extract model name from first chunk
+                                    if (modelName == null && chunk.model != null)
+                                    {
+                                        modelName = chunk.model;
+                                    }
+
+                                    // Extract content delta
+                                    if (chunk.choices != null && chunk.choices.Count > 0)
+                                    {
+                                        var delta = chunk.choices[0].delta;
+                                        if (delta != null && delta.content != null)
+                                        {
+                                            string contentChunk = delta.content;
+
+                                            // Stop the timer on first content token
+                                            if (waitingTimer != null)
+                                            {
+                                                waitingTimer?.Dispose();
+                                                waitingTimer = null;
+                                            }
+
+                                            fullContent.Append(contentChunk);
+
+                                            // Write to console as chunks arrive
+                                            Console.Write(contentChunk);
+                                        }
+                                    }
+
+                                    // Some APIs send usage information in streaming mode
+                                    if (chunk.usage != null)
+                                    {
+                                        promptTokens = (int?)chunk.usage.prompt_tokens;
+                                        completionTokens = (int?)chunk.usage.completion_tokens;
+                                        totalTokens = (int?)chunk.usage.total_tokens;
                                     }
                                 }
-
-                                // Some APIs send usage information in streaming mode
-                                if (chunk.usage != null)
+                                catch (JsonException)
                                 {
-                                    promptTokens = (int?)chunk.usage.prompt_tokens;
-                                    completionTokens = (int?)chunk.usage.completion_tokens;
-                                    totalTokens = (int?)chunk.usage.total_tokens;
+                                    // Skip malformed JSON chunks
                                 }
-                            }
-                            catch (JsonException)
-                            {
-                                // Skip malformed JSON chunks
                             }
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    fullContent.AppendLine();
+                    fullContent.AppendLine($"An exception occured while receiving the AI response: {ex.Message}");
+                }
+
+                if (!doneReceived)
+                {
+                    fullContent.Append($"DONE was not received in the response.");
+                }
+                Console.WriteLine(); // Add newline after streaming output
+
+                string assistantMessage = fullContent.ToString();
+                context.CreateVerboseFile($"{verbosePrefix}-Resp.json", dataReceived.ToString(), processStartTime);
+                context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+
+                if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new AIRequestException(request, $"Invalid model name in response:\n" +
+                        $"   [API response] {modelName}\n" +
+                        $"   [config]   {this.Model}");
+                }
+
+                if (string.IsNullOrEmpty(assistantMessage))
+                {
+                    throw new AIRequestException(request, $"Empty response received.");
+                }
+
+                // Let the request handle the response and store the api cost
+                request.HandleResponse(
+                    context,
+                    $"{this.BaseAddress},{this.Model}",
+                    watch.Elapsed,
+                    assistantMessage,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens);
             }
-            catch (Exception ex)
+            finally
             {
-                fullContent.AppendLine();
-                fullContent.AppendLine($"An exception occured while receiving the AI response: {ex.Message}");
+                // Make sure to dispose the timer if it's still running
+                waitingTimer?.Dispose();
             }
-
-            Console.WriteLine(); // Add newline after streaming output
-
-            string assistantMessage = fullContent.ToString();
-
-            if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new AIRequestException(request, $"Invalid model name in response:\n" +
-                    $"   [API response] {modelName}\n" +
-                    $"   [config]   {this.Model}");
-            }
-
-            context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
-
-            if (string.IsNullOrEmpty(assistantMessage))
-            {
-                throw new AIRequestException(request, $"Empty response received.");
-            }
-
-            context.CreateVerboseFile($"{verbosePrefix}-Resp.json", dataReceived.ToString(), processStartTime);
-
-            // Let the request handle the response and store the api cost
-            request.HandleResponse(
-                context,
-                $"{this.BaseAddress},{this.Model}",
-                watch.Elapsed,
-                assistantMessage,
-                promptTokens,
-                completionTokens,
-                totalTokens);
         }
 
         private static dynamic Merge(ExpandoObject item1, ExpandoObject item2)

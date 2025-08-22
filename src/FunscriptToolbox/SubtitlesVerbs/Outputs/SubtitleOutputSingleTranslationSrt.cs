@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public bool IncludeOriginalText { get; set; } = false;
 
         [JsonProperty(Order = 20)]
-        public SubtitleToInjectCollection SubtitlesToInject { get; set; }
+        public SubtitleToInject[] SubtitlesToInject { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,

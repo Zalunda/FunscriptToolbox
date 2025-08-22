@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using Newtonsoft.Json.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -38,6 +39,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var transcribedTextsAdded = ParseAndAddTranscription(_transcription, responseReceived, this);
             if (transcribedTextsAdded.Count > 0)
             {
+                context.CurrentWipsub.Save();
+
                 // Add transcribed texts to the transcription
                 foreach (var tt in transcribedTextsAdded)
                 {
@@ -73,15 +76,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var transcribedTextsAdded = new List<TranscribedText>();
                 foreach (var segment in transcriptionArray)
                 {
-                    var text = (string)segment.Transcription ?? (string)segment.Text;
-                    if (string.IsNullOrWhiteSpace(text)) continue;
+                    var seg = (JObject)segment;
 
-                    var startTime = TimeSpan.Parse((string)segment.StartTime);
-                    var endTime = TimeSpan.Parse((string)segment.EndTime);
+                    // Extract and remove known fields
+                    var startTime = TimeSpan.Parse((string)seg["StartTime"]);
+                    seg.Remove("StartTime");
 
-                    var newTT = new TranscribedText(startTime, endTime, text.Trim());
-                    transcribedTextsAdded.Add(newTT);
-                    transcription.Items.Add(newTT);
+                    var endTime = TimeSpan.Parse((string)seg["EndTime"]);
+                    seg.Remove("EndTime");
+
+                    var text = ((string)seg["Transcription"])?.Trim() ?? string.Empty;
+                    seg.Remove("Transcription");
+
+                    // Everything left is metadata
+                    var transcriptionMetadatas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var prop in seg.Properties())
+                    {
+                        if (prop.Value != null)
+                            transcriptionMetadatas[prop.Name] = prop.Value.ToString();
+                    }
+
+                    var tt = new TranscribedText(startTime, endTime, text, transcriptionMetadatas);
+                    transcribedTextsAdded.Add(tt);
+                    transcription.Items.Add(tt);
                 }
                 return transcribedTextsAdded;
             }

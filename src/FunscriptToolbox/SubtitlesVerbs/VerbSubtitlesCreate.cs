@@ -177,6 +177,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             transcription = new Transcription(
                                 transcriber.TranscriptionId,
                                 transcriber.Language);
+                            wipsub.Transcriptions.Add(transcription);
                         }
 
                         if (transcription.IsFinished)
@@ -231,7 +232,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 }
                                 context.WriteInfo();
 
-                                wipsub.Transcriptions.Add(transcription);
                                 wipsub.Save();
                             }
                             catch (TranscriberNotReadyException ex)

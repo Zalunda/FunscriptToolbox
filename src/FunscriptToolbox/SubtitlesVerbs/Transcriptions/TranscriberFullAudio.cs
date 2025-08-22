@@ -35,7 +35,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                      transcription,
                      new[] { pcmAudio },
                      $"{this.TranscriptionId}-");
-            transcription.MarkAsFinished();
+            if (transcription.Items.Count > 0)
+            {
+                transcription.MarkAsFinished();
+            }
         }
     }
 }

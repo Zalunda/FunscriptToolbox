@@ -15,7 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     public class TranscriberToolLLMMultimodalAPI : TranscriberTool
     {
         [JsonProperty(Order = 1)]
-        public int BatchSize { get; set; } = 10;
+        public int BatchSize { get; set; } = 100000;
 
         [JsonProperty(Order = 2, Required = Required.Always)]
         public AIEngine Engine { get; set; }

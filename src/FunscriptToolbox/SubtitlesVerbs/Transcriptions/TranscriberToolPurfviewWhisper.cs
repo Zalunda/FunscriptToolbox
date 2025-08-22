@@ -200,8 +200,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                                 currentStartTime.Value,
                                                 word.EndTime,
                                                 currentText,
-                                                (double)segment.no_speech_prob,
-                                                currentWords));
+                                                noSpeechProbability: (double)segment.no_speech_prob,
+                                                words: currentWords));
                                         currentStartTime = null;
                                         currentText = null;
                                         currentWords.Clear();

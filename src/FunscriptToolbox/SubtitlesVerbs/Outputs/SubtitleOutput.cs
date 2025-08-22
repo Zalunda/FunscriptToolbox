@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         protected static IEnumerable<Subtitle> GetAdjustedSubtitlesToInject(
             List<Subtitle> currentSubtitles, 
-            SubtitleToInjectCollection subtitlesToInject, 
+            SubtitleToInject[] subtitlesToInject, 
             TimeSpan audioDuration)
         {
             if (subtitlesToInject == null)

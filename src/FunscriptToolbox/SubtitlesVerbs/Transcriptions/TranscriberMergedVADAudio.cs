@@ -132,8 +132,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         newStartTime.Value,
                         newEndTime.Value,
                         original.Text,
-                        original.NoSpeechProbability,
-                        original
+                        noSpeechProbability: original.NoSpeechProbability,
+                        words: original
                             .Words
                             .Select(word => new TranscribedWord(
                                 offsetCollection.TransformPosition(word.StartTime).Value,
@@ -150,7 +150,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             transcription.Items.AddRange(remappedItems);
-            transcription.MarkAsFinished();
+            if (transcription.Items.Count > 0)
+            {
+                transcription.MarkAsFinished();
+            }
         }
     }
 }

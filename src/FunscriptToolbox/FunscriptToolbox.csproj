@@ -193,7 +193,6 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWIPSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputTrainingData.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectCollection.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleTask.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\AIRequestForTranscription.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />

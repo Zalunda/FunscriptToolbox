@@ -31,8 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             typeof(SubtitleOutput),
                             typeof(TranscriberTool),
                             typeof(Transcriber),
-                            typeof(Translator),
-                            typeof(SubtitleToInjectCollection)
+                            typeof(Translator)
                         }),
                     TypeNameHandling = TypeNameHandling.Auto,
                     PreserveReferencesHandling = PreserveReferencesHandling.All
@@ -98,34 +97,72 @@ namespace FunscriptToolbox.SubtitlesVerbs
             };
             sharedObjects.Add(transalorGoogleV1);
 
-            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriber"));
-            var systemPromptTranscriber = new AIPrompt(new[]
+            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberSingleVAD"));
+            var systemPromptTranscriberSingleVAD = new AIPrompt(new[]
             {
-                "# TRANSCRIPTION ENGINE MANDATE (version 2025-08-21)\n",
+                "# SCENE ANALYSIS & TRANSCRIPTION MANDATE (version 2025-08-22)\n",
                 "### Role\n",
-                "You are a specialist audio transcription engine. Your sole function is to process a sequential stream of data packets, each containing metadata and a short, corresponding audio chunk. Your operational environment is, usually, Japanese adult media; you are expected to be an expert in its specific vocabulary, cadence, and vocalizations.\n",
+                "You are an advanced audio intelligence engine. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct not just *what* is said, but *who* is saying it and *how*. Your operational environment is, usually, Japanese adult media; you are an expert in its specific vocabulary, cadence, and vocalizations.\n",
                 "### Mission\n",
-                "For each audio chunk you receive, you will perform a high-fidelity transcription of the spoken words. You will operate on a strict one-to-one principle: one audio input produces one text output.\n",
+                "For each audio chunk you receive, you will perform a high-fidelity transcription, identify the speaker (diarization), and analyze the dominant vocal intonation. You will operate on a strict one-to-one principle: one audio input produces one rich data object as output.\n",
                 "### Input Protocol\n",
                 "You will receive a continuous array of user messages. Each message will contain two critical components:\n1. A `text` block containing a JSON object with `StartTime`, `EndTime`, and optional `Context` or `Talker` information.\n2. An `input_audio` block containing the raw audio data corresponding *only* to the time range specified in the metadata.\nYour task is to treat each metadata/audio pair as a single, atomic unit of work.\n",
                 "### Core Directives\n",
-                "- **Absolute One-to-One Fidelity:** You will transcribe **only** the audio provided in a single `input_audio` block. You will **never** merge it with previous or subsequent transcriptions. You will **never** split a single chunk's transcription into multiple outputs.\n",
-                "- **Contextual Awareness:** The provided `Context` and `Talker` metadata is not optional information; it is a critical directive. Use it to disambiguate unclear speech and improve transcription accuracy. For example, if the context is \"The woman is teasing him,\" it should inform your interpretation of ambiguous sounds.\n",
-                "- **Signal Purity:** Your transcription must be verbatim. You are explicitly forbidden from including non-lexical vocalizations or filler sounds. \n",
-                "- **Handling of Silence/Noise:** If an audio chunk contains no discernible human speech (e.g., it is a breath, a background noise, or silence), you will return an empty string for the `text` field. **Do not hallucinate or guess.** An empty signal produces an empty output.\n",
-                "- **Punctuation and Formatting:** Apply standard Japanese punctuation (。、！？) where appropriate to reflect the cadence and intent of the speech.\n",
+                "**Directive 1: Transcription Fidelity**\n",
+                "- Your transcription must be a verbatim record of the spoken words in the provided audio chunk.\n",
+                "- Apply standard Japanese punctuation (。、！？) where appropriate to reflect the cadence and intent of the speech.\n",
+                "**Directive 2: Speaker Diarization Protocol**\n",
+                "- Your primary goal is to identify which individual is speaking in each chunk.\n",
+                "- The `Talker` or `Context` field will provide a list of potential speakers (e.g., `[two womans: Hana Himesaki, Ena Koume]`). It could be updated if the scene changes (ex. '[1 woman: Ema Koume]' if the other woman left).\n",
+                "- You will use the initial, manually-tagged `Talker` fields (e.g., `\"Talker\":\"Ena Koume\"`) to create a voice signature for each individual.\n",
+                "- For all subsequent, untagged audio chunks, you must apply these learned voice signatures to identify the speaker.\n",
+                "- If only one speaker is listed in the context, you will assign all speech to that individual.\n",
+                "- If you cannot determine the speaker with high confidence, you will label the speaker as `Unknown`.\n",
+                "**Directive 3: Intonation Analysis Protocol**\n",
+                "- You must analyze the vocal delivery of the speech to determine the dominant emotional tone.\n",
+                "- You MUST select one, and only one, descriptor from the following controlled vocabulary for the `Intonation` field: `[Teasing, Pleading, Angry, Excited, Shy, Neutral, Pained, Pleasured]`.\n",
+                "**Directive 4: Handling of Silence/Noise**\n",
+                "- If an audio chunk contains no discernible human speech (e.g., it is a breath, a background noise, or silence), you will return an empty string for the `Transcription` field and label both `Speaker` and `Intonation` as `N/A`.\n",
                 "### Output Mandate\n",
                 "Your entire response will be a single, valid JSON array. Each object in the array will correspond sequentially to each audio chunk you processed. The format for each object is non-negotiable:\n",
-                "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"EndTime\": \"HH:MM:SS.ms\",\n  \"Transcription\": \"ここに文字起こしされたテキスト。\"\n}\n```\n",
+                "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"EndTime\": \"HH:MM:SS.ms\",\n  \"Transcription\": \"ここに文字起こしされたテキスト。\",\n  \"Speaker\": \"Identified Speaker Name\",\n  \"Intonation\": \"Selected Intonation\"\n}\n```\n",
                 "### Example Procedure:\n",
                 "**// INCOMING DATA STREAM (Simplified Example)**\n",
-                "1.  `{ \"StartTime\": \"0:23:15.234\", \"EndTime\": \"0:23:16.437\" }` + `[AudioChunk1.wav]`\n",
-                "2.  `{ \"StartTime\": \"0:23:17.028\", \"EndTime\": \"0:23:18.234\", \"Context\": \"She is whispering in his ear\" }` + `[AudioChunk2.wav]`\n",
-                "3.  `{ \"StartTime\": \"0:23:19.000\", \"EndTime\": \"0:23:19.500\" }` + `[AudioChunk3.wav]` (This chunk contains only a breath)\n",
+                "1.  `{ \"StartTime\": \"0:00:52.310\", \"EndTime\": \"0:00:53.096\", \"Talker\": \"Hana Himesaki\" }` + `[AudioChunk1.wav]` (Voice is teasing)\n",
+                "2.  `{ \"StartTime\": \"0:00:53.250\", \"EndTime\": \"0:00:55.220\" }` + `[AudioChunk2.wav]` (AI identifies this as Hana's voice, still teasing)\n",
+                "3.  `{ \"StartTime\": \"0:00:56.943\", \"EndTime\": \"0:00:58.399\" }` + `[AudioChunk3.wav]` (AI identifies this as Ena's voice, tone is pleading)\n",
+                "4.  `{ \"StartTime\": \"0:00:59.210\", \"EndTime\": \"0:01:00.686\" }` + `[AudioChunk4.wav]` (Chunk contains only a sigh)\n",
                 "**// CORRECT OUTPUT (A Single JSON Array)**\n",
-                "```json\n[\n  {\n    \"StartTime\": \"0:23:15.234\",\n    \"EndTime\": \"0:23:16.437\",\n    \"Transcription\": \"あなたのこと、大好き。\"\n  },\n  {\n    \"StartTime\": \"0:23:17.028\",\n    \"EndTime\": \"0:23:18.234\",\n    \"Transcription\": \"気持ちいい？\"\n  },\n  {\n    \"StartTime\": \"0:23:19.000\",\n    \"EndTime\": \"0:23:19.500\",\n    \"Transcription\": \"\"\n  }\n]\n```"
+                "```json\n[\n  {\n    \"StartTime\": \"0:00:52.310\",\n    \"EndTime\": \"0:00:53.096\",\n    \"Transcription\": \"お兄ちゃん。\",\n    \"Speaker\": \"Hana Himesaki\",\n    \"Intonation\": \"Teasing\"\n  },\n  {\n    \"StartTime\": \"0:00:53.250\",\n    \"EndTime\": \"0:00:55.220\",\n    \"Transcription\": \"起きてるの、知ってるんだから。\",\n    \"Speaker\": \"Hana Himesaki\",\n    \"Intonation\": \"Teasing\"\n  },\n  {\n    \"StartTime\": \"00:00:56.943\",\n    \"EndTime\": \"00:00:58.399\",\n    \"Transcription\": \"やめてよ、お姉ちゃん…\",\n    \"Speaker\": \"Ena Koume\",\n    \"Intonation\": \"Pleading\"\n  },\n  {\n    \"StartTime\": \"00:00:59.210\",\n    \"EndTime\": \"00:01:00.686\",\n    \"Transcription\": \"\",\n    \"Speaker\": \"N/A\",\n    \"Intonation\": \"N/A\"\n  }\n]\n```"
             });
-            sharedObjects.Add(systemPromptTranscriber);
+            sharedObjects.Add(systemPromptTranscriberSingleVAD);
+
+            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberFull"));
+            var systemPromptTranscriberFull = new AIPrompt(new[]
+                {
+                    "# DRAFT TRANSCRIPTION & VAD MANDATE (version 2025-08-21)\n",
+                    "### Role\n",
+                    "You are a First-Pass Transcription Engine. Your function is to perform a high-speed analysis of a single, full-length audio file, identifying all potential vocalizations and providing a preliminary, 'best-effort' transcription for each.\n",
+                    "### Mission\n",
+                    "Your mission is to process a complete audio file and generate a time-coded, draft-quality transcript. The output will serve as a foundational map for a human operator to quickly verify and refine speech segments. Your priority is to capture every potential utterance as a distinct, transcribed segment.\n",
+                    "### Input Protocol\n",
+                    "You will receive a single, complete audio file as your input.\n",
+                    "### Core Directives\n",
+                    "1.  **Segment Definition:** Your primary directive is to create a new, separate JSON object for each distinct vocal utterance. An utterance is defined as a continuous stream of speech, ending when a discernible pause or silence occurs. **Do not merge separate sentences or phrases into a single, long block.**\n",
+                    "2.  **High-Sensitivity Detection:** You must identify and process all potential speech, including clear dialogue, whispers, and mumbles. It is preferable to create a segment with an inaccurate transcription than to miss a vocalization entirely.\n",
+                    "3.  **Draft-Quality Transcription:** For every detected segment, you will provide a preliminary transcription in the `Transcription` field. This is a first pass; speed and completeness are prioritized over perfect accuracy.\n",
+                    "4.  **No Qualitative Analysis:** You are explicitly forbidden from identifying speakers, intonation, or vocal delivery. Your sole output is timecodes and the corresponding draft transcription.\n",
+                    "### Output Mandate\n",
+                    "Your response will be a single, valid JSON array. Each object in the array will represent a single, continuous segment of detected voice activity with its corresponding draft text. The format for each object is non-negotiable:\n",
+                    "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"EndTime\": \"HH:MM:SS.ms\",\n  \"Transcription\": \"ここに下書きの文字起こしされたテキスト。\"\n}\n```\n",
+                    "### Example Procedure:\n",
+                    "**// INCOMING DATA: `[FullSceneAudio.wav]`**\n",
+                    "**// Audio contains speech from 0:11.700 to 0:12.900 (\"Hello there.\"), a 1-second pause, then more speech from 0:13.900 to 0:15.100 (\"Are you awake?\").**\n",
+                    "**// CORRECT OUTPUT (A Single JSON Array with Multiple Objects)**\n",
+                    "```json\n[\n  {\n    \"StartTime\": \"00:00:11.700\",\n    \"EndTime\": \"00:00:12.900\",\n    \"Transcription\": \"こんにちは。\"\n  },\n  {\n    \"StartTime\": \"00:00:13.900\",\n    \"EndTime\": \"00:00:15.100\",\n    \"Transcription\": \"起きてる？\"\n  }\n]\n```\n",
+                    "**// Rationale: The two distinct utterances, separated by a clear pause, were correctly captured as two separate objects in the JSON array, each with its own timecode and draft transcription.**"
+            });
+            sharedObjects.Add(systemPromptTranscriberFull);
 
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranslator"));
             var systemPromptTranslator = new AIPrompt(new[]
@@ -287,51 +324,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
             });
             sharedObjects.Add(userPromptTranslatorMaverick);
 
-            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(SubtitleToInjectCollection).Name, "SubtitlesToInject"));
-            var subtitlesToInject = new SubtitleToInjectCollection(new[] {
-                new SubtitleToInject()
-                {
-                    Origin = SubtitleToInjectOrigin.Start,
-                    OffsetTime = TimeSpan.FromSeconds(0),
-                    Duration = TimeSpan.FromSeconds(5),
-                    Lines = new []
-                    {
-                        "Created by ???, using the FunscriptToolbox and SubtitleEdit."
-                    }
-                },
-                new SubtitleToInject()
-                {
-                    Origin = SubtitleToInjectOrigin.Start,
-                    OffsetTime = TimeSpan.FromSeconds(5),
-                    Duration = TimeSpan.FromSeconds(2.5),
-                    Lines = new []
-                    {
-                        "The initial transcription was generated with Gemini-2.5-pro,",
-                        "and the translation was provided by the multiple AI models.",
-                    }
-                },
-                new SubtitleToInject()
-                {
-                    Origin = SubtitleToInjectOrigin.Start,
-                    OffsetTime = TimeSpan.FromSeconds(7.5),
-                    Duration = TimeSpan.FromSeconds(2.5),
-                    Lines = new []
-                    {
-                        "Both the transcription and translation underwent manual review",
-                        "and adjustment to improve their accuracy and quality."
-                    }
-                }
-            });
-            sharedObjects.Add(subtitlesToInject);
-
             dynamic requestBodyExtensionMistralAPI = new ExpandoObject();
             requestBodyExtensionMistralAPI.temperature = 0.7;
             requestBodyExtensionMistralAPI.max_tokens = 4096;
             requestBodyExtensionMistralAPI.response_format = new { type = "json_object" };
 
-            dynamic requestBodyExtensionMaxTokens32K = new ExpandoObject();
-            requestBodyExtensionMaxTokens32K.max_tokens = 32 * 1024;
-            
+            dynamic requestBodyExtensionMaxGeminiSingleVad = new ExpandoObject();
+            requestBodyExtensionMaxGeminiSingleVad.max_tokens = 64 * 1024;
+
+            dynamic requestBodyExtensionMaxGeminiFull = new ExpandoObject();
+            requestBodyExtensionMaxGeminiFull.max_tokens = 64 * 1024;
+
             var config = new SubtitleGeneratorConfig()
             {
                 SubtitleForcedTimingsParser = new SubtitleForcedTimingParser()
@@ -367,6 +370,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
                     },
+                    new TranscriberFullAudio()
+                    {
+                        TranscriptionId = "full-gemini",
+                        TranscriberTool = new TranscriberToolLLMMultimodalAPI()
+                        {
+                            Engine = new AIEngineAPI()
+                            {
+                                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                                Model = "gemini-2.5-pro",
+                                APIKeyName = "APIGeminiAI",
+                                RequestBodyExtension = requestBodyExtensionMaxGeminiFull
+                            },
+                            Options = new AIOptions()
+                            {
+                                SystemPrompt = systemPromptTranscriberFull
+                            }
+                            // TODO add additionnal metadata gathering
+                        }
+                    },
                     new TranscriberMergedVADAudio()
                     {
                         TranscriptionId = "mergedvad",
@@ -375,7 +397,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberSingleVADAudio()
                     {
-                        TranscriptionId = "singlevad",
+                        TranscriptionId = "singlevad-gemini",
                         TranscriberTool = new TranscriberToolLLMMultimodalAPI()
                         {
                             Engine = new AIEngineAPI()
@@ -383,12 +405,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                                 Model = "gemini-2.5-pro",
                                 APIKeyName = "APIGeminiAI",
-                                RequestBodyExtension = requestBodyExtensionMaxTokens32K
+                                RequestBodyExtension = requestBodyExtensionMaxGeminiSingleVad
                             },
                             Options = new AIOptions()
                             {
                                 IncludeEndTime = true,
-                                SystemPrompt = systemPromptTranscriber
+                                SystemPrompt = systemPromptTranscriberSingleVAD
                             }
                             // TODO add additionnal metadata gathering
                         },
@@ -420,7 +442,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 },
                                 Options = new AIOptions()
                                 {
-                                    FirstUserPrompt = userPromptTranslatorNaturalist                                    
+                                    FirstUserPrompt = userPromptTranslatorNaturalist
                                 },
                                 PreviousTranslationId = "analyst"
                             },
@@ -454,7 +476,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             "naturalist-GPT5",
                             "*"
                         },
-                        IncludeExtraTranscriptions = false, 
+                        IncludeExtraTranscriptions = false,
                         Translators = new Translator[]
                         {
                             new TranslatorAI()
@@ -503,7 +525,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "candidates-digest",
                         TranslationId = "arbitrer",
                         FileSuffix = ".final-arbitrer-choice.srt",
-                        SubtitlesToInject = subtitlesToInject,
+                        SubtitlesToInject = CreateSubtitlesToInject(),
                     },
                     new SubtitleOutputSingleTranslationSrt()
                     {
@@ -531,13 +553,51 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             "naturalist-GPT5",
                             "*"
                         },
-                        SubtitlesToInject = subtitlesToInject
+                        SubtitlesToInject = CreateSubtitlesToInject()
                     }
                 }
             };
 
             return OverridesIdInJObject(JObject.FromObject(config, rs_serializer), jtokenIdOverrides)
                 .ToString();
+        }
+
+        private static SubtitleToInject[] CreateSubtitlesToInject()
+        {
+            return new[] {
+                new SubtitleToInject()
+                {
+                    Origin = SubtitleToInjectOrigin.Start,
+                    OffsetTime = TimeSpan.FromSeconds(0),
+                    Duration = TimeSpan.FromSeconds(5),
+                    Lines = new []
+                    {
+                        "Created by ???, using the FunscriptToolbox and SubtitleEdit."
+                    }
+                },
+                new SubtitleToInject()
+                {
+                    Origin = SubtitleToInjectOrigin.Start,
+                    OffsetTime = TimeSpan.FromSeconds(5),
+                    Duration = TimeSpan.FromSeconds(2.5),
+                    Lines = new []
+                    {
+                        "The initial transcription was generated with Gemini-2.5-pro,",
+                        "and the translation was provided by the multiple AI models.",
+                    }
+                },
+                new SubtitleToInject()
+                {
+                    Origin = SubtitleToInjectOrigin.Start,
+                    OffsetTime = TimeSpan.FromSeconds(7.5),
+                    Duration = TimeSpan.FromSeconds(2.5),
+                    Lines = new []
+                    {
+                        "Both the transcription and translation underwent manual review",
+                        "and adjustment to improve their accuracy and quality."
+                    }
+                }
+            };
         }
 
         public static string GetTrainingDataExample()
@@ -650,12 +710,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             public bool IsReferenced(object context, object value) => r_parent.IsReferenced(context, value);
             public object ResolveReference(object context, string reference) => r_parent.ResolveReference(context, reference) 
                     ?? throw new Exception($"Reference '{reference}' cannot be resolved.");
-        }
-
-        static string ShortAssemblyQualifiedName(Type elementType)
-        {
-            // Produces "Namespace.TypeName, AssemblyName"
-            return $"{elementType.FullName}, {elementType.Assembly.GetName().Name}";
         }
 
         private class JTokenIdOverride
