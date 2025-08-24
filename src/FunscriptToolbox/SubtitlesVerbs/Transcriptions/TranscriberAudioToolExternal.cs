@@ -9,11 +9,11 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberToolExternalSrt : TranscriberTool
+    public class TranscriberAudioToolExternal : TranscriberAudioTool
     {
-        private const string ToolName = "ExternalSrt";
+        private const string ToolName = "AudioExternal";
 
-        public TranscriberToolExternalSrt()
+        public TranscriberAudioToolExternal()
         {
         }
 
@@ -22,15 +22,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public override void TranscribeAudio(
             SubtitleGeneratorContext context,
-            ProgressUpdateDelegate progressUpdateCallback,
             Transcription transcription,
-            PcmAudio[] audios,
-            string filesPrefix)
+            TimedObjectWithMetadata<PcmAudio>[] items)
         {
-            var namedItems = audios.Select((audio, index) => (
-                    wavFilename: context.CurrentBaseFilePath + $".TODO-{filesPrefix}{index + 1:D5}.wav",
-                    srtFilename: context.CurrentBaseFilePath + $".TODO-{filesPrefix}{index + 1:D5}.srt",
-                    audio: audio
+            var namedItems = items.Where(item => item.Tag != null).Select((item, index) => (
+                    wavFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.wav",
+                    srtFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.srt",
+                    item
                 )).ToArray();
             if (this.OverrideFileSuffixe != null && namedItems.Length > 0)
             {
@@ -42,13 +40,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (namedItems.Any(item => !File.Exists(item.srtFilename)))
             {
                 var userTodos = new List<string>();
-                foreach (var item in namedItems)
+                foreach (var (wavFilename, srtFilename, item) in namedItems)
                 {
-                    if (!File.Exists(item.wavFilename))
+                    if (!File.Exists(wavFilename))
                     {
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(item.audio, item.wavFilename);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(item.Tag, wavFilename);
                     }
-                    userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(item.wavFilename)}'.");
+                    userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(wavFilename)}'.");
                 }
 
                 throw new TranscriberNotReadyException("Transcribed .srt not provided yet.", userTodos);
@@ -57,7 +55,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var costsList = new List<TranscriptionCost>();
                 var transcribedTexts = new List<TranscribedText>();
-                foreach (var (wavFilename, srtFilename, audio) in namedItems)
+                foreach (var (wavFilename, srtFilename, item) in namedItems)
                 {
                     var watch = Stopwatch.StartNew();
                     var subtitlesFile = SubtitleFile.FromSrtFile(srtFilename);
@@ -66,15 +64,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         subtitlesFile
                         .Subtitles
                         .Select(subtitle => new TranscribedText(
-                            audio.Offset + subtitle.StartTime,
-                            audio.Offset + subtitle.EndTime,
+                            item.Tag.Offset + subtitle.StartTime,
+                            item.Tag.Offset + subtitle.EndTime,
                             subtitle.Text)));
                     transcription.Costs.Add(
                         new TranscriptionCost(
                             ToolName,
                             watch.Elapsed,
                             1,
-                            audio.Duration));
+                            item.Tag.Duration));
 
                     context.SoftDelete(wavFilename);
                     if (this.OverrideFileSuffixe == null)

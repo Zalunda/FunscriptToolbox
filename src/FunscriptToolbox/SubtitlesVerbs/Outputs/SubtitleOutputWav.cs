@@ -10,8 +10,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             
         }
 
-        public override bool NeedSubtitleForcedTimings => false;
-
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string FileSuffix { get; set; }
 

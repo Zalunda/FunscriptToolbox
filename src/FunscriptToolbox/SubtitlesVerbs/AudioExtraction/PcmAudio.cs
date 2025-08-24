@@ -26,22 +26,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
         }
         public TimeSpan Offset { get; }
         public TimeSpan Duration { get; }
-
-        public AudioNormalizationRule[] AudioNormalizationRules { get; }
+        public TimeSpan StartTime => this.Offset;
+        public TimeSpan EndTime => this.Offset + this.Duration;
 
         [JsonConstructor]
-        public PcmAudio(int samplingRate, TimeSpan duration, TimeSpan? offset = null, IEnumerable<AudioNormalizationRule> audioNormalizationRules = null)
+        public PcmAudio(int samplingRate, TimeSpan duration, TimeSpan? offset = null)
         {
             SamplingRate = samplingRate;
             r_data = null;
             Duration = duration;
             Offset = offset ?? TimeSpan.Zero;
-            AudioNormalizationRules = audioNormalizationRules?.ToArray();
         }
 
 
-        public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null, IEnumerable<AudioNormalizationRule> audioNormalizationRules = null)
-            : this(samplingRate, IndexToTimeSpan(data.Length, samplingRate), offset, audioNormalizationRules)
+        public PcmAudio(int samplingRate, byte[] data, TimeSpan? offset = null)
+            : this(samplingRate, IndexToTimeSpan(data.Length, samplingRate), offset)
         {
             r_data = data;
         }
@@ -51,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
             r_loadPcmFunc = loadPcmFunc;
         }
 
-        public PcmAudio(IEnumerable<PcmAudio> parts, IEnumerable<AudioNormalizationRule> audioNormalizationRules)
+        public PcmAudio(IEnumerable<PcmAudio> parts)
         {
             SamplingRate = parts.First().SamplingRate;
             var dataBuilder = new MemoryStream();
@@ -62,7 +61,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
             r_data = dataBuilder.ToArray();
             Duration = IndexToTimeSpan(r_data.Length, SamplingRate);
             Offset = TimeSpan.Zero;
-            AudioNormalizationRules = audioNormalizationRules.ToArray(); ;
         }
 
         public PcmAudio ExtractSnippet(TimeSpan startTime, TimeSpan endTime)

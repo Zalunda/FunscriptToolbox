@@ -16,8 +16,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         }
 
-        public override bool NeedSubtitleForcedTimings => false;
-
         public override string Description => this.FileSuffix == null ? base.Description : $"{base.Description}: {this.FileSuffix}";
 
         [JsonProperty(Order = 10)]

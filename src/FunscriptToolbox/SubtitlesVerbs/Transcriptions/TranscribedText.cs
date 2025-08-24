@@ -1,48 +1,30 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Translations;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscribedText : ITiming
+    public class TranscribedText : TimedObjectWithMetadata, ITiming
     {
-        public TimeSpan StartTime { get; }
-        public TimeSpan EndTime { get; }
-        public TimeSpan Duration => EndTime - StartTime;
-        public string Text { get; }
-
-        public Dictionary<string,string> Metadata { get; }
-
+        public string Text => this.Metadata.Get("VoiceText");
         public double NoSpeechProbability { get; }
         public TranscribedWord[] Words { get; }
-
-        public List<TranslatedText> TranslatedTexts { get; }
 
         public TranscribedText(
             TimeSpan startTime,
             TimeSpan endTime,
             string text = null,
-            Dictionary<string, string> metadata = null,
+            MetadataCollection metadata = null,
             double noSpeechProbability = 0.0,
-            IEnumerable<TranscribedWord> words = null,
-            IEnumerable<TranslatedText> translatedTexts = null)
+            IEnumerable<TranscribedWord> words = null)
+            : base(startTime, endTime, metadata)
         {
-            StartTime = startTime;
-            EndTime = endTime;
-            Text = text;
-            Metadata = metadata;
-
+            if (!this.Metadata.ContainsKey("VoiceText") && text != null)
+            {
+                this.Metadata["VoiceText"] = text;
+            }
             NoSpeechProbability = noSpeechProbability;
             Words = words?.ToArray() ?? Array.Empty<TranscribedWord>();
-
-            TranslatedTexts = new List<TranslatedText>(
-                translatedTexts ?? Array.Empty<TranslatedText>());
-        }
-
-        public string GetFirstTranslatedIfPossible()
-        {
-            return this.TranslatedTexts.FirstOrDefault()?.Text ?? this.Text;
         }
     }
 }

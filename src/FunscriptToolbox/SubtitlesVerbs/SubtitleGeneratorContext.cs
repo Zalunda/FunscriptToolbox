@@ -13,29 +13,35 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
     public class SubtitleGeneratorContext : VerbContext
     {
-        public SubtitleGeneratorContext(
-            ILog log,
-            bool isVerbose,
-            FfmpegAudioHelper ffmpegAudioHelper,
-            SubtitleGeneratorPrivateConfig privateConfig) 
-            : base(log, isVerbose, null)
-        {
-            this.FfmpegAudioHelper = ffmpegAudioHelper;
-            r_privateConfig = privateConfig;
-            this.UserTodoList = new List<string>();
-
-            this.CurrentBaseFilePath = null;
-            this.CurrentWipsub = null;
-        }
-
-        private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
-
         public FfmpegAudioHelper FfmpegAudioHelper { get; }
+        public SubtitleGeneratorConfig Config { get; internal set; }
+        private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
+        public Language OverrideSourceLanguage { get; }
+
         public List<string> UserTodoList { get; }
 
         public string CurrentBaseFilePath { get; private set; }
         public string CurrentBackupFolder => this.CurrentBaseFilePath == null ? null : $"{CurrentBaseFilePath}_Backup";
         public WorkInProgressSubtitles CurrentWipsub { get; private set; }
+
+        public SubtitleGeneratorContext(
+            ILog log,
+            bool isVerbose,
+            FfmpegAudioHelper ffmpegAudioHelper,
+            SubtitleGeneratorConfig config,
+            SubtitleGeneratorPrivateConfig privateConfig,
+            Language overrideSourceLanguage) 
+            : base(log, isVerbose, null)
+        {
+            this.FfmpegAudioHelper = ffmpegAudioHelper;
+            this.Config = config;
+            r_privateConfig = privateConfig;
+            this.OverrideSourceLanguage = overrideSourceLanguage;
+
+            this.UserTodoList = new List<string>();
+            this.CurrentBaseFilePath = null;
+            this.CurrentWipsub = null;
+        }
 
         public string GetPrivateConfig(string itemName)
         {

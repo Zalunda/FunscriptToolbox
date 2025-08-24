@@ -47,13 +47,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 context.CurrentWipsub.Save();
 
                 // Update UI for each item
-                foreach (var item in Items)
-                {
-                    context.DefaultUpdateHandler(
-                        "Translation",
-                        this.ToolAction,
-                        item.TranslatedTexts.FirstOrDefault(f => f.Id == _translation.Id)?.Text);
-                }
+                //foreach (var item in Items)
+                //{
+                //    context.DefaultUpdateHandler(
+                //        "Translation",
+                //        this.ToolAction,
+                //        item.TranslatedTexts.FirstOrDefault(f => f.Id == _translation.Id)?.Text);
+                //}
             }
 
             // Add the cost to the translation
@@ -96,10 +96,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                         if (originalItem != null)
                         {
                             nbTranslationsAdded++;
-                            originalItem.TranslatedTexts.Add(
-                                new TranslatedText(
-                                    translation.Id,
-                                    translatedText));
+                            //originalItem.TranslatedTexts.Add(
+                            //    new TranslatedText(
+                            //        translation.Id,
+                            //        translatedText));
                         }
                     }
                 }

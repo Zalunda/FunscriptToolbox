@@ -11,13 +11,13 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberToolPurfviewWhisper : TranscriberTool
+    public class TranscriberAudioToolPurfviewWhisper : TranscriberAudioTool
     {
         private object r_lock = new object();
 
         private const string ToolName = "PurfviewWhisper";
 
-        public TranscriberToolPurfviewWhisper()
+        public TranscriberAudioToolPurfviewWhisper()
         {
         }
 
@@ -34,25 +34,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public override void TranscribeAudio(
             SubtitleGeneratorContext context,
-            ProgressUpdateDelegate progressUpdateCallback,
             Transcription transcription,
-            PcmAudio[] audios,
-            string filesPrefix)
+            TimedObjectWithMetadata<PcmAudio>[] items)
         {
             TranscribeAudioInternal(
                 context,
-                progressUpdateCallback,
                 transcription,
-                audios,
-                filesPrefix);
+                items.Select(f => f.Tag).Where(f => f != null).ToArray());
         }
 
         private void TranscribeAudioInternal(
             SubtitleGeneratorContext context,
-            ProgressUpdateDelegate progressUpdateCallback,
             Transcription transcription,
-            PcmAudio[] audios,
-            string filesPrefix)
+            PcmAudio[] audios)
         {
             if (!File.Exists(this.ApplicationFullPath))
             {
@@ -64,19 +58,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var tempFiles = new List<string>();
                 var processStartTime = DateTime.Now;
-                var fullSrtTempFile = context.GetPotentialVerboseFilePath(filesPrefix + $"all.srt", processStartTime);
+                var fullSrtTempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_all.srt", processStartTime);
                 var transcribedTexts = new List<TranscribedText>();
 
                 try
                 {
-
                     // Convert each input PCM audio to WAV format and store as temporary files
                     var indexAudio = 0;
                     var totalDuration = TimeSpan.Zero;
                     foreach (var audio in audios)
                     {
-                        var id = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
-                        var tempFile = context.GetPotentialVerboseFilePath(filesPrefix + $"{id}.wav", processStartTime);
+                        var audioId = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
+                        var tempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_{audioId}.wav", processStartTime);
                         tempFiles.Add(tempFile);
                         context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, tempFile);
                         totalDuration += audio.Duration;
@@ -122,7 +115,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             currentFileIndex = int.Parse(match.Groups["Index"].Value) + 1;
                         }
 
-                        progressUpdateCallback(
+                        context.DefaultProgressUpdateHandler(
                             ToolName,
                             audios.Length == 1
                             ? "all"

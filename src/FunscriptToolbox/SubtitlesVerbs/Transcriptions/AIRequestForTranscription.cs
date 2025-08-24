@@ -10,7 +10,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     public class AIRequestForTranscription : AIRequest
     {
         private readonly Transcription _transcription;
-        public PcmAudio[] Items { get; }
+        public TimedObjectWithMetadata<PcmAudio>[] Items { get; }
 
         public override string NbItemsString() => $"{this.Items.Length} audio samples";
 
@@ -20,11 +20,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             int requestNumber,
             List<dynamic> messages,
             Transcription transcription,
-            PcmAudio[] audios)
+            TimedObjectWithMetadata<PcmAudio>[] items)
             : base(taskId, toolAction, requestNumber, messages)
         {
             _transcription = transcription;
-            Items = audios;
+            Items = items;
         }
 
         public override void HandleResponse(
@@ -85,18 +85,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var endTime = TimeSpan.Parse((string)seg["EndTime"]);
                     seg.Remove("EndTime");
 
-                    var text = ((string)seg["Transcription"])?.Trim() ?? string.Empty;
-                    seg.Remove("Transcription");
-
                     // Everything left is metadata
-                    var transcriptionMetadatas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    var transcriptionMetadatas = new MetadataCollection();
                     foreach (var prop in seg.Properties())
                     {
                         if (prop.Value != null)
                             transcriptionMetadatas[prop.Name] = prop.Value.ToString();
                     }
 
-                    var tt = new TranscribedText(startTime, endTime, text, transcriptionMetadatas);
+                    var tt = new TranscribedText(startTime, endTime, metadata: transcriptionMetadatas);
                     transcribedTextsAdded.Add(tt);
                     transcription.Items.Add(tt);
                 }

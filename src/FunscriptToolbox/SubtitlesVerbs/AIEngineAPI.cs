@@ -187,8 +187,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
                 }
 
-                var dataReceived = new StringBuilder();
+                var chunksReceived = new StringBuilder();
                 var fullContent = new StringBuilder();
+                var thoughtContent = new StringBuilder();
                 string modelName = null;
                 int? promptTokens = null;
                 int? completionTokens = null;
@@ -203,7 +204,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         string line;
                         while ((line = reader.ReadLine()) != null)
                         {
-                            dataReceived.AppendLine(line);
+                            chunksReceived.AppendLine(line);
                             if (string.IsNullOrWhiteSpace(line))
                                 continue;
 
@@ -227,10 +228,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     }
 
                                     // Extract content delta
-                                    if (chunk.choices != null && chunk.choices.Count > 0)
+                                    if (chunk?.choices.Count > 0)
                                     {
                                         var delta = chunk.choices[0].delta;
-                                        if (delta != null && delta.content != null)
+                                        if (delta?.content != null)
                                         {
                                             string contentChunk = delta.content;
 
@@ -240,8 +241,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                                 waitingTimer?.Dispose();
                                                 waitingTimer = null;
                                             }
-
-                                            fullContent.Append(contentChunk);
+                                            if (delta.extra_content?.google?.thought == true)
+                                            {
+                                                thoughtContent.Append(contentChunk);
+                                            }
+                                            else
+                                            {
+                                                fullContent.Append(contentChunk);
+                                            }
 
                                             // Write to console as chunks arrive
                                             Console.Write(contentChunk);
@@ -277,8 +284,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 Console.WriteLine(); // Add newline after streaming output
 
                 string assistantMessage = fullContent.ToString();
-                context.CreateVerboseFile($"{verbosePrefix}-Resp.json", dataReceived.ToString(), processStartTime);
-                context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+                context.CreateVerboseFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), processStartTime);
+                context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, processStartTime);
 
                 if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
                 {

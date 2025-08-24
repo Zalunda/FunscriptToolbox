@@ -16,7 +16,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
-    internal class SubtitleGeneratorConfig
+    public class SubtitleGeneratorConfig
     {
         public static readonly JsonSerializer rs_serializer = JsonSerializer
                 .Create(new JsonSerializerSettings
@@ -27,9 +27,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             typeof(AIEngine),
                             typeof(AIOptions),
                             typeof(AIPrompt),
-                            typeof(SubtitleForcedTimingParser),
                             typeof(SubtitleOutput),
-                            typeof(TranscriberTool),
+                            typeof(TranscriberAudioTool),
                             typeof(Transcriber),
                             typeof(Translator)
                         }),
@@ -61,18 +60,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         [JsonProperty(Order = 1, Required = Required.Always)]
-        public SubtitleForcedTimingParser SubtitleForcedTimingsParser { get; set; }
-
-        [JsonProperty(Order = 2, Required = Required.Always)]
         public AudioExtractor AudioExtractor { get; set; }
 
-        [JsonProperty(Order = 3)]
+        [JsonProperty(Order = 2)]
         public object[] SharedObjects { get; set; }
 
-        [JsonProperty(Order = 4)]
+        [JsonProperty(Order = 3)]
         public Transcriber[] Transcribers { get; set; }
 
-        [JsonProperty(Order = 5)]
+        [JsonProperty(Order = 4)]
         public SubtitleOutput[] Outputs { get; set; }
 
         public static string GetDefaultExample()
@@ -81,7 +77,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var sharedObjects = new List<object>();
 
             jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
-            var transcriberToolPurfviewWhisper = new TranscriberToolPurfviewWhisper
+            var transcriberToolPurfviewWhisper = new TranscriberAudioToolPurfviewWhisper
             {
                 ApplicationFullPath = @"[TOREPLACE-WITH-PathToPurfview]\Purfview-Whisper-Faster\faster-whisper-xxl.exe",
                 Model = "Large-V2",
@@ -100,47 +96,50 @@ namespace FunscriptToolbox.SubtitlesVerbs
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberSingleVAD"));
             var systemPromptTranscriberSingleVAD = new AIPrompt(new[]
             {
-                "# SCENE ANALYSIS & TRANSCRIPTION MANDATE (version 2025-08-22)\n",
+               "# TRANSCRIPTION & DIARIZATION MANDATE (version 2025-08-30)\n",
                 "### Role\n",
-                "You are an advanced audio intelligence engine. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct not just *what* is said, but *who* is saying it and *how*. Your operational environment is, usually, Japanese adult media; you are an expert in its specific vocabulary, cadence, and vocalizations.\n",
+                "You are an advanced audio intelligence engine. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct *what* is said and, with calculated certainty, *who* is saying it. Your operational environment is Japanese adult media; you are an expert in its specific vocabulary and cadence.\n",
                 "### Mission\n",
-                "For each audio chunk you receive, you will perform a high-fidelity transcription, identify the speaker (diarization), and analyze the dominant vocal intonation. You will operate on a strict one-to-one principle: one audio input produces one rich data object as output.\n",
+                "For each audio chunk you receive, you will perform a high-fidelity transcription and identify the speaker (diarization), appending a mathematically derived confidence score to the speaker tag. You will operate on a strict one-to-one principle: one audio input produces one data object as output.\n",
                 "### Input Protocol\n",
-                "You will receive a continuous array of user messages. Each message will contain two critical components:\n1. A `text` block containing a JSON object with `StartTime`, `EndTime`, and optional `Context` or `Talker` information.\n2. An `input_audio` block containing the raw audio data corresponding *only* to the time range specified in the metadata.\nYour task is to treat each metadata/audio pair as a single, atomic unit of work.\n",
+                "You will receive a continuous array of user messages. Each message contains a `text` block (with metadata like `StartTime`, `EndTime`, `Talker`, `Context`) and a corresponding `input_audio` block. You will treat each pair as a single, atomic unit of work.\n",
                 "### Core Directives\n",
                 "**Directive 1: Transcription Fidelity**\n",
-                "- Your transcription must be a verbatim record of the spoken words in the provided audio chunk.\n",
-                "- Apply standard Japanese punctuation (。、！？) where appropriate to reflect the cadence and intent of the speech.\n",
+                "- Your transcription must be a verbatim record of the spoken words.\n",
+                "- Apply standard Japanese punctuation (。、！？) to reflect speech cadence.\n",
                 "**Directive 2: Speaker Diarization Protocol**\n",
-                "- Your primary goal is to identify which individual is speaking in each chunk.\n",
-                "- The `Talker` or `Context` field will provide a list of potential speakers (e.g., `[two womans: Hana Himesaki, Ena Koume]`). It could be updated if the scene changes (ex. '[1 woman: Ema Koume]' if the other woman left).\n",
-                "- You will use the initial, manually-tagged `Talker` fields (e.g., `\"Talker\":\"Ena Koume\"`) to create a voice signature for each individual.\n",
-                "- For all subsequent, untagged audio chunks, you must apply these learned voice signatures to identify the speaker.\n",
-                "- If only one speaker is listed in the context, you will assign all speech to that individual.\n",
-                "- If you cannot determine the speaker with high confidence, you will label the speaker as `Unknown`.\n",
-                "**Directive 3: Intonation Analysis Protocol**\n",
-                "- You must analyze the vocal delivery of the speech to determine the dominant emotional tone.\n",
-                "- You MUST select one, and only one, descriptor from the following controlled vocabulary for the `Intonation` field: `[Teasing, Pleading, Angry, Excited, Shy, Neutral, Pained, Pleasured]`.\n",
+                "- Your primary goal is to identify the speaker in each chunk from the list provided in `OngoingSpeakers` or `Context`.\n",
+                "- You will use manually-tagged `Talker` fields to build voice signatures for each individual.\n",
+                "- For untagged chunks, you will apply these signatures to identify the speaker.\n",
+                "- If the top-scoring speaker candidate has a raw confidence score below 40% (0.4), you will default the speaker to `Unknown`.\n",
+                "**Directive 3: Speaker Confidence Protocol**\n",
+                "- For every chunk where a speaker is identified (not `N/A` or `Unknown`), you MUST calculate and append a confidence percentage.\n",
+                "- The calculation is mandatory and non-negotiable:\n",
+                "  1.  Generate raw probability scores (0.0 to 1.0) for all potential speakers.\n",
+                "  2.  Identify the highest score (`S_top`) and the second-highest score (`S_second`).\n",
+                "  3.  Append both percentages to the speaker's name in the format `\"Speaker Name (top%,second-best%)\"`.\n",
+                "- **Edge Case 1:** If only one speaker is possible (defined in `OngoingSpeakers`), the confidence is 100% by definition.\n",
+                "- **Edge Case 2:** If the speaker is defaulted to `Unknown` (per Directive 2), no confidence score is appended.\n",
                 "**Directive 4: Handling of Silence/Noise**\n",
-                "- If an audio chunk contains no discernible human speech (e.g., it is a breath, a background noise, or silence), you will return an empty string for the `Transcription` field and label both `Speaker` and `Intonation` as `N/A`.\n",
+                "- If a chunk contains no discernible speech, you will return an empty `VoiceText` string and label the `Speaker` as `N/A`. No confidence score is applicable.\n",
                 "### Output Mandate\n",
-                "Your entire response will be a single, valid JSON array. Each object in the array will correspond sequentially to each audio chunk you processed. The format for each object is non-negotiable:\n",
-                "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"EndTime\": \"HH:MM:SS.ms\",\n  \"Transcription\": \"ここに文字起こしされたテキスト。\",\n  \"Speaker\": \"Identified Speaker Name\",\n  \"Intonation\": \"Selected Intonation\"\n}\n```\n",
+                "Your response will be a single, valid JSON array. The `Speaker` field must adhere to the new confidence format. The structure is non-negotiable:\n",
+                "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"EndTime\": \"HH:MM:SS.ms\",\n  \"VoiceText\": \"ここに文字起こしされたテキスト。\",\n  \"Speaker\": \"Identified Speaker Name (XX%,YY%)\"\n}\n```\n",
                 "### Example Procedure:\n",
                 "**// INCOMING DATA STREAM (Simplified Example)**\n",
-                "1.  `{ \"StartTime\": \"0:00:52.310\", \"EndTime\": \"0:00:53.096\", \"Talker\": \"Hana Himesaki\" }` + `[AudioChunk1.wav]` (Voice is teasing)\n",
-                "2.  `{ \"StartTime\": \"0:00:53.250\", \"EndTime\": \"0:00:55.220\" }` + `[AudioChunk2.wav]` (AI identifies this as Hana's voice, still teasing)\n",
-                "3.  `{ \"StartTime\": \"0:00:56.943\", \"EndTime\": \"0:00:58.399\" }` + `[AudioChunk3.wav]` (AI identifies this as Ena's voice, tone is pleading)\n",
-                "4.  `{ \"StartTime\": \"0:00:59.210\", \"EndTime\": \"0:01:00.686\" }` + `[AudioChunk4.wav]` (Chunk contains only a sigh)\n",
+                "1.  `{... \"SpeakerTraining\": \"Hana Himesaki\"}` + Audio. (Manual tag, 100% confidence)\n",
+                "2.  `{...}` + Audio. (AI raw scores: Hana=0.95, Ena=0.20 -> 95%,20% confidence)\n",
+                "3.  `{...}` + Audio. (AI raw scores: Ena=0.88, Hana=0.85. -> 88%,85% confidence)\n",
+                "4.  `{...}` + Audio. (Chunk contains only a sigh)\n",
                 "**// CORRECT OUTPUT (A Single JSON Array)**\n",
-                "```json\n[\n  {\n    \"StartTime\": \"0:00:52.310\",\n    \"EndTime\": \"0:00:53.096\",\n    \"Transcription\": \"お兄ちゃん。\",\n    \"Speaker\": \"Hana Himesaki\",\n    \"Intonation\": \"Teasing\"\n  },\n  {\n    \"StartTime\": \"0:00:53.250\",\n    \"EndTime\": \"0:00:55.220\",\n    \"Transcription\": \"起きてるの、知ってるんだから。\",\n    \"Speaker\": \"Hana Himesaki\",\n    \"Intonation\": \"Teasing\"\n  },\n  {\n    \"StartTime\": \"00:00:56.943\",\n    \"EndTime\": \"00:00:58.399\",\n    \"Transcription\": \"やめてよ、お姉ちゃん…\",\n    \"Speaker\": \"Ena Koume\",\n    \"Intonation\": \"Pleading\"\n  },\n  {\n    \"StartTime\": \"00:00:59.210\",\n    \"EndTime\": \"00:01:00.686\",\n    \"Transcription\": \"\",\n    \"Speaker\": \"N/A\",\n    \"Intonation\": \"N/A\"\n  }\n]\n```"
+                "```json\n[\n  {\n    \"StartTime\": \"0:00:52.310\",\n    \"EndTime\": \"0:00:53.096\",\n    \"VoiceText\": \"お兄ちゃん。\",\n    \"Speaker\": \"Hana Himesaki (100%)\"\n  },\n  {\n    \"StartTime\": \"0:00:53.250\",\n    \"EndTime\": \"0:00:55.220\",\n    \"VoiceText\": \"起きてるの、知ってるんだから。\",\n    \"Speaker\": \"Hana Himesaki (88%,68%)\"\n  },\n  {\n    \"StartTime\": \"00:00:56.943\",\n    \"EndTime\": \"00:00:58.399\",\n    \"VoiceText\": \"やめてよ、お姉ちゃん…\",\n    \"Speaker\": \"Ena Koume (93%,91%)\"\n  },\n  {\n    \"StartTime\": \"00:00:59.210\",\n    \"EndTime\": \"00:01:00.686\",\n    \"VoiceText\": \"\",\n    \"Speaker\": \"N/A\"\n  }\n]\n```"
             });
             sharedObjects.Add(systemPromptTranscriberSingleVAD);
 
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberFull"));
             var systemPromptTranscriberFull = new AIPrompt(new[]
                 {
-                    "# DRAFT TRANSCRIPTION & VAD MANDATE (version 2025-08-21)\n",
+                    "# TRANSCRIPTION & VAD MANDATE (version 2025-08-21)\n",
                     "### Role\n",
                     "You are a First-Pass Transcription Engine. Your function is to perform a high-speed analysis of a single, full-length audio file, identifying all potential vocalizations and providing a preliminary, 'best-effort' transcription for each.\n",
                     "### Mission\n",
@@ -331,21 +330,41 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             dynamic requestBodyExtensionMaxGeminiSingleVad = new ExpandoObject();
             requestBodyExtensionMaxGeminiSingleVad.max_tokens = 64 * 1024;
+            //requestBodyExtensionMaxGeminiSingleVad.reasoning_effort = "low";
+            // Unlike the Gemini API, the OpenAI API offers three levels of thinking control: "low", "medium", and "high", which map to 1,024, 8,192, and 24,576 tokens, respectively.
+            // If you want to disable thinking, you can set reasoning_effort to "none" (note that reasoning cannot be turned off for 2.5 Pro models).ne
+            // https://ai.google.dev/gemini-api/docs/openai#rest_2
+            requestBodyExtensionMaxGeminiSingleVad.extra_body = new 
+                    {
+                        google = new 
+                        {
+                            thinking_config = new 
+                            {
+                                include_thoughts = true
+                            }
+                        }
+                    };
 
             dynamic requestBodyExtensionMaxGeminiFull = new ExpandoObject();
             requestBodyExtensionMaxGeminiFull.max_tokens = 64 * 1024;
+            requestBodyExtensionMaxGeminiFull.extra_body = new
+            {
+                google = new
+                {
+                    thinking_config = new
+                    {
+                        include_thoughts = true
+                    }
+                }
+            };
 
             var config = new SubtitleGeneratorConfig()
             {
-                SubtitleForcedTimingsParser = new SubtitleForcedTimingParser()
-                {
-                    FileSuffix = ".perfect-vad.srt"
-                },
                 AudioExtractor = new AudioExtractor(),
                 SharedObjects = sharedObjects.ToArray(),
                 Transcribers = new Transcriber[]
                 {
-                    new TranscriberFullAudio()
+                    new TranscriberAudioFull()
                     {
                         TranscriptionId = "full",
                         TranscriberTool = transcriberToolPurfviewWhisper,
@@ -370,10 +389,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
                     },
-                    new TranscriberFullAudio()
+                    new TranscriberAudioFull()
                     {
                         TranscriptionId = "full-gemini",
-                        TranscriberTool = new TranscriberToolLLMMultimodalAPI()
+                        Enabled = false,
+                        TranscriberTool = new TranscriberAudioToolMultimodalAI()
                         {
                             Engine = new AIEngineAPI()
                             {
@@ -386,39 +406,59 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 SystemPrompt = systemPromptTranscriberFull
                             }
-                            // TODO add additionnal metadata gathering
                         }
                     },
-                    new TranscriberMergedVADAudio()
+                    new TranscriberPerfectVAD()
+                    {
+                        TranscriptionId = "perfectvad",
+                        FileSuffix = ".perfect-vad.srt"
+                    },
+                    new TranscriberAudioMergedVAD()
                     {
                         TranscriptionId = "mergedvad",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "perfectvad" }
+                        },
                         TranscriberTool = transcriberToolPurfviewWhisper,
                         Translators = new Translator[] { }
                     },
-                    new TranscriberSingleVADAudio()
+                    new TranscriberAudioSingleVAD()
                     {
                         TranscriptionId = "singlevad-gemini",
-                        TranscriberTool = new TranscriberToolLLMMultimodalAPI()
+                        Metadatas = new MetadataAggregator()
                         {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "perfectvad" }
+                        },
+                        TranscriberTool = new TranscriberAudioToolMultimodalAI()
+                        {
+                            BatchSize = 100000,
                             Engine = new AIEngineAPI()
                             {
                                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                                 Model = "gemini-2.5-pro",
                                 APIKeyName = "APIGeminiAI",
-                                RequestBodyExtension = requestBodyExtensionMaxGeminiSingleVad
+                                RequestBodyExtension = requestBodyExtensionMaxGeminiSingleVad,
+                                UseStreaming = true
                             },
                             Options = new AIOptions()
                             {
                                 IncludeEndTime = true,
-                                SystemPrompt = systemPromptTranscriberSingleVAD
+                                SystemPrompt = systemPromptTranscriberSingleVAD                                
                             }
-                            // TODO add additionnal metadata gathering
                         },
                         Translators = new Translator[] {
                             new TranslatorAI()
                             {
                                 TranslationId = "analyst",
                                 TargetLanguage = Language.FromString("en"),
+                                Metadatas = new MetadataAggregator()
+                                {
+                                    TimingsSource = "perfectvad",
+                                    Sources = new [] { "perfectvad" }
+                                },
                                 Engine = new AIEngineAPI()
                                 {
                                     BaseAddress = "https://api.poe.com/v1",
@@ -434,6 +474,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 TranslationId = "naturalist-GPT5",
                                 TargetLanguage = Language.FromString("en"),
+                                Metadatas = new MetadataAggregator()
+                                {
+                                    TimingsSource = "perfectvad",
+                                    Sources = new [] { "perfectvad", "/analyst" }
+                                },
                                 Engine = new AIEngineAPI()
                                 {
                                     BaseAddress = "https://api.poe.com/v1",
@@ -443,13 +488,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 Options = new AIOptions()
                                 {
                                     FirstUserPrompt = userPromptTranslatorNaturalist
-                                },
-                                PreviousTranslationId = "analyst"
+                                }
                             },
                             new TranslatorAI()
                             {
                                 TranslationId = "maverick-GPT5",
                                 TargetLanguage = Language.FromString("en"),
+                                Metadatas = new MetadataAggregator()
+                                {
+                                    TimingsSource = "perfectvad",
+                                    Sources = new [] { "perfectvad", "/analyst" }
+                                },
                                 Engine = new AIEngineAPI()
                                 {
                                     BaseAddress = "https://api.poe.com/v1",
@@ -459,22 +508,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 Options = new AIOptions()
                                 {
                                     FirstUserPrompt = userPromptTranslatorMaverick
-                                },
-                                PreviousTranslationId = "analyst"
+                                }
                             }
                         }
                     },
                     new TranscriberAggregator
                     {
                         TranscriptionId = "candidates-digest",
-                        TranscriptionsOrder = new [] {
-                            "singlevad-gemini"
-                        },
-                        TranslationsOrder = new [] {
-                            "analyst",
-                            "maverick-GPT5",
-                            "naturalist-GPT5",
-                            "*"
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "perfectvad", "singlevad-gemini", "singlevad-gemini/maverick-GPT5", "singlevad-gemini/naturalist-GPT5" }
                         },
                         IncludeExtraTranscriptions = false,
                         Translators = new Translator[]
@@ -505,7 +549,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new SubtitleOutputWav()
                     {
-                        FileSuffix = ".use-in-SubtitleEdit.wav",
+                        FileSuffix = ".wav",
                         FfmpegWavParameters = "-af \"highpass=f=1000,loudnorm=I=-16:TP=-1\""
                     },
                     new SubtitleOutputSingleTranslationSrt()
@@ -544,6 +588,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new SubtitleOutputWIPSrt()
                     {
                         FileSuffix = ".wip.srt",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "perfectvad", "singlevad-gemini", "singlevad-gemini/maverick-GPT5", "singlevad-gemini/naturalist-GPT5" }
+                        },
                         TranscriptionsOrder = new [] {
                             "singlevad-gemini"
                         },
@@ -637,63 +686,61 @@ namespace FunscriptToolbox.SubtitlesVerbs
             dynamic requestBodyExtensionMaxTokens32K = new ExpandoObject();
             requestBodyExtensionMaxTokens32K.max_tokens = 32 * 1024;
 
-            var config = new SubtitleGeneratorConfig()
-            {
-                SubtitleForcedTimingsParser = new SubtitleForcedTimingParser()
+                var config = new SubtitleGeneratorConfig()
                 {
-                    FileSuffix = ".perfect-vad.srt"
-                },
-                AudioExtractor = new AudioExtractor(),
-                SharedObjects = sharedObjects.ToArray(),
-                Transcribers = new Transcriber[]
-                {
-                    new TranscriberFullAudio()
-                    {
-                        TranscriptionId = "import-finished-srt",
-                        TranscriberTool = new TranscriberToolExternalSrt() 
-                        { 
-                            OverrideFileSuffixe = ".srt"
-                        }
-                    },
-                    new TranscriberSingleVADAudio()
-                    {
-                        TranscriptionId = "singlevad-finished-srt",
-                        UseTimingsFromId = "import-finished-srt",
-                        TranscriberTool = new TranscriberToolLLMMultimodalAPI()
-                        {
-                            Engine = new AIEngineAPI()
-                            {
-                                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                                Model = "gemini-2.5-pro",
-                                APIKeyName = "APIGeminiAI",
-                                RequestBodyExtension = requestBodyExtensionMaxTokens32K
-                            },
-                            Options = new AIOptions()
-                            {
-                                IncludeEndTime = true,
-                                SystemPrompt = systemPromptTranscriber
-                            }
-                            // TODO add additionnal metadata gathering
-                        },
-                    }
-                },
-                Outputs = new SubtitleOutput[]
-                {
-                    new SubtitleOutputCostReport()
-                    {
-                        FileSuffix = null
-                    },
-                    new SubtitleOutputTrainingData()
-                    {
-                        FileSuffix = ".training.json",
-                        SrtSuffix = ".srt",
-                        TranscriptionId = "singlevad-finished-srt"
-                    }
-                }
-            };
+                    //AudioExtractor = new AudioExtractor(),
+                    //SharedObjects = sharedObjects.ToArray(),
+                    //Transcribers = new Transcriber[]
+                    //{
+                    //    new TranscriberAudioFull()
+                    //    {
+                    //        TranscriptionId = "import-finished-srt",
+                    //        TranscriberTool = new TranscriberAudioToolExternal() 
+                    //        { 
+                    //            OverrideFileSuffixe = ".srt"
+                    //        }
+                    //    },
+                    //    new TranscriberAudioSingleVAD()
+                    //    {
+                    //        TranscriptionId = "singlevad-finished-srt",
+                    //        TimingsId = "import-finished-srt",
+                    //        TranscriberTool = new TranscriberAudioToolMultimodalAI()
+                    //        {
+                    //            Engine = new AIEngineAPI()
+                    //            {
+                    //                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                    //                Model = "gemini-2.5-pro",
+                    //                APIKeyName = "APIGeminiAI",
+                    //                RequestBodyExtension = requestBodyExtensionMaxTokens32K
+                    //            },
+                    //            Options = new AIOptions()
+                    //            {
+                    //                IncludeEndTime = true,
+                    //                SystemPrompt = systemPromptTranscriber
+                    //            }
+                    //            // TODO add additionnal metadata gathering
+                    //        },
+                    //    }
+                    //},
+                    //Outputs = new SubtitleOutput[]
+                    //{
+                    //    new SubtitleOutputCostReport()
+                    //    {
+                    //        FileSuffix = null
+                    //    },
+                    //    // TODO
+                    //    //new SubtitleOutputTrainingData()
+                    //    //{
+                    //    //    FileSuffix = ".training.json",
+                    //    //    SrtSuffix = ".srt",
+                    //    //    TranscriptionId = "singlevad-finished-srt"
+                    //    //}
+                    //}
+                };
 
-            return OverridesIdInJObject(JObject.FromObject(config, rs_serializer), jtokenIdOverrides)
-                .ToString();
+            //return OverridesIdInJObject(JObject.FromObject(config, rs_serializer), jtokenIdOverrides)
+            //    .ToString();
+            return "";
         }
 
         internal class ValidatingReferenceResolver : IReferenceResolver

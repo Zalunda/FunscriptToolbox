@@ -1,7 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
+﻿using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -13,11 +11,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 2, Required = Required.Always)]
         public string TranscriptionId { get; set; }
 
-        [JsonProperty(Order = 3)]
-        public Language Language { get; set; } = null;
-
         [JsonProperty(Order = 100, TypeNameHandling = TypeNameHandling.None)]
         public Translator[] Translators { get; set; }
+
+        public virtual bool CanBeUpdated { get; } = false;
 
         public Transcriber()
         {
@@ -25,13 +22,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public abstract bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
-            IEnumerable<Transcriber> transcribers,
             out string reason);
 
         public abstract void Transcribe(
             SubtitleGeneratorContext context,
-            Transcription transcription,
-            PcmAudio pcmAudio,
-            Language overrideLanguage);
+            Transcription transcription);
     }
 }

@@ -1,6 +1,5 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -19,20 +18,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
         }
 
-        public virtual bool IsPrerequisitesMet(
-            Transcription transcription, 
-            out string reason)
-        {
-            reason = null;
-            return true;
-        }
-
-        public bool IsFinished(
+        public abstract bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
             Transcription transcription,
-            Translation translation)
-        {
-            return translation.IsFinished(transcription);
-        }
+            out string reason);
 
         public abstract void Translate(
             SubtitleGeneratorContext context,

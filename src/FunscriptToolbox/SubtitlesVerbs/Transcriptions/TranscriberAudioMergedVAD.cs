@@ -9,45 +9,38 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberMergedVADAudio : Transcriber
+    public class TranscriberAudioMergedVAD : TranscriberAudio
     {
-        public TranscriberMergedVADAudio()
+        public TranscriberAudioMergedVAD()
         {
         }
 
         [JsonProperty(Order = 20, Required = Required.Always)]
-        public TranscriberTool TranscriberTool { get; set; }
-
+        internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 21)]
         public TimeSpan SilentGapDuration { get; set; } = TimeSpan.FromSeconds(0.3);
 
-        [JsonProperty(Order = 22)]
-        public string UseTimingsFromId { get; set; } = null;
-        
+        [JsonProperty(Order = 30, Required = Required.Always)]
+        public TranscriberAudioTool TranscriberTool { get; set; }
+
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
-            IEnumerable<Transcriber> transcribers,
             out string reason)
         {
-            if (this.UseTimingsFromId != null && !context.CurrentWipsub.Transcriptions.Any(f => f.Id == this.UseTimingsFromId))
+            if (Metadatas?.IsPrerequisitesMetIncludingTimings(context, out reason) == false)
             {
-                reason = $"Transcription '{this.UseTimingsFromId}' not done yet.";
                 return false;
             }
-            else
-            {
-                reason = "SubtitlesForcedTiming not imported yet.";
-                return context.CurrentWipsub.SubtitlesForcedTiming != null;
-            }
+
+            reason = null;
+            return true;
         }
 
         public override void Transcribe(
             SubtitleGeneratorContext context,
-            Transcription transcription,
-            PcmAudio pcmAudio,
-            Language overrideLanguage)
+            Transcription transcription)
         {
-            var transcribedLanguage = overrideLanguage ?? this.Language;
+            var pcmAudio = context.CurrentWipsub.PcmAudio;
 
             var silenceGapSamples = pcmAudio.GetSilenceAudio(this.SilentGapDuration);
             var halfSilenceGapLength = TimeSpan.FromMilliseconds(silenceGapSamples.Duration.TotalMilliseconds / 2);
@@ -56,9 +49,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var audioOffsets = new List<AudioOffset>();
             var mergedAudio = new MemoryStream();
 
-            var timings = UseTimingsFromId == null 
-                ? context.CurrentWipsub.SubtitlesForcedTiming.Where(f => f.VoiceText != null).Cast<ITiming>().ToArray()
-                : context.CurrentWipsub.Transcriptions.FirstOrDefault(f => f.Id == this.UseTimingsFromId).Items.Cast<ITiming>().ToArray();
+            var timings = this.Metadatas
+                .GetTimingsWithMetadata<PcmAudio>(context)
+                .Where(f => f.Metadata.IsVoice)
+                .ToArray();
 
             for (int i = 0; i < timings.Length; i++)
             {
@@ -111,10 +105,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             this.TranscriberTool.TranscribeAudio(
                                 context,
-                                context.DefaultProgressUpdateHandler,
                                 transcription,
-                                new[] { mergedPcm },
-                                $"{this.TranscriptionId}-");
+                                new[] { new TimedObjectWithMetadata<PcmAudio>(pcmAudio.StartTime, pcmAudio.EndTime) { Tag = mergedPcm } });
             var oldItems = transcription.Items.ToArray();
             transcription.Items.Clear();
             var remappedItems = new List<TranscribedText>();
@@ -142,11 +134,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             }
 
+            // Save verbose output if needed
             if (context.IsVerbose)
             {
-                var adjustedSrt = new SubtitleFile();
-                adjustedSrt.Subtitles.AddRange(transcription.Items.Select(tt => new Subtitle(tt.StartTime, tt.EndTime, tt.Text)));
-                adjustedSrt.SaveSrt(context.GetPotentialVerboseFilePath($"{this.TranscriptionId}-adjusted.srt", DateTime.Now));
+                var srt = new SubtitleFile();
+                srt.Subtitles.AddRange(transcription.Items.Select(item =>
+                    new Subtitle(
+                        item.StartTime,
+                        item.EndTime,
+                        item.Text + "\n" + string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{kvp.Value}}}")))));
+                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{transcription.Id}.srt", DateTime.Now));
             }
 
             transcription.Items.AddRange(remappedItems);

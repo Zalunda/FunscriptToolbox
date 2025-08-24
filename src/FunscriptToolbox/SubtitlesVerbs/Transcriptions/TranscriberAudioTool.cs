@@ -1,14 +1,13 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public abstract class TranscriberTool
+    public abstract class TranscriberAudioTool
     {
         public abstract void TranscribeAudio(
             SubtitleGeneratorContext context,
-            ProgressUpdateDelegate progressUpdateCallback,
             Transcription transcription,
-            PcmAudio[] audios,
-            string filesPrefix);
+            TimedObjectWithMetadata<PcmAudio>[] items);
     }
 }

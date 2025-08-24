@@ -12,8 +12,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         }
 
-        public override bool NeedSubtitleForcedTimings => false;
-
         public override string Description => $"{base.Description}: {this.FileSuffix}";
 
         [JsonProperty(Order = 10, Required = Required.Always)]
@@ -44,34 +42,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
-            var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
-            var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId);
+            //var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+            //var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId);
 
-            var subtitleFile = new SubtitleFile();
-            foreach (var item in transcription.Items)
-            {
-                var text = item.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation?.Id)?.Text
-                    ?? item.Text;
-                if (this.IncludeOriginalText)
-                {
-                    text += $"\n\n{item.Text}";
-                }
-                subtitleFile.Subtitles.Add(new Subtitle(item.StartTime, item.EndTime, text));
-            }
+            //var subtitleFile = new SubtitleFile();
+            //foreach (var item in transcription.Items)
+            //{
+            //    var text = item.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation?.Id)?.Text
+            //        ?? item.Text;
+            //    if (this.IncludeOriginalText)
+            //    {
+            //        text += $"\n\n{item.Text}";
+            //    }
+            //    subtitleFile.Subtitles.Add(new Subtitle(item.StartTime, item.EndTime, text));
+            //}
 
-            // Apply minimum duration and expansion
-            subtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+            //// Apply minimum duration and expansion
+            //subtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
 
-            // Apply injections
-            subtitleFile.Subtitles.AddRange(
-                GetAdjustedSubtitlesToInject(
-                    subtitleFile.Subtitles,
-                    this.SubtitlesToInject,
-                    context.CurrentWipsub.PcmAudio.Duration));
+            //// Apply injections
+            //subtitleFile.Subtitles.AddRange(
+            //    GetAdjustedSubtitlesToInject(
+            //        subtitleFile.Subtitles,
+            //        this.SubtitlesToInject,
+            //        context.CurrentWipsub.PcmAudio.Duration));
 
-            var filename = context.CurrentBaseFilePath + this.FileSuffix;
-            context.SoftDelete(filename);
-            subtitleFile.SaveSrt(filename);
+            //var filename = context.CurrentBaseFilePath + this.FileSuffix;
+            //context.SoftDelete(filename);
+            //subtitleFile.SaveSrt(filename);
         }
     }
 }

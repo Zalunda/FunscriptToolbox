@@ -38,9 +38,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             [Option("sourcelanguage", Required = false, HelpText = "")]
             public string SourceLanguage { get; set; }
-
-            [Option("removetranslations", Required = false, HelpText = "")]
-            public string RemoveTranslations { get; set; }
         }
 
         private readonly Options r_options;
@@ -58,15 +55,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public async Task<int> ExecuteAsync()
         {   
-            var config = SubtitleGeneratorConfig.FromFile(
-                r_options.ConfigPath);
-            var privateConfig = SubtitleGeneratorPrivateConfig.FromFile(
-                Path.ChangeExtension(r_options.ConfigPath, ".private.json"));
             var context = new SubtitleGeneratorContext(
                 rs_log,
                 r_options.Verbose,
                 new FfmpegAudioHelper(),
-                privateConfig);
+                SubtitleGeneratorConfig.FromFile(
+                    r_options.ConfigPath),
+                SubtitleGeneratorPrivateConfig.FromFile(
+                    Path.ChangeExtension(r_options.ConfigPath, 
+                    ".private.json")),
+                Language.FromString(r_options.SourceLanguage ?? "ja"));
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
@@ -86,62 +84,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     : new WorkInProgressSubtitles(wipsubFullpath);
 
                 context.ChangeCurrentFile(wipsub);
-
-                UpdateWipSubFileIfNeeded(context, config);
-
-                // 0. Remove translations 
-                var translationsToRemove = r_options.RemoveTranslations?.Split(';').ToArray();
-                if (translationsToRemove != null)
-                {
-                    foreach (var translationId in translationsToRemove)
-                    {
-                        var nbTranslatedTexts = 0;
-                        foreach (var transcription in wipsub.Transcriptions) 
-                        {
-                            nbTranslatedTexts += transcription.RemoveTranslation(translationId);
-                        }
-                        context.WriteInfo($"Removed translation '{translationId}': {nbTranslatedTexts} translated texts removed.");
-                        wipsub.Save();
-                    }
-                }
+                UpdateWipSubFileIfNeeded(context);
 
                 try
                 {
-
-                    // 1. Importing Subtitle Forced Timings, if not already done.
-                    var forcedTimingPath = Path.ChangeExtension(
-                        inputMp4Fullpath,
-                        config.SubtitleForcedTimingsParser.FileSuffix);
-                    if (File.Exists(forcedTimingPath))
-                    {
-                        var newForcedTimings = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
-                        if (wipsub.SubtitlesForcedTiming != null && newForcedTimings.SequenceEqual(wipsub.SubtitlesForcedTiming))
-                        {
-                            context.WriteInfoAlreadyDone($"Subtitle forced timings have already been imported:");
-                            context.WriteInfoAlreadyDone($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
-                            context.WriteInfoAlreadyDone($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
-                            context.WriteInfoAlreadyDone();
-                        }
-                        else
-                        {
-                            var importOrUpdate = wipsub.SubtitlesForcedTiming == null ? "Importing" : "Updating";
-                            context.WriteInfo($"{importOrUpdate} forced subtitle timings from '{Path.GetFileName(forcedTimingPath)}'...");
-
-                            wipsub.SubtitlesForcedTiming = config.SubtitleForcedTimingsParser.ParseFromFile(forcedTimingPath);
-                            wipsub.Save();
-
-                            context.WriteInfo($"Finished:");
-                            context.WriteInfo($"    Number of timings = {wipsub.SubtitlesForcedTiming.Count}");
-                            context.WriteInfo($"    Timings Duration = {TimeSpan.FromMilliseconds(wipsub.SubtitlesForcedTiming.Sum(f => f.Duration.TotalMilliseconds))}");
-                            context.WriteInfo();
-                        }
-                    }
-                    else if (config.Outputs.Any(f => f.NeedSubtitleForcedTimings))
-                    {
-                        context.AddUserTodo($"Create the subtitle forced timings file '{Path.GetFileName(forcedTimingPath)}'.");
-                    }
-
-                    // 2. Extracting PcmAudio, if not already done.
+                    // 1. Extracting PcmAudio, if not already done.
                     var pcmFilePath = wipsub.OriginalFilePath + ".pcm";
                     if (wipsub.PcmAudio != null && File.Exists(pcmFilePath))
                     {
@@ -155,7 +102,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputMp4Fullpath)}'...");
 
                         var watchPcmAudio = Stopwatch.StartNew();
-                        wipsub.PcmAudio = config.AudioExtractor.ExtractPcmAudio(context, inputMp4Fullpath);
+                        wipsub.PcmAudio = context.Config.AudioExtractor.ExtractPcmAudio(context, inputMp4Fullpath);
                         wipsub.Save();
                         File.WriteAllBytes(pcmFilePath, wipsub.PcmAudio.Data);
                    
@@ -164,9 +111,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         context.WriteInfo();
                     }
 
-                    // 3. Transcribing the audio file, if not already done. Then translating.
-                    var sourceLanguage = Language.FromString(r_options.SourceLanguage);
-                    foreach (var transcriber in config.Transcribers
+                    // 2. Transcribing the audio file, if not already done. Then translating.
+                    foreach (var transcriber in context.Config.Transcribers
                         ?.Where(t => t.Enabled)
                         ?? Array.Empty<Transcriber>())
                     {
@@ -176,26 +122,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             transcription = new Transcription(
                                 transcriber.TranscriptionId,
-                                transcriber.Language);
+                                context.OverrideSourceLanguage);
                             wipsub.Transcriptions.Add(transcription);
                         }
 
-                        if (transcription.IsFinished)
+                        if (transcription.IsFinished && !transcriber.CanBeUpdated)
                         {
                             context.WriteInfoAlreadyDone($"Transcription '{transcriber.TranscriptionId}' have already been done:");
                             context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Count}");
                             context.WriteInfoAlreadyDone($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
-                            if (transcriber.Language == null)
-                            {
-                                context.WriteInfoAlreadyDone($"    Detected Language = {transcription.Language.LongName}");
-                            }
+                            context.WriteInfoAlreadyDone($"    Detected Language = {transcription.Language.LongName}");
+
                             foreach (var line in GetTranscriptionAnalysis(context, transcription))
                             {
                                 context.WriteInfoAlreadyDone(line);
                             }
                             context.WriteInfoAlreadyDone();
                         }
-                        else if (!transcriber.IsPrerequisitesMet(context, config.Transcribers, out var reason))
+                        else if (!transcriber.IsPrerequisitesMet(context, out var reason))
                         {
                             context.WriteInfo($"Transcription '{transcriber.TranscriptionId}' can't be done yet: {reason}");
                             context.WriteInfo();
@@ -206,21 +150,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 var watch = Stopwatch.StartNew();
                                 context.WriteInfo($"Transcribing '{transcriber.TranscriptionId}'...");
-                                transcriber.Transcribe(
-                                    context,
-                                    transcription,
-                                    wipsub.PcmAudio,
-                                    sourceLanguage);
+                                transcriber.Transcribe(context, transcription);
 
                                 if (transcription.IsFinished)
                                 {
                                     context.WriteInfo($"Finished in {watch.Elapsed}:");
                                     context.WriteInfo($"    Number of subtitles = {transcription.Items.Count}");
                                     context.WriteInfo($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
-                                    if (transcriber.Language == null)
-                                    {
-                                        context.WriteInfo($"    Detected Language = {transcription.Language.LongName}");
-                                    }
+                                    context.WriteInfo($"    Detected Language = {transcription.Language.LongName}");
                                     foreach (var line in GetTranscriptionAnalysis(context, transcription))
                                     {
                                         context.WriteInfo(line);
@@ -265,12 +202,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     transcription.Translations.Add(translation);
                                 }
 
-                                if (translator.IsFinished(transcription, translation))
+                                if (translation.IsFinished)
                                 {
                                     context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' have already been done.");
                                     context.WriteInfoAlreadyDone();
                                 }
-                                else if (!translator.IsPrerequisitesMet(transcription, out var reason))
+                                else if (!translator.IsPrerequisitesMet(context, transcription, out var reason))
                                 {
                                     context.WriteInfoAlreadyDone($"Translation '{transcription.Id}/{translation.Id}' cannot start yet because {reason}");
                                     context.WriteInfoAlreadyDone();
@@ -299,8 +236,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     }
 
-                    // 5. Creating user defined outputs
-                    foreach (var output in config.Outputs
+                    // 3. Creating user defined outputs
+                    foreach (var output in context.Config.Outputs
                         ?.Where(o => o.Enabled) 
                         ?? Array.Empty<SubtitleOutput>())
                     {
@@ -356,7 +293,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return base.NbErrors;
         }
 
-        private void UpdateWipSubFileIfNeeded(SubtitleGeneratorContext context, SubtitleGeneratorConfig config)
+        private void UpdateWipSubFileIfNeeded(SubtitleGeneratorContext context)
         {
             switch (context.CurrentWipsub.FormatVersion)
             {
@@ -366,7 +303,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     context.SoftDelete(context.CurrentWipsub.OriginalFilePath);
                     context.CurrentWipsub.UpdateFormatVersion();
 
-                    foreach (var transcriber in config.Transcribers.OfType<TranscriberMergedVADAudio>())
+                    foreach (var transcriber in context.Config.Transcribers.OfType<TranscriberAudioMergedVAD>())
                     {
                         foreach (var transcription in context.CurrentWipsub.Transcriptions
                             .Where(t => t.Id == transcriber.TranscriptionId))
@@ -412,58 +349,59 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         private static IEnumerable<string> GetTranscriptionAnalysis(
-            SubtitleGeneratorContext context, 
+            SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            var analysis = transcription.GetAnalysis(context);
-            if (analysis != null)
-            {
-                yield return $"    ForcedTimings Analysis:";
-                yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}";
-                yield return $"       Number without transcription: {analysis.TimingsWithoutTranscription.Length}";
-                if (analysis.ExtraTranscriptions.Length > 0)
-                {
-                    yield return $"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}";
-                }
+            yield break;
+            //var analysis = transcription.GetAnalysis(context);
+            //if (analysis != null)
+            //{
+            //    yield return $"    ForcedTimings Analysis:";
+            //    yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}";
+            //    yield return $"       Number without transcription: {analysis.TimingsWithoutTranscription.Length}";
+            //    if (analysis.ExtraTranscriptions.Length > 0)
+            //    {
+            //        yield return $"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}";
+            //    }
 
-                if (context.IsVerbose)
-                {
-                    using (var writer = File.CreateText(context.GetPotentialVerboseFilePath($"{transcription.Id}-ANALYSIS-versus-ForcedTimings.txt")))
-                    {
-                        var extraTranscriptions = analysis.ExtraTranscriptions.ToList();
-                        foreach (var item in analysis
-                            .TimingsWithOverlapTranscribedTexts
-                            .OrderBy(f => f.Key.StartTime))
-                        {
-                            while (extraTranscriptions.FirstOrDefault()?.StartTime <= item.Key.StartTime)
-                            {
-                                var extra = extraTranscriptions.First();
-                                writer.WriteLine($"[Extra transcription, don't overlap with forced timings] {extra.StartTime} => {extra.EndTime}, {extra.GetFirstTranslatedIfPossible()}");
-                                extraTranscriptions.RemoveAt(0);
-                            }
+            //    if (context.IsVerbose)
+            //    {
+            //        using (var writer = File.CreateText(context.GetPotentialVerboseFilePath($"{transcription.Id}-ANALYSIS-versus-ForcedTimings.txt")))
+            //        {
+            //            var extraTranscriptions = analysis.ExtraTranscriptions.ToList();
+            //            foreach (var item in analysis
+            //                .TimingsWithOverlapTranscribedTexts
+            //                .OrderBy(f => f.Key.StartTime))
+            //            {
+            //                while (extraTranscriptions.FirstOrDefault()?.StartTime <= item.Key.StartTime)
+            //                {
+            //                    var extra = extraTranscriptions.First();
+            //                    writer.WriteLine($"[Extra transcription, don't overlap with forced timings] {extra.StartTime} => {extra.EndTime}, {extra.GetFirstTranslatedIfPossible()}");
+            //                    extraTranscriptions.RemoveAt(0);
+            //                }
 
-                            if (item.Value.Length == 0)
-                            {
-                                writer.WriteLine($"[No transcription found] {item.Key.StartTime} => {item.Key.EndTime}");
-                            }
-                            else if (item.Value.Length == 1)
-                            {
-                                var first = item.Value.First();
-                                writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}, {first.TranscribedText.GetFirstTranslatedIfPossible()}");
-                            }
-                            else
-                            {
-                                writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}");
-                                foreach (var value in item.Value)
-                                {
-                                    var tt = value.TranscribedText;
-                                    writer.WriteLine($"     {tt.StartTime} => {tt.EndTime}, {tt.GetFirstTranslatedIfPossible()}");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            //                if (item.Value.Length == 0)
+            //                {
+            //                    writer.WriteLine($"[No transcription found] {item.Key.StartTime} => {item.Key.EndTime}");
+            //                }
+            //                else if (item.Value.Length == 1)
+            //                {
+            //                    var first = item.Value.First();
+            //                    writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}, {first.TranscribedText.GetFirstTranslatedIfPossible()}");
+            //                }
+            //                else
+            //                {
+            //                    writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}");
+            //                    foreach (var value in item.Value)
+            //                    {
+            //                        var tt = value.TranscribedText;
+            //                        writer.WriteLine($"     {tt.StartTime} => {tt.EndTime}, {tt.GetFirstTranslatedIfPossible()}");
+            //                    }
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
         }
     }
 }

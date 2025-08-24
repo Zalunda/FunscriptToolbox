@@ -1,49 +1,38 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
-    public class Translation
+    public class Translation : ITimedObjectWithMetadataCollection
     {
         public string Id { get; }
         public Language Language { get; }
-        public TranslationExample[] TranslationExamples { get; private set; }
+        public bool IsFinished { get; private set; }
 
+        public List<TranslatedText> Items { get; }
         public List<TranslationCost> Costs { get; }
+
+        ICollection<TimedObjectWithMetadata> ITimedObjectWithMetadataCollection.Items => this.Items.Cast<TimedObjectWithMetadata>().ToArray();
 
         public Translation(
             string id,
             Language language,
-            IEnumerable<TranslationExample> translationExamples = null,
+            bool isFinished = false,
+            IEnumerable<TranslatedText> items = null,
             IEnumerable<TranslationCost> costs = null)
         {
             Id = id;
             Language = language;
-            TranslationExamples = (translationExamples ?? Array.Empty<TranslationExample>()).ToArray();
+            IsFinished = isFinished;
+            Items = new List<TranslatedText>(items ?? Array.Empty<TranslatedText>());
             Costs = new List<TranslationCost>(costs ?? Array.Empty<TranslationCost>());
         }
 
-        internal bool IsFinished(Transcription transcription)
+        internal void MarkAsFinished()
         {
-            return !transcription
-                .Items
-                .Any(t => t.TranslatedTexts.FirstOrDefault(tt => tt.Id == this.Id)?.Text == null);
-        }
-
-        internal IEnumerable<TranslationExample> GetTranslationExamples(Language originalLanguage, int nbToReturn)
-        {
-            if (this.TranslationExamples == null || this.TranslationExamples.Length == 0)
-            {
-                this.TranslationExamples = TranslationExample.CreateTranslationExamples(originalLanguage, this.Language);
-            }
-
-            int startIndex = Math.Max(0, this.TranslationExamples.Length - nbToReturn);
-            for (int i = startIndex; i < this.TranslationExamples.Length; i++)
-            {
-                yield return this.TranslationExamples[i];
-            }
+            this.Items.Sort((a, b) => (int)(a.StartTime.TotalMilliseconds - b.StartTime.TotalMilliseconds));
+            this.IsFinished = true;
         }
     }
 }

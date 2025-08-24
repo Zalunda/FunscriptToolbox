@@ -2,7 +2,6 @@
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,14 +12,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
     [JsonObject(IsReference = false)]
     public class WorkInProgressSubtitles
     {
-        public const string CURRENT_FORMAT_VERSION = "1.1";
+        public const string CURRENT_FORMAT_VERSION = "2.0";
 
         private readonly static JsonSerializer rs_serializer = JsonSerializer
             .Create(new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
-                PreserveReferencesHandling = PreserveReferencesHandling.Objects,
-                ContractResolver = new CamelCasePropertyNamesContractResolver()
+                PreserveReferencesHandling = PreserveReferencesHandling.Objects
             });
         public const string Extension = ".wipsubtitles";
         static WorkInProgressSubtitles()
@@ -61,7 +59,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
         public PcmAudio PcmAudio { get; set; }
-        public SubtitleForcedTimingCollection SubtitlesForcedTiming { get; set; }
         public List<Transcription> Transcriptions { get; set; }
 
         public void UpdateFormatVersion()

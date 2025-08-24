@@ -15,6 +15,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public TranslatorGoogleV1API()
         {
         }
+        public override bool IsPrerequisitesMet
+            (SubtitleGeneratorContext context,
+            Transcription transcription,
+            out string reason)
+        {
+            reason = null;
+            return true;
+        }
 
         public override void Translate(
             SubtitleGeneratorContext context,
@@ -26,20 +34,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
 
-            var missingTranscriptions = transcription
-                .Items
-                .Where(f => !f.TranslatedTexts.Any(t => t.Id == translation.Id))
+            var missingTranscriptions = transcription.Items
+                .Where(transcribedText => !translation.Items.Any(x => x.Source == transcribedText))
                 .ToArray();
 
             var currentIndex = 1;
             foreach (var transcribedText in missingTranscriptions)
             {
                 var sourceLanguage = transcription.Language?.ShortName ?? "auto";
-                string apiUrl = $"https://translate.googleapis.com/translate_a/single" + 
+                string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
                     "?client=gtx" +
                     $"&sl={sourceLanguage}" +
-                    $"&tl={translation.Language.ShortName}" + 
-                    $"&dt=t" + 
+                    $"&tl={translation.Language.ShortName}" +
+                    $"&dt=t" +
                     $"&q={Uri.EscapeDataString(transcribedText.Text)}";
 
                 var watch = Stopwatch.StartNew();
@@ -59,11 +66,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
 
                 var translatedText = (string)ExtractTranslatedText(responseBody);
-                transcribedText.TranslatedTexts.Add(
-                    new TranslatedText(translation.Id, translatedText));
+                translation.Items.Add(
+                    new TranslatedText(transcribedText, translatedText));
 
                 context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
             }
+
+            translation.MarkAsFinished();
         }
 
         public static Language DetectLanguage(IEnumerable<TranscribedText> items)

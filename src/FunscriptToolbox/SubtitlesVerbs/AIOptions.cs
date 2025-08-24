@@ -1,6 +1,4 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
@@ -29,52 +27,5 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         [JsonProperty(Order = 8)]
         public bool IncludeParts { get; set; } = false;
-
-        // Static helper method to augment metadata with SubtitlesForcedTiming data
-        public Dictionary<string, object> CreateMetadata(
-            SubtitleForcedTimingCollection forcedTiming,
-            TimeSpan startTime,
-            TimeSpan endTime,
-            ref string ongoingContext)
-        {
-            var metadata = new Dictionary<string, object>();
-
-            if (this.IncludeStartTime)
-            {
-                metadata["StartTime"] = startTime.ToString(@"hh\:mm\:ss\.fff");
-            }
-
-            if (this.IncludeEndTime)
-            {
-                metadata["EndTime"] = endTime.ToString(@"hh\:mm\:ss\.fff");
-            }
-
-            if (forcedTiming != null)
-            {
-                if (this.IncludeContext)
-                {
-                    var context = forcedTiming.GetContextAt(startTime);
-                    if (context != null && context != ongoingContext)
-                    {
-                        if (!string.IsNullOrEmpty(context))
-                        {
-                            metadata["Context"] = context;
-                            ongoingContext = context;
-                        }
-                    }
-                }
-
-                if (this.IncludeTalker)
-                {
-                    var talker = forcedTiming.GetTalkerAt(startTime, endTime);
-                    if (!string.IsNullOrEmpty(talker))
-                    {
-                        metadata["Talker"] = talker;
-                    }
-                }
-            }
-
-            return metadata;
-        }
     }
 }
