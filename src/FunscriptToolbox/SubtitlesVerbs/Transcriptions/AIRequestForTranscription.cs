@@ -2,17 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
 using Newtonsoft.Json.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class AIRequestForTranscription : AIRequest
+    public class AIRequestForTranscription<T> : AIRequest
     {
         private readonly Transcription _transcription;
-        public TimedObjectWithMetadata<PcmAudio>[] Items { get; }
+        private readonly string _itemName;
 
-        public override string NbItemsString() => $"{this.Items.Length} audio samples";
+        public TimedObjectWithMetadata<T>[] Items { get; }
+
+        public override string NbItemsString() => $"{this.Items.Length} {_itemName}";
 
         public AIRequestForTranscription(
             string taskId,
@@ -20,11 +21,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             int requestNumber,
             List<dynamic> messages,
             Transcription transcription,
-            TimedObjectWithMetadata<PcmAudio>[] items)
+            TimedObjectWithMetadata<T>[] items,
+            string itemName)
             : base(taskId, toolAction, requestNumber, messages)
         {
             _transcription = transcription;
             Items = items;
+            _itemName = itemName;
         }
 
         public override void HandleResponse(

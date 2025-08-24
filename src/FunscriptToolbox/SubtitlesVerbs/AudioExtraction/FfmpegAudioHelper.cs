@@ -96,5 +96,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 File.Delete(tempPcmDestinationFile);
             }
         }
+
+        internal byte[] TakeScreenshotAsBytes(string videoPath, TimeSpan time, string extension = ".jpg", string filter = null)
+        {
+            var tempFile = Path.GetTempFileName() + extension;
+            try
+            {
+                var filterAddon = filter == null ? string.Empty : $"-vf \"{filter}\"";
+                FFmpeg.Conversions.New()
+                    .SetOverwriteOutput(true)
+                    .AddParameter($"-i \"{videoPath}\" -ss {time} -frames:v 1 {filterAddon}")
+                    .SetOutput(tempFile)
+                    .Start()
+                    .Wait();
+                return File.ReadAllBytes(tempFile);
+
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
     }
 }

@@ -205,6 +205,7 @@
     <Compile Include="SubtitlesVerbs\ITiming.cs" />
     <Compile Include="SubtitlesVerbs\TimingOverlap.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberOnScreenText.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioToolExternal.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioToolMultimodalAI.cs" />

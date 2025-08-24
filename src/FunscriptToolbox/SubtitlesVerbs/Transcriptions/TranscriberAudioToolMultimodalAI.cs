@@ -83,7 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     try
                     {
                         context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var nbAdded = AIRequestForTranscription.ParseAndAddTranscription(transcription, response);
+                        var nbAdded = AIRequestForTranscription<PcmAudio>.ParseAndAddTranscription(transcription, response);
                         context.WriteInfo($"        Finished:");
                         context.WriteInfo($"            Nb transcriptions added: {nbAdded.Count}");
                         context.CurrentWipsub.Save();
@@ -101,7 +101,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return nbErrors;
         }
 
-        private IEnumerable<AIRequestForTranscription> CreateRequests(
+        private IEnumerable<AIRequestForTranscription<PcmAudio>> CreateRequests(
             SubtitleGeneratorContext context,
             Transcription transcription,
             TimedObjectWithMetadata<PcmAudio>[] items)
@@ -182,13 +182,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     });
 
                     batchId++;
-                    yield return new AIRequestForTranscription(
+                    yield return new AIRequestForTranscription<PcmAudio>(
                         $"{transcription.Id}",
                         $"{batchId}",
                         batchId,
                         messages,
                         transcription,
-                        itemsInRequest.ToArray());
+                        itemsInRequest.ToArray(),
+                        "audio samples");
 
                     itemsContentList.Clear();
                     itemsInRequest.Clear();

@@ -93,8 +93,39 @@ namespace FunscriptToolbox.SubtitlesVerbs
             };
             sharedObjects.Add(transalorGoogleV1);
 
-            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberSingleVAD"));
-            var systemPromptTranscriberSingleVAD = new AIPrompt(new[]
+            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberOnScreenText"));
+            var systemPromptTranscriberOnScreenText = new AIPrompt(new[] 
+            {
+                "# OPTICAL INTELLIGENCE (OPTINT) MANDATE (version 2025-09-01)\n",
+                "### Role\n",
+                "You are a specialized Optical Intelligence Operative. Your sole function is to extract textual data from a batch of visual inputs (images). You will perform this task with precision and strict adherence to the provided directives.\n",
+                "### Mission\n",
+                "For each data packet you receive in a request, you will analyze the provided image, identify and transcribe the relevant text as specified by its corresponding `GrabOnScreenText` directive. You will then aggregate all results from the batch into a single response. Your mission is complete when one batch of inputs produces one single, structured JSON array as output.\n",
+                "### Input Protocol\n",
+                "You will receive a series of user messages, each constituting a single task. A task consists of:\n1.  A `text` block with a JSON object containing `StartTime`, `EndTime`, and a `GrabOnScreenText` directive.\n2.  An `image_url` block containing the visual data for that specific task.\n",
+                "### Core Directives\n",
+                "**Directive 1: Directive Adherence**\n",
+                "- Your primary instruction for each image is its associated `GrabOnScreenText` field. You MUST interpret and act upon it.\n",
+                "- **If `GrabOnScreenText` contains a specific instruction** (e.g., `\"Picture on the wall\"`), you will focus your OCR analysis exclusively on that specified area.\n",
+                "- **If `GrabOnScreenText` is generic or empty**, you will transcribe the most prominent text in the image (typically a central caption).\n",
+                "**Directive 2: Transcription Fidelity**\n",
+                "- Your transcription must be a verbatim record of the text. Preserve original line breaks.\n",
+                "**Directive 3: Data Integrity**\n",
+                "- You will extract the `StartTime` and `EndTime` value from each input and pass it through, unmodified, to its corresponding output object.\n",
+                "- If no text is found for a given image, you will return an empty string (`\"\"`) in the `OnScreenText` field for that object.\n",
+                "### Output Mandate\n",
+                "Your entire response will be a **single, valid JSON array**. Each object within this array corresponds sequentially to each image task you processed in the request. The format is non-negotiable:\n",
+                "```json\n[\n  {\n    \"StartTime\": \"HH:MM:SS.ms\",\n    \"EndTime\": \"HH:MM:SS.ms\",\n    \"OnScreenText\": \"Text from first image.\"\n  },\n  {\n    \"StartTime\": \"HH:MM:SS.ms\",\n    \"EndTime\": \"HH:MM:SS.ms\",\n    \"OnScreenText\": \"Text from second image.\"\n  }\n]\n```\n",
+                "### Example Procedure:\n",
+                "**// INCOMING BATCH: Four sequential image tasks.**\n",
+                "**// CORRECT OUTPUT: A single JSON array containing four objects.**\n",
+                "```json\n[\n  {\n    \"StartTime\": \"00:00:00.306\",\n    \"EndTime\": \"HH:MM:SS.ms\",\n    \"OnScreenText\": \"義弟の僕のことが好きすぎる姉二人。\"\n  },\n  {\n    \"StartTime\": \"00:00:05.425\",\n    \"EndTime\": \"HH:MM:SS.ms\",\n    \"OnScreenText\": \"僕を他の女に取られたくない\\n自分たちだけの弟でいてほしい\"\n  },\n  {\n    \"StartTime\": \"00:00:10.526\",\n    \"OnScreenText\": \"私たち以外に女なんて必要ないでしょ？\"\n  },\n  {\n    \"StartTime\": \"00:00:15.733\",\n    \"OnScreenText\": \"小さい頃から、姉二人のおっぱいに挟まれて育ってきた僕は\\nこの極楽から抜け出すことはできるのでしょうか…\"\n  }\n]\n```"
+            });
+            sharedObjects.Add(systemPromptTranscriberOnScreenText);
+
+
+            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberAudioSingleVAD"));
+            var systemPromptTranscriberAudioSingleVAD = new AIPrompt(new[]
             {
                "# TRANSCRIPTION & DIARIZATION MANDATE (version 2025-08-30)\n",
                 "### Role\n",
@@ -134,10 +165,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "**// CORRECT OUTPUT (A Single JSON Array)**\n",
                 "```json\n[\n  {\n    \"StartTime\": \"0:00:52.310\",\n    \"EndTime\": \"0:00:53.096\",\n    \"VoiceText\": \"お兄ちゃん。\",\n    \"Speaker\": \"Hana Himesaki (100%)\"\n  },\n  {\n    \"StartTime\": \"0:00:53.250\",\n    \"EndTime\": \"0:00:55.220\",\n    \"VoiceText\": \"起きてるの、知ってるんだから。\",\n    \"Speaker\": \"Hana Himesaki (88%,68%)\"\n  },\n  {\n    \"StartTime\": \"00:00:56.943\",\n    \"EndTime\": \"00:00:58.399\",\n    \"VoiceText\": \"やめてよ、お姉ちゃん…\",\n    \"Speaker\": \"Ena Koume (93%,91%)\"\n  },\n  {\n    \"StartTime\": \"00:00:59.210\",\n    \"EndTime\": \"00:01:00.686\",\n    \"VoiceText\": \"\",\n    \"Speaker\": \"N/A\"\n  }\n]\n```"
             });
-            sharedObjects.Add(systemPromptTranscriberSingleVAD);
+            sharedObjects.Add(systemPromptTranscriberAudioSingleVAD);
 
-            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberFull"));
-            var systemPromptTranscriberFull = new AIPrompt(new[]
+            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberAudioFull"));
+            var systemPromptTranscriberAudioFull = new AIPrompt(new[]
                 {
                     "# TRANSCRIPTION & VAD MANDATE (version 2025-08-21)\n",
                     "### Role\n",
@@ -161,7 +192,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     "```json\n[\n  {\n    \"StartTime\": \"00:00:11.700\",\n    \"EndTime\": \"00:00:12.900\",\n    \"Transcription\": \"こんにちは。\"\n  },\n  {\n    \"StartTime\": \"00:00:13.900\",\n    \"EndTime\": \"00:00:15.100\",\n    \"Transcription\": \"起きてる？\"\n  }\n]\n```\n",
                     "**// Rationale: The two distinct utterances, separated by a clear pause, were correctly captured as two separate objects in the JSON array, each with its own timecode and draft transcription.**"
             });
-            sharedObjects.Add(systemPromptTranscriberFull);
+            sharedObjects.Add(systemPromptTranscriberAudioFull);
 
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranslator"));
             var systemPromptTranslator = new AIPrompt(new[]
@@ -404,7 +435,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             },
                             Options = new AIOptions()
                             {
-                                SystemPrompt = systemPromptTranscriberFull
+                                SystemPrompt = systemPromptTranscriberAudioFull
                             }
                         }
                     },
@@ -424,14 +455,37 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriberTool = transcriberToolPurfviewWhisper,
                         Translators = new Translator[] { }
                     },
+                    new TranscriberOnScreenText()
+                    {
+                        TranscriptionId = "onscreen",
+                        FfmpegFilter = "crop=iw/2:ih:0:0",
+                        // FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "perfectvad" }
+                        },                            
+                        Engine = new AIEngineAPI()
+                        {
+                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                            Model = "gemini-2.5-pro",
+                            APIKeyName = "APIGeminiAI",
+                            //RequestBodyExtension = requestBodyExtensionMaxGeminiSingleVad,
+                            UseStreaming = true
+                        },
+                        Options = new AIOptions()
+                        {
+                            IncludeEndTime = true,
+                            SystemPrompt = systemPromptTranscriberOnScreenText
+                        }
+                    },
                     new TranscriberAudioSingleVAD()
                     {
                         TranscriptionId = "singlevad-gemini",
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfectvad",
-                            Sources = new [] { "perfectvad" }
-                        },
+                            Sources = new [] { "perfectvad" }                        },
                         TranscriberTool = new TranscriberAudioToolMultimodalAI()
                         {
                             BatchSize = 100000,
@@ -446,7 +500,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             Options = new AIOptions()
                             {
                                 IncludeEndTime = true,
-                                SystemPrompt = systemPromptTranscriberSingleVAD                                
+                                SystemPrompt = systemPromptTranscriberAudioSingleVAD                                
                             }
                         },
                         Translators = new Translator[] {

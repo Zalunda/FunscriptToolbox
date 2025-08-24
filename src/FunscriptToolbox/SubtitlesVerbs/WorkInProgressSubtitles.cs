@@ -26,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             rs_serializer.Converters.Add(new StringEnumConverter());
         }
 
-        public static WorkInProgressSubtitles FromFile(string filepath)
+        public static WorkInProgressSubtitles FromFile(string filepath, string videoPath)
         {
             try 
             {
@@ -34,6 +34,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 using var jsonReader = new JsonTextReader(reader);
                 var content = rs_serializer.Deserialize<WorkInProgressSubtitles>(jsonReader);
                 content.OriginalFilePath = filepath;
+                content.OriginalVideoPath = videoPath;
                 return content;
             }
             catch (Exception ex)
@@ -48,15 +49,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.Transcriptions = new List<Transcription>();
         }
 
-        public WorkInProgressSubtitles(string fullpath)           
+        public WorkInProgressSubtitles(string fullpath, string videoPath)
             : this()
         {
             OriginalFilePath = fullpath;
+            OriginalVideoPath = videoPath;
         }
 
         [JsonIgnore]
         public string OriginalFilePath { get; private set; }
-
+        [JsonIgnore]
+        public string OriginalVideoPath { get; private set; }
         public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
         public PcmAudio PcmAudio { get; set; }
         public List<Transcription> Transcriptions { get; set; }

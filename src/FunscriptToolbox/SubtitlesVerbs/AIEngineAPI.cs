@@ -79,8 +79,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
                 var verbosePrefix = request.GetVerbosePrefix();
-                context.CreateVerboseFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
-                context.CreateVerboseFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
 
                 var watch = Stopwatch.StartNew();
 
@@ -125,7 +125,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             string responseAsJson = response.Content.ReadAsStringAsync().Result;
 
             dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-            context.CreateVerboseFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
 
             if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
             {
@@ -135,7 +135,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
 
             string assistantMessage = responseBody.choices[0].message.content;
-            context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
             if (assistantMessage == null)
             {
                 throw new AIRequestException(request, $"Empty response receive.");
@@ -284,8 +284,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 Console.WriteLine(); // Add newline after streaming output
 
                 string assistantMessage = fullContent.ToString();
-                context.CreateVerboseFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), processStartTime);
-                context.CreateVerboseFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, processStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), processStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, processStartTime);
 
                 if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
                 {

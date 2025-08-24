@@ -18,6 +18,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         // --- Business Logic Shortcuts ---
         public bool IsVoice => this.OnScreenText == null && !this.ContainsKey("NoVoice");
         public string VoiceText => this.Get("VoiceText");
+        public string GrabOnScreenText => this.Get("GrabOnScreenText");
         public string OnScreenText => this.Get("OnScreenText");
         public object SpeakerTraining => this.Get("SpeakerTraining");
 

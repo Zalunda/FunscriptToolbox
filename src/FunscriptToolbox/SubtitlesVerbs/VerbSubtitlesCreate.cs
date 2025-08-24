@@ -68,7 +68,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
-            foreach (var inputMp4Fullpath in r_options
+            foreach (var inputVideoFullpath in r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
                 .Distinct()
@@ -77,11 +77,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 var watchGlobal = Stopwatch.StartNew();
 
                 var wipsubFullpath = Path.ChangeExtension(
-                    inputMp4Fullpath,
+                    inputVideoFullpath,
                     r_options.Suffix + WorkInProgressSubtitles.Extension);
                 var wipsub = File.Exists(wipsubFullpath)
-                    ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
-                    : new WorkInProgressSubtitles(wipsubFullpath);
+                    ? WorkInProgressSubtitles.FromFile(wipsubFullpath, inputVideoFullpath)
+                    : new WorkInProgressSubtitles(wipsubFullpath, inputVideoFullpath);
 
                 context.ChangeCurrentFile(wipsub);
                 UpdateWipSubFileIfNeeded(context);
@@ -99,10 +99,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
                     else
                     {
-                        context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputMp4Fullpath)}'...");
+                        context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputVideoFullpath)}'...");
 
                         var watchPcmAudio = Stopwatch.StartNew();
-                        wipsub.PcmAudio = context.Config.AudioExtractor.ExtractPcmAudio(context, inputMp4Fullpath);
+                        wipsub.PcmAudio = context.Config.AudioExtractor.ExtractPcmAudio(context, inputVideoFullpath);
                         wipsub.Save();
                         File.WriteAllBytes(pcmFilePath, wipsub.PcmAudio.Data);
                    
@@ -297,54 +297,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             switch (context.CurrentWipsub.FormatVersion)
             {
-                case "1.0":
-                    context.WriteInfo($"Updating WIPSub file format from {context.CurrentWipsub.FormatVersion} to {WorkInProgressSubtitles.CURRENT_FORMAT_VERSION}...");
-                    context.WriteInfo($"   Softdeleting file {Path.GetFileName(context.CurrentWipsub.OriginalFilePath)}...");
-                    context.SoftDelete(context.CurrentWipsub.OriginalFilePath);
-                    context.CurrentWipsub.UpdateFormatVersion();
-
-                    foreach (var transcriber in context.Config.Transcribers.OfType<TranscriberAudioMergedVAD>())
-                    {
-                        foreach (var transcription in context.CurrentWipsub.Transcriptions
-                            .Where(t => t.Id == transcriber.TranscriptionId))
-                        {
-                            var oldId = transcription.Id;
-                            var newId = transcription.Id + "-1.0";
-                            context.WriteInfo($"   Renaming transcription '{oldId}' to '{newId}', and updating word timings.");
-                            transcription.Rename(newId);
-
-                            foreach (var fullpath in Directory.GetFiles(
-                                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
-                                "*.*"))
-                            {
-                                var filename = Path.GetFileName(fullpath);
-                                if (Regex.IsMatch(
-                                    filename,
-                                    $"^" + Regex.Escape($"{Path.GetFileName(context.CurrentBaseFilePath)}.TODO-{oldId}-") + $".*",
-                                    RegexOptions.IgnoreCase))
-                                {
-                                    context.WriteInfo($"      Softdeleting file {Path.GetFileName(filename)}...");
-                                    context.SoftDelete(fullpath);
-                                }
-                            }
-
-                            foreach (var item in transcription.Items)
-                            {
-                                var updatedWords = new List<TranscribedWord>();
-                                var firstWordStartTime = item.Words.FirstOrDefault()?.StartTime ?? item.StartTime;
-                                foreach (var word in item.Words)
-                                {
-                                    word.FixTiming(
-                                        word.StartTime - firstWordStartTime + item.StartTime,
-                                        word.EndTime - firstWordStartTime + item.StartTime);
-                                }                                
-                            }
-                        }
-                    }
-                    context.CurrentWipsub.Save();
-                    context.WriteInfo($"Update of WIPSub complete.");
-                    context.WriteInfo();
-                    break;
             }
         }
 

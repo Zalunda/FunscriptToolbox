@@ -109,7 +109,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         processStartTime.Value.ToString("yyyyMMddHHmmss") + "-" + suffixe);
         }
 
-        internal void CreateVerboseFile(string suffixe, string content, DateTime? processStartTime = null)
+        internal void CreateVerboseTextFile(string suffixe, string content, DateTime? processStartTime = null)
         {
             if (IsVerbose)
             {
@@ -117,6 +117,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     GetPotentialVerboseFilePath(suffixe, processStartTime),
                     content,
                     Encoding.UTF8);
+            }
+        }
+
+        internal void CreateVerboseBinaryFile(string suffixe, byte[] content, DateTime? processStartTime = null)
+        {
+            if (IsVerbose)
+            {
+                File.WriteAllBytes(
+                    GetPotentialVerboseFilePath(suffixe, processStartTime),
+                    content);
             }
         }
 
