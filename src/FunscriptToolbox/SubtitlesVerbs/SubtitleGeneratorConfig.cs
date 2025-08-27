@@ -69,13 +69,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 3)]
         public SubtitleWorker[] Workers { get; set; }
 
-        [JsonIgnore]
-        public IEnumerable<Transcriber> Transcribers => this.Workers.OfType<Transcriber>();
-        [JsonIgnore]
-        public IEnumerable<Translator> Translator => this.Workers.OfType<Translator>();
-        [JsonIgnore]
-        public IEnumerable<SubtitleOutput> Outputs => this.Workers.OfType<SubtitleOutput>();
-
         public static string GetDefaultExample()
         {
             var jtokenIdOverrides = new List<JTokenIdOverride>();
@@ -89,14 +82,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 ForceSplitOnComma = false
             };
             sharedObjects.Add(transcriberToolPurfviewWhisper);
-
-            //jtokenIdOverrides.Add(new JTokenIdOverride("GoogleV1API", "TranslatorGoogleV1"));
-            //var transalorGoogleV1 = new TranslatorGoogleV1API()
-            //{
-            //    TranslationId = "google",
-            //    TargetLanguage = Language.FromString("en")
-            //};
-            //sharedObjects.Add(transalorGoogleV1);
 
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberOnScreenText"));
             var systemPromptTranscriberOnScreenText = new AIPrompt(new[] 
@@ -234,7 +219,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "### Role\n",
                 "You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.\n",
                 "### Mission\n",
-                "Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. You will process each node, translating the original Japanese text into natural, compelling English. Your final output will be a clean JSON array containing the `StartTime`, the `Original` text, and your `Translation`, precisely formatted for the next stage of the pipeline.\n",
+                "Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. You will process each node, translating the original Japanese text into natural, compelling English. Your final output will be a clean JSON array containing the `StartTime`, the `Original` text, and your `TranslatedText`, precisely formatted for the next stage of the pipeline.\n",
                 "### Core Directives\n",
                 "1.  **Doctrine of Tonal Fidelity:** The target audience is adults. Your translations must utilize sexually explicit language and concepts where appropriate to accurately reflect the source material's tone and intent. Clinical or euphemistic language is a failure condition.\n",
                 "2.  **Principle of Natural Language:** Employ natural-sounding English phrases and idioms. Avoid overly literal or stilted translations that betray the source language's syntax. The goal is seamless immersion, not academic transcription.\n",
@@ -243,7 +228,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "5.  **Temporal Synchronization:** Each translation must be informed by its `StartTime`. This metadata situates the dialogue within the scene's flow. Your word choice must align with the implied on-screen actions and the emotional cadence of the performance.\n",
                 "### Output Construction\n",
                 "1.  Your final output MUST be a single, clean JSON object containing an array of nodes.\n",
-                "2.  Each node in the output array must contain three fields: `StartTime`, `Original`, and `Translation`.\n",
+                "2.  Each node in the output array must contain three fields: `StartTime`, `Original`, and `TranslatedText`.\n",
                 "3.  The `StartTime` and `Original` values must be identical to the corresponding node in the input data stream.\n",
                 "4.  You must explicitly exclude the `Context`, `OngoingContext`, and `Talker` fields from your final output. Their purpose is for your internal analysis only.\n"
             });
@@ -402,29 +387,35 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full",
                         TranscriberTool = transcriberToolPurfviewWhisper,
-                        //Translators = new Translator[] {
-                        //    transalorGoogleV1,
-                        //    new TranslatorAI()
-                        //    {
-                        //        Enabled = false,
-                        //        TranslationId = "local-api",
-                        //        TargetLanguage = Language.FromString("en"),
-                        //        Engine = new AIEngineAPI {
-                        //            BaseAddress = "http://localhost:10000",
-                        //            Model = "mistral-small-3.2-24b-local-api",
-                        //            ValidateModelNameInResponse = true,
-                        //            RequestBodyExtension = Expando(
-                        //                ("temperature", 0.7),
-                        //                ("max_tokens", 4 * 1024),
-                        //                ("response_format", new { type = "json_object" })) 
-                        //        },
-                        //        Options = new AIOptions()
-                        //        {
-                        //            SystemPrompt = systemPromptTranslator,
-                        //            FirstUserPrompt = userPromptTranslatorMaverick
-                        //        }
-                        //    }
-                        //}
+                    },
+                    new TranslatorGoogleV1API()
+                    {
+                        TranscriptionId = "full",
+                        TranslationId = "google",
+                        TargetLanguage = Language.FromString("en")
+                    },
+                    new TranslatorAI()
+                    {
+                        TranscriptionId = "full",
+                        TranslationId = "local-api",
+                        Enabled = false,
+                        TargetLanguage = Language.FromString("en"),
+                        Engine = new AIEngineAPI {
+                            BaseAddress = "http://localhost:10000/v1",
+                            Model = "mistralai/mistral-small-3.2",
+                            ValidateModelNameInResponse = true,
+                            UseStreaming = true
+                        },
+                        Metadatas = new MetadataAggregator()
+                        {
+                        },
+                        Options = new AIOptionsForTranslation()
+                        {
+                            SystemPrompt = systemPromptTranslator,
+                            SendAllItemsToAI = false,
+                            BatchSize = 30,
+                            MinimumItemsAddedToContinue = 10
+                        }
                     },
                     new TranscriberPerfectVAD()
                     {

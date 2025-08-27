@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
@@ -7,37 +7,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class Transcription : TimedItemWithMetadataCollection<TranscribedItem>
     {
-        public string Id { get; private set; }
+        [JsonProperty(Order = 10)]
         public Language Language { get; }
+        [JsonProperty(Order = 11)]
         public bool IsFinished { get; private set; }
-        public List<Translation> Translations { get; }
-        public override string FullId => $"{this.Id}";
 
         public Transcription(
             string id,
             Language language,
             bool isFinished = false,
             IEnumerable<TranscribedItem> items = null, 
-            IEnumerable<Cost> costs = null,
-            IEnumerable<Translation> translations = null)
-            : base(items, costs)
+            IEnumerable<Cost> costs = null)
+            : base(id, items, costs)
         {
-            Id = id;
             Language = language;
             IsFinished = isFinished;
-            Translations = new List<Translation>(translations ?? Array.Empty<Translation>());
         }
 
-        public override TranscribedItem AddNewItem(TimeSpan startTime, TimeSpan endTime, MetadataCollection extraMetadatas)
+        public override TranscribedItem AddNewItem(
+            TimeSpan startTime, 
+            TimeSpan endTime, 
+            MetadataCollection extraMetadatas)
         {
             var newItem = new TranscribedItem(startTime, endTime, metadata: extraMetadatas);
             this.Items.Add(newItem);
             return newItem;
-        }
-
-        public void Rename(string newId)
-        {
-            this.Id = newId;
         }
 
         public void MarkAsFinished()

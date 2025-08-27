@@ -1,57 +1,67 @@
-﻿//using FunscriptToolbox.SubtitlesVerbs.Infra;
-//using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-//using Newtonsoft.Json;
+﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using Newtonsoft.Json;
 
-//namespace FunscriptToolbox.SubtitlesVerbs.Translations
-//{
-//    public class TranslatorAI : Translator
-//    {
-//        [JsonProperty(Order = 10)]
-//        internal MetadataAggregator Metadatas { get; set; }
-//        [JsonProperty(Order = 11)]
-//        public int MaxItemsInRequest { get; set; } = 10000;
-//        [JsonProperty(Order = 12)]
-//        public int IncludePreviousItems { get; set; } = 0;
-//        [JsonProperty(Order = 13)]
-//        public int OverlapItemsInRequest { get; set; } = 0;
+namespace FunscriptToolbox.SubtitlesVerbs.Translations
+{
+    public class TranslatorAI : Translator
+    {
+        [JsonProperty(Order = 10)]
+        public int MaxItemsInRequest { get; set; } = 10000;
+        [JsonProperty(Order = 11)]
+        public int IncludePreviousItems { get; set; } = 0;
+        [JsonProperty(Order = 12)]
+        public int OverlapItemsInRequest { get; set; } = 0;
 
+        [JsonProperty(Order = 20, Required = Required.Always)]
+        public AIEngine Engine { get; set; }
+        [JsonProperty(Order = 21)]
+        internal MetadataAggregator Metadatas { get; set; }
+        [JsonProperty(Order = 22)]
+        public AIOptions Options { get; set; }
 
-//        [JsonProperty(Order = 20, Required = Required.Always)]
-//        public AIEngine Engine { get; set; }
-//        [JsonProperty(Order = 21, Required = Required.Always)]
-//        public AIOptions Options { get; set; }
+        protected override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason)
+        {
+            if (GetTranscription(context) == null)
+            {
+                reason = $"Transcription '{this.TranscriptionId}' is not done yet.";
+                return false;
+            }
 
-//        public override bool IsPrerequisitesMet(
-//            SubtitleGeneratorContext context,
-//            Transcription transcription,
-//            out string reason)
-//        {
-//            if (Metadatas?.IsPrerequisitesMet(context, out reason) == false)
-//            {
-//                return false;
-//            }
+            this.Metadatas = this.Metadatas ?? new MetadataAggregator();
+            this.Metadatas.TimingsSource = this.Metadatas.TimingsSource ?? this.TranscriptionId;
+            if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
+            {
+                return false;
+            }
 
-//            reason = null;
-//            return true;
-//        }
+            reason = null;
+            return true;
+        }
 
-//        public override void Translate(
-//            SubtitleGeneratorContext context,
-//            Transcription transcription,
-//            Translation translation)
-//        {
-//            var runner = new AIEngineRunner<TranslatedItem>(
-//                context,
-//                this.Engine,
-//                translation);
+        protected override void Translate(
+            SubtitleGeneratorContext context,
+            Translation translation)
+        {
+            var transcription = GetTranscription(context);
+            var requestGenerator = this.Metadatas
+                .Aggregate(context, transcription, this.Options?.MergeRules)
+                .CreateRequestGenerator(translation, this.Options, transcription.Language, this.TargetLanguage);
+            var runner = new AIEngineRunner<TranslatedItem>(
+                context,
+                this.Engine,
+                translation);
 
-//            var items = this.Metadatas.GetTimingsWithMetadata<TranslatedItem>(context, translation); // + TODO { ProduceMetaData => null on old transcription }, Add transcription, add meta rules
+            runner.Run(requestGenerator);
 
-//            var nbErrors = runner.HandlePreviousFiles();
-//            if (nbErrors == 0)
-//            {
-//                runner.Run(CreateRequests(context, transcription, translation, items));
-//            }
-//        }
-//    }
-//}
+            if (requestGenerator.IsFinished())
+            {
+                translation.MarkAsFinished();
+                context.CurrentWipsub.Save();
+            }
+
+            SaveDebugSrtIfVerbose(context, translation);
+        }
+    }
+}

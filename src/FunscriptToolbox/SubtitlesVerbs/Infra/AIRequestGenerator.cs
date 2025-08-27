@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,19 +21,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int MinimumItemsAddedToContinue { get; }
 
         public AIRequestGenerator(
-            TimedItemWithMetadata[] referenceTimings, 
-            Transcription transcription,
+            TimedItemWithMetadata[] referenceTimings,
+            TimedItemWithMetadataCollection workingOnContainer,
+            Language transcriptionLanguage,
             Language translationLanguage,
             AIOptions options = null)
         {
             options = options ?? new AIOptions();
 
-            r_referenceTimings = referenceTimings;
-            r_workingOnContainer = transcription;
+            r_referenceTimings = referenceTimings ?? Array.Empty<TimedItemWithMetadata>();
+            r_workingOnContainer = workingOnContainer;
 
-            r_systemPrompt = options.SystemPrompt?.GetFinalText(transcription.Language, translationLanguage);
-            r_firstUserPrompt = options.FirstUserPrompt?.GetFinalText(transcription.Language, translationLanguage);
-            r_otherUserPrompt = options.OtherUserPrompt?.GetFinalText(transcription.Language, translationLanguage);
+            r_systemPrompt = options.SystemPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
+            r_firstUserPrompt = options.FirstUserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
+            r_otherUserPrompt = options.OtherUserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
             r_metadataNeededRules = options.MetadataNeeded?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataProducedRule = options.MetadataProduced?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
@@ -54,11 +54,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             foreach (var referenceTiming in r_referenceTimings)
             {
                 var workingOnItems = r_workingOnContainer.GetItems().Where(f => f.StartTime == referenceTiming.StartTime);
-                if (workingOnItems.Count() > 1)
-                {
-                    throw new Exception("What should we do?");
-                }
-                var workingOnItem = workingOnItems.FirstOrDefault();
+                var workingOnItem = workingOnItems.LastOrDefault(); // Should we take the last??
 
                 var item = new TimedItemWithMetadataTagged(referenceTiming, workingOnItem?.Metadata);
 
@@ -91,18 +87,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         internal ITiming[] GetTimings()
         {
-            var (itemsToDo, _, _, _) = this.AnalyzeItemsState();
-            return itemsToDo.Cast<ITiming>().ToArray();
+            var (_, _, allItems, _) = this.AnalyzeItemsState();
+            return allItems.Cast<ITiming>().ToArray();
         }
 
         public AIRequest CreateNextRequest(
+            SubtitleGeneratorContext context,
             int requestNumber,
+            AIRequest lastRequestExecuted,
             Dictionary<TimeSpan, dynamic[]> binaryContents = null)
         {
             var (itemsToDo, itemsAlreadyDone, allItems, itemsForTraining) = this.AnalyzeItemsState();
 
             if (itemsToDo.Length == 0)
                 return null;
+
+            var nbItemsInLastResponse = lastRequestExecuted?.NbItemsToDoTotal - itemsToDo.Length;
+            if (nbItemsInLastResponse < this.MinimumItemsAddedToContinue)
+            {
+                context.WriteError($"Last response only contained {nbItemsInLastResponse} items when minimum to continue is {this.MinimumItemsAddedToContinue}.");
+                return null;
+            }
 
             var contentList = new List<dynamic>();
             var messages = new List<dynamic>();
@@ -154,8 +159,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     text = JsonConvert.SerializeObject(
                         new MetadataCollection(item.Metadata)
                         {
-                            { "StartTime", item.StartTime.ToString(@"hh\:mm\:ss\.fff") },
-                            { "EndTime", item.EndTime.ToString(@"hh\:mm\:ss\.fff") }
+                        { "StartTime", item.StartTime.ToString(@"hh\:mm\:ss\.fff") },
+                        { "EndTime", item.EndTime.ToString(@"hh\:mm\:ss\.fff") }
                         },
                         Formatting.Indented)
                 });
@@ -181,7 +186,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             return new AIRequest(
                 requestNumber,
-                r_workingOnContainer.FullId,
+                r_workingOnContainer.Id,
                 messages,
                 itemsToDo.Length);
         }

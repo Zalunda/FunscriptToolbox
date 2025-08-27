@@ -27,7 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 32)]
         public AIOptions Options { get; set; } = new AIOptions();
 
-        public override bool IsPrerequisitesMet(
+        protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
@@ -40,14 +40,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        public override void Transcribe(
+        protected override void Transcribe(
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
             var processStartTime = DateTime.Now;
 
             var requestGenerator = this.Metadatas
-                .Aggregate(context, this.Options?.MergeRules)
+                .Aggregate(context, mergeRules: this.Options?.MergeRules)
                 .CreateRequestGenerator(transcription, this.Options);
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
@@ -92,6 +92,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
+                context.CurrentWipsub.Save();
             }
 
             SaveDebugSrtIfVerbose(context, transcription);

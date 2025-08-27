@@ -1,6 +1,9 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
+using System.Diagnostics;
+using System;
+using System.Linq;
+using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -17,19 +20,70 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
         [JsonProperty(Order = 3)]
         public Language TargetLanguage { get; set; } = Language.FromString("en");
+        public string FullId => $"{this.TranscriptionId}_{this.TranslationId}";
 
         public Translator()
         {
         }
 
-        public abstract bool IsPrerequisitesMet(
+        protected abstract bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
-            Transcription transcription,
             out string reason);
 
-        public abstract void Translate(
+        protected abstract void Translate(
             SubtitleGeneratorContext context,
-            Transcription transcription,
             Translation translation);
+
+        protected Transcription GetTranscription(
+            SubtitleGeneratorContext context)
+        {
+            return context.CurrentWipsub.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId);
+        }
+
+        public override void Execute(
+            SubtitleGeneratorContext context)
+        {
+            var translation = context.CurrentWipsub.Translations.FirstOrDefault(
+                t => t.TranscriptionId == this.TranscriptionId && t.TranslationId == this.TranslationId);
+
+            if (translation?.IsFinished == true)
+            {
+                context.WriteInfoAlreadyDone($"Translation '{this.FullId}' have already been done.");
+                context.WriteInfoAlreadyDone();
+            }
+            else if (!this.IsPrerequisitesMet(context, out var reason))
+            {
+                context.WriteInfoAlreadyDone($"Translation '{this.FullId}' cannot start yet because: {reason}");
+                context.WriteInfoAlreadyDone();
+            }
+            else
+            {
+                if (translation == null)
+                {
+                    translation = new Translation(
+                        this.TranscriptionId,
+                        this.TranslationId,
+                        this.TargetLanguage);
+                    context.CurrentWipsub.Translations.Add(translation);
+                }
+
+                try
+                {
+                    var watch = Stopwatch.StartNew();
+                    context.WriteInfo($"Translating '{this.FullId}'...");
+                    this.Translate(
+                        context,
+                        translation);
+                    context.CurrentWipsub.Save();
+
+                    context.WriteInfo($"Finished in {watch.Elapsed}.");
+                    context.WriteInfo();
+                }
+                catch (Exception ex)
+                {
+                    context.WriteError($"An error occured while translating '{this.FullId}':\n{ex.Message}");
+                }
+            }
+        }
     }
 }

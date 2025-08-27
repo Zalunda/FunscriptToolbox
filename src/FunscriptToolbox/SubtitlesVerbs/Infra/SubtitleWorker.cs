@@ -8,17 +8,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class SubtitleWorker
     {
-        protected static void SaveDebugSrtIfVerbose(SubtitleGeneratorContext context, Transcription transcription)
+        public abstract void Execute(SubtitleGeneratorContext context);
+
+        protected static void SaveDebugSrtIfVerbose(SubtitleGeneratorContext context, TimedItemWithMetadataCollection container)
         {
             if (context.IsVerbose)
             {
                 var srt = new SubtitleFile();
-                srt.Subtitles.AddRange(transcription.Items.Select(item =>
+                srt.Subtitles.AddRange(container.GetItems().Select(item =>
                     new Subtitle(
                         item.StartTime,
                         item.EndTime,
                         string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{kvp.Value}}}")))));
-                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{transcription.Id}.srt", DateTime.Now));
+                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{container.Id}.srt", DateTime.Now));
             }
         }
 

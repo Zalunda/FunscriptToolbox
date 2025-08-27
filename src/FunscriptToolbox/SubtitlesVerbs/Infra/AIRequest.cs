@@ -9,19 +9,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int Number { get; }
         public string TaskId { get; }
         public List<dynamic> Messages { get; }
-        public int NbItemsToDoIncluded { get; }
+        public int NbItemsToDoTotal { get; }
         public string FullPrompt { get; }
 
         public AIRequest(
             int requestNumber,
             string taskId,
             List<dynamic> messages,
-            int nbItemsToDoIncluded)
+            int nbItemsToDoTotal)
         {
             this.Number = requestNumber;
             this.TaskId = taskId;
             this.Messages = messages;
-            this.NbItemsToDoIncluded = nbItemsToDoIncluded;
+            this.NbItemsToDoTotal = nbItemsToDoTotal;
 
             var fullpromptBuilder = new StringBuilder();
             if (messages != null)

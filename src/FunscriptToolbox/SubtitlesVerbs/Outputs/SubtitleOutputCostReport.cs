@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -53,7 +54,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
             try
             {
-                foreach (var line in GenerateConsolidatedReport(context.CurrentWipsub.Transcriptions))
+                foreach (var line in GenerateConsolidatedReport(context.CurrentWipsub.Transcriptions, context.CurrentWipsub.Translations))
                 {
                     fileWriter.WriteLine(line);
                     if (OutputToConsole)
@@ -67,7 +68,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         }
 
         private IEnumerable<string> GenerateConsolidatedReport(
-            IEnumerable<Transcription> transcriptions)
+            IEnumerable<Transcription> transcriptions,
+            IEnumerable<Translation> translations)
         {
             var transcriptionCosts = transcriptions
                 .SelectMany(t => t.Costs)
@@ -100,8 +102,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 yield return string.Empty;
             }
 
-            var translationCostsByTask = transcriptions
-                    .SelectMany(t => t.Translations)
+            var translationCostsByTask = translations
                     .SelectMany(tr => tr.Costs)
                     .GroupBy(c => IsGlobalTranslationReport ? "Global" : c.TaskName)
                     .Select(g => new

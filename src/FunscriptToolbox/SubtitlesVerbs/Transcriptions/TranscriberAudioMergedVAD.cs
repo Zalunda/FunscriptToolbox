@@ -23,7 +23,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 30, Required = Required.Always)]
         public TranscriberAudioTool TranscriberTool { get; set; }
 
-        public override bool IsPrerequisitesMet(
+        protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
@@ -36,7 +36,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        public override void Transcribe(
+        protected override void Transcribe(
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
@@ -132,6 +132,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             transcription.Items.AddRange(remappedItems);
             transcription.MarkAsFinished();
+            context.CurrentWipsub.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

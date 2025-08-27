@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
@@ -47,6 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public WorkInProgressSubtitles()
         {
             this.Transcriptions = new List<Transcription>();
+            this.Translations = new List<Translation>();
         }
 
         public WorkInProgressSubtitles(string fullpath, string videoPath)
@@ -63,6 +65,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
         public PcmAudio PcmAudio { get; set; }
         public List<Transcription> Transcriptions { get; set; }
+        public List<Translation> Translations { get; set; }
 
         public void UpdateFormatVersion()
         {

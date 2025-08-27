@@ -31,7 +31,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             bool timingsRequired = false)
         {
             var reasons = new List<string>(r_reasonsFromSourcesReferences);
-            if (timingsRequired && r_referenceTimingsWithMetadata == null)
+            if (timingsRequired && r_timingSource == null)
+            {
+                reasons.Insert(0, $"TimingSource haven't been set Metadatas section in config file.");
+            }
+            else if (timingsRequired && r_referenceTimingsWithMetadata == null)
             {
                 reasons.Insert(0, $"Transcription '{r_timingSource}' is not done yet (for timings).");
             }
@@ -48,11 +52,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return true;
         }
 
-        internal AIRequestGenerator CreateRequestGenerator(Transcription transcription, AIOptions options = null, Language translationLanguage = null)
+        internal AIRequestGenerator CreateRequestGenerator(
+            TimedItemWithMetadataCollection workingOnContainer,
+            AIOptions options = null, 
+            Language transcriptionLanguage = null,
+            Language translationLanguage = null)
         {
             return new AIRequestGenerator(
                 r_referenceTimingsWithMetadata,
-                transcription,
+                workingOnContainer,
+                transcriptionLanguage,
                 translationLanguage,
                 options);
         }

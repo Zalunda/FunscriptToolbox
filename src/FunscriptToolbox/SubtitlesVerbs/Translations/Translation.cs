@@ -1,45 +1,42 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
     public class Translation : TimedItemWithMetadataCollection<TranslatedItem>
     {
-        public Transcription Parent { get; private set; }
-        public string Id { get; }
+        [JsonProperty(Order = 5)]
+        public string TranscriptionId { get; }
+        [JsonProperty(Order = 6)]
+        public string TranslationId { get; }
+        [JsonProperty(Order = 7)]
         public Language Language { get; }
+        [JsonProperty(Order = 8)]
         public bool IsFinished { get; private set; }
-        public override string FullId => $"{this.Parent.Id}_{this.Id}";
 
         public Translation(
-            Transcription parent,
-            string id,
+            string transcriptionId,
+            string translationId,
             Language language,
             bool isFinished = false,
             IEnumerable<TranslatedItem> items = null,
             IEnumerable<Cost> costs = null)
-            : base(items, costs)
+            : base($"{transcriptionId}_{translationId}", items, costs)
         {
-            Parent = parent;
-            Id = id;
+            TranscriptionId = transcriptionId;
+            TranslationId = translationId;
             Language = language;
             IsFinished = isFinished;
         }
 
-        public void EnsureParent(Transcription parent)
+        public override TranslatedItem AddNewItem(
+            TimeSpan startTime, 
+            TimeSpan endTime, 
+            MetadataCollection extraMetadatas)
         {
-            this.Parent = parent;
-        }
-
-        public override TranslatedItem AddNewItem(TimeSpan startTime, TimeSpan endTime, MetadataCollection extraMetadatas)
-        {
-            var transcribedItem = this.Parent.Items
-                .FirstOrDefault(transcribedItem => transcribedItem.StartTime == startTime);
-
-            var newItem = new TranslatedItem(transcribedItem, startTime, endTime, extraMetadatas);
+            var newItem = new TranslatedItem(startTime, endTime, extraMetadatas);
             this.Items.Add(newItem);
             return newItem;
         }

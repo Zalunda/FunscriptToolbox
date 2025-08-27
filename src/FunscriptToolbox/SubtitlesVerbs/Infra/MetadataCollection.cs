@@ -19,10 +19,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
         }
 
-
-        // --- Business Logic Shortcuts ---
-        public string VoiceText => this.Get("VoiceText");
-
         // --- Generic Accessors ---
         public string Get(string key) { this.TryGetValue(key, out var v); return v; }
 

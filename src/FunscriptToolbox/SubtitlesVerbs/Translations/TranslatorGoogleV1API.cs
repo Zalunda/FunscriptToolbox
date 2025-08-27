@@ -16,18 +16,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public TranslatorGoogleV1API()
         {
         }
-        public override bool IsPrerequisitesMet
-            (SubtitleGeneratorContext context,
-            Transcription transcription,
+
+        [JsonProperty(Order = 20)]
+        public string MetadataNeeded { get; set; } = "VoiceText";
+        [JsonProperty(Order = 21)]
+        public string MetadataProduced { get; set; } = "TranslatedText";
+
+        protected override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
             out string reason)
         {
+            if (GetTranscription(context) == null)
+            {
+                reason = $"Transcription '{this.TranscriptionId}' is not done yet.";
+                return false;
+            }
+
             reason = null;
             return true;
         }
 
-        public override void Translate(
+        protected override void Translate(
             SubtitleGeneratorContext context,
-            Transcription transcription,
             Translation translation)
         {
             using var client = new HttpClient();
@@ -35,9 +45,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
 
+            var transcription = GetTranscription(context);
             var missingTranscriptions = transcription.Items
-                .Where(transcribedItem => !translation.Items.Any(x => x.Source == transcribedItem))
+                .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))
                 .ToArray();
+
+            var watch = Stopwatch.StartNew();
 
             var currentIndex = 1;
             foreach (var transcribedItem in missingTranscriptions)
@@ -48,9 +61,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     $"&sl={sourceLanguage}" +
                     $"&tl={translation.Language.ShortName}" +
                     $"&dt=t" +
-                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.VoiceText)}";
+                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded))}";
 
-                var watch = Stopwatch.StartNew();
                 var response = client.GetAsync(apiUrl).Result;
                 if (!response.IsSuccessStatusCode)
                 {
@@ -59,28 +71,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 }
 
                 string responseAsJson = response.Content.ReadAsStringAsync().Result;
-                watch.Stop();
-
-                translation.Costs.Add(
-                    new Cost(ToolName, watch.Elapsed, 1));
 
                 dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
 
                 var translatedText = (string)ExtractTranslatedText(responseBody);
                 translation.Items.Add(
                     new TranslatedItem(
-                        transcribedItem,
                         transcribedItem.StartTime,
                         transcribedItem.EndTime,
-                        MetadataCollection.CreateSimple("VoiceText", translatedText)));
+                        MetadataCollection.CreateSimple(this.MetadataProduced, translatedText)));
 
                 context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
             }
 
+            watch.Stop();
+            translation.Costs.Add(
+                new Cost(ToolName, watch.Elapsed, missingTranscriptions.Length));
+
             translation.MarkAsFinished();
+            context.CurrentWipsub.Save();
+
+            SaveDebugSrtIfVerbose(context, translation);
         }
 
-        public static Language DetectLanguage(IEnumerable<TranscribedItem> items)
+    public static Language DetectLanguage(IEnumerable<TranscribedItem> items, string metadataNeeded)
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
@@ -96,7 +110,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     $"&sl=auto" +
                     $"&tl=en" +
                     $"&dt=t" +
-                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.VoiceText)}";
+                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(metadataNeeded))}";
 
                 var response = client.GetAsync(apiUrl).Result;
                 if (!response.IsSuccessStatusCode)
@@ -132,7 +146,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 ?? "ja";
             return Language.FromString(bestGuess);
         }
-
 
         public static string SimpleTranslate(
             string originalText, 

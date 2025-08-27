@@ -1,6 +1,7 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -18,14 +19,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public bool KeepTemporaryFiles { get; set; } = false;
 
         [JsonProperty(Order = 30, Required = Required.Always)]
-        internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 31, Required = Required.Always)]
         public AIEngine Engine { get; set; }
+        [JsonProperty(Order = 31, Required = Required.Always)]
+        internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 32)]
         public AIOptions Options { get; set; } = new AIOptions();
 
 
-        public override bool IsPrerequisitesMet(
+        protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
@@ -39,14 +40,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
 
-        public override void Transcribe(
+        protected override void Transcribe(
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
             var processStartTime = DateTime.Now;
 
             var requestGenerator = this.Metadatas
-                .Aggregate(context, this.Options?.MergeRules)
+                .Aggregate(context, mergeRules: this.Options?.MergeRules)
                 .CreateRequestGenerator(transcription, this.Options);
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
@@ -56,6 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var (itemsToDo, _, _, itemsForTraining) = requestGenerator.AnalyzeItemsState();
             var index = 1;
             var itemsWithImages = itemsToDo.Union(itemsForTraining).Distinct().ToArray();
+            var binaryContentsDictionary = new Dictionary<TimeSpan, dynamic[]>();
             foreach (var item in itemsWithImages)
             {
                 var middleTime = TimeSpan.FromMilliseconds((item.StartTime.TotalMilliseconds + item.EndTime.TotalMilliseconds) / 2);
@@ -65,27 +67,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     middleTime,
                     ".jpg",
                     this.FfmpegFilter);
-                item.BinaryContents = new[] 
-                { 
-                    new
-                    {
-                        type = "image_url",
-                        image_url = new
+                binaryContentsDictionary.Add(
+                    item.StartTime,
+                    new[] 
+                    { 
+                        new
                         {
-                            url = $"data:image/jpeg;base64,{Convert.ToBase64String(image)}"
-                        }
-                    } 
-                };
+                            type = "image_url",
+                            image_url = new
+                            {
+                                url = $"data:image/jpeg;base64,{Convert.ToBase64String(image)}"
+                            }
+                        } 
+                    });
                 if (KeepTemporaryFiles)
                     context.CreateVerboseBinaryFile($"{transcription.Id}_{middleTime:hhmmssfff}.jpg", image, processStartTime);
             }
             context.ClearProgressUpdate();
 
-            runner.Run(requestGenerator);
+            runner.Run(requestGenerator, binaryContentsDictionary);
 
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
+                context.CurrentWipsub.Save();
             }
 
             SaveDebugSrtIfVerbose(context, transcription);

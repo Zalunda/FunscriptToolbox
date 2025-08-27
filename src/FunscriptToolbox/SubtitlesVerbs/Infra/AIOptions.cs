@@ -29,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 10)]
         public int BatchSize { get; set; } = 100000;
         [JsonProperty(Order = 11)]
-        public int MinimumItemsAddedToContinue { get; set; } = 1000;
+        public int MinimumItemsAddedToContinue { get; set; } = 50;
     }
 
     public class AIOptionsForAudioTranscription : AIOptions

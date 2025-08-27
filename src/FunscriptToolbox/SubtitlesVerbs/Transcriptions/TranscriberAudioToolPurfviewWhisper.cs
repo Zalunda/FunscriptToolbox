@@ -32,6 +32,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public bool ForceSplitOnComma { get; set; } = true;
         [JsonProperty(Order = 5)]
         public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
+        [JsonProperty(Order = 6)]
+        public string MetadataProduced { get; set; } = "VoiceText";
 
         public override TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
@@ -193,7 +195,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                             new TranscribedItem(
                                                 currentStartTime.Value,
                                                 word.EndTime,
-                                                MetadataCollection.CreateSimple("VoiceText", currentText),
+                                                MetadataCollection.CreateSimple(this.MetadataProduced, currentText),
                                                 noSpeechProbability: (double)segment.no_speech_prob,
                                                 words: currentWords));
                                         currentStartTime = null;
@@ -214,7 +216,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     subtitleFile.Subtitles.AddRange(
                         transcription.Items
                         .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
-                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Metadata.VoiceText)));
+                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Metadata.Get(this.MetadataProduced))));
                     subtitleFile.SaveSrt(fullSrtTempFile);
 
                     // Add the text only when we are sure that everything is working

@@ -86,7 +86,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return response;
         }
 
-        private AIResponse ProcessNormalResponse<T>(
+        private AIResponse ProcessNormalResponse(
             HttpClient client,
             AIRequest request,
             string requestBodyAsJson,

@@ -16,82 +16,41 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
-        private readonly TimedItemWithMetadataCollection<T> r_collection;
+        private readonly TimedItemWithMetadataCollection<T> r_workingOnContainer;
 
         public AIEngineRunner(
             SubtitleGeneratorContext context,
             AIEngine engine,
-            TimedItemWithMetadataCollection<T> collection)
+            TimedItemWithMetadataCollection<T> workingOnContainer)
         {
             r_context = context;
             r_engine = engine;
-            r_collection = collection;
-        }
-
-        public int HandlePreviousFiles()
-        {
-            var nbErrors = 0;
-            var patternSuffix = "_\\d+\\.txt";
-
-            foreach (var fullpath in Directory.GetFiles(
-                PathExtension.SafeGetDirectoryName(r_context.CurrentBaseFilePath),
-                "*.*"))
-            {
-                var filename = Path.GetFileName(fullpath);
-                if (Regex.IsMatch(
-                    filename,
-                    $"^" + Regex.Escape($"{Path.GetFileName(r_context.CurrentBaseFilePath)}.TODO_{r_collection.FullId}") + $"{patternSuffix}$",
-                    RegexOptions.IgnoreCase))
-                {
-                    var response = File.ReadAllText(fullpath);
-                    r_context.SoftDelete(fullpath);
-
-                    try
-                    {
-                        r_context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var nbAdded = ParseAssistantMessageAndAddItems(response);
-                        r_context.WriteInfo($"        Finished:");
-                        r_context.WriteInfo($"            Nb items added: {nbAdded}");
-                        if (nbAdded.Count > 0)
-                        {
-                            r_context.CurrentWipsub.Save();
-                        }
-                    }
-                    catch (AIRequestException ex)
-                    {
-                        nbErrors++;
-                        File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}", Encoding.UTF8);
-                        r_context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
-                        r_context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
-                    }
-                }
-            }
-
-            return nbErrors;
+            r_workingOnContainer = workingOnContainer;
         }
 
         public void Run(AIRequestGenerator workAnalyzer, Dictionary<TimeSpan, dynamic[]> binaryContents = null)
         {
-            var nbErrors = HandlePreviousFiles();
+            var nbErrors = HandlePreviousFiles(workAnalyzer);
             if (nbErrors == 0)
             {
                 try
                 {
                     AIRequest request = null;
+                    AIRequest lastRequestExecuted = null;
                     int requestNumber = 1;
                     do
                     {
-                        request = workAnalyzer.CreateNextRequest(requestNumber++, binaryContents);
+                        request = workAnalyzer.CreateNextRequest(r_context, requestNumber++, lastRequestExecuted, binaryContents);
                         if (request != null)
                         {
                             var watch = Stopwatch.StartNew();
                             var response = r_engine.Execute(r_context, request);
                             watch.Stop();
 
-                            var itemsAdded = ParseAssistantMessageAndAddItems(response.AssistantMessage, request);
+                            var itemsAdded = ParseAssistantMessageAndAddItems(workAnalyzer.GetTimings(), response.AssistantMessage, request);
                             if (response.DraftOfCost != null)
                             {
-                                r_collection.Costs.Add(new Cost(
+                                r_workingOnContainer.Costs.Add(new Cost(
                                         response.DraftOfCost.TaskName,
                                         watch.Elapsed,
                                         itemsAdded.Count,
@@ -107,11 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 r_context.CurrentWipsub.Save();
                             }
 
-                            if (itemsAdded.Count < request.NbItemsToDoIncluded && itemsAdded.Count < workAnalyzer.MinimumItemsAddedToContinue)
-                            {
-                                request = null;
-                                r_context.WriteError($"Receive response with only {itemsAdded.Count} items when minimum to continue is {workAnalyzer.MinimumItemsAddedToContinue}.");
-                            }
+                            lastRequestExecuted = request;
                         }
                     } while (request != null);
                 }
@@ -121,7 +76,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     string body;
                     if (ex.ResponseBodyPartiallyFixed == null)
                     {
-                        filepath.Replace("TODO_", "TODO_E_");
+                        filepath = filepath.Replace("TODO_", "TODO_E_");
                         body = $"--- Original Prompt ------------------------------\n\n{ex.Request?.FullPrompt}";
                     }
                     else
@@ -142,7 +97,50 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
+        public int HandlePreviousFiles(AIRequestGenerator workAnalyzer)
+        {
+            var nbErrors = 0;
+            var patternSuffix = "_\\d+\\.txt";
+
+            foreach (var fullpath in Directory.GetFiles(
+                PathExtension.SafeGetDirectoryName(r_context.CurrentBaseFilePath),
+                "*.*"))
+            {
+                var filename = Path.GetFileName(fullpath);
+                if (Regex.IsMatch(
+                    filename,
+                    $"^" + Regex.Escape($"{Path.GetFileName(r_context.CurrentBaseFilePath)}.TODO_{r_workingOnContainer.Id}") + $"{patternSuffix}$",
+                    RegexOptions.IgnoreCase))
+                {
+                    var response = File.ReadAllText(fullpath);
+                    r_context.SoftDelete(fullpath);
+
+                    try
+                    {
+                        r_context.WriteInfo($"        Analysing existing file '{filename}'...");
+                        var nbAdded = ParseAssistantMessageAndAddItems(workAnalyzer.GetTimings(), response);
+                        r_context.WriteInfo($"        Finished:");
+                        r_context.WriteInfo($"            Nb items added: {nbAdded}");
+                        if (nbAdded.Count > 0)
+                        {
+                            r_context.CurrentWipsub.Save();
+                        }
+                    }
+                    catch (AIRequestException ex)
+                    {
+                        nbErrors++;
+                        File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}", Encoding.UTF8);
+                        r_context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
+                        r_context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
+                    }
+                }
+            }
+
+            return nbErrors;
+        }
+
         private List<T> ParseAssistantMessageAndAddItems(
+            ITiming[] timings,
             string responseReceived,
             AIRequest request = null)
         {
@@ -157,11 +155,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     // Extract and remove known fields
                     var startTime = TimeSpan.Parse((string)seg["StartTime"]);
-                    var endTime = TimeSpan.Parse((string)seg["EndTime"]);
-                    if (endTime == null)
+                    TimeSpan endTime;
+                    if (seg.ContainsKey("EndTime"))
                     {
-                        var startTimeItem = r_collection.Items.FirstOrDefault(i => i.StartTime == startTime);
-                        if (startTimeItem != null)
+                        endTime = TimeSpan.Parse((string)seg["EndTime"]);
+                    }
+                    else
+                    {
+                        var startTimeItem = timings.FirstOrDefault(i => i.StartTime == startTime);
+                        if (startTimeItem == null)
                             throw new Exception($"EndTime not received in:\n{JsonConvert.ToString(responseArray)}.");
                         endTime = startTimeItem.EndTime;
                     }
@@ -176,9 +178,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             extraMetadatas[prop.Name] = prop.Value.ToString();
                     }
 
-                    // TODO VALIDATE IMPORTANT FIELD FOR TYPE
-
-                    var tt = r_collection.AddNewItem(startTime, endTime, extraMetadatas);
+                    var tt = r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas);
                     itemsAdded.Add(tt);
                 }
                 return itemsAdded;

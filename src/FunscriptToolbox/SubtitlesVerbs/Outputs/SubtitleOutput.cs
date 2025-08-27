@@ -22,6 +22,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public abstract void CreateOutput(
             SubtitleGeneratorContext context);
 
+        public override void Execute(
+            SubtitleGeneratorContext context)
+        {
+            if (!this.IsPrerequisitesMet(context, out var reason))
+            {
+                context.WriteInfo($"Output '{this.Description}' can't be done yet: {reason}");
+                context.WriteInfo();
+            }
+            else
+            {
+                context.WriteInfo($"Creating Output '{this.Description}'...");
+                this.CreateOutput(context);
+                context.WriteInfo($"Finished.");
+                context.WriteInfo();
+            }
+        }
+
         protected static IEnumerable<Subtitle> GetAdjustedSubtitlesToInject(
             List<Subtitle> currentSubtitles, 
             SubtitleToInject[] subtitlesToInject, 

@@ -20,6 +20,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         [JsonProperty(Order = 21)]
         public string OverrideFileSuffixe { get; set; } = null;
+        [JsonProperty(Order = 22)]
+        public string MetadataProduced { get; set; } = "VoiceText";
 
         public override TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
@@ -65,7 +67,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         .Select(subtitle => new TranscribedItem(
                             audio.Offset + subtitle.StartTime,
                             audio.Offset + subtitle.EndTime,
-                            MetadataCollection.CreateSimple("VoiceText", subtitle.Text))));
+                            MetadataCollection.CreateSimple(this.MetadataProduced, subtitle.Text))));
                     transcription.Costs.Add(
                         new Cost(
                             ToolName,

@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Translations;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,10 +21,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public MetadataAggregation Aggregate(
             SubtitleGeneratorContext context,
+            TimedItemWithMetadataCollection additionnalSource = null,
             Dictionary<string, string> mergeRules = null)
         {
             var timings = context.CurrentWipsub?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
-            var (rawSourceReferences, reasonsFromSourcesReferences) = ImportRawSources(context, this.Sources);
+            var (rawSourceReferences, reasonsFromSourcesReferences) = ImportRawSources(context, this.Sources, additionnalSource);
             var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, mergeRules) : null;
             return new MetadataAggregation(
                 this.TimingsSource,
@@ -33,19 +36,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         private static (TimedItemWithMetadataCollection[], string[]) ImportRawSources(
             SubtitleGeneratorContext context,
-            string[] sources)
+            string[] sources,
+            TimedItemWithMetadataCollection additionnalSource)
         {
             var metadataProviders = new List<TimedItemWithMetadataCollection>();
             var reasons = new List<string>();
+            if (additionnalSource != null)
+                metadataProviders.Add(additionnalSource);
 
-            foreach (var rule in sources)
+            foreach (var rule in sources ?? Array.Empty<string>())
             {
                 var match = Regex.Match(rule, @"^(?<transcriptionId>[^\/\\]*)([\/\\](?<translationId>.*))?");
                 var transcriptionId = match.Groups["transcriptionId"].Value;
                 var translationId = match.Groups["translationId"].Value;
                 if (!string.IsNullOrWhiteSpace(transcriptionId))
                 {
-                    foreach (var transcriber in context.Config.Transcribers.Where(t => transcriptionId == "*" || t.TranscriptionId == transcriptionId))
+                    foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
+                        .Where(t => transcriptionId == "*" || t.TranscriptionId == transcriptionId))
                     {
                         var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
 
@@ -60,13 +67,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                         if (!string.IsNullOrWhiteSpace(translationId))
                         {
-                            foreach (var translator in transcriber.Translators.Where(t => translationId == "*" || t.TranslationId == translationId))
+                            foreach (var translator in context.Config.Workers.OfType<Translator>()
+                                .Where(t => t.TranscriptionId == transcriber.TranscriptionId 
+                                    && (translationId == "*" || t.TranslationId == translationId)))
                             {
-                                var translation = transcription.Translations.FirstOrDefault(t => t.Id == translator.TranslationId);
+                                var translation = context.CurrentWipsub.Translations
+                                    .FirstOrDefault(t => t.TranscriptionId == translator.TranscriptionId && t.TranslationId == translator.TranslationId);
 
                                 if (translator.Enabled && translation?.IsFinished != true)
                                 {
-                                    reasons.Add($"Translation '{transcriber.TranscriptionId}/{translator.TranslationId}' is not done yet.");
+                                    reasons.Add($"Translation '{translator.FullId}' is not done yet.");
                                 }
                                 if (translation?.IsFinished == true)
                                 {
@@ -80,7 +90,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             return (
                 metadataProviders.Distinct().ToArray(),
-                reasons.Distinct().ToArray());                
+                reasons.Distinct().ToArray());
         }
 
         private static TimedItemWithMetadata[] MergeRawSources(

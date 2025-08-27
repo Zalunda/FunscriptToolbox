@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public string MetadataExtractionRegex { get; set; } = @"{(?<name>[^}:]*)(\:(?<value>[^}]*))?}";
 
-        public override bool IsPrerequisitesMet(
+        protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context, 
             out string reason)
         {
@@ -30,7 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        public override void Transcribe(
+        protected override void Transcribe(
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
@@ -51,6 +51,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             match => match.Groups["name"].Value,
                             match => match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty)))));
             transcription.MarkAsFinished();
+            context.CurrentWipsub.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }
