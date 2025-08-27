@@ -1,8 +1,8 @@
-﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Linq;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -27,12 +27,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (Metadatas?.IsPrerequisitesMetIncludingTimings(context, out reason) == false)
+            if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
             }
 
-            reason = null; 
+            reason = null;
             return true;
         }
 
@@ -40,34 +40,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            var items = this.Metadatas.GetTimingsWithMetadata<PcmAudio>(context, transcription);
+            var timings = this.Metadatas
+                .Aggregate(context)
+                .CreateRequestGenerator(transcription)
+                .GetTimings();
 
-            foreach (var item in items.Where(t => t.Metadata.IsVoice).ToArray())
+            var audios = new List<PcmAudio>();
+            foreach (var timing in timings)
             {
-                item.Tag = context.CurrentWipsub.PcmAudio.ExtractSnippet(item.StartTime - this.ExpandStart, item.EndTime + this.ExpandEnd);
+                audios.Add(context.CurrentWipsub.PcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd));
             }
-            this.TranscriberTool.TranscribeAudio(
+
+            var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                 context,
                 transcription,
-                items);
-            if (!transcription.Items.Any(item => item.Metadata.IsVoice && item.Metadata.VoiceText == null) 
-                && !items.Any(f => f.Metadata.IsVoice && !transcription.Items.Any(k => k.StartTime == f.StartTime)))
-            {
-                // TODO Test
-                transcription.MarkAsFinished();
-            }
+                audios.ToArray());
 
-            // Save verbose output if needed
-            if (context.IsVerbose)
-            {
-                var srt = new SubtitleFile();
-                srt.Subtitles.AddRange(transcription.Items.Select(item =>
-                    new Subtitle(
-                        item.StartTime,
-                        item.EndTime,
-                        item.Text + "\n" + string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{kvp.Value}}}")))));
-                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{transcription.Id}.srt", DateTime.Now));
-            }
+            transcription.Items.AddRange(transcribedTexts);
+            transcription.MarkAsFinished();
+
+            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

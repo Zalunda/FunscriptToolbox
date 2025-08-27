@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.Core;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -20,15 +21,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 21)]
         public string OverrideFileSuffixe { get; set; } = null;
 
-        public override void TranscribeAudio(
+        public override TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            TimedObjectWithMetadata<PcmAudio>[] items)
+            PcmAudio[] audios)
         {
-            var namedItems = items.Where(item => item.Tag != null).Select((item, index) => (
+            var namedItems = audios.Select((audio, index) => (
                     wavFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.wav",
                     srtFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.srt",
-                    item
+                    audio
                 )).ToArray();
             if (this.OverrideFileSuffixe != null && namedItems.Length > 0)
             {
@@ -40,11 +41,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (namedItems.Any(item => !File.Exists(item.srtFilename)))
             {
                 var userTodos = new List<string>();
-                foreach (var (wavFilename, srtFilename, item) in namedItems)
+                foreach (var (wavFilename, srtFilename, audio) in namedItems)
                 {
                     if (!File.Exists(wavFilename))
                     {
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(item.Tag, wavFilename);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, wavFilename);
                     }
                     userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(wavFilename)}'.");
                 }
@@ -53,31 +54,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
             else
             {
-                var costsList = new List<TranscriptionCost>();
-                var transcribedTexts = new List<TranscribedText>();
-                foreach (var (wavFilename, srtFilename, item) in namedItems)
+                var costsList = new List<Cost>();
+                var transcribedItems = new List<TranscribedItem>();
+                foreach (var (wavFilename, srtFilename, audio) in namedItems)
                 {
                     var watch = Stopwatch.StartNew();
                     var subtitlesFile = SubtitleFile.FromSrtFile(srtFilename);
-
-                    transcribedTexts.AddRange(
-                        subtitlesFile
+                    transcribedItems.AddRange(subtitlesFile
                         .Subtitles
-                        .Select(subtitle => new TranscribedText(
-                            item.Tag.Offset + subtitle.StartTime,
-                            item.Tag.Offset + subtitle.EndTime,
-                            subtitle.Text)));
+                        .Select(subtitle => new TranscribedItem(
+                            audio.Offset + subtitle.StartTime,
+                            audio.Offset + subtitle.EndTime,
+                            MetadataCollection.CreateSimple("VoiceText", subtitle.Text))));
                     transcription.Costs.Add(
-                        new TranscriptionCost(
+                        new Cost(
                             ToolName,
                             watch.Elapsed,
                             1,
-                            item.Tag.Duration));
+                            itemsDuration: audio.Duration));
 
                     context.SoftDelete(wavFilename);
                     if (this.OverrideFileSuffixe == null)
+                    {
                         context.SoftDelete(srtFilename);
+                    }
                 }
+                return transcribedItems.ToArray();
             }
         }
     }

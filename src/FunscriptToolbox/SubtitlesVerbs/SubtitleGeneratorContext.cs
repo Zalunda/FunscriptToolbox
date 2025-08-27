@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using log4net;
 using System;
 using System.Collections.Generic;
@@ -67,6 +68,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             var toolActionString = toolAction == null ? string.Empty : $"[{toolAction}]";
             WriteInfo($"    [{toolName}]{toolActionString} {message}", isProgress: true);
+        }
+
+        internal void ClearProgressUpdate()
+        {
+            WriteInfo(string.Empty, isProgress: true);
         }
 
         internal void DefaultUpdateHandler(string toolName, string toolAction, string message)

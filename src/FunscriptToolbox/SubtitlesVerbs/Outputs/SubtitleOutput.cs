@@ -4,10 +4,11 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    public abstract class SubtitleOutput : SubtitleTask
+    public abstract class SubtitleOutput : SubtitleWorker
     {
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;

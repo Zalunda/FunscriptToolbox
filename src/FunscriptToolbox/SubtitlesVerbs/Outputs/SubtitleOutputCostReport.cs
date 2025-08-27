@@ -1,6 +1,7 @@
 ﻿using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -76,22 +77,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     TaskName = g.Key,
                     TotalTranscriptionTime = g.Sum(c => c.TimeTaken),
                     TotalNbCalls = g.Count(),
-                    TotalNbAudios = g.Sum(c => c.NbAudios),
-                    TotalTranscriptionDuration = g.Sum(c => c.TranscriptionDuration),
+                    TotalNbItems = g.Sum(c => c.NbItems),
+                    TotalItemsDuration = g.Sum(c => c.ItemsDuration ?? TimeSpan.Zero),
                     TotalNbPromptTokens = g.Sum(c => c.NbPromptTokens ?? 0),
                     TotalNbCompletionTokens = g.Sum(c => c.NbCompletionTokens ?? 0),
-                    TotalNbTotalTokens = g.Sum(c => c.NbTotalTokens ?? 0)
+                    TotalNbTotalTokens = g.Sum(c => c.NbTotalTokens ?? 0),
+                    TotalUnaccountedPromptCharacters = g.Sum(c => c.NbPromptTokens == null ? c.NbPromptCharacters : 0),
+                    TotalUnaccountedCompletionsCharacters = g.Sum(c => c.NbPromptTokens == null ? c.NbCompletionCharacters : 0)
                 });
             foreach (var task in transcriptionCosts)
             {
                 yield return $"  Transcription Costs ({task.TaskName})";
                 yield return $"    Total Transcription Time: {task.TotalTranscriptionTime}";
                 yield return $"    Total Number of Calls: {task.TotalNbCalls}";
-                yield return $"    Total Number of Audios: {task.TotalNbAudios}";
-                yield return $"    Total Transcription Duration: {task.TotalTranscriptionDuration}";
+                yield return $"    Total Number of Items: {task.TotalNbItems}";
+                yield return $"    Total Items Duration: {task.TotalItemsDuration}";
                 yield return $"    Total Number of Prompt Tokens: {task.TotalNbPromptTokens}";
                 yield return $"    Total Number of Completion Tokens: {task.TotalNbCompletionTokens}";
                 yield return $"    Total Number of Total Tokens: {task.TotalNbTotalTokens}";
+                yield return $"    Total Number of Prompt Characters: {task.TotalUnaccountedPromptCharacters}";
+                yield return $"    Total Number of Completions Characters: {task.TotalUnaccountedCompletionsCharacters}";
                 yield return string.Empty;
             }
 
@@ -102,23 +107,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     .Select(g => new
                     {
                         TaskName = g.Key,
-                        TotalTranslationTime = g.Sum(c => c.TimeTaken),
+                        TotalTranscriptionTime = g.Sum(c => c.TimeTaken),
                         TotalNbCalls = g.Count(),
-                        TotalNbTexts = g.Sum(c => c.NbTexts),
+                        TotalNbItems = g.Sum(c => c.NbItems),
+                        TotalItemsDuration = g.Sum(c => c.ItemsDuration ?? TimeSpan.Zero),
                         TotalNbPromptTokens = g.Sum(c => c.NbPromptTokens ?? 0),
                         TotalNbCompletionTokens = g.Sum(c => c.NbCompletionTokens ?? 0),
-                        TotalNbTotalTokens = g.Sum(c => c.NbTotalTokens ?? 0)
+                        TotalNbTotalTokens = g.Sum(c => c.NbTotalTokens ?? 0),
+                        TotalUnaccountedPromptCharacters = g.Sum(c => c.NbPromptTokens == null ? c.NbPromptCharacters : 0),
+                        TotalUnaccountedCompletionsCharacters = g.Sum(c => c.NbPromptTokens == null ? c.NbCompletionCharacters : 0)
                     });
 
             foreach (var task in translationCostsByTask)
             {
-                yield return $"  Translation Costs ({task.TaskName})";
-                yield return $"    Total Translation Time: {task.TotalTranslationTime}";
+                yield return $"  Transcription Costs ({task.TaskName})";
+                yield return $"    Total Transcription Time: {task.TotalTranscriptionTime}";
                 yield return $"    Total Number of Calls: {task.TotalNbCalls}";
-                yield return $"    Total Number of Texts: {task.TotalNbTexts}";
+                yield return $"    Total Number of Items: {task.TotalNbItems}";
+                yield return $"    Total Items Duration: {task.TotalItemsDuration}";
                 yield return $"    Total Number of Prompt Tokens: {task.TotalNbPromptTokens}";
                 yield return $"    Total Number of Completion Tokens: {task.TotalNbCompletionTokens}";
                 yield return $"    Total Number of Total Tokens: {task.TotalNbTotalTokens}";
+                yield return $"    Total Number of Prompt Characters: {task.TotalUnaccountedPromptCharacters}";
+                yield return $"    Total Number of Completions Characters: {task.TotalUnaccountedCompletionsCharacters}";
                 yield return string.Empty;
             }
         }

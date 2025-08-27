@@ -1,6 +1,6 @@
 ﻿using AudioSynchronization;
-using FunscriptToolbox.Core;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -27,7 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (Metadatas?.IsPrerequisitesMetIncludingTimings(context, out reason) == false)
+            if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
             }
@@ -40,6 +40,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
+            var timings = this.Metadatas
+                .Aggregate(context)
+                .CreateRequestGenerator(transcription)
+                .GetTimings();
+
             var pcmAudio = context.CurrentWipsub.PcmAudio;
 
             var silenceGapSamples = pcmAudio.GetSilenceAudio(this.SilentGapDuration);
@@ -48,11 +53,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var currentDuration = TimeSpan.Zero;
             var audioOffsets = new List<AudioOffset>();
             var mergedAudio = new MemoryStream();
-
-            var timings = this.Metadatas
-                .GetTimingsWithMetadata<PcmAudio>(context)
-                .Where(f => f.Metadata.IsVoice)
-                .ToArray();
 
             for (int i = 0; i < timings.Length; i++)
             {
@@ -103,15 +103,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var offsetCollection = new AudioOffsetCollection(audioOffsets);
             var mergedPcm = new PcmAudio(pcmAudio.SamplingRate, mergedAudio.ToArray());
 
-            this.TranscriberTool.TranscribeAudio(
+            var remappedItems = new List<TranscribedItem>();
+            foreach (var original in this.TranscriberTool.TranscribeAudio(
                                 context,
                                 transcription,
-                                new[] { new TimedObjectWithMetadata<PcmAudio>(pcmAudio.StartTime, pcmAudio.EndTime) { Tag = mergedPcm } });
-            var oldItems = transcription.Items.ToArray();
-            transcription.Items.Clear();
-            var remappedItems = new List<TranscribedText>();
-
-            foreach (var original in oldItems)
+                                new[] { mergedPcm }))
             {
                 var newStartTime = offsetCollection.TransformPosition(original.StartTime);
                 var newEndTime = offsetCollection.TransformPosition(original.EndTime);
@@ -120,10 +116,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     throw new Exception("BUG");
                 }
                 remappedItems.Add(
-                    new TranscribedText(
+                    new TranscribedItem(
                         newStartTime.Value,
                         newEndTime.Value,
-                        original.Text,
+                        original.Metadata,
                         noSpeechProbability: original.NoSpeechProbability,
                         words: original
                             .Words
@@ -134,23 +130,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             }
 
-            // Save verbose output if needed
-            if (context.IsVerbose)
-            {
-                var srt = new SubtitleFile();
-                srt.Subtitles.AddRange(transcription.Items.Select(item =>
-                    new Subtitle(
-                        item.StartTime,
-                        item.EndTime,
-                        item.Text + "\n" + string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{kvp.Value}}}")))));
-                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{transcription.Id}.srt", DateTime.Now));
-            }
-
             transcription.Items.AddRange(remappedItems);
-            if (transcription.Items.Count > 0)
-            {
-                transcription.MarkAsFinished();
-            }
+            transcription.MarkAsFinished();
+
+            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

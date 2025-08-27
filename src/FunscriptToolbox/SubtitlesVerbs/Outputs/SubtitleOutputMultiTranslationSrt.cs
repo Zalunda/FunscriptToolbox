@@ -54,10 +54,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             //    context.CurrentWipsub.Transcriptions.SelectMany(f => f.Translations.Select(f2 => f2.Id)));
 
             //var subtitleFile = new SubtitleFile();
-            //foreach (var transcribedText in transcription.Items)
+            //foreach (var transcribedItem in transcription.Items)
             //{
             //    var builder = new StringBuilder();
-            //    builder.AppendLine(transcribedText.Text);
+            //    builder.AppendLine(transcribedItem.Text);
             //    foreach (var translatedText in transcribedText
             //        .TranslatedTexts
             //        .Where(f => finalTranslationOrder.Contains(f.Id))

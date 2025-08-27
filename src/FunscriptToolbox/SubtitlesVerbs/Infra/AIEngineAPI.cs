@@ -1,14 +1,13 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 
-namespace FunscriptToolbox.SubtitlesVerbs
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public sealed class AIEngineAPI : AIEngine
     {
@@ -38,9 +37,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 17)]
         public bool UseStreaming { get; set; } = true;
 
-        public override void Execute(
+        public override AIResponse Execute(
             SubtitleGeneratorContext context,
-            IEnumerable<AIRequest> requests)
+            AIRequest request)
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
@@ -57,60 +56,43 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var processStartTime = DateTime.Now;
             var lastTimeSaved = DateTime.Now;
 
-            foreach (var request in requests)
+            if (DebugNbRequestsLimit != null && request.Number > DebugNbRequestsLimit.Value)
             {
-                if (DebugNbRequestsLimit != null && request.Number > DebugNbRequestsLimit.Value)
-                {
-                    throw new AIRequestException(request, $"Stopping because DebugNbRequestsLimit has been reached ({DebugNbRequestsLimit.Value})");
-                }
-
-                dynamic requestBody = new ExpandoObject();
-                if (this.Model != null)
-                {
-                    requestBody.model = this.Model;
-                }
-                requestBody = Merge(requestBody, RequestBodyExtension);
-                requestBody.messages = request.Messages;
-                if (UseStreaming)
-                {
-                    requestBody.stream = true;
-                }
-
-                var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
-
-                var verbosePrefix = request.GetVerbosePrefix();
-                context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
-                context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
-
-                var watch = Stopwatch.StartNew();
-
-                if (UseStreaming)
-                {
-                    ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime, watch);
-                }
-                else
-                {
-                    ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime, watch);
-                }
-
-                watch.Stop();
-
-                if (DateTime.Now - lastTimeSaved > TimeSpan.FromMinutes(1))
-                {
-                    context.CurrentWipsub.Save();
-                    lastTimeSaved = DateTime.Now;
-                }
+                throw new AIRequestException(request, $"Stopping because DebugNbRequestsLimit has been reached ({DebugNbRequestsLimit.Value})");
             }
+
+            dynamic requestBody = new ExpandoObject();
+            if (this.Model != null)
+            {
+                requestBody.model = this.Model;
+            }
+            requestBody = Merge(requestBody, RequestBodyExtension);
+            requestBody.messages = request.Messages;
+            if (UseStreaming)
+            {
+                requestBody.stream = true;
+            }
+
+            var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
+
+            var verbosePrefix = request.GetVerbosePrefix();
+            context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
+
+            var response = UseStreaming
+                ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime)
+                : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime);
+
+            return response;
         }
 
-        private void ProcessNormalResponse(
+        private AIResponse ProcessNormalResponse<T>(
             HttpClient client,
             AIRequest request,
             string requestBodyAsJson,
             SubtitleGeneratorContext context,
             string verbosePrefix,
-            DateTime processStartTime,
-            Stopwatch watch)
+            DateTime processStartTime)
         {
             var response = client.PostAsync(
                 new Uri(client.BaseAddress, "chat/completions"),
@@ -142,24 +124,27 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
 
             // Let the request handle the response and store the api cost
-            request.HandleResponse(
-                context,
-                $"{this.BaseAddress},{this.Model}",
-                watch.Elapsed,
+            return new AIResponse(
+                request,
                 assistantMessage,
-                (int?)responseBody?.usage?.prompt_tokens,
-                (int?)responseBody?.usage?.completion_tokens,
-                (int?)responseBody?.usage?.total_tokens);
+                new Cost(
+                    $"{this.BaseAddress},{this.Model}",
+                    TimeSpan.Zero,
+                    -1,
+                    request.FullPrompt.Length,
+                    assistantMessage.Length,
+                    (int?)responseBody?.usage?.prompt_tokens,
+                    (int?)responseBody?.usage?.completion_tokens,
+                    (int?)responseBody?.usage?.total_tokens));
         }
 
-        private void ProcessStreamingResponse(
+        private AIResponse ProcessStreamingResponse(
             HttpClient client,
             AIRequest request,
             string requestBodyAsJson,
             SubtitleGeneratorContext context,
             string verbosePrefix,
-            DateTime processStartTime,
-            Stopwatch watch)
+            DateTime processStartTime)
         {
             Timer waitingTimer = null;
 
@@ -281,7 +266,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     fullContent.Append($"DONE was not received in the response.");
                 }
-                Console.WriteLine(); // Add newline after streaming output
+                Console.WriteLine();
 
                 string assistantMessage = fullContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), processStartTime);
@@ -299,15 +284,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     throw new AIRequestException(request, $"Empty response received.");
                 }
 
-                // Let the request handle the response and store the api cost
-                request.HandleResponse(
-                    context,
-                    $"{this.BaseAddress},{this.Model}",
-                    watch.Elapsed,
+                return new AIResponse(
+                    request,
                     assistantMessage,
-                    promptTokens,
-                    completionTokens,
-                    totalTokens);
+                    new Cost(
+                        $"{request.TaskId}: {this.BaseAddress},{this.Model}",
+                        TimeSpan.Zero,
+                        -1,
+                        request.FullPrompt.Length,
+                        assistantMessage.Length,
+                        promptTokens,
+                        completionTokens,
+                        totalTokens));
             }
             finally
             {

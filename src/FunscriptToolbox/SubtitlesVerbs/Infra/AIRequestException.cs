@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FunscriptToolbox.SubtitlesVerbs
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIRequestException : Exception
     { 

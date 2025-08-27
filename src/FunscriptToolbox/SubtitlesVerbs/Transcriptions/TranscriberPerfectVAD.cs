@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -39,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.AddRange(
                 subtitleFile
                 .Subtitles
-                .Select(subtitle => new TranscribedText(
+                .Select(subtitle => new TranscribedItem(
                     subtitle.StartTime,
                     subtitle.EndTime,
                     metadata: new MetadataCollection(
@@ -50,6 +51,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             match => match.Groups["name"].Value,
                             match => match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty)))));
             transcription.MarkAsFinished();
+
+            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

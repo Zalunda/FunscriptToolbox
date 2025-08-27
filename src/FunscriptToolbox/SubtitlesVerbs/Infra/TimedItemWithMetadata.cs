@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace FunscriptToolbox.SubtitlesVerbs
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
-    public class TimedObjectWithMetadata
+    public class TimedItemWithMetadata : ITiming
     {
         public TimeSpan StartTime { get; }
         public TimeSpan EndTime { get; }
         public TimeSpan Duration => EndTime - StartTime;
         public MetadataCollection Metadata { get; }
         
-        public TimedObjectWithMetadata(
+        public TimedItemWithMetadata(
             TimeSpan startTime, 
             TimeSpan endTime, 
             IEnumerable<KeyValuePair<string, string>> metadata = null)
@@ -28,22 +28,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
-        public void Merge(TimedObjectWithMetadata other)
+        public void Merge(TimedItemWithMetadata other)
         {
             this.Metadata.Merge(other.Metadata);
-        }
-    }
-
-    public class TimedObjectWithMetadata<T> : TimedObjectWithMetadata
-    {
-        public T Tag { get; set; }
-
-        public TimedObjectWithMetadata(
-            TimeSpan startTime,
-            TimeSpan endTime,
-            IEnumerable<KeyValuePair<string, string>> metadata = null)
-            : base(startTime, endTime, metadata)
-        {
         }
     }
 }

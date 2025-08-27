@@ -1,8 +1,5 @@
-﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
-using Newtonsoft.Json;
-using System.Linq;
-using System;
+﻿using Newtonsoft.Json;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -22,11 +19,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (Metadatas?.IsPrerequisitesMet(context, out reason) == false)
-            {
-                return false;
-            }
-
             reason = null;
             return true;
         }
@@ -35,27 +27,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            var pcmAudio = context.CurrentWipsub.PcmAudio;
-            this.TranscriberTool.TranscribeAudio(
+            var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                      context,
                      transcription,
-                     new[] { new TimedObjectWithMetadata<PcmAudio>(pcmAudio.StartTime, pcmAudio.EndTime) { Tag = pcmAudio } });
-            if (transcription.Items.Count > 0)
-            {
-                transcription.MarkAsFinished();
-            }
+                     new[] { context.CurrentWipsub.PcmAudio });
+            transcription.Items.AddRange(transcribedTexts);
+            transcription.MarkAsFinished();
 
-            // Save verbose output if needed
-            if (context.IsVerbose)
-            {
-                var srt = new SubtitleFile();
-                srt.Subtitles.AddRange(transcription.Items.Select(item =>
-                    new Subtitle(
-                        item.StartTime,
-                        item.EndTime,
-                        item.Text + "\n" + string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{kvp.Value}}}")))));
-                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{transcription.Id}.srt", DateTime.Now));
-            }
+            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

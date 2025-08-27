@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 
-namespace FunscriptToolbox.SubtitlesVerbs
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class LanguageConverter : JsonConverter<Language>
     {

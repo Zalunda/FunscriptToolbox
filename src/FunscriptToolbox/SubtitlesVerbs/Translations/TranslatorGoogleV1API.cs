@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -35,11 +36,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
 
             var missingTranscriptions = transcription.Items
-                .Where(transcribedText => !translation.Items.Any(x => x.Source == transcribedText))
+                .Where(transcribedItem => !translation.Items.Any(x => x.Source == transcribedItem))
                 .ToArray();
 
             var currentIndex = 1;
-            foreach (var transcribedText in missingTranscriptions)
+            foreach (var transcribedItem in missingTranscriptions)
             {
                 var sourceLanguage = transcription.Language?.ShortName ?? "auto";
                 string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
@@ -47,7 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     $"&sl={sourceLanguage}" +
                     $"&tl={translation.Language.ShortName}" +
                     $"&dt=t" +
-                    $"&q={Uri.EscapeDataString(transcribedText.Text)}";
+                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.VoiceText)}";
 
                 var watch = Stopwatch.StartNew();
                 var response = client.GetAsync(apiUrl).Result;
@@ -61,13 +62,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 watch.Stop();
 
                 translation.Costs.Add(
-                    new TranslationCost(ToolName, watch.Elapsed, 1));
+                    new Cost(ToolName, watch.Elapsed, 1));
 
                 dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
 
                 var translatedText = (string)ExtractTranslatedText(responseBody);
                 translation.Items.Add(
-                    new TranslatedText(transcribedText, translatedText));
+                    new TranslatedItem(
+                        transcribedItem,
+                        transcribedItem.StartTime,
+                        transcribedItem.EndTime,
+                        MetadataCollection.CreateSimple("VoiceText", translatedText)));
 
                 context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
             }
@@ -75,7 +80,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             translation.MarkAsFinished();
         }
 
-        public static Language DetectLanguage(IEnumerable<TranscribedText> items)
+        public static Language DetectLanguage(IEnumerable<TranscribedItem> items)
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
@@ -84,14 +89,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             var guesses = new Dictionary<string, int>();
             var nbOccurencesToBeSure = 5;
-            foreach (var transcribedText in items ?? Array.Empty<TranscribedText>())
+            foreach (var transcribedItem in items ?? Array.Empty<TranscribedItem>())
             {
                 string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
                     "?client=gtx" +
                     $"&sl=auto" +
                     $"&tl=en" +
                     $"&dt=t" +
-                    $"&q={Uri.EscapeDataString(transcribedText.Text)}";
+                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.VoiceText)}";
 
                 var response = client.GetAsync(apiUrl).Result;
                 if (!response.IsSuccessStatusCode)

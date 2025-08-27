@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FunscriptToolbox.SubtitlesVerbs
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class TimingOverlap<T1, T2> where T1 : ITiming where T2 : ITiming
     {

@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Outputs;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbs.Translations;
@@ -197,9 +198,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 if (translation == null)
                                 {
                                     translation = new Translation(
+                                        transcription,
                                         translator.TranslationId,
                                         translator.TargetLanguage);
                                     transcription.Translations.Add(translation);
+                                }
+                                else
+                                {
+                                    translation.EnsureParent(transcription);
                                 }
 
                                 if (translation.IsFinished)
@@ -295,9 +301,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         private void UpdateWipSubFileIfNeeded(SubtitleGeneratorContext context)
         {
-            switch (context.CurrentWipsub.FormatVersion)
-            {
-            }
+            //switch (context.CurrentWipsub.FormatVersion)
+            //{
+            //}
         }
 
         private static IEnumerable<string> GetTranscriptionAnalysis(

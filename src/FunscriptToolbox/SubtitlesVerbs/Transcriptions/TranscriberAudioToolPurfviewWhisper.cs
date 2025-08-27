@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.Core;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -32,18 +33,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 5)]
         public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
 
-        public override void TranscribeAudio(
+        public override TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            TimedObjectWithMetadata<PcmAudio>[] items)
+            PcmAudio[] items)
         {
-            TranscribeAudioInternal(
+            return TranscribeAudioInternal(
                 context,
                 transcription,
-                items.Select(f => f.Tag).Where(f => f != null).ToArray());
+                items);
         }
 
-        private void TranscribeAudioInternal(
+        private TranscribedItem[] TranscribeAudioInternal(
             SubtitleGeneratorContext context,
             Transcription transcription,
             PcmAudio[] audios)
@@ -59,7 +60,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var tempFiles = new List<string>();
                 var processStartTime = DateTime.Now;
                 var fullSrtTempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_all.srt", processStartTime);
-                var transcribedTexts = new List<TranscribedText>();
+                var transcribedItems = new List<TranscribedItem>();
 
                 try
                 {
@@ -130,11 +131,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     process.WaitForExit();
 
                     transcription.Costs.Add(
-                        new TranscriptionCost(
+                        new Cost(
                             ToolName,
                             stopwatch.Elapsed,
                             audios.Length,
-                            totalDuration));
+                            itemsDuration: totalDuration));
 
                     // Process transcription results for each temporary audio file
                     for (int i = 0; i < tempFiles.Count; i++)
@@ -188,11 +189,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         currentText.EndsWith("?") ||
                                         currentText.EndsWith("!"))
                                     {
-                                        transcribedTexts.Add(
-                                            new TranscribedText(
+                                        transcribedItems.Add(
+                                            new TranscribedItem(
                                                 currentStartTime.Value,
                                                 word.EndTime,
-                                                currentText,
+                                                MetadataCollection.CreateSimple("VoiceText", currentText),
                                                 noSpeechProbability: (double)segment.no_speech_prob,
                                                 words: currentWords));
                                         currentStartTime = null;
@@ -213,11 +214,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     subtitleFile.Subtitles.AddRange(
                         transcription.Items
                         .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
-                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Text)));
+                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Metadata.VoiceText)));
                     subtitleFile.SaveSrt(fullSrtTempFile);
 
                     // Add the text only when we are sure that everything is working
-                    transcription.Items.AddRange(transcribedTexts);
+                    return transcribedItems.ToArray();
                 }
                 finally
                 {

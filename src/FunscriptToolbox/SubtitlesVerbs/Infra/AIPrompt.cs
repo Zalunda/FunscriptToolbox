@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbs
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     [JsonObject]
     public class AIPrompt
@@ -20,11 +20,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public string GetFinalText(
             Language transcribedLanguage,
-            Language translatedLanguage)
+            Language translatedLanguage = null)
         {
             return string.Join("\n", this.Lines)
                 .Replace(TranscriptionLanguageToken, transcribedLanguage.LongName)
-                .Replace(TranslationLanguageToken, translatedLanguage.LongName);
+                .Replace(TranslationLanguageToken, translatedLanguage?.LongName ?? TranslationLanguageToken);
         }
     }
 }

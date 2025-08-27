@@ -1,264 +1,57 @@
-﻿using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Text.RegularExpressions;
+﻿//using FunscriptToolbox.SubtitlesVerbs.Infra;
+//using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+//using Newtonsoft.Json;
 
-namespace FunscriptToolbox.SubtitlesVerbs.Translations
-{
-    public class TranslatorAI : Translator
-    {
-        [JsonProperty(Order = 10)]
-        internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 11)]
-        public int MaxItemsInRequest { get; set; } = 10000;
-        [JsonProperty(Order = 12)]
-        public int IncludePreviousItems { get; set; } = 0;
-        [JsonProperty(Order = 13)]
-        public int OverlapItemsInRequest { get; set; } = 0;
+//namespace FunscriptToolbox.SubtitlesVerbs.Translations
+//{
+//    public class TranslatorAI : Translator
+//    {
+//        [JsonProperty(Order = 10)]
+//        internal MetadataAggregator Metadatas { get; set; }
+//        [JsonProperty(Order = 11)]
+//        public int MaxItemsInRequest { get; set; } = 10000;
+//        [JsonProperty(Order = 12)]
+//        public int IncludePreviousItems { get; set; } = 0;
+//        [JsonProperty(Order = 13)]
+//        public int OverlapItemsInRequest { get; set; } = 0;
 
 
-        [JsonProperty(Order = 20, Required = Required.Always)]
-        public AIEngine Engine { get; set; }
-        [JsonProperty(Order = 21, Required = Required.Always)]
-        public AIOptions Options { get; set; }
+//        [JsonProperty(Order = 20, Required = Required.Always)]
+//        public AIEngine Engine { get; set; }
+//        [JsonProperty(Order = 21, Required = Required.Always)]
+//        public AIOptions Options { get; set; }
 
-        public override bool IsPrerequisitesMet(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            out string reason)
-        {
-            if (Metadatas?.IsPrerequisitesMet(context, out reason) == false)
-            {
-                return false;
-            }
+//        public override bool IsPrerequisitesMet(
+//            SubtitleGeneratorContext context,
+//            Transcription transcription,
+//            out string reason)
+//        {
+//            if (Metadatas?.IsPrerequisitesMet(context, out reason) == false)
+//            {
+//                return false;
+//            }
 
-            reason = null;
-            return true;
-        }
+//            reason = null;
+//            return true;
+//        }
 
-        public override void Translate(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            Translation translation)
-        {
-            var nbErrors = HandlePreviousFiles(context, transcription, translation);
-            if (nbErrors == 0)
-            {
-                var requests = CreateRequests(context, transcription, translation).ToArray();
-                try
-                {
-                    this.Engine.Execute(context, requests);
-                }
-                catch (AIRequestException ex)
-                {
-                    var filepath = ex.Request.GetFilenamePattern(context.CurrentBaseFilePath);
-                    context.SoftDelete(filepath);
-                    var body = ex.ResponseBodyPartiallyFixed ?? $"Original Prompt:\n\n{ex.Request?.FullPrompt}";
-                    File.WriteAllText(filepath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{body}", Encoding.UTF8);
-                    context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(filepath)}':\n{ex.Message}");
-                    throw;
-                }
-                catch (Exception ex) when(ex is AggregateException || ex is HttpRequestException)
-                {
-                    context.WriteError($"Error while communicating with the API: {ex.Message}");
-                    context.WriteLog(ex.ToString());
-                    throw new AIRequestException(ex, null, $"Error while communicating with the 'client.BaseAddress' API: {ex.Message}");
-                }
-            }
-        }
+//        public override void Translate(
+//            SubtitleGeneratorContext context,
+//            Transcription transcription,
+//            Translation translation)
+//        {
+//            var runner = new AIEngineRunner<TranslatedItem>(
+//                context,
+//                this.Engine,
+//                translation);
 
-        private int HandlePreviousFiles(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            Translation translation)
-        {
-            var nbErrors = 0;
-            var patternSuffix = "_\\d+\\.txt";
+//            var items = this.Metadatas.GetTimingsWithMetadata<TranslatedItem>(context, translation); // + TODO { ProduceMetaData => null on old transcription }, Add transcription, add meta rules
 
-            foreach (var fullpath in Directory.GetFiles(
-                PathExtension.SafeGetDirectoryName(context.CurrentBaseFilePath),
-                "*.*"))
-            {
-                var filename = Path.GetFileName(fullpath);
-                if (Regex.IsMatch(
-                    filename,
-                    $"^" + Regex.Escape($"{Path.GetFileName(context.CurrentBaseFilePath)}.TODO_{transcription.Id}_{translation.Id}") + $"{patternSuffix}$",
-                    RegexOptions.IgnoreCase))
-                {
-                    var response = File.ReadAllText(fullpath);
-                    context.SoftDelete(fullpath);
-
-                    try
-                    {
-                        context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var nbAdded = AIRequestForTranslation.ParseAndAddTranslations(transcription, translation, response);
-                        context.WriteInfo($"        Finished:");
-                        context.WriteInfo($"            Nb translations added: {nbAdded}");
-                        if (nbAdded > 0)
-                        {
-                            context.CurrentWipsub.Save();
-                        }
-                    }
-                    catch (AIRequestException ex)
-                    {
-                        nbErrors++;
-                        File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}", Encoding.UTF8);
-                        context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
-                        context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
-                    }
-                }
-            }
-
-            return nbErrors;
-        }
-
-        private IEnumerable<AIRequest> CreateRequests(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            Translation translation)
-        {
-            yield break;
-            //var forcedTiming = context.CurrentWipsub?.SubtitlesForcedTiming;
-
-            // Get analysis for parts if needed
-            //var analysis = Options.IncludeParts && forcedTiming != null
-            //    ? transcription.GetAnalysis(forcedTiming.ToArray())
-            //    : null;
-
-            // Filter items that need translation
-            //var itemsToTranslate = transcription.Items
-            //    .Where(item => !item.TranslatedTexts.Any(t => t.Id == translation.Id))
-            //    .ToArray();
-
-            //var currentIndex = 0;
-            //int requestNumber = 1;
-            //string ongoingContext = null;
-            //string currentContext = null;
-
-            //while (currentIndex < itemsToTranslate.Length)
-            //{
-            //    currentIndex = Math.Max(0, currentIndex - this.OverlapItemsInRequest);
-            //    var itemsForRequest = itemsToTranslate
-            //        .Skip(currentIndex)
-            //        .Take(this.MaxItemsInRequest)
-            //        .ToArray();
-
-            //    var messages = new List<dynamic>();
-
-            //    // Add system prompt
-            //    if (Options.SystemPrompt != null)
-            //    {
-            //        messages.Add(new
-            //        {
-            //            role = "system",
-            //            content = Options.SystemPrompt.GetFinalText(transcription.Language, translation.Language)
-            //        });
-            //    }
-
-            //    var userContent = new StringBuilder();
-
-            //    // Add previous items for context if configured
-            //    if (this.IncludePreviousItems > 0 && currentIndex > 0)
-            //    {
-            //        // TODO include text translated before
-            //        var startIdx = Math.Max(0, currentIndex - this.IncludePreviousItems);
-            //        var previousItems = itemsToTranslate.Skip(startIdx).Take(currentIndex - startIdx);
-
-            //        userContent.AppendLine($"For context, here what was said before in the scene:");
-            //        foreach (var item in previousItems)
-            //        {
-            //            userContent.AppendLine("   " + item.Text);
-            //        }
-            //        userContent.AppendLine();
-            //    }
-
-            //    // Add user prompt
-            //    if (requestNumber > 1 && Options.OtherUserPrompt != null)
-            //    {
-            //        userContent.AppendLine(Options.OtherUserPrompt.GetFinalText(
-            //            transcription.Language, translation.Language));
-            //    }
-            //    else if (Options.FirstUserPrompt != null)
-            //    {
-            //        userContent.AppendLine(Options.FirstUserPrompt.GetFinalText(
-            //            transcription.Language, translation.Language));
-            //    }
-
-            //    if (userContent.Length > 0)
-            //    {
-            //        userContent.AppendLine();
-            //    }
-
-            //    // Build items array with metadata
-            //    var itemsData = itemsForRequest.Select((item, index) =>
-            //    {
-            //        // Get metadata from forced timing
-            //        //var metadata = this.Options.CreateMetadata(
-            //        //    forcedTiming,
-            //        //    item.StartTime,
-            //        //    item.EndTime,
-            //        //    ref ongoingContext);
-
-            //        // Track context changes
-            //        //var previousContext = currentContext;
-            //        //currentContext = forcedTiming?.GetContextAt(item.StartTime);
-
-            //        // Always include the original text
-            //        //metadata["Original"] = item.Text;
-
-            //        //foreach (var transcriptionMeta in item.Metadata)
-            //        //{
-            //        //    metadata["AI-" + transcriptionMeta.Key] = transcriptionMeta.Value;
-            //        //}
-
-            //        // Add parts if available
-            //        //if (Options.IncludeParts && analysis != null)
-            //        //{
-            //        //    if (analysis.TranscribedTextWithOverlapTimings.TryGetValue(item, out var parts) && parts?.Length > 1)
-            //        //    {
-            //        //        metadata["Parts"] = parts.Select(p => p.WordsText).ToArray();
-            //        //    }
-            //        //}
-
-            //        //// Add previous translation if exists
-            //        //var previousTranslation = item.TranslatedTexts.FirstOrDefault(t => t.Id == this.PreviousTranslationId);
-            //        //if (!string.IsNullOrWhiteSpace(previousTranslation?.Text))
-            //        //{
-            //        //    metadata["PreviousTranslation"] = previousTranslation.Text;
-            //        //}
-
-            //        return new MetadataCollection();
-            //    }).ToArray();
-
-            //    userContent.AppendLine(JsonConvert.SerializeObject(
-            //        itemsData,
-            //        Formatting.Indented,
-            //        new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
-
-            //    messages.Add(new
-            //    {
-            //        role = "user",
-            //        content = userContent.ToString()
-            //    });
-
-            //    yield return new AIRequestForTranslation(
-            //        $"{transcription.Id}_{translation.Id}",
-            //        $"{currentIndex}/{itemsToTranslate.Length}",
-            //        requestNumber++,
-            //        messages,
-            //        transcription,
-            //        translation,
-            //        itemsForRequest);
-
-            //    currentIndex += itemsForRequest.Length;
-            //    ongoingContext = currentContext ?? ongoingContext;
-            //}
-        }
-    }
-}
+//            var nbErrors = runner.HandlePreviousFiles();
+//            if (nbErrors == 0)
+//            {
+//                runner.Run(CreateRequests(context, transcription, translation, items));
+//            }
+//        }
+//    }
+//}
