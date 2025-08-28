@@ -28,7 +28,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_workingOnContainer = workingOnContainer;
         }
 
-        public void Run(AIRequestGenerator workAnalyzer, Dictionary<TimeSpan, dynamic[]> binaryContents = null)
+        public void Run(
+            AIRequestGenerator workAnalyzer, 
+            CachedBinaryGenerator binaryGenerator = null)
         {
             var nbErrors = HandlePreviousFiles(workAnalyzer);
             if (nbErrors == 0)
@@ -40,7 +42,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     int requestNumber = 1;
                     do
                     {
-                        request = workAnalyzer.CreateNextRequest(r_context, requestNumber++, lastRequestExecuted, binaryContents);
+                        request = workAnalyzer.CreateNextRequest(r_context, requestNumber++, lastRequestExecuted, binaryGenerator);
                         if (request != null)
                         {
                             var watch = Stopwatch.StartNew();
@@ -120,7 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         r_context.WriteInfo($"        Analysing existing file '{filename}'...");
                         var nbAdded = ParseAssistantMessageAndAddItems(workAnalyzer.GetTimings(), response);
                         r_context.WriteInfo($"        Finished:");
-                        r_context.WriteInfo($"            Nb items added: {nbAdded}");
+                        r_context.WriteInfo($"            Nb items added: {nbAdded.Count}");
                         if (nbAdded.Count > 0)
                         {
                             r_context.CurrentWipsub.Save();

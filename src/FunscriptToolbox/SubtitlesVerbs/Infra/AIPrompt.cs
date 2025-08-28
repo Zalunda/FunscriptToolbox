@@ -19,11 +19,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public string GetFinalText(
-            Language transcribedLanguage,
+            Language transcribedLanguage = null,
             Language translatedLanguage = null)
         {
             return string.Join("\n", this.Lines)
-                .Replace(TranscriptionLanguageToken, transcribedLanguage.LongName)
+                .Replace(TranscriptionLanguageToken, transcribedLanguage?.LongName ?? TranscriptionLanguageToken)
                 .Replace(TranslationLanguageToken, translatedLanguage?.LongName ?? TranslationLanguageToken);
         }
     }

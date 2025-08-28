@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -10,10 +11,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return new MetadataCollection() {{key, name}};
         }
 
+        [JsonConstructor]
         public MetadataCollection()
             : base(StringComparer.OrdinalIgnoreCase)
         {
         }
+
         public MetadataCollection(Dictionary<string, string> items)
             : base(items, StringComparer.OrdinalIgnoreCase)
         {
@@ -28,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 string renamedKey = null;
                 var foundRule = mergeRules?.TryGetValue(kvp.Key, out renamedKey);
-                if (foundRule == true && renamedKey != null)
+                if (foundRule == true)
                 {
                     if (renamedKey != null)
                     {

@@ -21,11 +21,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public MetadataAggregation Aggregate(
             SubtitleGeneratorContext context,
-            TimedItemWithMetadataCollection additionnalSource = null,
+            TimedItemWithMetadataCollection additionalSource = null,
             Dictionary<string, string> mergeRules = null)
         {
             var timings = context.CurrentWipsub?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
-            var (rawSourceReferences, reasonsFromSourcesReferences) = ImportRawSources(context, this.Sources, additionnalSource);
+            var (rawSourceReferences, reasonsFromSourcesReferences) = ImportRawSources(context, this.Sources, additionalSource);
             var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, mergeRules) : null;
             return new MetadataAggregation(
                 this.TimingsSource,

@@ -38,6 +38,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public override void Execute(
             SubtitleGeneratorContext context)
         {
+            if (!this.Enabled)
+            {
+                return;
+            }
+
             var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(
                 t => t.Id == this.TranscriptionId);
             if (transcription == null)

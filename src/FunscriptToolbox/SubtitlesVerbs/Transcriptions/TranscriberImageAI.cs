@@ -1,14 +1,13 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberImage : TranscriberAudio
+
+    public class TranscriberImageAI : TranscriberAudio
     {
-        public TranscriberImage()
+        public TranscriberImageAI()
         {
         }
 
@@ -54,38 +53,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 this.Engine,
                 transcription);
 
-            var (itemsToDo, _, _, itemsForTraining) = requestGenerator.AnalyzeItemsState();
-            var index = 1;
-            var itemsWithImages = itemsToDo.Union(itemsForTraining).Distinct().ToArray();
-            var binaryContentsDictionary = new Dictionary<TimeSpan, dynamic[]>();
-            foreach (var item in itemsWithImages)
-            {
-                var middleTime = TimeSpan.FromMilliseconds((item.StartTime.TotalMilliseconds + item.EndTime.TotalMilliseconds) / 2);
-                context.DefaultProgressUpdateHandler("ffmpeg", $"{index++}/{itemsWithImages.Length}", $"Taking screenshot of {middleTime}");
-                var image = context.FfmpegAudioHelper.TakeScreenshotAsBytes(
-                    context.CurrentWipsub.OriginalVideoPath,
-                    middleTime,
-                    ".jpg",
-                    this.FfmpegFilter);
-                binaryContentsDictionary.Add(
-                    item.StartTime,
-                    new[] 
-                    { 
-                        new
-                        {
-                            type = "image_url",
-                            image_url = new
+            var binaryGenerator = new CachedBinaryGenerator((timing) =>
+                    {
+                        var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
+                        context.DefaultProgressUpdateHandler("ffmpeg", $"{middleTime}", $"Taking screenshot.");
+                        var image = context.FfmpegAudioHelper.TakeScreenshotAsBytes(
+                            context.CurrentWipsub.OriginalVideoPath,
+                            middleTime,
+                            ".jpg",
+                            this.FfmpegFilter);
+                        var data = new[]
                             {
-                                url = $"data:image/jpeg;base64,{Convert.ToBase64String(image)}"
-                            }
-                        } 
+                                new
+                                {
+                                    type = "image_url",
+                                    image_url = new
+                                    {
+                                        url = $"data:image/jpeg;base64,{Convert.ToBase64String(image)}"
+                                    }
+                                }
+                            };
+                        if (KeepTemporaryFiles)
+                            context.CreateVerboseBinaryFile($"{transcription.Id}_{middleTime:hhmmssfff}.jpg", image, processStartTime);
+                        return data;
                     });
-                if (KeepTemporaryFiles)
-                    context.CreateVerboseBinaryFile($"{transcription.Id}_{middleTime:hhmmssfff}.jpg", image, processStartTime);
-            }
-            context.ClearProgressUpdate();
 
-            runner.Run(requestGenerator, binaryContentsDictionary);
+            runner.Run(requestGenerator, binaryGenerator);
 
             if (requestGenerator.IsFinished())
             {

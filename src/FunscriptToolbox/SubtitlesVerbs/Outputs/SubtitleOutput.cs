@@ -25,6 +25,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public override void Execute(
             SubtitleGeneratorContext context)
         {
+            if (!this.Enabled)
+            {
+                return;
+            }
+
             if (!this.IsPrerequisitesMet(context, out var reason))
             {
                 context.WriteInfo($"Output '{this.Description}' can't be done yet: {reason}");

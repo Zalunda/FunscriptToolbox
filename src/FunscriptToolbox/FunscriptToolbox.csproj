@@ -202,6 +202,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputTrainingData.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
@@ -209,8 +210,8 @@
     <Compile Include="SubtitlesVerbs\Infra\ITiming.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimingOverlap.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudio.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioMultimodalAI.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImage.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioAI.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImageAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioToolExternal.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberPerfectVAD.cs" />

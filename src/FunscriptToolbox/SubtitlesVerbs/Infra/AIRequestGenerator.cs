@@ -16,9 +16,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly string[] r_metadataNeededRules;
         private readonly string[] r_metadataProducedRule;
         private readonly string[] r_metadataForTrainingRules;
-        private readonly bool r_sendAllItemsToAI;
         private readonly int r_batchSize;
-        public int MinimumItemsAddedToContinue { get; }
+        private readonly int? r_nbContextItems;
+        private readonly int r_nbItemsMinimumReceivedToContinue;
 
         public AIRequestGenerator(
             TimedItemWithMetadata[] referenceTimings,
@@ -38,17 +38,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_metadataNeededRules = options.MetadataNeeded?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataProducedRule = options.MetadataProduced?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
-            r_sendAllItemsToAI = options.SendAllItemsToAI;
 
             r_batchSize = options.BatchSize;
-            this.MinimumItemsAddedToContinue = options.MinimumItemsAddedToContinue;
+            r_nbContextItems = options.NbContextItems;
+            r_nbItemsMinimumReceivedToContinue = options.NbItemsMinimumReceivedToContinue;
         }
 
         public (TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[]) AnalyzeItemsState()
         {
+            var allItems = new List<TimedItemWithMetadataTagged>();
             var itemsToDo = new List<TimedItemWithMetadataTagged>();
             var itemsAlreadyDone = new List<TimedItemWithMetadataTagged>();
-            var itemsToSendToAI = new List<TimedItemWithMetadataTagged>();
             var itemsForTraining = new List<TimedItemWithMetadataTagged>();
 
             foreach (var referenceTiming in r_referenceTimings)
@@ -57,6 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var workingOnItem = workingOnItems.LastOrDefault(); // Should we take the last??
 
                 var item = new TimedItemWithMetadataTagged(referenceTiming, workingOnItem?.Metadata);
+                allItems.Add(item);
 
                 if (IsRulesRespected(r_metadataForTrainingRules, referenceTiming.Metadata))
                 {
@@ -74,20 +75,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (isItemNeeded && !isItemAlreadyDone)
                 {
                     itemsToDo.Add(item);
-                    itemsToSendToAI.Add(item);
-                }
-                else if (r_sendAllItemsToAI)
-                {
-                    itemsToSendToAI.Add(item);
                 }
             }
 
-            return (itemsToDo.ToArray(), itemsAlreadyDone.ToArray(), itemsToSendToAI.ToArray(), itemsForTraining.ToArray());
+            return (allItems.ToArray(), itemsToDo.ToArray(), itemsAlreadyDone.ToArray(), itemsForTraining.ToArray());
         }
 
         internal ITiming[] GetTimings()
         {
-            var (_, _, allItems, _) = this.AnalyzeItemsState();
+            var (allItems, _, _, _) = this.AnalyzeItemsState();
             return allItems.Cast<ITiming>().ToArray();
         }
 
@@ -95,17 +91,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             int requestNumber,
             AIRequest lastRequestExecuted,
-            Dictionary<TimeSpan, dynamic[]> binaryContents = null)
+            CachedBinaryGenerator binaryGenerator = null)
         {
-            var (itemsToDo, itemsAlreadyDone, allItems, itemsForTraining) = this.AnalyzeItemsState();
+            var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState();
 
             if (itemsToDo.Length == 0)
                 return null;
 
             var nbItemsInLastResponse = lastRequestExecuted?.NbItemsToDoTotal - itemsToDo.Length;
-            if (nbItemsInLastResponse < this.MinimumItemsAddedToContinue)
+            if (nbItemsInLastResponse < r_batchSize && nbItemsInLastResponse < r_nbItemsMinimumReceivedToContinue)
             {
-                context.WriteError($"Last response only contained {nbItemsInLastResponse} items when minimum to continue is {this.MinimumItemsAddedToContinue}.");
+                context.WriteError($"Last response only contained {nbItemsInLastResponse} items when minimum to continue is {r_nbItemsMinimumReceivedToContinue}.");
                 return null;
             }
 
@@ -133,7 +129,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 contentList.Add(new
                 {
                     type = "text",
-                    text = "Since this is a continuation request and the training data where in a previous part, here are a few segments for learning (person name followed by a segment to learn from):"
+                    text = "Since this is a continuation request and the training data where in a previous part, here are a few segments for learning:"
                 });
 
                 foreach (var item in itemsForTraining)
@@ -143,38 +139,123 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         type = "text",
                         text = item.Metadata.Get(r_metadataForTrainingRules.First())
                     });
-                    if (binaryContents?.TryGetValue(item.StartTime, out var data) == true)
+                    if (binaryGenerator != null)
                     {
-                        contentList.AddRange(data);
+                        contentList.AddRange(binaryGenerator.GetBinaryContent(item));
                     }
                 }
             }
 
+            var waitingForFirstToDo = true;
             var nbItemsInBatch = 0;
+            int nbExtraContextItems = 0;
+            var metadataOngoing = new MetadataCollection();
+            var contentBefore = new Queue<TimedItemWithMetadata>();
+            var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
-                contentList.Add(new
+                dynamic CreateMetadataContent(TimedItemWithMetadata item, MetadataCollection overrides = null) => new
                 {
                     type = "text",
                     text = JsonConvert.SerializeObject(
-                        new MetadataCollection(item.Metadata)
+                        new MetadataCollection(overrides ?? item.Metadata)
                         {
                         { "StartTime", item.StartTime.ToString(@"hh\:mm\:ss\.fff") },
                         { "EndTime", item.EndTime.ToString(@"hh\:mm\:ss\.fff") }
                         },
                         Formatting.Indented)
-                });
-
-                if (itemsToDo.Contains(item))
+                };
+                MetadataCollection AddOngoingMetadata(MetadataCollection metadataForItem, MetadataCollection metadataOngoing)
                 {
-                    if (binaryContents?.TryGetValue(item.StartTime, out var data) == true)
+                    if (metadataOngoing == null)
+                        return metadataForItem;
+
+                    foreach (var key in metadataOngoing.Keys.ToArray())
                     {
-                        contentList.AddRange(data);
+                        if (!key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase))
+                        {
+                            metadataOngoing.Remove(key);
+                        }
                     }
 
-                    nbItemsInBatch++;
-                    if (nbItemsInBatch == r_batchSize)
-                        break;
+                    metadataOngoing.Merge(metadataForItem);
+                    return metadataOngoing;
+                }
+
+                if (waitingForFirstToDo)
+                {
+                    if (!itemsToDo.Contains(item))
+                    {
+                        if (r_nbContextItems != null)
+                        {
+                            contentBefore.Enqueue(item);
+                            if (contentBefore.Count > r_nbContextItems)
+                            {
+                                contentBefore.Dequeue();
+                            }
+                        }
+
+                        metadataOngoing.Merge(item.Metadata);
+                    }
+                    else
+                    {
+                        waitingForFirstToDo = false;
+                        if (contentBefore.Count > 0)
+                        {
+                            var firstContent = contentBefore.Dequeue();
+                            contentList.Add(
+                                CreateMetadataContent(
+                                    firstContent,
+                                    AddOngoingMetadata(firstContent.Metadata, metadataOngoing)));
+                            metadataOngoing = null;
+
+                            contentList.AddRange(
+                                contentBefore.Select(c => CreateMetadataContent(c)));
+                        }
+                    }
+                }
+
+                if (!waitingForFirstToDo)
+                {
+                    if (itemsToDo.Contains(item))
+                    {
+                        contentList.AddRange(contentExtraContext);
+                        contentExtraContext.Clear();
+
+                        if (metadataOngoing != null)
+                        {
+                            contentList.Add(
+                                CreateMetadataContent(
+                                    item,
+                                    AddOngoingMetadata(item.Metadata, metadataOngoing)));
+                            metadataOngoing = null;
+                        }
+                        else
+                        {
+                            contentList.Add(CreateMetadataContent(item));
+                        }
+
+                        if (binaryGenerator != null)
+                        {
+                            contentList.AddRange(binaryGenerator.GetBinaryContent(item));
+                        }
+                        nbItemsInBatch++;
+
+                        if (nbItemsInBatch >= r_batchSize)
+                        {
+                            break;
+                        }
+                    }
+                    else if (r_nbContextItems != null)
+                    {
+                        contentExtraContext.Add(CreateMetadataContent(item));
+                        nbExtraContextItems++;
+
+                        if ((nbItemsInBatch > 0) && (contentBefore.Count + nbExtraContextItems >= r_nbContextItems))
+                        {
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -193,7 +274,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         internal bool IsFinished()
         {
-            var (itemsToDo, _, _, _) = AnalyzeItemsState();
+            var (_, itemsToDo, _, _) = AnalyzeItemsState();
             return itemsToDo.Length == 0;
         }
 

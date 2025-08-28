@@ -1,15 +1,13 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioMultimodalAI : TranscriberAudio
+    public class TranscriberAudioAI : TranscriberAudio
     {
-        public TranscriberAudioMultimodalAI()
+        public TranscriberAudioAI()
         {
         }
 
@@ -48,29 +46,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var requestGenerator = this.Metadatas
                 .Aggregate(context, mergeRules: this.Options?.MergeRules)
-                .CreateRequestGenerator(transcription, this.Options);
+                .CreateRequestGenerator(transcription, this.Options, transcription.Language);
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
                 this.Engine,
                 transcription);
 
-            var (itemsToDo, _, _, itemsForTraining) = requestGenerator.AnalyzeItemsState();
-            var itemsWithAudios = itemsToDo.Union(itemsForTraining).Distinct().ToArray();
-            var index = 1;
-            var binaryContentsDictionary = new Dictionary<TimeSpan, dynamic[]>();
-            foreach (var item in itemsWithAudios)
+            var binaryGenerator = new CachedBinaryGenerator((timing) =>
             {
-                context.DefaultProgressUpdateHandler("ffmpeg", $"{index++}/{itemsWithAudios.Length}", $"Generating .wav for {item.StartTime} to {item.EndTime}");
+                context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                 var tempWavFile = Path.GetTempFileName() + ".wav";
                 context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
-                    context.CurrentWipsub.PcmAudio.ExtractSnippet(item.StartTime - this.ExpandStart, item.EndTime + this.ExpandEnd), tempWavFile);
+                    context.CurrentWipsub.PcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd), tempWavFile);
 
                 var audioBytes = File.ReadAllBytes(tempWavFile);
                 var base64Audio = Convert.ToBase64String(audioBytes);
                 File.Delete(tempWavFile);
-                binaryContentsDictionary.Add(
-                    item.StartTime,
-                    new[]
+                var data = new[]
                     {
                         new
                         {
@@ -81,13 +73,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 format = "wav"
                             }
                         }
-                    });
+                    };
                 if (this.KeepTemporaryFiles)
-                    context.CreateVerboseBinaryFile($"{transcription.Id}_{item.StartTime:hhmmssfff}.wav", audioBytes, processStartTime);
-            }
-            context.ClearProgressUpdate();
+                    context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hhmmssfff}.wav", audioBytes, processStartTime);
+                return data;
+            });
 
-            runner.Run(requestGenerator, binaryContentsDictionary);
+            runner.Run(requestGenerator, binaryGenerator);
 
             if (requestGenerator.IsFinished())
             {

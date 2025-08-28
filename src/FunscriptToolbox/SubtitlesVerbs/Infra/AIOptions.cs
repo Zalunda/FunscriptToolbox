@@ -23,13 +23,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string MetadataProduced { get; set; }
         [JsonProperty(Order = 7)]
         public string MetadataForTraining { get; set; }
-        [JsonProperty(Order = 8)]
-        public bool SendAllItemsToAI { get; set; } = true;
 
         [JsonProperty(Order = 10)]
         public int BatchSize { get; set; } = 100000;
         [JsonProperty(Order = 11)]
-        public int MinimumItemsAddedToContinue { get; set; } = 50;
+        public int? NbContextItems { get; set; } = 100000;
+        [JsonProperty(Order = 12)]
+        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
     }
 
     public class AIOptionsForAudioTranscription : AIOptions
@@ -58,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             MetadataNeeded = "GrabOnScreenText";
             MetadataProduced = "OnScreenText";
-            SendAllItemsToAI = false;
+            NbContextItems = null;
         }
     }
 
@@ -87,6 +87,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             MetadataNeeded = "VoiceText|OnScreenText";
             MetadataProduced = "TranslatedText";
+        }
+    }
+
+    public class AIOptionsForImageTranscription : AIOptions
+    {
+        public AIOptionsForImageTranscription()
+        {
+            MetadataNeeded = "!OnScreenText,!GrabOnScreenText";
+            MetadataProduced = "Action";
+            MetadataForTraining = "VisualTraining";
         }
     }
 }
