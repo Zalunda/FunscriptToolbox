@@ -42,7 +42,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 23)]
         public object TextAfterContextData { get; set; } = null;
         [JsonProperty(Order = 24)]
-        public object TextStartOfAnalysis { get; set; } = "Begin Node Analysis:";
+        public string TextBeforeAnalysis { get; set; } = "Begin Node Analysis:";
+        [JsonProperty(Order = 25)]
+        public string TextAfterAnalysis { get; set; } = null;
 
     }
 
@@ -112,5 +114,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             MetadataProduced = "ParticipantDynamics";
             MetadataForTraining = "VisualTraining";
         }
+
+        public string TextAfterAnalysis { get; internal set; }
     }
 }

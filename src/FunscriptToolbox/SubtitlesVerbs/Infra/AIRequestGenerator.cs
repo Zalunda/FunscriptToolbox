@@ -239,12 +239,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             needSeparatorLine = true;
                         }
 
-                        if (r_options.TextStartOfAnalysis != null)
+                        if (r_options.TextBeforeAnalysis != null)
                         {
                             contentList.Add(new
                             {
                                 type = "text",
-                                text = r_options.TextStartOfAnalysis
+                                text = r_options.TextBeforeAnalysis
                             });
                         }
                     }
@@ -303,6 +303,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                     }
                 }
+            }
+
+            if (r_options.TextAfterAnalysis != null)
+            {
+                contentList.Add(new
+                {
+                    type = "text",
+                    text = r_options.TextAfterAnalysis
+                });
             }
 
             messages.Add(new

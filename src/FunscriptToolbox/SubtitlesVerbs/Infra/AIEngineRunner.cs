@@ -216,16 +216,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     var lastIndex = 0;
                     for (var index = 0; index < json.Length; index++)
                     {
-                        var c = json[index];
-                        var diff = (c == '{')
-                            ? 1
-                            : (c == '}')
-                            ? -1
-                            : 0;
-                        bracesCounter += diff;
-                        if (diff != 0 && bracesCounter == 0)
+                        // Make string 'disappear' so that { or } inside a string don't messup bracesCounter
+                        if (json[index] == '"')
                         {
-                            lastIndex = index + 1;
+                            index++;
+                            while (index < json.Length && json[index] != '"')
+                            {
+                                if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
+                                {
+                                    index += 2;
+                                }
+                                else
+                                {
+                                    index++;
+                                }
+                            }
+                            index++; // skip closing "
+                        }
+                        else
+                        {
+                            var c = json[index];
+                            var diff = (c == '{')
+                                ? 1
+                                : (c == '}')
+                                ? -1
+                                : 0;
+                            bracesCounter += diff;
+                            if (diff != 0 && bracesCounter == 0)
+                            {
+                                lastIndex = index + 1;
+                            }
                         }
                     }
 

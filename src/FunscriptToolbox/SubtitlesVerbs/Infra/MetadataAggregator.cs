@@ -113,6 +113,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     foreach (var item in timedObjectWithMetadata.GetItems().Where(item => item.StartTime < timing.EndTime && item.EndTime > timing.StartTime))
                     {
                         allItems.Remove(item);
+                        // TODO Low priority: Allow to have a key "sourcename:key" which would apply the merge rule only on item from sourcename.
                         metadata.Merge(item.Metadata, mergeRules);
                         nbMerges++;
                     }
