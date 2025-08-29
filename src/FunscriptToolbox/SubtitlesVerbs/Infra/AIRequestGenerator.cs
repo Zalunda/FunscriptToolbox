@@ -16,10 +16,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly string[] r_metadataNeededRules;
         private readonly string[] r_metadataProducedRule;
         private readonly string[] r_metadataForTrainingRules;
-        private readonly int r_batchSize;
-        private readonly int? r_nbContextItems;
-        private readonly int r_nbItemsMaximumForTraining;
-        private readonly int r_nbItemsMinimumReceivedToContinue;
+        private readonly AIOptions r_options;
 
         public AIRequestGenerator(
             TimedItemWithMetadata[] referenceTimings,
@@ -40,10 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_metadataProducedRule = options.MetadataProduced?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
 
-            r_batchSize = options.BatchSize;
-            r_nbContextItems = options.NbContextItems;
-            r_nbItemsMaximumForTraining = options.NbItemsMaximumForTraining;
-            r_nbItemsMinimumReceivedToContinue = options.NbItemsMinimumReceivedToContinue;
+            r_options = options;
         }
 
         public (TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[]) AnalyzeItemsState()
@@ -101,9 +95,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 return null;
 
             var nbItemsInLastResponse = lastRequestExecuted?.NbItemsToDoTotal - itemsToDo.Length;
-            if (nbItemsInLastResponse < r_batchSize && nbItemsInLastResponse < r_nbItemsMinimumReceivedToContinue)
+            if (nbItemsInLastResponse < r_options.BatchSize && nbItemsInLastResponse < r_options.NbItemsMinimumReceivedToContinue)
             {
-                context.WriteError($"Last response only contained {nbItemsInLastResponse} items when minimum to continue is {r_nbItemsMinimumReceivedToContinue}.");
+                context.WriteError($"Last response only contained {nbItemsInLastResponse} items when minimum to continue is {r_options.NbItemsMinimumReceivedToContinue}.");
                 return null;
             }
 
@@ -126,15 +120,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     text = r_firstUserPrompt
                 });
             }
-            if (itemsForTraining.Length > 0 && itemsAlreadyDone.Length > 0)
+
+            bool needSeparatorLine = false;
+            var separatorLine = new string('-', 20) + "\n";
+
+            if (itemsForTraining.Length > 0)
             {
                 contentList.Add(new
                 {
                     type = "text",
-                    text = new string('-', 80) + "\nBefore starting with the nodes to analyse, here some image/audio to help you identify the characters in the image/audio:"
+                    text = $"{(needSeparatorLine ? separatorLine : string.Empty)}{r_options.TextBeforeTrainingData}"
                 });
 
-                foreach (var item in itemsForTraining.Take(r_nbItemsMaximumForTraining))
+                foreach (var item in itemsForTraining.Take(r_options.NbItemsMaximumForTraining))
                 {
                     contentList.Add(new
                     {
@@ -146,16 +144,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         contentList.AddRange(binaryGenerator.GetBinaryContent(item));
                     }
                 }
-                contentList.Add(new
+                if (r_options.TextAfterTrainingData != null)
                 {
-                    type = "text",
-                    text = "Do not describe the image above in the output. It is only here to help YOU identify the girls."
-                });
-                contentList.Add(new
-                {
-                    type = "text",
-                    text = new string('-', 80)
-                });
+                    contentList.Add(new
+                    {
+                        type = "text",
+                        text = r_options.TextAfterTrainingData
+                    });
+                }
+
+                needSeparatorLine = true;
             }
 
             var waitingForFirstToDo = true;
@@ -166,10 +164,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
-                dynamic CreateMetadataContent(TimedItemWithMetadata item, MetadataCollection overrides = null) => new
+                dynamic CreateMetadataContent(TimedItemWithMetadata item, MetadataCollection overrides = null, string prefix = "") => new
                 {
                     type = "text",
-                    text = new string('-', 20) + "\n" + JsonConvert.SerializeObject(
+                    text = prefix + JsonConvert.SerializeObject(
                         new MetadataCollection(overrides ?? item.Metadata)
                         {
                         { "StartTime", item.StartTime.ToString(@"hh\:mm\:ss\.fff") },
@@ -198,10 +196,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     if (!itemsToDo.Contains(item))
                     {
-                        if (r_nbContextItems != null)
+                        if (r_options.NbContextItems != null)
                         {
                             contentBefore.Enqueue(item);
-                            if (contentBefore.Count > r_nbContextItems)
+                            if (contentBefore.Count > r_options.NbContextItems)
                             {
                                 contentBefore.Dequeue();
                             }
@@ -214,6 +212,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         waitingForFirstToDo = false;
                         if (contentBefore.Count > 0)
                         {
+                            contentList.Add(new
+                            {
+                                type = "text",
+                                text = $"{(needSeparatorLine ? separatorLine : string.Empty)}{r_options.TextBeforeContextData}"
+                            });
+
                             var firstContent = contentBefore.Dequeue();
                             contentList.Add(
                                 CreateMetadataContent(
@@ -223,12 +227,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                             contentList.AddRange(
                                 contentBefore.Select(c => CreateMetadataContent(c)));
+
+                            if (r_options.TextAfterContextData != null)
+                            {
+                                contentList.Add(new
+                                {
+                                    type = "text",
+                                    text = r_options.TextAfterContextData
+                                });
+                            }
+                            needSeparatorLine = true;
+                        }
+
+                        if (r_options.TextStartOfAnalysis != null)
+                        {
+                            contentList.Add(new
+                            {
+                                type = "text",
+                                text = r_options.TextStartOfAnalysis
+                            });
                         }
                     }
                 }
 
                 if (!waitingForFirstToDo)
                 {
+                    if (binaryGenerator != null)
+                    {
+                        needSeparatorLine = true;
+                    }
+
                     if (itemsToDo.Contains(item))
                     {
                         contentList.AddRange(contentExtraContext);
@@ -239,12 +267,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             contentList.Add(
                                 CreateMetadataContent(
                                     item,
-                                    AddOngoingMetadata(item.Metadata, metadataOngoing)));
+                                    AddOngoingMetadata(item.Metadata, metadataOngoing),
+                                    (needSeparatorLine ? separatorLine : string.Empty)));
                             metadataOngoing = null;
                         }
                         else
                         {
-                            contentList.Add(CreateMetadataContent(item));
+                            contentList.Add(
+                                CreateMetadataContent(
+                                    item, 
+                                    prefix: (needSeparatorLine ? separatorLine : string.Empty)));
                         }
 
                         if (binaryGenerator != null)
@@ -253,17 +285,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                         nbItemsInBatch++;
 
-                        if (nbItemsInBatch >= r_batchSize)
+                        if (nbItemsInBatch >= r_options.BatchSize)
                         {
                             break;
                         }
                     }
-                    else if (r_nbContextItems != null)
+                    else if (r_options.NbContextItems != null)
                     {
-                        contentExtraContext.Add(CreateMetadataContent(item));
+                        contentExtraContext.Add(
+                            CreateMetadataContent(item,
+                            prefix: (needSeparatorLine ? separatorLine : string.Empty)));
                         nbExtraContextItems++;
 
-                        if ((nbItemsInBatch > 0) && (contentBefore.Count + nbExtraContextItems >= r_nbContextItems))
+                        if ((nbItemsInBatch > 0) && (contentBefore.Count + nbExtraContextItems >= r_options.NbContextItems))
                         {
                             break;
                         }

@@ -32,6 +32,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
         [JsonProperty(Order = 13)]
         public int NbItemsMaximumForTraining { get; set; } = 100000;
+
+        [JsonProperty(Order = 20)]
+        public string TextBeforeTrainingData { get; set; } = "Character Identification Reference:";
+        [JsonProperty(Order = 21)]
+        public string TextAfterTrainingData { get; set; } = null;
+        [JsonProperty(Order = 22)]
+        public string TextBeforeContextData { get; set; } = "Context from preceding nodes:";
+        [JsonProperty(Order = 23)]
+        public object TextAfterContextData { get; set; } = null;
+        [JsonProperty(Order = 24)]
+        public object TextStartOfAnalysis { get; set; } = "Begin Node Analysis:";
+
     }
 
     public class AIOptionsForAudioTranscription : AIOptions
@@ -97,7 +109,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public AIOptionsForImageTranscription()
         {
             MetadataNeeded = "!OnScreenText,!GrabOnScreenText";
-            MetadataProduced = "ParticipantStates";
+            MetadataProduced = "ParticipantDynamics";
             MetadataForTraining = "VisualTraining";
         }
     }
