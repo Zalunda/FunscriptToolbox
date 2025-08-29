@@ -18,6 +18,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly string[] r_metadataForTrainingRules;
         private readonly int r_batchSize;
         private readonly int? r_nbContextItems;
+        private readonly int r_nbItemsMaximumForTraining;
         private readonly int r_nbItemsMinimumReceivedToContinue;
 
         public AIRequestGenerator(
@@ -41,6 +42,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             r_batchSize = options.BatchSize;
             r_nbContextItems = options.NbContextItems;
+            r_nbItemsMaximumForTraining = options.NbItemsMaximumForTraining;
             r_nbItemsMinimumReceivedToContinue = options.NbItemsMinimumReceivedToContinue;
         }
 
@@ -129,10 +131,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 contentList.Add(new
                 {
                     type = "text",
-                    text = "Since this is a continuation request and the training data where in a previous part, here are a few segments for learning:"
+                    text = new string('-', 80) + "\nBefore starting with the nodes to analyse, here some image/audio to help you identify the characters in the image/audio:"
                 });
 
-                foreach (var item in itemsForTraining)
+                foreach (var item in itemsForTraining.Take(r_nbItemsMaximumForTraining))
                 {
                     contentList.Add(new
                     {
@@ -144,6 +146,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         contentList.AddRange(binaryGenerator.GetBinaryContent(item));
                     }
                 }
+                contentList.Add(new
+                {
+                    type = "text",
+                    text = "Do not describe the image above in the output. It is only here to help YOU identify the girls."
+                });
+                contentList.Add(new
+                {
+                    type = "text",
+                    text = new string('-', 80)
+                });
             }
 
             var waitingForFirstToDo = true;
@@ -157,7 +169,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 dynamic CreateMetadataContent(TimedItemWithMetadata item, MetadataCollection overrides = null) => new
                 {
                     type = "text",
-                    text = JsonConvert.SerializeObject(
+                    text = new string('-', 20) + "\n" + JsonConvert.SerializeObject(
                         new MetadataCollection(overrides ?? item.Metadata)
                         {
                         { "StartTime", item.StartTime.ToString(@"hh\:mm\:ss\.fff") },

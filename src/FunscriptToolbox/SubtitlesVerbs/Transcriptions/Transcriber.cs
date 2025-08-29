@@ -110,6 +110,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 catch (Exception ex)
                 {
                     context.WriteError($"An error occured while transcribing '{this.TranscriptionId}':\n{ex.Message}");
+                    context.WriteLog(ex.ToString());
                 }
             }
         }

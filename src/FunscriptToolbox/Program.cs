@@ -110,16 +110,19 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
-                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-1.2.json", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-2.0.json", SubtitleGeneratorConfig.GetDefaultExample(), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigTrainingDataExample-2.0.json", SubtitleGeneratorConfig.GetTrainingDataExample(), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-2.0-MINE.json", SubtitleGeneratorConfig.GetDefaultExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
                     // Environment.CurrentDirectory = @"P:\...";
                     args = new[]
                     {
                         "subtitles.create",
                         "--verbose",
                         "--recursive",
+                        "--skipupdate",
                         "--sourcelanguage", "Japanese",
-                        "--config", ".\\--FSTB-SubtitleGeneratorConfig.json",
-                        "00000-WIP\\*.mp4"
+                        "--config", ".\\--FSTB-SubtitleGeneratorConfigExample-2.0-MINE.json",
+                        "XXX-DEBUG\\KAVR-134-XXX*.mp4"
                     };
                     break;
 

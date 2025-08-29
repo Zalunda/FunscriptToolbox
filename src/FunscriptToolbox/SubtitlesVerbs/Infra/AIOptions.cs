@@ -30,6 +30,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int? NbContextItems { get; set; } = 100000;
         [JsonProperty(Order = 12)]
         public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        [JsonProperty(Order = 13)]
+        public int NbItemsMaximumForTraining { get; set; } = 100000;
     }
 
     public class AIOptionsForAudioTranscription : AIOptions
@@ -95,7 +97,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public AIOptionsForImageTranscription()
         {
             MetadataNeeded = "!OnScreenText,!GrabOnScreenText";
-            MetadataProduced = "Action";
+            MetadataProduced = "ParticipantStates";
             MetadataForTraining = "VisualTraining";
         }
     }

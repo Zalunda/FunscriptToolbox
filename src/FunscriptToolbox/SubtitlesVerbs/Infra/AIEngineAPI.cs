@@ -260,6 +260,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     fullContent.AppendLine();
                     fullContent.AppendLine($"An exception occured while receiving the AI response: {ex.Message}");
+                    context.WriteLog(ex.ToString());
                 }
 
                 if (!doneReceived)

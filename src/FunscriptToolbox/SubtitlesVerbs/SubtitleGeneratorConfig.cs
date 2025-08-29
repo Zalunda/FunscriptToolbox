@@ -126,44 +126,34 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "- You MUST interpret all images as being seen through the eyes of the male participant. The camera is his head.",
                 "**Directive 2: State-Aware Environmental & Participant Analysis**",
                 "- **`OngoingSceneEnvironment`**: Describe the physical location. This field is **mandatory on the first node only**, or on any subsequent node where the environment *changes*.",
-                "- **`OngoingParticipantStates`**: Provide a single string summarizing the state of all visible participants. Not needed if identical to previous image.",
+                "- **`ParticipantStates`**: Provide a single string summarizing the state of all visible participants. **This field is mandatory on every node**",
                 "    -   Use the format: `Role1: state; Role2: state; Man: state`.",
                 "    -   On a character's *first appearance*, provide clothing details (e.g., `Hana: topless, wearing pink panties`).",
                 "    -   On subsequent appearances, use a general state unless it changes (e.g., `Hana: topless; Ena: naked`).",
-                "- Don't forget to include Action for those node too.",
+                "    -   Indicate what they are doing, with their hands, breast, etc.",
                 "**Directive 3: Visual Speaker Identification**",
                 "- For each image, analyze faces for visual cues of speech (e.g., open mouth, focused expression, direct gaze at the camera or another character).",
                 "- If you identify a likely speaker, you MUST add the `Speaker-V` field with your assessment and a confidence score in the format `\"Role (XX%)\"`. If the speaker is talking toward another character, indicate it. If you can add the general body language of the person speaking that could help the translator, indicate it (ex. 'with a smirk on her face').",
                 "- If no one appears to be speaking, or you cannot determine with at least 50% confidence, **omit this field entirely**.",
-                "**Directive 4: Action Description**",
-                "- In the `Action` field, write a concise, explicit one-sentence summary of the primary action of all the participants. Use direct, adult language. This field is mandatory on every node even if the image mean nothing (ex. black screen).",
                 "### Analytical Heuristics",
                 "You must incorporate the following intelligence into your analysis:",
-                "- **Heuristic A (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. You must recognize this as censorship and describe the implied action (e.g., '...performing a blowjob on his censored penis') without being confused by the visual artifact.",
+                "- **Heuristic A (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. You must recognize this as censorship and describe the implied action (e.g., '...is sucking on the man's cock') without being confused by the visual artifact.",
                 "- **Heuristic B (Positional Inference):** Infer sexual positions from proximity and posture. A woman sitting upright and close to the camera is likely in a `Cowgirl` position. A woman on her back is likely in a `Missionary` position.",
-                "- **Heuristic C (Initiator Identification):** Your `Action` should, where possible, identify the initiator of the action (e.g., 'Woman 1 begins to rub oil on her breasts...').",
+                "- **Heuristic C (Man's Hands):** If hands are coming from the side/bottom of the image, assume it's the man's hands (especially if the hand are grabbing tits/etc).",
                 "### Output Mandate",
-                "Your entire response will be a single, valid JSON array of flat objects. The structure is non-negotiable:",
-                "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"SceneEnvironment\": \"Description of the room or setting. (Optional after first node)\",\n  \"ParticipantStates\": \"Role1: state; Role2: state; Man: state\",\n  \"Speaker-V\": \"Role (XX%)\",\n  \"Action\": \"Explicit one-sentence summary of the action.\"\n}\n```",
+                "Your entire response will be a valid JSON array of objects. The structure is non-negotiable:",
+                "```json\n[{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"SceneEnvironment\": \"Description of the room or setting. (Optional after first node)\",\n  \"ParticipantStates\": \"Role1: state; Role2: state; Man: state (Required)\",\n  \"Speaker-V\": \"Role (XX%)\",\n  \n}...]\n```",
                 "### Example Procedure:",
                 "**// INCOMING BATCH: A sequence of images showing two women starting to tease the POV-man.**",
-                "**// CORRECT OUTPUT: A single JSON array with flat, state-aware objects. One node for each node receive. Do not skip any.**",
+                "**// CORRECT OUTPUT: A single JSON array of objects. !!ONE NODE FOR EACH NODE CONTAININING AN IMAGE RECEIVED!!. Do not skip any.**",
                 "[{",
                 "  \"StartTime\": \"<StartTime received>\",",
-                "  \"EndTime\": \"<EndTime received>\",",
                 "  \"SceneEnvironment\": \"Adult store VIP room, dimmed light.\",",
-                "  \"ParticipantStates\": \"Man: Sitting on a couch, naked; Mahina: On the left, wearing sexy pink underwear; Kira: On the right, wearing a black dress\",",
-                "  \"Action\": \"Man: Grabbing Mahina breasts over her cloth; Mahina: Looking at her gropped breast; Kira: Using her mouth on man's cock.\"",
+                "  \"ParticipantStates\": \"Man: Sitting on a couch, naked, grabbing Mahina's breast with his left hand; Mahina: On the left, wearing sexy pink underwear; putting her hands over the man's hand on her breasts. Kira: On the right of the man, wearing a black dress, leaning over to suck the man cock.\",",                "  \"Action\": \"Man: Grabbing Mahina breasts over her cloth; Mahina: Looking at her gropped breast; Kira: Using her mouth on man's cock.\"",
                 "  \"Speaker-V\": \"Kira (80%) to Mahina\",",
                 "},",
-                "{",
-                "  \"StartTime\": \"<StartTime received>\",",
-                "  \"EndTime\": \"<EndTime received>\",",
-                "  \"ParticipantStates\": \"Man: Sitting on a couch, naked; Mahina: On the left, topless, wearing sexy pink panties; Kira: On the right, naked\",",
-                "  \"Action\": \"Man: Grabbing Mahina breasts; Mahina: Kissing man; Kira: Giving a blowjob to man.\"",
-                "  \"Speaker-V\": \"Kira (80%)\"",
-                "}]",
-                "You need to output one node with your analysis for each input node that contained an image. **You shouldn't continue the story with invented nodes**. Your task is to analyze the image provided, that's it.",
+                "{... others nodes/images description...}",
+                "]",
             });
             sharedObjects.Add(systemPromptTranscriberVisualAnalyst);
 
@@ -518,9 +508,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberImageAI()
                     {
-                        TranscriptionId = "visual-analyst",
+                        TranscriptionId = "visual-analyst-gpt5-mini",
                         Enabled = true,
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
+                        //KeepTemporaryFiles = true,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfectvad",
@@ -529,15 +520,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
-                            Model = "Grok-4",
-                            APIKeyName = "APIKeyPoe"
+                            Model = "gpt5-mini",
+                            APIKeyName = "APIKeyPoe",
                         },
                         Options = new AIOptionsForImageTranscription()
                         {
                             SystemPrompt = systemPromptTranscriberVisualAnalyst,
+                            FirstUserPrompt = new AIPrompt(new []
+                            {
+                                "Each image should be analyzed. Your description need to match what you see, nothing more. Be succinct in your description. You shouldn't be able to say that they rythmitly do something when you only have acces to image.",
+                                "Be 'clinical' in your description. We will be able to infer what it mean.",
+                                "And don't forget to return a node for every nodes that contain an image. Don't return an array with a single item!"
+                            }),
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                {"VoiceText", null }
+                            },
                             MetadataForTraining = "VisualTraining",
                             BatchSize = 10,
-                            NbContextItems = 5,
+                            NbContextItems = null,
+                            NbItemsMaximumForTraining = 1,
                             NbItemsMinimumReceivedToContinue = 5
                         }
                     },

@@ -87,6 +87,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 catch (Exception ex)
                 {
                     context.WriteError($"An error occured while translating '{this.FullId}':\n{ex.Message}");
+                    context.WriteLog(ex.ToString());
                 }
             }
         }
