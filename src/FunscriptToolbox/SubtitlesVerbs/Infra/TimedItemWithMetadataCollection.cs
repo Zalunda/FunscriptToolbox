@@ -10,11 +10,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 1)]
         public string Id { get; }
 
+        [JsonProperty(Order = 2)]
+        public string MetadataAlwaysProduced { get; }
+
         public abstract IEnumerable<TimedItemWithMetadata> GetItems();
 
-        protected TimedItemWithMetadataCollection(string id)
+        protected TimedItemWithMetadataCollection(
+            string id, 
+            string metadataAlwaysProduced)
         {
             this.Id = id;
+            this.MetadataAlwaysProduced = metadataAlwaysProduced;
+        }
+
+        public TimedItemWithMetadataCollectionAnalysis GetAnalysis(
+            IEnumerable<ITiming> timings)
+        {
+            return TimedItemWithMetadataCollectionAnalysis.From(this, timings);
         }
     }
 
@@ -31,9 +43,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public TimedItemWithMetadataCollection(
             string id,
+            string metadataAlwaysProduced,
             IEnumerable<TItem> items = null,
             IEnumerable<Cost> costs = null)
-            : base(id)
+            : base(id, metadataAlwaysProduced)
         {
             this.Items = new List<TItem>(items ?? Array.Empty<TItem>());
             this.Costs = new List<Cost>(costs ?? Array.Empty<Cost>());

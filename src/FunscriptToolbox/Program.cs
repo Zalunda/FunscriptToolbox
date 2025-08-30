@@ -111,7 +111,6 @@ namespace FunscriptToolbox
 
                 case 50:
                     File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-2.0.json", SubtitleGeneratorConfig.GetDefaultExample(), Encoding.UTF8);
-                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigTrainingDataExample-2.0.json", SubtitleGeneratorConfig.GetTrainingDataExample(), Encoding.UTF8);
                     File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-2.0-MINE.json", SubtitleGeneratorConfig.GetDefaultExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
                     // Environment.CurrentDirectory = @"P:\...";
                     args = new[]

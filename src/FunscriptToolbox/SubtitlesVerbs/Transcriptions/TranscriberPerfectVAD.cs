@@ -14,6 +14,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public string MetadataExtractionRegex { get; set; } = @"{(?<name>[^}:]*)(\:(?<value>[^}]*))?}";
 
+        protected override string GetMetadataProduced() => null;
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context, 
             out string reason)

@@ -14,76 +14,78 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
         }
 
-        [JsonProperty(Order = 10)]
+        [JsonProperty(Order = 1)]
         public string TimingsSource { get; set; }
-        [JsonProperty(Order = 11)]
+        [JsonProperty(Order = 2)]
         public string[] Sources { get; set; }
+        [JsonProperty(Order = 3)]
+        public Dictionary<string, string> MergeRules { get; set; }
 
         public MetadataAggregation Aggregate(
             SubtitleGeneratorContext context,
-            TimedItemWithMetadataCollection additionalSource = null,
-            Dictionary<string, string> mergeRules = null)
+            TimedItemWithMetadataCollection additionalSource = null)
         {
             var timings = context.CurrentWipsub?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
-            var (rawSourceReferences, reasonsFromSourcesReferences) = ImportRawSources(context, this.Sources, additionalSource);
-            var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, mergeRules) : null;
+            var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(context, this.Sources, additionalSource);
+            var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, this.MergeRules) : null;
             return new MetadataAggregation(
                 this.TimingsSource,
-                rawSourceReferences,
                 reasonsFromSourcesReferences,
                 referenceTimingsWithMetadata);
         }
 
-        private static (TimedItemWithMetadataCollection[], string[]) ImportRawSources(
+        public (TimedItemWithMetadataCollection[], string[]) GetOthersSources(
+            SubtitleGeneratorContext context, 
+            string[] sources)
+        {
+            return GetRawSources(context, sources);
+        }
+
+        private static (TimedItemWithMetadataCollection[], string[]) GetRawSources(
             SubtitleGeneratorContext context,
             string[] sources,
-            TimedItemWithMetadataCollection additionnalSource)
+            TimedItemWithMetadataCollection additionalSource = null)
         {
             var metadataProviders = new List<TimedItemWithMetadataCollection>();
             var reasons = new List<string>();
-            if (additionnalSource != null)
-                metadataProviders.Add(additionnalSource);
+            if (additionalSource != null)
+                metadataProviders.Add(additionalSource);
 
             foreach (var rule in sources ?? Array.Empty<string>())
             {
-                var match = Regex.Match(rule, @"^(?<transcriptionId>[^\/\\]*)([\/\\](?<translationId>.*))?");
-                var transcriptionId = match.Groups["transcriptionId"].Value;
-                var translationId = match.Groups["translationId"].Value;
-                if (!string.IsNullOrWhiteSpace(transcriptionId))
+                var pattern = rule.Contains("*") 
+                    ? rule.Replace("*", ".*").Replace("..*", ".*") 
+                    : rule;
+                var regex = new Regex($"^{pattern}$");
+
+                foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
+                        .Where(t => regex.IsMatch(t.TranscriptionId)))
                 {
-                    foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
-                        .Where(t => transcriptionId == "*" || t.TranscriptionId == transcriptionId))
+                    var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
+
+                    if (transcriber.Enabled && transcription?.IsFinished != true)
                     {
-                        var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
+                        reasons.Add($"Transcription '{transcriber.TranscriptionId}' is not done yet.");
+                    }
+                    if (transcription?.IsFinished == true)
+                    {
+                        metadataProviders.Add(transcription);
+                    }
+                }
 
-                        if (transcriber.Enabled && transcription?.IsFinished != true)
-                        {
-                            reasons.Add($"Transcription '{transcriber.TranscriptionId}' is not done yet.");
-                        }
-                        if (transcription?.IsFinished == true)
-                        {
-                            metadataProviders.Add(transcription);
-                        }
+                foreach (var translator in context.Config.Workers.OfType<Translator>()
+                        .Where(t => regex.IsMatch(t.FullId)))
+                {
+                    var translation = context.CurrentWipsub.Translations
+                        .FirstOrDefault(t => t.TranscriptionId == translator.TranscriptionId && t.TranslationId == translator.TranslationId);
 
-                        if (!string.IsNullOrWhiteSpace(translationId))
-                        {
-                            foreach (var translator in context.Config.Workers.OfType<Translator>()
-                                .Where(t => t.TranscriptionId == transcriber.TranscriptionId 
-                                    && (translationId == "*" || t.TranslationId == translationId)))
-                            {
-                                var translation = context.CurrentWipsub.Translations
-                                    .FirstOrDefault(t => t.TranscriptionId == translator.TranscriptionId && t.TranslationId == translator.TranslationId);
-
-                                if (translator.Enabled && translation?.IsFinished != true)
-                                {
-                                    reasons.Add($"Translation '{translator.FullId}' is not done yet.");
-                                }
-                                if (translation?.IsFinished == true)
-                                {
-                                    metadataProviders.Add(translation);
-                                }
-                            }
-                        }
+                    if (translator.Enabled && translation?.IsFinished != true)
+                    {
+                        reasons.Add($"Translation '{translator.FullId}' is not done yet.");
+                    }
+                    if (translation?.IsFinished == true)
+                    {
+                        metadataProviders.Add(translation);
                     }
                 }
             }
@@ -96,8 +98,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private static TimedItemWithMetadata[] MergeRawSources(
             ITiming[] timings,
             TimedItemWithMetadataCollection[] rawReferenceSources,
-            Dictionary<string, string> mergeRules
-            )
+            Dictionary<string, string> mergeRules)
         {
             if (timings == null)
                 return null;

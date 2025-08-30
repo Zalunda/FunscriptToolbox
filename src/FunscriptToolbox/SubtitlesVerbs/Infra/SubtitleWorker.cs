@@ -1,5 +1,4 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,12 +17,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 srt.Subtitles.AddRange(container.GetItems().Select(item =>
                     new Subtitle(
                         item.StartTime,
-                        item.EndTime,
-                        string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{kvp.Value}}}")))));
+                        item.EndTime,                        
+                        string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{AddNewLineIfMultilines(kvp.Value)}}}")))));
                 srt.SaveSrt(context.GetPotentialVerboseFilePath($"{container.Id}.srt", DateTime.Now));
             }
         }
 
+        private static string AddNewLineIfMultilines(string value)
+        {
+            return value == null
+                ? null
+                : (value.Contains("\n")) 
+                    ? "\n" + value
+                    : value;
+        }
         protected string[] CreateFinalOrder(string[] order, IEnumerable<string> allIds)
         {
             if (order == null)

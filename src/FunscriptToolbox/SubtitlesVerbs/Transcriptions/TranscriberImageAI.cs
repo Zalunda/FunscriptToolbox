@@ -1,11 +1,11 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-
-    public class TranscriberImageAI : TranscriberAudio
+    public class TranscriberImageAI : Transcriber
     {
         public TranscriberImageAI()
         {
@@ -21,9 +21,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public AIEngine Engine { get; set; }
         [JsonProperty(Order = 31, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 32)]
+        [JsonProperty(Order = 32, Required = Required.Always)]
         public AIOptions Options { get; set; } = new AIOptions();
 
+        protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
+
+        protected override int GetNbEmptyItems(Transcription transcription) => transcription.Items.Count(item => string.IsNullOrWhiteSpace(item.Metadata.Get(this.Options.MetadataAlwaysProduced)));
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -38,7 +41,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-
         protected override void Transcribe(
             SubtitleGeneratorContext context,
             Transcription transcription)
@@ -46,13 +48,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var processStartTime = DateTime.Now;
 
             var requestGenerator = this.Metadatas
-                .Aggregate(context, mergeRules: this.Options?.MergeRules)
+                .Aggregate(context)
                 .CreateRequestGenerator(transcription, this.Options);
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
                 this.Engine,
                 transcription);
 
+            // TODO be able to take the screenshot in the highest percentage for speaker detection (ex. when she open mouth or something)
             var binaryGenerator = new CachedBinaryGenerator((timing) =>
                     {
                         var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);

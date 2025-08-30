@@ -10,23 +10,22 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioToolExternal : TranscriberAudioTool
+    public class TranscriberToolAudioExternal : TranscriberToolAudio
     {
         private const string ToolName = "AudioExternal";
 
-        public TranscriberAudioToolExternal()
+        public TranscriberToolAudioExternal()
         {
         }
 
         [JsonProperty(Order = 21)]
         public string OverrideFileSuffixe { get; set; } = null;
-        [JsonProperty(Order = 22)]
-        public string MetadataProduced { get; set; } = "VoiceText";
 
         public override TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            PcmAudio[] audios)
+            PcmAudio[] audios,
+            string metadataProduced)
         {
             var namedItems = audios.Select((audio, index) => (
                     wavFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.wav",
@@ -67,7 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         .Select(subtitle => new TranscribedItem(
                             audio.Offset + subtitle.StartTime,
                             audio.Offset + subtitle.EndTime,
-                            MetadataCollection.CreateSimple(this.MetadataProduced, subtitle.Text))));
+                            MetadataCollection.CreateSimple(metadataProduced, subtitle.Text))));
                     transcription.Costs.Add(
                         new Cost(
                             ToolName,

@@ -2,14 +2,19 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioFull : TranscriberAudio
+    public class TranscriberAudioFull : Transcriber
     {
         public TranscriberAudioFull()
         {
         }
 
-        [JsonProperty(Order = 30, Required = Required.Always)]
-        public TranscriberAudioTool TranscriberTool { get; set; }
+        [JsonProperty(Order = 10, Required = Required.Always)]
+        public string MetadataProduced { get; set; }
+
+        [JsonProperty(Order = 20, Required = Required.Always)]
+        public TranscriberToolAudio TranscriberTool { get; set; }
+
+        protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -26,7 +31,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                      context,
                      transcription,
-                     new[] { context.CurrentWipsub.PcmAudio });
+                     new[] { context.CurrentWipsub.PcmAudio },
+                     this.MetadataProduced);
             transcription.Items.AddRange(transcribedTexts);
             transcription.MarkAsFinished();
             context.CurrentWipsub.Save();

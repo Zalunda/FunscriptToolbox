@@ -12,13 +12,13 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioToolPurfviewWhisper : TranscriberAudioTool
+    public class TranscriberToolAudioPurfviewWhisper : TranscriberToolAudio
     {
         private object r_lock = new object();
 
         private const string ToolName = "PurfviewWhisper";
 
-        public TranscriberAudioToolPurfviewWhisper()
+        public TranscriberToolAudioPurfviewWhisper()
         {
         }
 
@@ -32,24 +32,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public bool ForceSplitOnComma { get; set; } = true;
         [JsonProperty(Order = 5)]
         public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
-        [JsonProperty(Order = 6)]
-        public string MetadataProduced { get; set; } = "VoiceText";
 
         public override TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            PcmAudio[] items)
+            PcmAudio[] items,
+            string metadataProduced)
         {
             return TranscribeAudioInternal(
                 context,
                 transcription,
-                items);
+                items,
+                metadataProduced);
         }
 
         private TranscribedItem[] TranscribeAudioInternal(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            PcmAudio[] audios)
+            PcmAudio[] audios,
+            string metadataProduced)
         {
             if (!File.Exists(this.ApplicationFullPath))
             {
@@ -195,7 +196,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                             new TranscribedItem(
                                                 currentStartTime.Value,
                                                 word.EndTime,
-                                                MetadataCollection.CreateSimple(this.MetadataProduced, currentText),
+                                                MetadataCollection.CreateSimple(metadataProduced, currentText),
                                                 noSpeechProbability: (double)segment.no_speech_prob,
                                                 words: currentWords));
                                         currentStartTime = null;
@@ -216,7 +217,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     subtitleFile.Subtitles.AddRange(
                         transcription.Items
                         .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
-                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Metadata.Get(this.MetadataProduced))));
+                        .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Metadata.Get(metadataProduced))));
                     subtitleFile.SaveSrt(fullSrtTempFile);
 
                     // Add the text only when we are sure that everything is working

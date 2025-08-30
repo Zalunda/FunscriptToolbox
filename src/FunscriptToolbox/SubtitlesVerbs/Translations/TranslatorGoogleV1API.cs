@@ -17,10 +17,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
         }
 
-        [JsonProperty(Order = 20)]
-        public string MetadataNeeded { get; set; } = "VoiceText";
-        [JsonProperty(Order = 21)]
-        public string MetadataProduced { get; set; } = "TranslatedText";
+        [JsonProperty(Order = 20, Required = Required.Always)]
+        public string MetadataNeeded { get; set; }
+        [JsonProperty(Order = 21, Required = Required.Always)]
+        public string MetadataProduced { get; set; }
+
+        protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,

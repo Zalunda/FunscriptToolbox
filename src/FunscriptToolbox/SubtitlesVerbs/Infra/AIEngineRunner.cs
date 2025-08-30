@@ -153,6 +153,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var itemsAdded = new List<T>();
                 foreach (var segment in responseArray)
                 {
+                    var segmentAsString = JsonConvert.ToString(segment);
+
                     var seg = (JObject)segment;
 
                     // Extract and remove known fields
@@ -166,7 +168,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         var startTimeItem = timings.FirstOrDefault(i => i.StartTime == startTime);
                         if (startTimeItem == null)
-                            throw new Exception($"EndTime not received in:\n{JsonConvert.ToString(responseArray)}.");
+                            throw new Exception($"EndTime not received in:\n{segmentAsString}.");
                         endTime = startTimeItem.EndTime;
                     }
                     seg.Remove("StartTime");
@@ -178,6 +180,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         if (prop.Value != null)
                             extraMetadatas[prop.Name] = prop.Value.ToString();
+                    }
+
+                    if (!extraMetadatas.ContainsKey(request.MetadataAlwaysProduced))
+                    {
+                        throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present in: {segmentAsString}");
                     }
 
                     var tt = r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas);
@@ -199,6 +206,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             try
             {
+                // Remove thinking text
                 json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
                 json = Regex.Replace(json, @"^\s*>.*$", string.Empty, RegexOptions.Multiline);
 
@@ -216,7 +224,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     var lastIndex = 0;
                     for (var index = 0; index < json.Length; index++)
                     {
-                        // Make string 'disappear' so that { or } inside a string don't messup bracesCounter
+                        // Make string 'disappear' so that { or } inside the string don't messup bracesCounter
                         if (json[index] == '"')
                         {
                             index++;
@@ -250,7 +258,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
 
                     json = json.Substring(0, lastIndex);
-
                     json += "]";
                 }
                 else
@@ -258,7 +265,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     json = json.Substring(0, indexOfLastBracket + 1);
                 }
 
-                json = Regex.Replace(json, @"(""(Original|StartTime)"": ""[^""]*""(?!\s*,))", "$1,");
+                // Add ',' between fields
+                json = Regex.Replace(json, @"(""([^""]*)"": ""[^""]*""(?!\s*,))", "$1,");
+                // Add ',' between braces
                 json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
 
                 return JsonConvert.DeserializeObject<dynamic>(json);

@@ -1,6 +1,5 @@
 ﻿using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -17,13 +16,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 2, Required = Required.Always)]
         public string TranscriptionId { get; set; }
 
-        [JsonProperty(Order = 100, TypeNameHandling = TypeNameHandling.None)]
-        public Translator[] Translators { get; set; }
-
         [JsonIgnore]
         public virtual bool CanBeUpdated { get; } = false;
 
-        public Transcriber()
+        protected Transcriber()
         {
         }
 
@@ -34,6 +30,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         protected abstract void Transcribe(
             SubtitleGeneratorContext context,
             Transcription transcription);
+
+        protected abstract string GetMetadataProduced();
 
         public override void Execute(
             SubtitleGeneratorContext context)
@@ -49,7 +47,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 transcription = new Transcription(
                     this.TranscriptionId,
-                    context.OverrideSourceLanguage);
+                    context.OverrideSourceLanguage,
+                    this.GetMetadataProduced());
                 context.CurrentWipsub.Transcriptions.Add(transcription);
             }
 
@@ -115,61 +114,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
+        protected virtual int GetNbEmptyItems(Transcription transcription) => 0;
 
-        private static IEnumerable<string> GetTranscriptionAnalysis(
+        private IEnumerable<string> GetTranscriptionAnalysis(
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            yield break;
-            //var analysis = transcription.GetAnalysis(context);
-            //if (analysis != null)
-            //{
-            //    yield return $"    ForcedTimings Analysis:";
-            //    yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}";
-            //    yield return $"       Number without transcription: {analysis.TimingsWithoutTranscription.Length}";
-            //    if (analysis.ExtraTranscriptions.Length > 0)
-            //    {
-            //        yield return $"       Extra transcriptions:  {analysis.ExtraTranscriptions.Length}";
-            //    }
+            var firstPerfectVadId = context.Config.Workers.OfType<TranscriberPerfectVAD>().FirstOrDefault()?.TranscriptionId;
+            var timings = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId)?.GetItems();
+            if (timings != null )
+            {
+                var nbEmptyItems = GetNbEmptyItems(transcription);
+                var suffixeEmptyItems = nbEmptyItems == 0 ? string.Empty : $" ({nbEmptyItems} are empty)";
 
-            //    if (context.IsVerbose)
-            //    {
-            //        using (var writer = File.CreateText(context.GetPotentialVerboseFilePath($"{transcription.Id}-ANALYSIS-versus-ForcedTimings.txt")))
-            //        {
-            //            var extraTranscriptions = analysis.ExtraTranscriptions.ToList();
-            //            foreach (var item in analysis
-            //                .TimingsWithOverlapTranscribedTexts
-            //                .OrderBy(f => f.Key.StartTime))
-            //            {
-            //                while (extraTranscriptions.FirstOrDefault()?.StartTime <= item.Key.StartTime)
-            //                {
-            //                    var extra = extraTranscriptions.First();
-            //                    writer.WriteLine($"[Extra transcription, don't overlap with forced timings] {extra.StartTime} => {extra.EndTime}, {extra.GetFirstTranslatedIfPossible()}");
-            //                    extraTranscriptions.RemoveAt(0);
-            //                }
-
-            //                if (item.Value.Length == 0)
-            //                {
-            //                    writer.WriteLine($"[No transcription found] {item.Key.StartTime} => {item.Key.EndTime}");
-            //                }
-            //                else if (item.Value.Length == 1)
-            //                {
-            //                    var first = item.Value.First();
-            //                    writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}, {first.TranscribedText.GetFirstTranslatedIfPossible()}");
-            //                }
-            //                else
-            //                {
-            //                    writer.WriteLine($"{item.Key.StartTime} => {item.Key.EndTime}");
-            //                    foreach (var value in item.Value)
-            //                    {
-            //                        var tt = value.TranscribedText;
-            //                        writer.WriteLine($"     {tt.StartTime} => {tt.EndTime}, {tt.GetFirstTranslatedIfPossible()}");
-            //                    }
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
+                var analysis = transcription.GetAnalysis(timings);
+                yield return $"    ForcedTimings Analysis:";
+                yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}{suffixeEmptyItems}";
+                yield return $"       Number without transcription: {analysis.TimingsWithoutItem.Length}";
+                if (analysis.ExtraItems.Count > 0)
+                {
+                    yield return $"       Extra transcriptions:         {analysis.ExtraItems.Count}";
+                }
+            }
         }
     }
 }

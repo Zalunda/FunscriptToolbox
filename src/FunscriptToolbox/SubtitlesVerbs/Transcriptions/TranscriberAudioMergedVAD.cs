@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioMergedVAD : TranscriberAudio
+    public class TranscriberAudioMergedVAD : Transcriber
     {
         public TranscriberAudioMergedVAD()
         {
@@ -17,17 +17,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         [JsonProperty(Order = 20, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 21)]
+        [JsonProperty(Order = 21, Required = Required.Always)]
+        public string MetadataProduced { get; set; }
+        [JsonProperty(Order = 22)]
         public TimeSpan SilentGapDuration { get; set; } = TimeSpan.FromSeconds(0.3);
 
         [JsonProperty(Order = 30, Required = Required.Always)]
-        public TranscriberAudioTool TranscriberTool { get; set; }
+        public TranscriberToolAudio TranscriberTool { get; set; }
+
+        protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
+            if (!this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
             }
@@ -107,7 +111,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             foreach (var original in this.TranscriberTool.TranscribeAudio(
                                 context,
                                 transcription,
-                                new[] { mergedPcm }))
+                                new[] { mergedPcm },
+                                this.MetadataProduced))
             {
                 var newStartTime = offsetCollection.TransformPosition(original.StartTime);
                 var newEndTime = offsetCollection.TransformPosition(original.EndTime);

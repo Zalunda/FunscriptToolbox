@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -6,35 +7,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     public class MetadataAggregation
     {
         private readonly string r_timingSource;
-        private readonly TimedItemWithMetadataCollection[] r_rawSourceReference;
         private readonly string[] r_reasonsFromSourcesReferences;
-        private readonly TimedItemWithMetadata[] r_referenceTimingsWithMetadata;
+        public TimedItemWithMetadata[] ReferenceTimingsWithMetadata { get; }
 
         public MetadataAggregation(
             string timingSource,
-            TimedItemWithMetadataCollection[] rawSourceReferences,
             string[] reasonsFromSourcesReferences,
             TimedItemWithMetadata[] referenceTimingsWithMetadata)
         {
             r_timingSource = timingSource;
-            r_rawSourceReference = rawSourceReferences;
             r_reasonsFromSourcesReferences = reasonsFromSourcesReferences;
-            r_referenceTimingsWithMetadata = referenceTimingsWithMetadata;
+            this.ReferenceTimingsWithMetadata = referenceTimingsWithMetadata;
         }
 
         public bool IsPrerequisitesMetWithTimings(out string reason) => IsPrerequisitesMet(out reason, true);
         public bool IsPrerequisitesMetWithoutTimings(out string reason) => IsPrerequisitesMet(out reason, false);
+        public bool IsPrerequisitesMetOnlyTimings(out string reason) => IsPrerequisitesMet(out reason, true, true);
 
         private bool IsPrerequisitesMet(
             out string reason,
-            bool timingsRequired = false)
+            bool timingsRequired = false,
+            bool onlyTimings = false)
         {
-            var reasons = new List<string>(r_reasonsFromSourcesReferences);
+            var reasons = new List<string>(onlyTimings ? Array.Empty<string>() : r_reasonsFromSourcesReferences);
             if (timingsRequired && r_timingSource == null)
             {
                 reasons.Insert(0, $"TimingSource haven't been set Metadatas section in config file.");
             }
-            else if (timingsRequired && r_referenceTimingsWithMetadata == null)
+            else if (timingsRequired && this.ReferenceTimingsWithMetadata == null)
             {
                 reasons.Insert(0, $"Transcription '{r_timingSource}' is not done yet (for timings).");
             }
@@ -58,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             Language translationLanguage = null)
         {
             return new AIRequestGenerator(
-                r_referenceTimingsWithMetadata,
+                this.ReferenceTimingsWithMetadata,
                 workingOnContainer,
                 transcriptionLanguage,
                 translationLanguage,

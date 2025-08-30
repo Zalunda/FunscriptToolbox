@@ -34,7 +34,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_firstUserPrompt = options.FirstUserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
             r_otherUserPrompt = options.OtherUserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
             r_metadataNeededRules = options.MetadataNeeded?.Split(',').Select(f => f.Trim()).ToArray();
-            r_metadataProducedRule = options.MetadataProduced?.Split(',').Select(f => f.Trim()).ToArray();
+            r_metadataProducedRule = options.MetadataAlwaysProduced?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
 
             r_options = options;
@@ -324,7 +324,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 requestNumber,
                 r_workingOnContainer.Id,
                 messages,
-                itemsToDo.Length);
+                itemsToDo.Length,
+                r_options.MetadataAlwaysProduced);
         }
 
         internal bool IsFinished()

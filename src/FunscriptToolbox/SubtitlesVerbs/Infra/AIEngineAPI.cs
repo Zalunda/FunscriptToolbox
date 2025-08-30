@@ -161,7 +161,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"[{request.TaskId}, {request.NbItemsToDoTotal} items left] waiting for 1st token ({DateTime.Now - startTime})...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"sending request...");
@@ -223,6 +223,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             // Stop the timer on first content token
                                             if (waitingTimer != null)
                                             {
+                                                Console.WriteLine();
                                                 waitingTimer?.Dispose();
                                                 waitingTimer = null;
                                             }
@@ -300,7 +301,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             finally
             {
-                // Make sure to dispose the timer if it's still running
                 waitingTimer?.Dispose();
             }
         }

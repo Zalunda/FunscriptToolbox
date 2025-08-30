@@ -2,10 +2,11 @@
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioAI : TranscriberAudio
+    public class TranscriberAudioAI : Transcriber
     {
         public TranscriberAudioAI()
         {
@@ -22,8 +23,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public AIEngine Engine { get; set; }
         [JsonProperty(Order = 31, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 32)]
+        [JsonProperty(Order = 32, Required = Required.Always)]
         public AIOptions Options { get; set; } = new AIOptions();
+
+        protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
+
+        protected override int GetNbEmptyItems(Transcription transcription) => transcription.Items.Count(item => string.IsNullOrWhiteSpace(item.Metadata.Get(this.Options.MetadataAlwaysProduced)));
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -45,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var processStartTime = DateTime.Now;
 
             var requestGenerator = this.Metadatas
-                .Aggregate(context, mergeRules: this.Options?.MergeRules)
+                .Aggregate(context)
                 .CreateRequestGenerator(transcription, this.Options, transcription.Language);
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,

@@ -6,22 +6,26 @@ using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioSingleVAD : TranscriberAudio
+    public class TranscriberAudioSingleVAD : Transcriber
     {
         public TranscriberAudioSingleVAD()
         {
         }
 
 
-        [JsonProperty(Order = 20, Required = Required.Always)]
+        [JsonProperty(Order = 10, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 21)]
+        [JsonProperty(Order = 11, Required = Required.Always)]
+        public string MetadataProduced { get; set; }
+        [JsonProperty(Order = 12)]
         public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
-        [JsonProperty(Order = 22)]
+        [JsonProperty(Order = 13)]
         public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
 
         [JsonProperty(Order = 30)]
-        public TranscriberAudioTool TranscriberTool { get; set; }
+        public TranscriberToolAudio TranscriberTool { get; set; }
+
+        protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -54,7 +58,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                 context,
                 transcription,
-                audios.ToArray());
+                audios.ToArray(),
+                this.MetadataProduced);
 
             transcription.Items.AddRange(transcribedTexts);
             transcription.MarkAsFinished();

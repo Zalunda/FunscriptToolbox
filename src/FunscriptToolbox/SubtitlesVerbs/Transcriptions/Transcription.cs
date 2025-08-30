@@ -15,10 +15,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public Transcription(
             string id,
             Language language,
+            string metadataAlwaysProduced,
             bool isFinished = false,
             IEnumerable<TranscribedItem> items = null, 
             IEnumerable<Cost> costs = null)
-            : base(id, items, costs)
+            : base(id, metadataAlwaysProduced, items, costs)
         {
             Language = language;
             IsFinished = isFinished;
@@ -38,16 +39,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             this.Items.Sort((a, b) => (int)(a.StartTime.TotalMilliseconds - b.StartTime.TotalMilliseconds));
             this.IsFinished = true;
-        }
-
-        public TranscriptionAnalysis<T> GetAnalysis<T>(
-            T[] timings) where T : class, ITiming
-        {
-            return (timings == null)
-                    ? null :
-                    TranscriptionAnalysis<T>.From(
-                        this,
-                        timings);
         }
     }
 }

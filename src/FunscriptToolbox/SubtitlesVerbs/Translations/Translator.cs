@@ -40,6 +40,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return context.CurrentWipsub.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId);
         }
 
+        protected abstract string GetMetadataProduced();
+
         public override void Execute(
             SubtitleGeneratorContext context)
         {
@@ -68,7 +70,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     translation = new Translation(
                         this.TranscriptionId,
                         this.TranslationId,
-                        this.TargetLanguage);
+                        this.TargetLanguage,
+                        this.GetMetadataProduced());
                     context.CurrentWipsub.Translations.Add(translation);
                 }
 

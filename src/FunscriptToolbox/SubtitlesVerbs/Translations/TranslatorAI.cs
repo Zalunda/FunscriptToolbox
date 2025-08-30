@@ -16,8 +16,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public AIEngine Engine { get; set; }
         [JsonProperty(Order = 21)]
         internal MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 22)]
+        [JsonProperty(Order = 22, Required = Required.Always)]
         public AIOptions Options { get; set; }
+
+        protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -46,7 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
             var transcription = GetTranscription(context);
             var requestGenerator = this.Metadatas
-                .Aggregate(context, transcription, this.Options?.MergeRules)
+                .Aggregate(context, transcription)
                 .CreateRequestGenerator(translation, this.Options, transcription.Language, this.TargetLanguage);
             var runner = new AIEngineRunner<TranslatedItem>(
                 context,

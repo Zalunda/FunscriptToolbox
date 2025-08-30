@@ -2,11 +2,12 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public abstract class TranscriberAudioTool
+    public abstract class TranscriberToolAudio
     {
         public abstract TranscribedItem[] TranscribeAudio(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            PcmAudio[] items);
+            PcmAudio[] items,
+            string metadataProduced);
     }
 }

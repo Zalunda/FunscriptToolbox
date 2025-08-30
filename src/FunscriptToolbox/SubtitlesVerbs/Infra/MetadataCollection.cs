@@ -6,9 +6,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class MetadataCollection : Dictionary<string, string>
     {
-        public static MetadataCollection CreateSimple(string key, string name)
+        public static MetadataCollection CreateSimple(string key, string value)
         {
-            return new MetadataCollection() {{key, name}};
+            return new MetadataCollection() {{key, value}};
         }
 
         [JsonConstructor]

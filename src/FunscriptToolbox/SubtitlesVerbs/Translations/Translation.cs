@@ -20,10 +20,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             string transcriptionId,
             string translationId,
             Language language,
+            string metadataAlwaysProduced,
             bool isFinished = false,
             IEnumerable<TranslatedItem> items = null,
             IEnumerable<Cost> costs = null)
-            : base($"{transcriptionId}_{translationId}", items, costs)
+            : base($"{transcriptionId}_{translationId}", metadataAlwaysProduced, items, costs)
         {
             TranscriptionId = transcriptionId;
             TranslationId = translationId;
