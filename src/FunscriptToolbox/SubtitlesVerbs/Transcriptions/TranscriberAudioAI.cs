@@ -8,10 +8,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAudioAI : Transcriber
     {
-        public TranscriberAudioAI()
-        {
-        }
-
         [JsonProperty(Order = 20)]
         public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
         [JsonProperty(Order = 21)]

@@ -7,11 +7,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberImageAI : Transcriber
     {
-        public TranscriberImageAI()
-        {
-        }
-
-
         [JsonProperty(Order = 21)]
         internal string FfmpegFilter { get; set; }
         [JsonProperty(Order = 22)]

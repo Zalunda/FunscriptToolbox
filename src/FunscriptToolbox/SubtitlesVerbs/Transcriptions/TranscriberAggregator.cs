@@ -12,10 +12,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     // into aggregation lines, exposing them as a normal Transcription.
     public class TranscriberAggregator : Transcriber
     {
-        public TranscriberAggregator()
-        {
-        }
-
         [JsonProperty(Order = 20, Required = Required.Always)]
         public MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 21, Required = Required.Always)]

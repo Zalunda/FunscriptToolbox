@@ -8,11 +8,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAudioSingleVAD : Transcriber
     {
-        public TranscriberAudioSingleVAD()
-        {
-        }
-
-
         [JsonProperty(Order = 10, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]

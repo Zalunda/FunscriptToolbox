@@ -4,10 +4,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAudioFull : Transcriber
     {
-        public TranscriberAudioFull()
-        {
-        }
-
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 

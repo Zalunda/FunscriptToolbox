@@ -11,10 +11,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAudioMergedVAD : Transcriber
     {
-        public TranscriberAudioMergedVAD()
-        {
-        }
-
         [JsonProperty(Order = 20, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 21, Required = Required.Always)]

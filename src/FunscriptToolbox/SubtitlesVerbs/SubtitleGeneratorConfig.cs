@@ -566,6 +566,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataForTraining = "SpeakerTraining",
                         }
                     },
+                    new TranscriberInteractifSetSpeaker()
+                    {
+                        TranscriptionId = "validated-speakers",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "perfectvad", "singlevad" },
+                        },
+                        MetadataNeeded = "VoiceText",
+                        MetadataProduced = "FinalSpeaker",
+                        MetadataPotentialSpeakers = "OngoingSpeakers",
+                        MetadataDetectedSpeaker = "Speaker-A"
+                    },
                     new TranslatorAI()
                     {
                         TranscriptionId = "singlevad",

@@ -209,6 +209,7 @@
     <Compile Include="SubtitlesVerbs\Infra\TimingOverlap.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImageAI.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberInteractifSetSpeaker.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudioExternal.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberPerfectVAD.cs" />
