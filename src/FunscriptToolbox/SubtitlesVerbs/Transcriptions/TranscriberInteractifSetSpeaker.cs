@@ -4,6 +4,7 @@ using FunscriptToolbox.UI.SpeakerCorrection;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -78,6 +79,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.CurrentWipsub.Save();
             }
 
+            // TODO Low priority, allows to save the left, right, center in the output (i.e. the key we used while doing it, if we always set those key relative to the position of characters)
+
+            var nbItemsToDoBefore = itemsToDo.Length;
+            var watch = Stopwatch.StartNew();
             Test.SpeakerCorrection(
                 Path.GetFullPath(context.CurrentWipsub.OriginalVideoPath),
                 CreateWorkItem(
@@ -85,12 +90,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     itemsToDo),
                 UpdateAndSave,
                 Undo);
+            watch.Stop();
+
+            var (_, itemsToDoAfter, _, _) = requestGenerator.AnalyzeItemsState();
+            transcription.Costs.Add(
+                new Cost(
+                    "InteractifSetSpeaker",
+                    watch.Elapsed,
+                    nbItemsToDoBefore - itemsToDoAfter.Length));
 
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
-                context.CurrentWipsub.Save();
             }
+            context.CurrentWipsub.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

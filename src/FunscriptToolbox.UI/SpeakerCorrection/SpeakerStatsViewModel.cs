@@ -7,10 +7,39 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
     public class SpeakerStatsViewModel : INotifyPropertyChanged
     {
         private Key? _assignedKey;
+        private int _finalizedCount;
+        private int _totalCount;
 
         public string DisplayName { get; set; }
-        public int TotalCount { get; set; }
-        public int FinalizedCount { get; set; }
+
+        // This flag will prevent the speaker from being auto-removed if its count is zero.
+        public bool IsManuallyAdded { get; set; }
+
+        public int TotalCount
+        {
+            get => _totalCount;
+            set
+            {
+                if (_totalCount != value)
+                {
+                    _totalCount = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public int FinalizedCount
+        {
+            get => _finalizedCount;
+            set
+            {
+                if (_finalizedCount != value)
+                {
+                    _finalizedCount = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public Key? AssignedKey
         {
@@ -20,8 +49,8 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 if (_assignedKey != value)
                 {
                     _assignedKey = value;
-                    OnPropertyChanged(); // Notifies the UI that AssignedKey has changed
-                    OnPropertyChanged(nameof(AssignedKeyDisplay)); // Notifies the UI that the display text has also changed
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(AssignedKeyDisplay));
                 }
             }
         }
@@ -31,33 +60,45 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         {
             get
             {
+                // ... No changes in this property ...
                 if (!AssignedKey.HasValue)
                 {
-                    return "[ ]"; // Display empty brackets if no key is assigned
+                    return "[ ]";
                 }
 
-                // --- MODIFIED: Replaced C# 8.0 switch expression with a C# 7.3 compatible switch statement ---
-                switch (AssignedKey.Value)
+                Key key = AssignedKey.Value;
+
+                if (key >= Key.D0 && key <= Key.D9)
                 {
-                    case Key.D1:
-                        return "1";
-                    case Key.D2:
-                        return "2";
-                    case Key.D3:
-                        return "3";
-                    case Key.D4:
-                        return "4";
-                    case Key.D5:
-                        return "5";
+                    return key.ToString().Substring(1);
+                }
+
+                if (key >= Key.NumPad0 && key <= Key.NumPad9)
+                {
+                    return "Num" + key.ToString().Substring(6);
+                }
+
+                switch (key)
+                {
                     case Key.Left:
                         return "←";
                     case Key.Right:
                         return "→";
                     case Key.Up:
                         return "↑";
-                    default:
-                        return AssignedKey.Value.ToString(); // Fallback for other keys
+                    case Key.Down:
+                        return "↓";
+                    case Key.OemMinus:
+                        return "-";
+                    case Key.OemPlus:
+                        return "=";
+                    case Key.Subtract:
+                        return "Num-";
+                    case Key.Add:
+                        return "Num+";
                 }
+
+                return key.ToString();
             }
         }
 

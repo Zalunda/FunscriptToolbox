@@ -17,11 +17,6 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         // --- New Fields for Key Assignment ---
         private bool _isWaitingForKeyAssignment = false;
         private SpeakerStatsViewModel _speakerToAssignKey = null;
-        private readonly List<Key> _allowedKeys = new List<Key>
-        {
-            Key.Left, Key.Up, Key.Right,
-            Key.D1, Key.D2, Key.D3, Key.D4, Key.D5
-        };
 
         private class UndoState
         {
@@ -172,7 +167,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             {
                 _isWaitingForKeyAssignment = true;
                 _speakerToAssignKey = speaker;
-                StatusText.Text = $"Press an allowed key to assign to '{speaker.DisplayName}' (Left, Up, Right, 1-5). Press Esc to cancel.";
+                StatusText.Text = $"Press any key to assign to '{speaker.DisplayName}'. Press Esc to cancel.";
             }
         }
 
@@ -187,19 +182,12 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 return;
             }
 
-            // Check if the key is allowed
-            if (!_allowedKeys.Contains(key))
-            {
-                StatusText.Text = $"'{key}' is not an allowed key. Use Left, Up, Right, or 1-5.";
-                return;
-            }
-
-            // Check if another speaker already has this key
+            // Check if another speaker already has this key and remove it
             var existingSpeaker = SpeakerStats.FirstOrDefault(s => s.AssignedKey.HasValue && s.AssignedKey.Value == key);
             if (existingSpeaker != null && existingSpeaker != _speakerToAssignKey)
             {
-                MessageBox.Show($"Key '{key}' is already assigned to '{existingSpeaker.DisplayName}'.", "Key Already Assigned");
-                return;
+                // This key is taken; remove the old assignment.
+                existingSpeaker.AssignedKey = null;
             }
 
             // Un-assign if the user presses the same key again
@@ -293,14 +281,14 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             {
                 VideoPlayer.Pause();
                 _loopTimer.Stop();
-                PauseButton.Content = "▶ Play (P)";
+                PauseButton.Content = "▶ Play (Space)";
             }
             else
             {
                 VideoPlayer.Position = CurrentItem.StartTime - _extendSegmentDuration;
                 VideoPlayer.Play();
                 _loopTimer.Start();
-                PauseButton.Content = "❚❚ Pause (P)";
+                PauseButton.Content = "❚❚ Pause (Space)";
             }
         }
 
@@ -313,8 +301,11 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 return;
             }
 
+            // Reset the player's state before playing.
+            VideoPlayer.Stop();
+            
             _isPaused = false;
-            PauseButton.Content = "❚❚ Pause (P)";
+            PauseButton.Content = "❚❚ Pause (Space)";
 
             VideoPlayer.Position = CurrentItem.StartTime - _extendSegmentDuration;
             VideoPlayer.Play();
@@ -335,38 +326,44 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         #region Data Loading and Preparation
         private void RefreshSpeakerLists()
         {
+            // Discover names from FinalSpeaker as well
             var allNames = this.WorkItems.Select(item => item.DetectedSpeaker)
+                .Concat(this.WorkItems.Select(item => item.FinalSpeaker))
                 .Concat(this.WorkItems.SelectMany(item => item.PotentialSpeakers))
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct();
 
             var allKnownNames = allNames.Union(SpeakerStats.Select(s => s.DisplayName)).Distinct().ToList();
 
-            // Remove speakers that no longer exist
-            var speakersToRemove = SpeakerStats.Where(s => !allKnownNames.Contains(s.DisplayName) && s.TotalCount == 0).ToList();
-            foreach (var speaker in speakersToRemove)
-            {
-                SpeakerStats.Remove(speaker);
-            }
-
             // Add new speakers or update existing ones
             foreach (var name in allKnownNames.OrderBy(n => n))
             {
+                int currentTotal = this.WorkItems.Count(item => (item.FinalSpeaker ?? item.DetectedSpeaker) == name);
+                int currentFinalized = this.WorkItems.Count(item => item.FinalSpeaker == name);
+
                 var existingStat = SpeakerStats.FirstOrDefault(s => s.DisplayName == name);
                 if (existingStat != null)
                 {
-                    existingStat.TotalCount = this.WorkItems.Count(item => item.DetectedSpeaker == name || item.PotentialSpeakers.Contains(name));
-                    existingStat.FinalizedCount = this.WorkItems.Count(item => item.FinalSpeaker == name);
+                    existingStat.TotalCount = currentTotal;
+                    existingStat.FinalizedCount = currentFinalized;
                 }
                 else
                 {
                     SpeakerStats.Add(new SpeakerStatsViewModel
                     {
                         DisplayName = name,
-                        TotalCount = this.WorkItems.Count(item => item.DetectedSpeaker == name || item.PotentialSpeakers.Contains(name)),
-                        FinalizedCount = this.WorkItems.Count(item => item.FinalSpeaker == name)
+                        TotalCount = currentTotal,
+                        FinalizedCount = currentFinalized,
+                        IsManuallyAdded = false
                     });
                 }
+            }
+
+            // After all counts are updated, find any speakers that are empty AND were not manually added.
+            var speakersToRemove = SpeakerStats.Where(s => s.TotalCount == 0 && !s.IsManuallyAdded).ToList();
+            foreach (var speaker in speakersToRemove)
+            {
+                SpeakerStats.Remove(speaker);
             }
         }
         #endregion
@@ -385,7 +382,15 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 MessageBox.Show($"A speaker named '{newName}' already exists.", "Duplicate Name");
                 return;
             }
-            SpeakerStats.Add(new SpeakerStatsViewModel { DisplayName = newName, TotalCount = 0, FinalizedCount = 0 });
+
+            SpeakerStats.Add(new SpeakerStatsViewModel
+            {
+                DisplayName = newName,
+                TotalCount = 0,
+                FinalizedCount = 0,
+                IsManuallyAdded = true
+            });
+
             AddSpeakerTextBox.Clear();
             StatusText.Text = $"Added new speaker: '{newName}'.";
         }
@@ -486,18 +491,20 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         #endregion
 
         #region Validation Workflow
-        private void StartValidationButton_Click(object sender, RoutedEventArgs e)
+
+        private void ValidateSpeakerButton_Click(object sender, RoutedEventArgs e)
         {
-            if (SpeakersAndGroupsList.SelectedItem is SpeakerStatsViewModel selectedGroup)
+            if (sender is Button button && button.Tag is SpeakerStatsViewModel selectedSpeaker)
             {
                 _validationQueue = this.WorkItems
-                    .Where(item => (item.DetectedSpeaker == selectedGroup.DisplayName)
+                    .Where(item => (item.DetectedSpeaker == selectedSpeaker.DisplayName)
                                    && string.IsNullOrEmpty(item.FinalSpeaker))
+                    .OrderBy(item => item.StartTime)
                     .ToList();
 
                 if (_validationQueue.Count == 0)
                 {
-                    MessageBox.Show($"There are no unvalidated items for '{selectedGroup.DisplayName}'.", "Validation Complete");
+                    MessageBox.Show($"There are no unvalidated items for '{selectedSpeaker.DisplayName}'.", "Validation Complete");
                     return;
                 }
 
@@ -506,12 +513,29 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 ValidationProgress.Maximum = _validationQueue.Count;
 
                 MoveNext();
-                StatusText.Text = $"Validation started for group: {selectedGroup.DisplayName}";
+                StatusText.Text = $"Validation started for speaker: {selectedSpeaker.DisplayName}";
             }
-            else
+        }
+
+        private void StartAllValidationButton_Click(object sender, RoutedEventArgs e)
+        {
+            _validationQueue = this.WorkItems
+                .Where(item => string.IsNullOrEmpty(item.FinalSpeaker))
+                .OrderBy(item => item.StartTime)
+                .ToList();
+
+            if (_validationQueue.Count == 0)
             {
-                MessageBox.Show("Please select a speaker from the list to start validation.", "No Speaker Selected");
+                MessageBox.Show("There are no unvalidated items remaining.", "Validation Complete");
+                return;
             }
+
+            _currentItemIndex = -1;
+            ValidationProgress.Value = 0;
+            ValidationProgress.Maximum = _validationQueue.Count;
+
+            MoveNext();
+            StatusText.Text = "Validation started for all unvalidated items.";
         }
 
         private void MoveNext()
@@ -526,6 +550,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             else
             {
                 CurrentItem = null;
+                VideoPlayer.Stop();
                 StatusText.Text = "Validation for this group is complete!";
                 MessageBox.Show("You have completed the validation for this group.", "Validation Complete");
             }
