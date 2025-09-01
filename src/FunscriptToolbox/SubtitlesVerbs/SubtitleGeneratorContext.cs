@@ -112,7 +112,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     suffixe)
                 : Path.Combine(
                         this.CurrentBackupFolder,
-                        processStartTime.Value.ToString("yyyyMMddHHmmss") + "-" + suffixe);
+                        processStartTime.Value.ToString("yyyyMMddHHmmss") + "_" + suffixe);
         }
 
         internal void CreateVerboseTextFile(string suffixe, string content, DateTime? processStartTime = null)

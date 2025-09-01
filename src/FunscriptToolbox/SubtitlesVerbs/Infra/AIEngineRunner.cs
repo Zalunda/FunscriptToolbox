@@ -29,10 +29,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public void Run(
-            AIRequestGenerator workAnalyzer, 
+            AIRequestGenerator requestsGenerator, 
             CachedBinaryGenerator binaryGenerator = null)
         {
-            var nbErrors = HandlePreviousFiles(workAnalyzer);
+            var nbErrors = HandlePreviousFiles(requestsGenerator);
             if (nbErrors == 0)
             {
                 try
@@ -42,14 +42,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     int requestNumber = 1;
                     do
                     {
-                        request = workAnalyzer.CreateNextRequest(r_context, requestNumber++, lastRequestExecuted, binaryGenerator);
+                        request = requestsGenerator.CreateNextRequest(r_context, requestNumber++, lastRequestExecuted, binaryGenerator);
                         if (request != null)
                         {
                             var watch = Stopwatch.StartNew();
                             var response = r_engine.Execute(r_context, request);
                             watch.Stop();
 
-                            var itemsAdded = ParseAssistantMessageAndAddItems(workAnalyzer.GetTimings(), response.AssistantMessage, request);
+                            var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request);
                             if (response.DraftOfCost != null)
                             {
                                 r_workingOnContainer.Costs.Add(new Cost(
@@ -99,7 +99,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
-        public int HandlePreviousFiles(AIRequestGenerator workAnalyzer)
+        public int HandlePreviousFiles(AIRequestGenerator requestsGenerator)
         {
             var nbErrors = 0;
             var patternSuffix = "_\\d+\\.txt";
@@ -120,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     try
                     {
                         r_context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var nbAdded = ParseAssistantMessageAndAddItems(workAnalyzer.GetTimings(), response);
+                        var nbAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response, requestsGenerator.CreateEmptyRequest());
                         r_context.WriteInfo($"        Finished:");
                         r_context.WriteInfo($"            Nb items added: {nbAdded.Count}");
                         if (nbAdded.Count > 0)
@@ -140,21 +140,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             return nbErrors;
         }
-
         private List<T> ParseAssistantMessageAndAddItems(
             ITiming[] timings,
             string responseReceived,
-            AIRequest request = null)
+            AIRequest request)
         {
+            string fixedJson = null;
             try
             {
-                dynamic responseArray = ParseAndFixJson(request, responseReceived);
+                // Step 1: Get the cleaned-up JSON string from your fixing logic.
+                fixedJson = TryToFixReceivedJson(request, responseReceived);
+
+                // Step 2: Parse the cleaned string using a reader to preserve line info.
+                JArray responseArray;
+                using (var stringReader = new StringReader(fixedJson))
+                using (var jsonReader = new JsonTextReader(stringReader))
+                {
+                    // This will throw a detailed exception if the fixedJson is still invalid.
+                    responseArray = JArray.Load(jsonReader);
+                }
+
+                string GetSegmentInformation(JToken segment)
+                {
+                    var lineInfo = (IJsonLineInfo)segment;
+                    return (lineInfo != null && lineInfo.HasLineInfo())
+                        ? $"Error is segment starting at line {lineInfo.LineNumber}, position {lineInfo.LinePosition}."
+                        : $"Error is segment at unknown location.";
+                }
 
                 var itemsAdded = new List<T>();
                 foreach (var segment in responseArray)
                 {
-                    var segmentAsString = JsonConvert.ToString(segment);
-
                     var seg = (JObject)segment;
 
                     // Extract and remove known fields
@@ -168,7 +184,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         var startTimeItem = timings.FirstOrDefault(i => i.StartTime == startTime);
                         if (startTimeItem == null)
-                            throw new Exception($"EndTime not received in:\n{segmentAsString}.");
+                        {
+                            // Step 3: Use the location info in your exceptions.
+                            throw new Exception($"EndTime not received. {GetSegmentInformation(segment)}");
+                        }
                         endTime = startTimeItem.EndTime;
                     }
                     seg.Remove("StartTime");
@@ -184,7 +203,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     if (!extraMetadatas.ContainsKey(request.MetadataAlwaysProduced))
                     {
-                        throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present in: {segmentAsString}");
+                        throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present. {GetSegmentInformation(segment)}");
                     }
 
                     var tt = r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas);
@@ -192,90 +211,81 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
                 return itemsAdded;
             }
-            catch (AIRequestException)
-            {
-                throw;
-            }
             catch (Exception ex)
             {
-                throw new AIRequestException(ex, request, ex.Message);
+                // For any other exception, wrap it with the context of the fixed JSON.
+                // This is crucial for debugging parsing failures.
+                throw new AIRequestException(ex, request, ex.Message, fixedJson ?? responseReceived);
             }
         }
 
-        private static dynamic ParseAndFixJson(AIRequest request, string json, bool aggressiveFix = false)
+        private static string TryToFixReceivedJson(AIRequest request, string json, bool aggressiveFix = false)
         {
-            try
+            // Remove thinking text
+            json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
+            json = Regex.Replace(json, @"^\s*>.*$", string.Empty, RegexOptions.Multiline);
+
+            var indexOfFirstBracket = json.IndexOf('[');
+            if (indexOfFirstBracket >= 0)
             {
-                // Remove thinking text
-                json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
-                json = Regex.Replace(json, @"^\s*>.*$", string.Empty, RegexOptions.Multiline);
+                json = json.Substring(indexOfFirstBracket);
+            }
 
-                var indexOfFirstBracket = json.IndexOf('[');
-                if (indexOfFirstBracket >= 0)
+            var indexOfLastBracket = json.LastIndexOf(']');
+            if (indexOfLastBracket < 0)
+            {
+                // Try to find and remove partial json object
+                var bracesCounter = 0;
+                var lastIndex = 0;
+                for (var index = 0; index < json.Length; index++)
                 {
-                    json = json.Substring(indexOfFirstBracket);
-                }
-
-                var indexOfLastBracket = json.LastIndexOf(']');
-                if (indexOfLastBracket < 0)
-                {
-                    // Try to find and remove partial json object
-                    var bracesCounter = 0;
-                    var lastIndex = 0;
-                    for (var index = 0; index < json.Length; index++)
+                    // Make string 'disappear' so that { or } inside the string don't messup bracesCounter
+                    if (json[index] == '"')
                     {
-                        // Make string 'disappear' so that { or } inside the string don't messup bracesCounter
-                        if (json[index] == '"')
+                        index++;
+                        while (index < json.Length && json[index] != '"')
                         {
-                            index++;
-                            while (index < json.Length && json[index] != '"')
+                            if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
                             {
-                                if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
-                                {
-                                    index += 2;
-                                }
-                                else
-                                {
-                                    index++;
-                                }
+                                index += 2;
                             }
-                            index++; // skip closing "
+                            else
+                            {
+                                index++;
+                            }
                         }
-                        else
+                        index++; // skip closing "
+                    }
+                    else
+                    {
+                        var c = json[index];
+                        var diff = (c == '{')
+                            ? 1
+                            : (c == '}')
+                            ? -1
+                            : 0;
+                        bracesCounter += diff;
+                        if (diff != 0 && bracesCounter == 0)
                         {
-                            var c = json[index];
-                            var diff = (c == '{')
-                                ? 1
-                                : (c == '}')
-                                ? -1
-                                : 0;
-                            bracesCounter += diff;
-                            if (diff != 0 && bracesCounter == 0)
-                            {
-                                lastIndex = index + 1;
-                            }
+                            lastIndex = index + 1;
                         }
                     }
-
-                    json = json.Substring(0, lastIndex);
-                    json += "]";
-                }
-                else
-                {
-                    json = json.Substring(0, indexOfLastBracket + 1);
                 }
 
-                // Add ',' between fields
-                json = Regex.Replace(json, @"(""([^""]*)"": ""[^""]*""(?!\s*,))", "$1,");
-                // Add ',' between braces
-                json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
-
-                return JsonConvert.DeserializeObject<dynamic>(json);
+                json = json.Substring(0, lastIndex);
+                json += "]";
             }
-            catch (Exception ex)
+            else
             {
-                throw new AIRequestException(ex, request, ex.Message, json);
+                json = json.Substring(0, indexOfLastBracket + 1);
             }
+
+            // Add ',' between fields
+            json = Regex.Replace(json, @"(""([^""]*)"": ""[^""]*""(?!\s*,))", "$1,");
+            // Add ',' between braces
+            json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
+
+            return json;
         }
     }
 }

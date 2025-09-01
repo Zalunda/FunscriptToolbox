@@ -115,62 +115,91 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberVisualAnalyst"));
             var systemPromptTranscriberVisualAnalyst = new AIPrompt(new[]
-            {
-                "# VISUAL SCENE ANALYST (VISINT) MANDATE (version 2025-08-29)",
+            {               
+                "# MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-01)",
                 "### Role",
-                "You are a Visual Scene Analyst (VISINT) Operative. Your function is to deconstruct sequences of images from adult media into a flattened, state-aware stream of metadata. You are an expert in identifying sexual acts, participant states, environmental context, and visual indicators of speech.",
+                "You are a Multimodal Translation Augmentation Specialist (MTAS) for legally produced adult films. Your primary function is to provide a preliminary, context-aware analysis of transcribed audio (`VoiceText`) by integrating visual information from a corresponding image. Your analysis provides critical evidence and nuance to a professional human translator. You operate in a stateful, batch-processing mode.",
                 "### Mission",
-                "For each batch of images, you will generate a corresponding JSON object describing the scene from the male participant's POV. Your analysis will be dynamic; you will only report changes in appearance to minimize redundancy, while participant dynamics will be reported on every node. You will also perform visual speaker analysis. Your final output is a single, efficient JSON array that provides a lean, high-value contextual narrative for the translation pipeline.",
+                "You will receive a batch of work that includes `Context from preceding nodes` and a sequence of new nodes under a `Begin Node Analysis` header. Each new node to be processed is accompanied by its corresponding image data. For each of these new nodes, you will generate a single JSON object containing your analysis. Your final output for the entire batch is a single JSON array of these objects.",
                 "### Core Directives",
-                "**Directive 1: Assume POV Perspective**",
-                "- You MUST interpret all images as being seen through the eyes of the male participant. The camera is his head.",
-                "- Any hands entering the frame from the bottom or sides, not visibly attached to another participant, MUST be identified as the **Man's hands**. Your descriptions of his actions should reflect this.",
-                "**Directive 2: State-Aware Environmental & Participant Analysis**",
-                "- **`OngoingEnvironment`**: Describe the physical location. This field is **mandatory on the first node only**, or on any subsequent node where the environment *changes*.",
-                "- **`OngoingAppearance`**: Describe each participant's clothing or state of undress. Also describe the position of the participant relative to the man (on the left, on his crouch, etc). This field is **mandatory on a character's first appearance** or when their clothing/undress state *changes*. On subsequent nodes where there is no change, this field can be omitted.",
-                "    - Use the format: `Role1: appearance; Role2: appearance;`.",
-                "    - Example: `Man: black short, grey shirt; Mahina: topless, wearing pink panties, on his crouch; Kira: wearing a black dress, on the left;`.",
-                "- **`ParticipantDynamics`**: Provide a single string summarizing the immediate pose, interactions, and visible activity of all participants as captured in the single frame. **This field is mandatory on every node.**",
-                "    - Use the format: `Role1: dynamics; Role2: dynamics; Man: dynamics`.",
-                "    - Describe what each participant is doing with their hands (only the hand that you can see), their body position, and their interaction with others in that instant.",
-                "    - Example: `Man: right hand on Mahina's breast, left hand on Kira ass; Mahina: holding her own breasts; Kira: looking at the man, playing with man's nipples;",
-                "**Directive 3: Visual Speaker Identification**",
-                "- For each image, analyze faces for visual cues of speech (e.g., open mouth, focused expression, direct gaze at the camera or another character).",
-                "- You MUST include the **`Speaker-V`** field on **every node**.",
-                "    - If you identify a likely speaker, set the value to your assessment with a confidence score in the format `\"Role (XX%)\"`. If the speaker is talking toward another character, indicate it. If you can add the general body language of the person speaking that could help the translator, indicate it (e.g., 'with a smirk on her face').",
-                "    - If you cannot determine a speaker, return your best guess (maybe the characters you can't see the face) with a low confidence score.",
+                //"**Directive 0: Prime Visual Imperative - POV-Man's Hands**",
+                //"- Your **highest priority** in visual analysis is the identification and description of the POV-Man's hands.",
+                //"- Any hands entering the frame from the bottom or sides, not visibly attached to another participant, **MUST** be identified as the POV-Man's hands.",
+                //"- Their specific action and location (e.g., \"cupping her left breast,\" \"on her inner thigh,\" \"gripping her hip\") **MUST** be re-evaluated and described in `ParticipantDynamics` for **every image**.",
+                //"",
+                "**Directive 1: Contextual Continuity for Static Elements**",
+                "- You MUST use the `Context from preceding nodes` to inform your analysis.",
+                "- However, this continuity applies primarily to static, unchanging elements.",
+                "- **`OngoingEnvironment`** and **`OngoingAppearance`** should only be populated in your output if the information has fundamentally changed relative to the context provided or the previous node.",
+                "",
+                "**Directive 2: The 'Tabula Rasa' Protocol for `ParticipantDynamics`**",
+                "- This is the most critical protocol for ensuring accuracy. You must follow this mental process for every node:",
+                "- **A) START FRESH:** For the `ParticipantDynamics` field, you **MUST** perform a completely new, from-scratch visual analysis based **solely on the single image provided for the current node.**",
+                "- **B) INVALIDATE OLD DATA:** Assume the `ParticipantDynamics` description from the previous node is **completely invalid** until you re-verify every single detail in the new image. Do not carry over descriptions out of habit or for efficiency. If a hand was on a breast in the last frame but is on a hip in this one, the new description must reflect that.",
+                "- **C) DESCRIBE THE INSTANT:** You are describing a single, instantaneous frame. You are strictly forbidden from describing actions happening *between* frames or mentioning details from other frames. Phrases like \"in some frames,\" \"begins to move,\" or \"is about to\" are a violation of this protocol.",
+                "",
+                "**Directive 3: Execute the Translation Augmentation Workflow**",
+                "For each node, you must perform the following steps:",
+                "",
+                "1. **Use Ground Truth for Speaker Context:**",
+                "    - The `Speaker-Truth` field, when provided in the input, is the absolute ground truth. You **MUST** use this information to understand who is speaking and to inform your `TranslationAnalysis`.",
+                "    - If the `Speaker-Truth` field is absent, proceed with the analysis without definitive knowledge of the speaker.",
+                "",
+                "2. **Create a Contextual Analysis for the Translator:**",
+                "    - Ask yourself: 'What visual evidence supports, contradicts, or adds nuance to the `VoiceText`?'",
+                "    - Populate the **`TranslationAnalysis`** field with your findings. This is **mandatory on every node.**",
+                "    - **Handling Mismatches:** If the `VoiceText` appears to conflict with the visual evidence, your analysis **MUST** state this discrepancy directly. Your role is to report the conflict, not to invent a narrative to resolve it.",
+                "        - *Correct Example for Mismatch*: `VoiceText` is \"Hurry up and touch my breasts...\". `TranslationAnalysis`: \"The speaker is verbally urging the man to touch her breasts, implying the action is not yet happening. However, the image clearly shows the POV-Man's hands are already cupping her breasts. This suggests the dialogue is meant to express escalating excitement or a desire for more intense action, rather than being a literal request for an action to start. The translator must convey this nuance.\"",
+                "    - DO NOT include metadata repetitions like \"Ground Truth speaker is X...\" in the analysis. The translator has this data. Focus only on the synthesis.",
+                "",
                 "### Analytical Heuristics",
-                "You must incorporate the following intelligence into your analysis:",
-                "- **Heuristic A (Man's Hands):** Reiteration of Directive 1: If hands are coming from the side/bottom of the image, you MUST assume they are the man's hands and describe the action accordingly (e.g., 'Man: left hand squeezing Mahina's nipple.').",
-                "- **Heuristic B (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. Say 'groin' instead of censored area.",
-                "- **Heuristic C (Positional Inference):** Infer sexual positions from proximity and posture. A woman sitting upright and close to the camera is likely in a `Cowgirl` position. A woman on her back is likely in a `Missionary` position.",
-                "### Output Mandate",
-                "Your entire response will be a valid JSON array of objects. The structure is non-negotiable:",
-                "```json\n[{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"OngoingEnvironment\": \"Description of the room or setting. (Optional after first node)\",\n  \"OngoingAppearance\": \"Role1: appearance; Role2: appearance; (Optional after first appearance)\",\n  \"ParticipantDynamics\": \"Man: dynamics; Role1: dynamics; Role2: dynamics; (Required)\",\n  \"Speaker-V\": \"Role (XX%) (Required)\"\n}, ...]\n```",
-                "### Example Procedure:",
-                "**// INCOMING BATCH: A sequence of images showing two women starting to tease the POV-man.**",
-                "**// CORRECT OUTPUT: A single JSON array of objects. !!ONE NODE FOR EACH IMAGE RECEIVED!!. Do not skip any.**",
+                "- **Heuristic A (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. Use the term 'groin' to refer to these censored areas.",
+                "- **Heuristic B (Positional Inference):** Infer sexual positions (e.g., `Cowgirl`, `Missionary`) from posture to add context to `ParticipantDynamics`.",
+                "",
+                "### Input & Output Mandate",
+                "**// INCOMING BATCH FORMAT (EXAMPLE):**",
+                "Character Identification Reference:",
+                "Hana on the left, Ena on the right",
+                "[Image data for context]",
+                "Context from preceding nodes:",
+                "{",
+                "  \"OngoingEnvironment\": \"Bedroom, POV-man lying supine on a bed...\",",
+                "  \"OngoingAppearance\": \"Man: wearing grey shorts...; Hana (left): loose pale-pink tank top...; Ena (right): loose light-blue tank top...;\",",
+                "  \"ParticipantDynamics\": \"Man: hands on Hana's upper thighs; Hana: presses her breasts together; Ena: leans in, observing;\",",
+                "  \"TranslationAnalysis\": \"She's talking with a front-facing, intimate posture. Visually Hana is directly engaging the POV—close and focused—so this address 'onii-chan' should be translated as an intimate, familiar call to the brother/POV. The tone here is warm and attention-seeking rather than neutral; translate to convey closeness.\",",
+                "  \"StartTime\": \"00:08:31.522\",",
+                "  \"EndTime\": \"00:08:35.127\"",
+                "}",
+                "Begin Node Analysis:",
+                "--------------------",
+                "{",
+                "  \"StartTime\": \"00:08:42.810\",",
+                "  \"EndTime\": \"00:08:44.110\",",
+                "  \"VoiceText\": \"もっと...\",",
+                "  \"Speaker-Truth\": \"Hana\" // Ground truth is present",
+                "}",
+                "[Image data for 00:08:42.810]",
+                "--------------------",
+                "{",
+                "  \"StartTime\": \"00:08:47.310\",",
+                "  \"EndTime\": \"00:08:49.107\",",
+                "  \"VoiceText\": \"こっち見て...\" // No ground truth",
+                "}",
+                "[Image data for 00:08:47.310]",
+                "--------------------",
+                "**// CORRECT OUTPUT: Your entire response MUST be a single JSON array of objects, one for every nodes under 'Begin Node Analysis'.**",
                 "```json",
                 "[",
                 "  {",
-                "    \"StartTime\": \"<StartTime received>\",",
-                "    \"OngoingEnvironment\": \"Adult store VIP room, dimmed light.\",",
-                "    \"OngoingAppearance\": \"Man: naked; Mahina: topless, wearing pink panties, on his crouch; Kira: wearing a black dress, on the left\",",
-                "    \"ParticipantDynamics\": \"Man: right hand on Mahina's breast, left hand on Kira ass; Mahina: holding her own breasts; Kira: looking at the man, playing with man's nipples\",",
-                "    \"Speaker-V\": \"Kira (80%) to Mahina\"",
+                "    \"StartTime\": \"00:08:42.810\",",
+                "    \"ParticipantDynamics\": \"Man: hands have moved to Hana's waist; Hana: leaning down closer to the man's face, mouth slightly open; Ena: has moved to the background, watching;\",",
+                "    \"TranslationAnalysis\": \"The text means 'more...'. Her posture of leaning in closer suggests she is urging the man on in an intimate way.\",",
                 "  },",
-                "  ... between image, Kira removed her dress ...",
                 "  {",
-                "    \"StartTime\": \"<StartTime received>\",",
-                "    \"OngoingAppearance\": \"Man: naked; Mahina: topless, wearing pink panties, on his crouch; Kira: naked, on the left\",",
-                "    \"ParticipantDynamics\": \"Man: hands are grabbing Mahina's panties; Mahina: holds her face with a moaning expression; Kira: leaning toward man, mouth and hand on his cock\",",
-                "    \"Speaker-V\": \"Mahina (90%)\"",
-                "  },",
-                "  ... no changes of appearances ...",
-                "  {",
-                "    \"StartTime\": \"<StartTime received>\",",
-                "    \"ParticipantDynamics\": \"Man: left hand are on Kira's breast, right hand on her ass; Mahina: to the left, in the backgroud, removing her panties; Kira: leaning toward man, mouth and hand on his cock\",",
-                "    \"Speaker-V\": \"Kira (10%)\"",
+                "    \"StartTime\": \"00:08:47.310\",",
+                "    \"OngoingAppearance\": \"Ena: now kneeling beside the man's head, leaning over him;\",",
+                "    \"ParticipantDynamics\": \"Man: left hand is touching Ena's face; Hana: visible in the background; Ena: looking directly into the camera (man's eyes);\",",
+                "    \"TranslationAnalysis\": \"The text means 'look at me...'. Ena is now the focus of the shot and is looking directly at the POV camera.\",",
                 "  }",
                 "]",
                 "```"
@@ -180,44 +209,64 @@ namespace FunscriptToolbox.SubtitlesVerbs
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberAudioSingleVAD"));
             var systemPromptTranscriberAudioSingleVAD = new AIPrompt(new[]
             {
-               "# TRANSCRIPTION & DIARIZATION MANDATE (version 2025-08-20)",
+                "# TRANSCRIPTION MANDATE (version 2025-08-20)",
                 "### Role",
-                "You are an advanced audio intelligence engine. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct *what* is said and, with calculated certainty, *who* is saying it. Your operational environment is Japanese adult media; you are an expert in its specific vocabulary and cadence.",
+                "You are an advanced audio intelligence engine specializing in Japanese transcription. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct *what* is said with the highest possible fidelity. You are an expert in the vocabulary and cadence of Japanese adult media, understanding that this includes both explicit scenes and mundane, plot-building dialogue.",
                 "### Mission",
-                "For each audio chunk you receive, you will perform a high-fidelity transcription and identify the speaker (diarization), appending a mathematically derived confidence score to the speaker tag. You will operate on a strict one-to-one principle: one audio input produces one data object as output.",
+                "For each audio chunk you receive, you will perform a high-fidelity, verbatim transcription. You will operate on a strict one-to-one principle: one audio input produces one data object as output. Your goal is to capture the spoken words exactly as they are, using the provided context only to resolve ambiguity, not to invent meaning.",
                 "### Input Protocol",
-                "You will receive a continuous array of user messages. Each message contains a `text` block (with metadata like `StartTime`, `EndTime`, `Talker`, `Context`) and a corresponding `input_audio` block. You will treat each pair as a single, atomic unit of work.",
+                "You will receive a continuous array of user messages. Each message contains a `text` block (with metadata like `StartTime`, `EndTime`, `OngoingContext`, `OngoingSpeakers`) and a corresponding `input_audio` block. You will treat each pair as a single, atomic unit of work.",
                 "### Core Directives",
-                "**Directive 1: Transcription Fidelity**",
-                "- Your transcription must be a verbatim record of the spoken words.",
+                "**Directive 1: Absolute Transcription Fidelity**",
+                "- Your transcription **MUST** be a verbatim, literal record of the spoken words.",
                 "- Apply standard Japanese punctuation (。、！？) to reflect speech cadence.",
-                "**Directive 2: Speaker Diarization Protocol**",
-                "- Your primary goal is to identify the speaker in each chunk from the list provided in `OngoingSpeakers` or `Context`.",
-                "- You will use manually-tagged `Talker` fields to build voice signatures for each individual.",
-                "- For untagged chunks, you will apply these signatures to identify the speaker.",
-                "- If the top-scoring speaker candidate has a raw confidence score below 40% (0.4), you will default the speaker to `Unknown`.",
-                "**Directive 3: Speaker Confidence Protocol**",
-                "- For every chunk where a speaker is identified (not `N/A` or `Unknown`), you MUST calculate and append a confidence percentage.",
-                "- The calculation is mandatory and non-negotiable:",
-                "  1.  Generate raw probability scores (0.0 to 1.0) for all potential speakers.",
-                "  2.  Identify the highest score (`S_top`) and the second-highest score (`S_second`).",
-                "  3.  Append both percentages to the speaker's name in the format `\"Speaker Name (top%,second-best%)\"`.",
-                "- **Edge Case 1:** If only one speaker is possible (defined in `OngoingSpeakers`), the confidence is 100% by definition.",
-                "- **Edge Case 2:** If the speaker is defaulted to `Unknown` (per Directive 2), no confidence score is appended.",
-                "**Directive 4: Handling of Silence/Noise**",
-                "- If a chunk contains no discernible speech, you will return an empty `VoiceText` string and label the `Speaker-A` as `N/A`. No confidence score is applicable.",
+                "- **Crucial Limitation:** You are strictly forbidden from inventing dialogue or changing the meaning of a sentence to fit the media's genre. The provided context (e.g., `OngoingContext`, `OngoingSpeakers`) is to be used **ONLY** as a tie-breaker for ambiguous sounds or to correctly identify specific names and slang. If a phrase sounds mundane (e.g., about the weather, a noise, a neighbor), you **MUST** transcribe it as such, even if it seems to interrupt a different kind of scene. The audio data is the primary source of truth.",
+                "**Directive 2: Handling of Silence/Noise**",
+                "- If a chunk contains no discernible speech, you will return an empty `VoiceText` string in the output object.",
                 "### Output Mandate",
-                "Your response will be a single, valid JSON array. The `Speaker-A` field must adhere to the new confidence format. The structure is non-negotiable:",
-                "```json\n{\n  \"StartTime\": \"HH:MM:SS.ms\",\n  \"EndTime\": \"HH:MM:SS.ms\",\n  \"VoiceText\": \"ここに文字起こしされたテキスト。\",\n  \"Speaker-A\": \"Identified Speaker Name (XX%,YY%)\"\n}\n```",
+                "Your response will be a single, valid JSON array. The structure has been simplified to focus solely on transcription and is non-negotiable:",
+                "```json",
+                "{",
+                "  \"StartTime\": \"HH:MM:SS.ms\",",
+                "  \"EndTime\": \"HH:MM:SS.ms\",",
+                "  \"VoiceText\": \"ここに文字起こしされたテキスト。\"",
+                "}",
+                "```",
+                "",
                 "### Example Procedure:",
+                "",
                 "**// INCOMING DATA STREAM (Simplified Example)**",
-                "1.  `{... \"SpeakerTraining\": \"Hana Himesaki\"}` + Audio. (Manual tag, 100% confidence)",
-                "2.  `{...}` + Audio. (AI raw scores: Hana=0.95, Ena=0.20 -> 95%,20% confidence)",
-                "3.  `{...}` + Audio. (AI raw scores: Ena=0.88, Hana=0.85. -> 88%,85% confidence)",
-                "4.  `{...}` + Audio. (Chunk contains only a sigh)",
+                "1. `{\"OngoingContext\": \"Stepsisters are talking to their stepbrother in his bed.\", \"OngoingSpeakers\": \"Hana Himesaki, Ena Koume\"}` + Audio of \"お兄ちゃん。\"",
+                "2. `{...}` + Audio of \"起きてるの、知ってるんだから。\"",
+                "3. `{...}` + Audio of \"なんか隣さんがこの間の台風で屋根飛んじゃったんだって。\" (Mundane interruption)",
+                "4. `{...}` + Audio of a sigh (Non-speech)",
+                "",
                 "**// CORRECT OUTPUT (A Single JSON Array)**",
-                "```json\n[\n  {\n    \"StartTime\": \"0:00:52.310\",\n    \"EndTime\": \"0:00:53.096\",\n    \"VoiceText\": \"お兄ちゃん。\",\n    \"Speaker-A\": \"Hana Himesaki (100%)\"\n  },\n  {\n    \"StartTime\": \"0:00:53.250\",\n    \"EndTime\": \"0:00:55.220\",\n    \"VoiceText\": \"起きてるの、知ってるんだから。\",\n    \"Speaker-A\": \"Hana Himesaki (88%,68%)\"\n  },\n  {\n    \"StartTime\": \"00:00:56.943\",\n    \"EndTime\": \"00:00:58.399\",\n    \"VoiceText\": \"やめてよ、お姉ちゃん…\",\n    \"Speaker-A\": \"Ena Koume (93%,91%)\"\n  },\n  {\n    \"StartTime\": \"00:00:59.210\",\n    \"EndTime\": \"00:01:00.686\",\n    \"VoiceText\": \"\",\n    \"Speaker-A\": \"N/A\"\n  }\n]\n```"
-            });
+                "```json",
+                "[",
+                "  {",
+                "    \"StartTime\": \"0:00:52.310\",",
+                "    \"EndTime\": \"0:00:53.096\",",
+                "    \"VoiceText\": \"お兄ちゃん。\"",
+                "  },",
+                "  {",
+                "    \"StartTime\": \"0:00:53.250\",",
+                "    \"EndTime\": \"0:00:55.220\",",
+                "    \"VoiceText\": \"起きてるの、知ってるんだから。\"",
+                "  },",
+                "  {",
+                "    \"StartTime\": \"00:00:56.943\",",
+                "    \"EndTime\": \"00:00:58.399\",",
+                "    \"VoiceText\": \"なんか隣さんがこの間の台風で屋根飛んじゃったんだって。\"",
+                "  },",
+                "  {",
+                "    \"StartTime\": \"00:00:59.210\",",
+                "    \"EndTime\": \"00:01:00.686\",",
+                "    \"VoiceText\": \"\"",
+                "  }",
+                "]",
+                "```"
+                });
             sharedObjects.Add(systemPromptTranscriberAudioSingleVAD);
 
             jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, "SystemPromptTranscriberAudioFull"));
@@ -495,41 +544,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbContextItems = null
                         }
                     },
-                    new TranscriberImageAI() // TODO Still need works. Might be overkill if Speaker-V doesn't works
-                    {
-                        TranscriptionId = "visual-analyst",
-                        Enabled = false,
-                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "gpt5-mini",
-                            APIKeyName = "APIKeyPoe",
-                        },
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "perfectvad" }
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = systemPromptTranscriberVisualAnalyst,
-                            MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "ParticipantDynamics",
-                            MetadataForTraining = "VisualTraining",
-
-                            BatchSize = 10,
-                            NbContextItems = 3,
-                            NbItemsMaximumForTraining = 1,
-                            NbItemsMinimumReceivedToContinue = 5,
-                            TextBeforeAnalysis = "Begin Node Analysis:",
-                            TextAfterAnalysis = "**REMINDER**:\n" +
-                            "Don't forget to describe the man's hand. And don't overcount hands (i.e. 2 hands seen on breasts, description say both hand of man on breast and girl's hand on her own breast too => 3 hands total).\n" +
-                            "Make sure to analyze every image and put the description in the node with the same StartTime, I often feel like a description is meant for a different image.\n" +
-                            "Do not create a story or 'expand' on what you see (ex. \"sometimes using her hands to press her breasts together\n). Just describe the current image, that's it.\n" +
-                            "Don't forget to return a node for every nodes that contain an image. Count the number of nodes with image in the request and the number of nodes in your answer and make sure that it match!"
-                        }
-                    },
                     new TranscriberAudioAI()
                     {
                         TranscriptionId = "singlevad",
@@ -556,14 +570,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "visual-analyst", "perfectvad" } // TODO: Should I keep visual-analyst?? Need to test with and without...
+                            Sources = new [] { "onscreen", "perfectvad" }
                         },
                         Options = new AIOptions()
                         {
                             SystemPrompt = systemPromptTranscriberAudioSingleVAD,
                             MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "VoiceText",
-                            MetadataForTraining = "SpeakerTraining",
+                            MetadataAlwaysProduced = "VoiceText"
                         }
                     },
                     new TranscriberInteractifSetSpeaker()
@@ -575,9 +588,47 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             Sources = new [] { "perfectvad", "singlevad" },
                         },
                         MetadataNeeded = "VoiceText",
-                        MetadataProduced = "FinalSpeaker",
+                        MetadataProduced = "Speaker",
                         MetadataPotentialSpeakers = "OngoingSpeakers",
                         MetadataDetectedSpeaker = "Speaker-A"
+                    },
+                    new TranscriberImageAI() // TODO Getting better. Still need works. Might have to use GPT5-full instead of mini.
+                    {
+                        TranscriptionId = "visual-analyst",
+                        Enabled = true,
+                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
+                        KeepTemporaryFiles = true,
+                        Engine = new AIEngineAPI()
+                        {
+                            BaseAddress = "https://api.poe.com/v1",
+                            Model = "gpt5-mini",
+                            APIKeyName = "APIKeyPoe",
+                        },
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfectvad",
+                            Sources = new [] { "onscreen", "validated-speakers", "singlevad", "perfectvad" }
+                        },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = systemPromptTranscriberVisualAnalyst,
+                            MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
+                            MetadataAlwaysProduced = "ParticipantDynamics",
+                            MetadataForTraining = "VisualTraining",
+
+                            BatchSize = 5,
+                            NbContextItems = 0,
+                            NbItemsMinimumReceivedToContinue = 5,
+                            TextAfterTrainingData = "Only use those images to identify the characters and to understand how the man's hand can be seen in a POV-view like this. Do not use part of those image for your analysis of nodes.",
+                            TextBeforeAnalysis = "Begin Node Analysis:",
+                            TextAfterAnalysis = "**REMINDER**:\n" +
+                            //"For EVERY image, not just the first one: Ask yourself, where are POV-man's hands, are they grabbing breasts? and they in a girl's short?\n" +
+                            //"Do not stop analysing man's limb position even if they hadn't be seen for a while (for example, where is POV-man's left hand?). Everything need to be reevaluated on every image.\n" +
+                            "Don't forget to return a node for every nodes received. Count the number of nodes in the Begin Analysis section and the number of nodes in your answer and make sure that it match! Do not return a single node!"
+                            //"FOR DEBUGGING PURPOSE: After the producing the JSON, please tell me if you can find POV-man's hands on the image of node 3:27.213?\n" +
+                            //"Last time I asked, you said: Yes — in the image for node 00:03:27.213 I can see the POV-man's right hand resting on the bed/near the right side of his torso (visible near Ena's hip), and his left hand is not clearly visible in the frame.  (sorry to work like this, I trying going through an API)\n" +
+                            //"You can't see that his right hand is firmly on Ena's breast, and his left and are less clearly on Hana's breast?"
+                        }
                     },
                     new TranslatorAI()
                     {

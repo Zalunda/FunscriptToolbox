@@ -328,6 +328,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_options.MetadataAlwaysProduced);
         }
 
+        internal AIRequest CreateEmptyRequest()
+        {
+            return new AIRequest(
+                1, 
+                r_workingOnContainer.Id,
+                null,
+                0,
+                r_options.MetadataAlwaysProduced);
+        }
+
         internal bool IsFinished()
         {
             var (_, itemsToDo, _, _) = AnalyzeItemsState();

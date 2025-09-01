@@ -54,7 +54,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var binaryGenerator = new CachedBinaryGenerator((timing) =>
                     {
                         var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
-                        context.DefaultProgressUpdateHandler("ffmpeg", $"{middleTime}", $"Taking screenshot.");
+                        context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
                         var image = context.FfmpegAudioHelper.TakeScreenshotAsBytes(
                             context.CurrentWipsub.OriginalVideoPath,
                             middleTime,

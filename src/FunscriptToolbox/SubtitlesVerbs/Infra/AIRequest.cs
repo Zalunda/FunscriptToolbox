@@ -54,6 +54,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             }
                         }
                     }
+                    fullpromptBuilder.AppendLine(new string('+', 40));
                 }
             }
             FullPrompt = fullpromptBuilder.ToString();
@@ -66,7 +67,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public virtual string GetVerbosePrefix()
         {
-            return $"{TaskId}-{Number:D04}";
+            return $"{TaskId}_{Number:D04}";
         }
     }
 }
