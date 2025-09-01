@@ -1,4 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioSingleVAD : Transcriber
+    public class TranscriberAudioSingleVAD : TranscriberAudio
     {
         [JsonProperty(Order = 10, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
@@ -26,6 +26,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
+            if (!base.IsPrerequisitesForAudioMet(context, out reason))
+            {
+                return false;
+            }
             if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
@@ -44,10 +48,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .CreateRequestGenerator(transcription)
                 .GetTimings();
 
+            var fullPcmAudio = base.GetPcmAudio(context);
+
             var audios = new List<PcmAudio>();
             foreach (var timing in timings)
             {
-                audios.Add(context.CurrentWipsub.PcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd));
+                audios.Add(fullPcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd));
             }
 
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
@@ -58,7 +64,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             transcription.Items.AddRange(transcribedTexts);
             transcription.MarkAsFinished();
-            context.CurrentWipsub.Save();
+            context.WIP.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

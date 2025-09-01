@@ -47,14 +47,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
             else
             {
-                var filename = context.CurrentBaseFilePath + this.FileSuffix;
+                var filename = context.WIP.BaseFilePath + this.FileSuffix;
                 context.SoftDelete(filename);
                 fileWriter = new StreamWriter(filename, false, Encoding.UTF8);
             }
 
             try
             {
-                foreach (var line in GenerateConsolidatedReport(context.CurrentWipsub.Transcriptions, context.CurrentWipsub.Translations))
+                foreach (var line in GenerateConsolidatedReport(context.WIP.Transcriptions, context.WIP.Translations))
                 {
                     fileWriter.WriteLine(line);
                     if (OutputToConsole)

@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbs.Translations;
@@ -36,12 +37,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 using var reader = File.OpenText(filepath);
                 using var jsonReader = new JsonTextReader(reader);
                 var content = rs_serializer.Deserialize<WorkInProgressSubtitles>(jsonReader);
-                content.OriginalFilePath = filepath;
-                content.OriginalVideoPath = videoPath;
+                content.SetPaths(filepath, videoPath);
                 return content;
             }
             catch (Exception ex)
             {
+                if (File.Exists(filepath) && File.ReadAllText(filepath).Contains("\"FormatVersion\": \"1."))
+                {
+                    throw new Exception($"File format for '{Path.GetFileName(filepath)}' has changed. Need to delete or rename the file and start from the start.", ex);
+                }
                 ex.Data.Add("File", filepath);
                 throw new Exception($"Error parsing file '{filepath}': {ex.Message}", ex);
             }
@@ -49,6 +53,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public WorkInProgressSubtitles()
         {
+            this.AudioExtractions = new List<AudioExtraction>();
             this.Transcriptions = new List<Transcription>();
             this.Translations = new List<Translation>();
         }
@@ -56,20 +61,45 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public WorkInProgressSubtitles(string fullpath, string videoPath)
             : this()
         {
-            OriginalFilePath = fullpath;
-            OriginalVideoPath = videoPath;
+            SetPaths(fullpath, videoPath);
+        }
+
+        private void SetPaths(string fullpath, string videoPath)
+        {
+            this.OriginalFilePath = fullpath;
+            this.OriginalVideoPath = videoPath;
+            this.BaseFilePath = Path.Combine(
+                PathExtension.SafeGetDirectoryName(this.OriginalFilePath),
+                Path.GetFileNameWithoutExtension(this.OriginalFilePath));
+            this.BackupFolder = $"{BaseFilePath}_Backup";
         }
 
         [JsonIgnore]
         public string OriginalFilePath { get; private set; }
         [JsonIgnore]
         public string OriginalVideoPath { get; private set; }
+        public string BaseFilePath { get; private set; }
+        public string BackupFolder { get; private set; }
+
         public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
-        public PcmAudio PcmAudio { get; set; }
+        public List<AudioExtraction> AudioExtractions { get; set; }
         public List<Transcription> Transcriptions { get; set; }
         public List<Translation> Translations { get; set; }
         public IEnumerable<TimedItemWithMetadataCollection> WorkersResult => ((IEnumerable<TimedItemWithMetadataCollection>)this.Transcriptions ?? Array.Empty<TimedItemWithMetadataCollection>())
             .Union((IEnumerable<TimedItemWithMetadataCollection>)this.Translations ?? Array.Empty<TimedItemWithMetadataCollection>());
+
+        public TimeSpan GetVideoDuration()
+        {
+            return this.AudioExtractions.FirstOrDefault().PcmAudio.Duration;
+        }
+
+        public void FinalizeLoad()
+        {
+            foreach (var audioFile in this.AudioExtractions)
+            {
+                audioFile.FinalizeLoad(this.BaseFilePath);
+            }
+        }
 
         public void UpdateFormatVersion()
         {

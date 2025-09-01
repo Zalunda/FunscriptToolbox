@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioAI : Transcriber
+    public class TranscriberAudioSingleVADAI : TranscriberAudio
     {
         [JsonProperty(Order = 20)]
         public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
@@ -30,6 +30,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
+            if (!base.IsPrerequisitesForAudioMet(context, out reason))
+            {
+                return false;
+            }
             if (Metadatas?.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
@@ -53,12 +57,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 this.Engine,
                 transcription);
 
+            var fullPcmAudio = base.GetPcmAudio(context);
+
             var binaryGenerator = new CachedBinaryGenerator((timing) =>
             {
                 context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                 var tempWavFile = Path.GetTempFileName() + ".wav";
-                context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(
-                    context.CurrentWipsub.PcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd), tempWavFile);
+                context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(
+                    fullPcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd), tempWavFile);
 
                 var audioBytes = File.ReadAllBytes(tempWavFile);
                 var base64Audio = Convert.ToBase64String(audioBytes);
@@ -85,7 +91,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
-                context.CurrentWipsub.Save();
+                context.WIP.Save();
             }
 
             SaveDebugSrtIfVerbose(context, transcription);

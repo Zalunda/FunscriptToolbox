@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
 
-namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
+namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
     public class FfmpegAudioHelper
     {
@@ -44,9 +44,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
             }
         }
 
-        public void ConvertPcmAudioToWavFile(
+        public void ConvertPcmAudioToOtherFormat(
             PcmAudio pcmAudio,
-            string outputWavFilepath,
+            string outputFilepath,
             string ffmpegParameters = null)
         {
             var tempPcmFile = Path.GetTempFileName() + ".pcm";
@@ -58,8 +58,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 }
                 FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-f s16le -ar 16000 -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -vn -ar 16000 {ffmpegParameters}")
-                    .SetOutput(outputWavFilepath)
+                    .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -vn -ar 16000 {ffmpegParameters}")
+                    .SetOutput(outputFilepath)
                     .Start()
                     .Wait();
             }

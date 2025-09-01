@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -75,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         var audioId = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
                         var tempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_{audioId}.wav", processStartTime);
                         tempFiles.Add(tempFile);
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, tempFile);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
                         totalDuration += audio.Duration;
                     }
 

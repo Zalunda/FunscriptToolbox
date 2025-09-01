@@ -41,7 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return;
             }
 
-            var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(
                 t => t.Id == this.TranscriptionId);
             if (transcription == null)
             {
@@ -49,7 +49,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     this.TranscriptionId,
                     context.OverrideSourceLanguage,
                     this.GetMetadataProduced());
-                context.CurrentWipsub.Transcriptions.Add(transcription);
+                context.WIP.Transcriptions.Add(transcription);
             }
 
             if (transcription.IsFinished && !this.CanBeUpdated)
@@ -94,8 +94,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         context.WriteInfo($"Not finished yet in {watch.Elapsed}.");
                     }
                     context.WriteInfo();
-
-                    context.CurrentWipsub.Save();
                 }
                 catch (TranscriberNotReadyException ex)
                 {
@@ -121,7 +119,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Transcription transcription)
         {
             var firstPerfectVadId = context.Config.Workers.OfType<TranscriberPerfectVAD>().FirstOrDefault()?.TranscriptionId;
-            var timings = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId)?.GetItems();
+            var timings = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId)?.GetItems();
             if (timings != null )
             {
                 var nbEmptyItems = GetNbEmptyItems(transcription);

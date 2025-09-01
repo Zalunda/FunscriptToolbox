@@ -184,9 +184,12 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtraction.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromPcm.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromVideo.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineRunner.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIOptions.cs" />
-    <Compile Include="SubtitlesVerbs\AudioExtraction\AudioExtractor.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractor.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIResponse.cs" />
     <Compile Include="SubtitlesVerbs\Infra\Cost.cs" />
@@ -198,7 +201,7 @@
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataCollection.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadata.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataTagged.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputWav.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
@@ -207,7 +210,8 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
     <Compile Include="SubtitlesVerbs\Infra\ITiming.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimingOverlap.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioAI.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioSingleVADAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImageAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberInteractifSetSpeaker.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudioExternal.cs" />
@@ -225,7 +229,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />
-    <Compile Include="SubtitlesVerbs\AudioExtraction\FfmpegAudioHelper.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtractions\FfmpegAudioHelper.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudio.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioSingleVAD.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcription.cs" />
@@ -240,7 +244,7 @@
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPI.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translation.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translator.cs" />
-    <Compile Include="SubtitlesVerbs\AudioExtraction\PcmAudio.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtractions\PcmAudio.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatedItem.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesCreate.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorContext.cs" />

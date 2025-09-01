@@ -91,7 +91,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 new Cost(ToolName, watch.Elapsed, missingTranscriptions.Length));
 
             translation.MarkAsFinished();
-            context.CurrentWipsub.Save();
+            context.WIP.Save();
 
             SaveDebugSrtIfVerbose(context, translation);
         }

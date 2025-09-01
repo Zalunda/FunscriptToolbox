@@ -1,10 +1,6 @@
 ﻿using CommandLine;
-using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Outputs;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -12,7 +8,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs
@@ -80,39 +75,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 var wipsubFullpath = Path.ChangeExtension(
                     inputVideoFullpath,
                     r_options.Suffix + WorkInProgressSubtitles.Extension);
+
                 var wipsub = File.Exists(wipsubFullpath)
                     ? WorkInProgressSubtitles.FromFile(wipsubFullpath, inputVideoFullpath)
                     : new WorkInProgressSubtitles(wipsubFullpath, inputVideoFullpath);
+                wipsub.FinalizeLoad();
 
                 context.ChangeCurrentFile(wipsub);
                 UpdateWipSubFileIfNeeded(context);
 
                 try
                 {
-                    // 1. Extracting PcmAudio, if not already done.
-                    var pcmFilePath = wipsub.OriginalFilePath + ".pcm";
-                    if (wipsub.PcmAudio != null && File.Exists(pcmFilePath))
-                    {
-                        wipsub.PcmAudio.RegisterLoadPcmFunc(() => File.ReadAllBytes(pcmFilePath));
-                        context.WriteInfoAlreadyDone($"PcmAudio has already been extracted:");
-                        context.WriteInfoAlreadyDone($"    Audio Duration = {wipsub.PcmAudio.Duration}");
-                        context.WriteInfoAlreadyDone();
-                    }
-                    else
-                    {
-                        context.WriteInfo($"Extracting PCM audio from '{Path.GetFileName(inputVideoFullpath)}'...");
-
-                        var watchPcmAudio = Stopwatch.StartNew();
-                        wipsub.PcmAudio = context.Config.AudioExtractor.ExtractPcmAudio(context, inputVideoFullpath);
-                        wipsub.Save();
-                        File.WriteAllBytes(pcmFilePath, wipsub.PcmAudio.Data);
-                   
-                        context.WriteInfo($"Finished in {watchPcmAudio.Elapsed}:");
-                        context.WriteInfo($"    Audio Duration = {wipsub.PcmAudio.Duration}");
-                        context.WriteInfo();
-                    }
-
-                    // 2. Execute all the workers defined in the config file
                     foreach (var worker in context.Config.Workers)
                     {
                         worker.Execute(context);

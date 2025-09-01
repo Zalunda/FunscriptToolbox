@@ -9,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             AIRequest request)
         {
-            var filepath = request.GetFilenamePattern(context.CurrentBaseFilePath);
+            var filepath = request.GetFilenamePattern(context.WIP.BaseFilePath);
 
             context.WriteInfo($"        Creating file '{Path.GetFileName(filepath)}'...");
             context.SoftDelete(filepath);

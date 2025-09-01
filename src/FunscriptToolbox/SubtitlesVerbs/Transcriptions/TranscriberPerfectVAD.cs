@@ -20,7 +20,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context, 
             out string reason)
         {
-            var fullpath = context.CurrentBaseFilePath + this.FileSuffix;
+            var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
             if (!File.Exists(fullpath))
             {
                 reason = $"File '{Path.GetFileName(fullpath)}' does not exists yet.";
@@ -36,7 +36,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            var fullpath = context.CurrentBaseFilePath + this.FileSuffix;
+            var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
             var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
             transcription.Items.Clear();
             transcription.Items.AddRange(
@@ -53,7 +53,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             match => match.Groups["name"].Value,
                             match => match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty)))));
             transcription.MarkAsFinished();
-            context.CurrentWipsub.Save();
+            context.WIP.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

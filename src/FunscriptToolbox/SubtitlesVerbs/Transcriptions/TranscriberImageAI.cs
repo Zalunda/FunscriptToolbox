@@ -56,7 +56,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                         context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
                         var image = context.FfmpegAudioHelper.TakeScreenshotAsBytes(
-                            context.CurrentWipsub.OriginalVideoPath,
+                            context.WIP.OriginalVideoPath,
                             middleTime,
                             ".jpg",
                             this.FfmpegFilter);
@@ -81,7 +81,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
-                context.CurrentWipsub.Save();
+                context.WIP.Save();
             }
 
             SaveDebugSrtIfVerbose(context, transcription);

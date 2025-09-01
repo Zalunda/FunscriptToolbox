@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using log4net;
 using System;
@@ -21,9 +20,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public List<string> UserTodoList { get; }
 
-        public string CurrentBaseFilePath { get; private set; }
-        public string CurrentBackupFolder => this.CurrentBaseFilePath == null ? null : $"{CurrentBaseFilePath}_Backup";
-        public WorkInProgressSubtitles CurrentWipsub { get; private set; }
+        public WorkInProgressSubtitles WIP { get; private set; }
 
         public SubtitleGeneratorContext(
             ILog log,
@@ -40,8 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.OverrideSourceLanguage = overrideSourceLanguage;
 
             this.UserTodoList = new List<string>();
-            this.CurrentBaseFilePath = null;
-            this.CurrentWipsub = null;
+            this.WIP = null;
         }
 
         public string GetPrivateConfig(string itemName)
@@ -89,29 +85,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public void ChangeCurrentFile(
             WorkInProgressSubtitles wipsub)
         {
-            this.CurrentBaseFilePath = Path.Combine(
-                        PathExtension.SafeGetDirectoryName(wipsub.OriginalFilePath),
-                        Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath));
-            this.CurrentWipsub = wipsub;
+            this.WIP = wipsub;
             this.ChangePrefix(Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": ");
         }
 
         public void ForgetCurrentFile()
         {
-            this.CurrentBaseFilePath = null;
-            this.CurrentWipsub = null;
+            this.WIP = null;
             this.ChangePrefix(string.Empty);
         }
 
         internal string GetPotentialVerboseFilePath(string suffixe, DateTime? processStartTime = null)
         {
-            Directory.CreateDirectory(this.CurrentBackupFolder);
+            Directory.CreateDirectory(this.WIP.BackupFolder);
             return processStartTime == null
                 ? Path.Combine(
-                    this.CurrentBackupFolder,
+                    this.WIP.BackupFolder,
                     suffixe)
                 : Path.Combine(
-                        this.CurrentBackupFolder,
+                        this.WIP.BackupFolder,
                         processStartTime.Value.ToString("yyyyMMddHHmmss") + "_" + suffixe);
         }
 
@@ -140,11 +132,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             if (File.Exists(fullpath))
             {
-                Directory.CreateDirectory(this.CurrentBackupFolder);
+                Directory.CreateDirectory(this.WIP.BackupFolder);
                 var crc = ComputeFileHash(fullpath);
 
                 var targetPath = Path.Combine(
-                        this.CurrentBackupFolder,
+                        this.WIP.BackupFolder,
                         $"{Path.GetFileNameWithoutExtension(fullpath)}-{crc}{Path.GetExtension(fullpath)}");
                 if (File.Exists(targetPath))
                 {

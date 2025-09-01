@@ -1,6 +1,6 @@
 ﻿using FunscriptToolbox.Core;
 using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Outputs;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
@@ -60,13 +60,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
         }
 
-        [JsonProperty(Order = 1, Required = Required.Always)]
-        public AudioExtractor AudioExtractor { get; set; }
-
-        [JsonProperty(Order = 2)]
+        [JsonProperty(Order = 1)]
         public object[] SharedObjects { get; set; }
 
-        [JsonProperty(Order = 3)]
+        [JsonProperty(Order = 2)]
         public SubtitleWorker[] Workers { get; set; }
 
         public static string GetDefaultExample()
@@ -453,18 +450,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             var config = new SubtitleGeneratorConfig()
             {
-                AudioExtractor = new AudioExtractor(),
                 SharedObjects = sharedObjects.ToArray(),
                 Workers = new SubtitleWorker[]
                 {
-                    new SubtitleOutputWav()
+                    new AudioExtractorFromVideo()
                     {
-                        FileSuffix = ".wav",
-                        FfmpegWavParameters = "-af \"highpass=f=1000,loudnorm=I=-16:TP=-1\""
+                        AudioExtractionId = "audio"
+                    },
+                    new AudioExtractorFromPcm()
+                    {                        
+                        AudioExtractionId = "audio-clean-waveform",
+                        SourceAudioId = "audio",
+                        SaveAsFileSuffixe = ".wav",
+                        FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>  
                     },
                     new TranscriberAudioFull()
                     {
                         TranscriptionId = "full",
+                        SourceAudioId = "audio",
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper,
                     },
@@ -525,6 +528,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAudioMergedVAD()
                     {
                         TranscriptionId = "mergedvad",
+                        SourceAudioId = "audio",
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfectvad",
@@ -557,9 +561,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbContextItems = null
                         }
                     },
-                    new TranscriberAudioAI()
+                    new TranscriberAudioSingleVADAI()
                     {
                         TranscriptionId = "singlevad",
+                        SourceAudioId = "audio",
                         Engine = new AIEngineAPI()
                         {
                             // https://ai.google.dev/gemini-api/docs/openai#rest_2
@@ -607,8 +612,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberImageAI()
                     {
+                        Enabled = false,
+
                         TranscriptionId = "visual-analyst",
-                        Enabled = true,
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
                         KeepTemporaryFiles = true,
                         Engine = new AIEngineAPI()
@@ -645,6 +651,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
+                        Enabled = false,
+
                         TranscriptionId = "singlevad",
                         TranslationId = "analyst",
                         TargetLanguage = Language.FromString("en"),
@@ -819,7 +827,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false, // TODO REMOVE
+                        Enabled = false,
 
                         TranscriptionId = "candidates-digest",
                         TranslationId = "arbitrer",

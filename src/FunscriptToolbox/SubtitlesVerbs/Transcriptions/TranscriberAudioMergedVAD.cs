@@ -1,5 +1,5 @@
 ﻿using AudioSynchronization;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioMergedVAD : Transcriber
+    public class TranscriberAudioMergedVAD : TranscriberAudio
     {
         [JsonProperty(Order = 20, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
@@ -27,6 +27,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
+            if (!base.IsPrerequisitesForAudioMet(context, out reason))
+            {
+                return false;
+            }
             if (!this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
@@ -45,7 +49,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .CreateRequestGenerator(transcription)
                 .GetTimings();
 
-            var pcmAudio = context.CurrentWipsub.PcmAudio;
+            var pcmAudio = base.GetPcmAudio(context);
 
             var silenceGapSamples = pcmAudio.GetSilenceAudio(this.SilentGapDuration);
             var halfSilenceGapLength = TimeSpan.FromMilliseconds(silenceGapSamples.Duration.TotalMilliseconds / 2);
@@ -133,7 +137,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             transcription.Items.AddRange(remappedItems);
             transcription.MarkAsFinished();
-            context.CurrentWipsub.Save();
+            context.WIP.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

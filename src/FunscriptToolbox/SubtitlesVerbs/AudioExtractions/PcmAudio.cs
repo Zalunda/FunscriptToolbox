@@ -1,11 +1,10 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
+namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
     public class PcmAudio
     {
@@ -25,9 +24,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtraction
                 return r_data;
             }
         }
+        [JsonIgnore]
         public TimeSpan Offset { get; }
         public TimeSpan Duration { get; }
+        [JsonIgnore]
         public TimeSpan StartTime => this.Offset;
+        [JsonIgnore]
         public TimeSpan EndTime => this.Offset + this.Duration;
 
         [JsonConstructor]

@@ -65,7 +65,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                             if (itemsAdded.Count > 0)
                             {
-                                r_context.CurrentWipsub.Save();
+                                r_context.WIP.Save();
                             }
 
                             lastRequestExecuted = request;
@@ -74,7 +74,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
                 catch (AIRequestException ex)
                 {
-                    var filepath = ex.Request.GetFilenamePattern(r_context.CurrentBaseFilePath);
+                    var filepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
                     string body;
                     if (ex.ResponseBodyPartiallyFixed == null)
                     {
@@ -105,13 +105,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var patternSuffix = "_\\d+\\.txt";
 
             foreach (var fullpath in Directory.GetFiles(
-                PathExtension.SafeGetDirectoryName(r_context.CurrentBaseFilePath),
+                PathExtension.SafeGetDirectoryName(r_context.WIP.BaseFilePath),
                 "*.*"))
             {
                 var filename = Path.GetFileName(fullpath);
                 if (Regex.IsMatch(
                     filename,
-                    $"^" + Regex.Escape($"{Path.GetFileName(r_context.CurrentBaseFilePath)}.TODO_{r_workingOnContainer.Id}") + $"{patternSuffix}$",
+                    $"^" + Regex.Escape($"{Path.GetFileName(r_context.WIP.BaseFilePath)}.TODO_{r_workingOnContainer.Id}") + $"{patternSuffix}$",
                     RegexOptions.IgnoreCase))
                 {
                     var response = File.ReadAllText(fullpath);
@@ -125,7 +125,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         r_context.WriteInfo($"            Nb items added: {nbAdded.Count}");
                         if (nbAdded.Count > 0)
                         {
-                            r_context.CurrentWipsub.Save();
+                            r_context.WIP.Save();
                         }
                     }
                     catch (AIRequestException ex)

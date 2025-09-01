@@ -2,7 +2,7 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAudioFull : Transcriber
+    public class TranscriberAudioFull : TranscriberAudio
     {
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string MetadataProduced { get; set; }
@@ -16,6 +16,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
+            if (!base.IsPrerequisitesForAudioMet(context, out reason))
+            {
+                return false;
+            }
             reason = null;
             return true;
         }
@@ -27,11 +31,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                      context,
                      transcription,
-                     new[] { context.CurrentWipsub.PcmAudio },
+                     new[] { base.GetPcmAudio(context) },
                      this.MetadataProduced);
             transcription.Items.AddRange(transcribedTexts);
             transcription.MarkAsFinished();
-            context.CurrentWipsub.Save();
+            context.WIP.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

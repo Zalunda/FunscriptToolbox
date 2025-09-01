@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -28,14 +28,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             string metadataProduced)
         {
             var namedItems = audios.Select((audio, index) => (
-                    wavFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.wav",
-                    srtFilename: context.CurrentBaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.srt",
+                    wavFilename: context.WIP.BaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.wav",
+                    srtFilename: context.WIP.BaseFilePath + $".TODO-{transcription.Id}_{index + 1:D5}.srt",
                     audio
                 )).ToArray();
             if (this.OverrideFileSuffixe != null && namedItems.Length > 0)
             {
                 namedItems[0].srtFilename = (namedItems.Length <= 1)
-                    ? context.CurrentBaseFilePath + this.OverrideFileSuffixe 
+                    ? context.WIP.BaseFilePath + this.OverrideFileSuffixe 
                     : throw new Exception($"Can't use OverrideFileSuffixe when the number of audio file is more then 1.");
             }
 
@@ -46,7 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     if (!File.Exists(wavFilename))
                     {
-                        context.FfmpegAudioHelper.ConvertPcmAudioToWavFile(audio, wavFilename);
+                        context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(audio, wavFilename);
                     }
                     userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(wavFilename)}'.");
                 }

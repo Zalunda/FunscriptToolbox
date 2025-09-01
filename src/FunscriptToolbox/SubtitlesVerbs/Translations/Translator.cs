@@ -37,7 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         protected Transcription GetTranscription(
             SubtitleGeneratorContext context)
         {
-            return context.CurrentWipsub.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId);
+            return context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId);
         }
 
         protected abstract string GetMetadataProduced();
@@ -50,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 return;
             }
 
-            var translation = context.CurrentWipsub.Translations.FirstOrDefault(
+            var translation = context.WIP.Translations.FirstOrDefault(
                 t => t.TranscriptionId == this.TranscriptionId && t.TranslationId == this.TranslationId);
 
             if (translation?.IsFinished == true)
@@ -72,7 +72,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                         this.TranslationId,
                         this.TargetLanguage,
                         this.GetMetadataProduced());
-                    context.CurrentWipsub.Translations.Add(translation);
+                    context.WIP.Translations.Add(translation);
                 }
 
                 try
@@ -82,7 +82,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     this.Translate(
                         context,
                         translation);
-                    context.CurrentWipsub.Save();
 
                     context.WriteInfo($"Finished in {watch.Elapsed}.");
                     context.WriteInfo();

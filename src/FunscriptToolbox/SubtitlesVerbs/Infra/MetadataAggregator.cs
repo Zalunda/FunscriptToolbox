@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             TimedItemWithMetadataCollection additionalSource = null)
         {
-            var timings = context.CurrentWipsub?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
+            var timings = context.WIP?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
             var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(context, this.Sources, additionalSource);
             var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, this.MergeRules) : null;
             return new MetadataAggregation(
@@ -61,7 +61,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
                         .Where(t => regex.IsMatch(t.TranscriptionId)))
                 {
-                    var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
+                    var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
 
                     if (transcriber.Enabled && transcription?.IsFinished != true)
                     {
@@ -76,7 +76,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var translator in context.Config.Workers.OfType<Translator>()
                         .Where(t => regex.IsMatch(t.FullId)))
                 {
-                    var translation = context.CurrentWipsub.Translations
+                    var translation = context.WIP.Translations
                         .FirstOrDefault(t => t.TranscriptionId == translator.TranscriptionId && t.TranslationId == translator.TranslationId);
 
                     if (translator.Enabled && translation?.IsFinished != true)

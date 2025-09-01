@@ -60,7 +60,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             if (requestGenerator.IsFinished())
             {
                 translation.MarkAsFinished();
-                context.CurrentWipsub.Save();
+                context.WIP.Save();
             }
 
             SaveDebugSrtIfVerbose(context, translation);

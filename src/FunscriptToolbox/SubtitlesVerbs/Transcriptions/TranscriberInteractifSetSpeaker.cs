@@ -70,13 +70,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
                 if (nbUpdate++ % 10 == 0)
                 {
-                    context.CurrentWipsub.Save();
+                    context.WIP.Save();
                 }
             }
             void Undo(SpeakerCorrectionWorkItem workItem)
             {
                 transcription.Items.RemoveAll(item => item.StartTime == workItem.StartTime);
-                context.CurrentWipsub.Save();
+                context.WIP.Save();
             }
 
             // TODO Low priority, allows to save the left, right, center in the output (i.e. the key we used while doing it, if we always set those key relative to the position of characters)
@@ -84,7 +84,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var nbItemsToDoBefore = itemsToDo.Length;
             var watch = Stopwatch.StartNew();
             Test.SpeakerCorrection(
-                Path.GetFullPath(context.CurrentWipsub.OriginalVideoPath),
+                Path.GetFullPath(context.WIP.OriginalVideoPath),
                 CreateWorkItem(
                     allItems,
                     itemsToDo),
@@ -103,7 +103,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 transcription.MarkAsFinished();
             }
-            context.CurrentWipsub.Save();
+            context.WIP.Save();
 
             SaveDebugSrtIfVerbose(context, transcription);
         }

@@ -36,13 +36,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             out string reason)
         {
             reason = $"Cannot create file because transcription/translation '{this.WorkerId}' doesn't exists yet.";
-            return (this.WorkerId == null) || (null != (context.CurrentWipsub.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId)));
+            return (this.WorkerId == null) || (null != (context.WIP.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId)));
         }
 
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
-            var container = context.CurrentWipsub.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId);
+            var container = context.WIP.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId);
 
             var subtitleFile = new SubtitleFile();
             var addToNextSubtitle = this.AddToFirstSubtitle == null ? null : "\n" + this.AddToFirstSubtitle;
@@ -63,9 +63,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 GetAdjustedSubtitlesToInject(
                     subtitleFile.Subtitles,
                     this.SubtitlesToInject,
-                    context.CurrentWipsub.PcmAudio.Duration));
+                    context.WIP.GetVideoDuration()));
 
-            var filename = context.CurrentBaseFilePath + this.FileSuffix;
+            var filename = context.WIP.BaseFilePath + this.FileSuffix;
             context.SoftDelete(filename);
             subtitleFile.SaveSrt(filename);
         }
