@@ -588,7 +588,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataPotentialSpeakers = "OngoingSpeakers",
                         MetadataDetectedSpeaker = "Speaker-A"
                     },
-                    new TranscriberImageAI() // TODO Getting better. Still need works. Might have to use GPT5-full instead of mini.
+                    new TranscriberImageAI()
                     {
                         TranscriptionId = "visual-analyst",
                         Enabled = true,
