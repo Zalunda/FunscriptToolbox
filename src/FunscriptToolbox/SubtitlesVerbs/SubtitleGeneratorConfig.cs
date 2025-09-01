@@ -500,6 +500,23 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbItemsMinimumReceivedToContinue = 10
                         }
                     },
+                    //new SubtitleOutputSrt()
+                    //{
+                    //    FileSuffix = ".perfect-vad-potential.srt",
+                    //    Metadatas = new MetadataAggregator()
+                    //    {
+                    //        TimingsSource = "full",
+                    //    }
+                    //    WorkerId = "full",
+
+                    //}
+                    new SubtitleOutputSingleTranslationSrt()
+                    {
+                        FileSuffix = ".perfect-vad-potential.srt",
+                        WorkerId = "full_local-api",
+                        AddToFirstSubtitle = "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)\n- Action (if not using visual-analyst)"
+                    },
+
                     new TranscriberPerfectVAD()
                     {
                         TranscriptionId = "perfectvad",
@@ -836,29 +853,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // TODO 
                     new SubtitleOutputSingleTranslationSrt()
                     {
-                        TranscriptionId = "full",
-                        TranslationId = "google",
-                        FileSuffix = ".perfect-vad-potential-google.srt"
-                    },
-                    new SubtitleOutputSingleTranslationSrt()
-                    {
-                        TranscriptionId = "full",
-                        TranslationId = "local-api",
-                        FileSuffix = ".perfect-vad-potential-localapi.srt"
-                    },
-                    new SubtitleOutputSingleTranslationSrt()
-                    {
-                        TranscriptionId = "candidates-digest",
-                        TranslationId = "arbitrer",
+                        WorkerId = "candidates-digest_arbitrer",
                         FileSuffix = ".final-arbitrer-choice.srt",
                         SubtitlesToInject = CreateSubtitlesToInject(),
                     },
                     new SubtitleOutputSingleTranslationSrt()
                     {
-                        TranscriptionId = "candidates-digest",
-                        TranslationId = "arbitrer",
-                        FileSuffix = ".final-arbitrer-choice-for-debugging.srt",
-                        IncludeOriginalText = true
+                        WorkerId = "partial-candidates-digest",
+                        FileSuffix = ".partial-arbitrer-choice-for-debugging.srt",
                     },
                     new SubtitleOutputMultiTranslationSrt()
                     {

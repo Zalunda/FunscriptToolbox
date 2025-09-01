@@ -17,16 +17,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string FileSuffix { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]
-        public string TranscriptionId { get; set; }
+        public string WorkerId { get; set; }
         [JsonProperty(Order = 12)]
-        public string TranslationId { get; set; }
+        public string MetadataToUse { get; set; }
         [JsonProperty(Order = 13)]
         public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
         [JsonProperty(Order = 14)]
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
 
-        [JsonProperty(Order = 15)]
-        public bool IncludeOriginalText { get; set; } = false;
+        [JsonProperty(Order = 16)]
+        public string AddToFirstSubtitle = string.Empty;
 
         [JsonProperty(Order = 20)]
         public SubtitleToInject[] SubtitlesToInject { get; set; }
@@ -35,43 +35,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             SubtitleGeneratorContext context,
             out string reason)
         {
-            reason = $"Cannot create file because transcription '{this.TranscriptionId}' doesn't exists yet.";
-            return (this.TranscriptionId == null) || (null != (context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId)));
+            reason = $"Cannot create file because transcription/translation '{this.WorkerId}' doesn't exists yet.";
+            return (this.WorkerId == null) || (null != (context.CurrentWipsub.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId)));
         }
 
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
-            // TODO
+            var container = context.CurrentWipsub.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId);
 
-            //var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
-            //var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId);
+            var subtitleFile = new SubtitleFile();
+            var addToNextSubtitle = this.AddToFirstSubtitle == null ? null : "\n" + this.AddToFirstSubtitle;
+            foreach (var item in container.GetItems())
+            {
+                subtitleFile.Subtitles.Add(
+                    new Subtitle(item.StartTime, 
+                    item.EndTime, 
+                    item.Metadata.Get(this.MetadataToUse ?? container.MetadataAlwaysProduced) + (addToNextSubtitle ?? string.Empty)));
+                addToNextSubtitle = null;
+            }
 
-            //var subtitleFile = new SubtitleFile();
-            //foreach (var item in transcription.Items)
-            //{
-            //    var text = item.TranslatedTexts.FirstOrDefault(tt => tt.Id == translation?.Id)?.Text
-            //        ?? item.Text;
-            //    if (this.IncludeOriginalText)
-            //    {
-            //        text += $"\n\n{item.Text}";
-            //    }
-            //    subtitleFile.Subtitles.Add(new Subtitle(item.StartTime, item.EndTime, text));
-            //}
+            // Apply minimum duration and expansion
+            subtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
 
-            //// Apply minimum duration and expansion
-            //subtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+            // Apply injections
+            subtitleFile.Subtitles.AddRange(
+                GetAdjustedSubtitlesToInject(
+                    subtitleFile.Subtitles,
+                    this.SubtitlesToInject,
+                    context.CurrentWipsub.PcmAudio.Duration));
 
-            //// Apply injections
-            //subtitleFile.Subtitles.AddRange(
-            //    GetAdjustedSubtitlesToInject(
-            //        subtitleFile.Subtitles,
-            //        this.SubtitlesToInject,
-            //        context.CurrentWipsub.PcmAudio.Duration));
-
-            //var filename = context.CurrentBaseFilePath + this.FileSuffix;
-            //context.SoftDelete(filename);
-            //subtitleFile.SaveSrt(filename);
+            var filename = context.CurrentBaseFilePath + this.FileSuffix;
+            context.SoftDelete(filename);
+            subtitleFile.SaveSrt(filename);
         }
     }
 }

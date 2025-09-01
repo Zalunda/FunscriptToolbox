@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtraction;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
@@ -6,6 +7,7 @@ using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs
@@ -66,6 +68,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public PcmAudio PcmAudio { get; set; }
         public List<Transcription> Transcriptions { get; set; }
         public List<Translation> Translations { get; set; }
+        public IEnumerable<TimedItemWithMetadataCollection> WorkersResult => ((IEnumerable<TimedItemWithMetadataCollection>)this.Transcriptions ?? Array.Empty<TimedItemWithMetadataCollection>())
+            .Union((IEnumerable<TimedItemWithMetadataCollection>)this.Translations ?? Array.Empty<TimedItemWithMetadataCollection>());
 
         public void UpdateFormatVersion()
         {
