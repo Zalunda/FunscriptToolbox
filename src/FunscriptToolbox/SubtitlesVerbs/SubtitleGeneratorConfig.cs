@@ -122,11 +122,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "### Mission",
                 "You will receive a batch of work that includes `Context from preceding nodes` and a sequence of new nodes under a `Begin Node Analysis` header. Each new node to be processed is accompanied by its corresponding image data. For each of these new nodes, you will generate a single JSON object containing your analysis. Your final output for the entire batch is a single JSON array of these objects.",
                 "### Core Directives",
-                //"**Directive 0: Prime Visual Imperative - POV-Man's Hands**",
-                //"- Your **highest priority** in visual analysis is the identification and description of the POV-Man's hands.",
-                //"- Any hands entering the frame from the bottom or sides, not visibly attached to another participant, **MUST** be identified as the POV-Man's hands.",
-                //"- Their specific action and location (e.g., \"cupping her left breast,\" \"on her inner thigh,\" \"gripping her hip\") **MUST** be re-evaluated and described in `ParticipantDynamics` for **every image**.",
-                //"",
                 "**Directive 1: Contextual Continuity for Static Elements**",
                 "- You MUST use the `Context from preceding nodes` to inform your analysis.",
                 "- However, this continuity applies primarily to static, unchanging elements.",
@@ -153,8 +148,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 "    - DO NOT include metadata repetitions like \"Ground Truth speaker is X...\" in the analysis. The translator has this data. Focus only on the synthesis.",
                 "",
                 "### Analytical Heuristics",
-                "- **Heuristic A (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. Use the term 'groin' to refer to these censored areas.",
-                "- **Heuristic B (Positional Inference):** Infer sexual positions (e.g., `Cowgirl`, `Missionary`) from posture to add context to `ParticipantDynamics`.",
+                "- **Heuristic A (Man's Hands): If hands are coming from the side/bottom of the image, you MUST assume they are the man's hands and describe the action accordingly (e.g., 'Man: left hand squeezing Mahina's nipple.'). If you see 'too many hands', try to find if one of them is POV-man's hands.",
+                "- **Heuristic B (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. Use the term 'groin' to refer to these censored areas.",
+                "- **Heuristic C (Positional Inference):** Infer sexual positions (e.g., `Cowgirl`, `Missionary`) from posture to add context to `ParticipantDynamics`.",
                 "",
                 "### Input & Output Mandate",
                 "**// INCOMING BATCH FORMAT (EXAMPLE):**",
@@ -601,7 +597,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
-                            Model = "gpt5-mini",
+                            Model = "gpt5",
                             APIKeyName = "APIKeyPoe",
                         },
                         Metadatas = new MetadataAggregator()

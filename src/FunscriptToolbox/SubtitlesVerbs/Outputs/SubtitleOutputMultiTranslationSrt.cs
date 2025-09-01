@@ -2,7 +2,6 @@
 using Newtonsoft.Json;
 using System;
 using System.Linq;
-using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
@@ -39,8 +38,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         }
 
         public override void CreateOutput(
-            SubtitleGeneratorContext context)
+            SubtitleGeneratorContext context)        
         {
+            // TODO
             //var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId) 
             //    ?? context.CurrentWipsub.Transcriptions.FirstOrDefault();
             //if (transcription == null)

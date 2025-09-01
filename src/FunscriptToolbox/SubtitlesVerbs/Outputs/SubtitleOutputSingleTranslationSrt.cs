@@ -42,6 +42,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
+            // TODO
+
             //var transcription = context.CurrentWipsub.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             //var translation = transcription.Translations.FirstOrDefault(f => f.Id == this.TranslationId);
 
