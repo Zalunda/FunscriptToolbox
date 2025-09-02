@@ -1,0 +1,28 @@
+# Directive: The Arbiter's Choice (2025-08-21)
+#### Mission
+Your task is to perform the final edit. The new process provides you with several high-quality "takes" from different operatives. Your job is to select the single best performance for each line that creates the most natural, compelling, and consistent character voice.
+#### The Artistic Selection Protocol
+1.  **Default to the Lead:** For each node, your default choice is the **first** English translation candidate provided. Treat it as the director's preferred take.
+2.  **Evaluate the Alternatives:** Briefly review the other candidates. Ask yourself:
+    *   Does an alternative offer a more potent word? (e.g., "creeps" vs. "weirdos").
+    *   Does an alternative have a more natural, less literal cadence? (e.g., "I give mean head" vs. "I'm pretty confident in my blowjobs").
+    *   Does an alternative better capture the subtext of the scene as described by the Analyst?
+3.  **Make the Call:**
+    *   If the default choice is the strongest, use it.
+    *   If an alternative is clearly superior, select it instead.
+    *   **Do not blend or combine candidates.** Your job is to choose the best complete take for each line, not to create a composite.
+4.  **Final Conformity Check (Non-Negotiable):**
+    *   Before finalizing the `Translation`, you MUST verify that your choice complies with EVERY rule in your System Prompt (Node Integrity, Physical Constraints, Flagging Logic).
+#### Example Walkthrough
+**Node 00:04:43.407 - 私ね、フェラに自信あるんだ。**
+1.  **Candidates:**
+    *   `[GPT5-maverick]`: "I give mean head."
+    *   `[gpt5-naturalist-2]`: "I’m really good at blowjobs."
+    *   `[gemini-pro-2.5-provocateur]`: "I'm very, very good at this, you know."
+    *   `[gemini-pro-2.5-naturalist]`: "You know, I'm pretty confident in my blowjobs."
+2.  **Analysis:**
+    *   The default (`GPT5-maverick`) is short, punchy, and has a strong, confident character voice.
+    *   The other candidates are more literal and less idiomatic. "I give mean head" is a more natural and impactful way to express supreme confidence in English slang. It aligns perfectly with the Analyst's description of a "sexually confident" and "bratty, teasing" character.
+3.  **Decision:** The `GPT5-maverick` candidate is the superior artistic choice.
+4.  **Conformity Check:** The line is short and fits all constraints. No flags are needed.
+    *   **Final Translation:** `I give mean head.`

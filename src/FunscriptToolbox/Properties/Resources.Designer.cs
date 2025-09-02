@@ -62,18 +62,22 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to @echo off
-        ///REM ScriptVersion:1.0
+        ///REM ScriptVersion:1.7
         ///
         ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
         ///
+        ///:start
         ///echo --- subtitles.create ---
         ///&quot;FunscriptToolbox.exe&quot; ^
         ///		subtitles.create ^
         ///		--config &quot;.\--FSTB-SubtitleGeneratorConfig.json&quot; ^
-        ///		--sourcelanguage &quot;ja&quot; ^
+        ///		--sourcelanguage Japanese ^
+        ///		--recursive ^
         ///		--verbose ^
         ///		&quot;*.mp4&quot;
         ///pause
+        ///REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)
+        ///REM goto start
         ///.
         /// </summary>
         internal static string FSTB_CreateSubtitles_bat {
@@ -194,14 +198,13 @@ namespace FunscriptToolbox.Properties {
         ///configFullPath = ofs.ExtensionDir() .. &quot;\\config.json&quot;
         ///
         ///config = {}
-        ///sharedConfig = {}
         ///connection = nil
         ///virtualActions = {}
         ///lastVideoFullPath = nil
         ///lastMvsFullPath = nil
         ///
         ///function init()
-        ///    printWithTime(&quot;Plugin [rest of string was truncated]&quot;;.
+        ///    printWithTime(&quot;Plugin Version:&quot;, PluginV [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string main_lua {
             get {
@@ -234,6 +237,141 @@ namespace FunscriptToolbox.Properties {
         internal static string server_connection_lua {
             get {
                 return ResourceManager.GetString("server_connection_lua", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # Mandate: The Arbiter&apos;s Protocol(version 2025-08-21)
+        ///### Role
+        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate and format it into a technically perfect JSON output. Your loyalty is to the timeline and the rules.
+        ///### The Prime Directive (Non-Negotiable)
+        ///**You will output a JSON array with the exact same number of nodes, in the exact same order, using the exact same `StartTime` values as the input.** Any deviation from this rule is a critical failure.
+        ///### Core D [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SystemPromptArbitrer {
+            get {
+                return ResourceManager.GetString("SystemPromptArbitrer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # TRANSCRIPTION AND VAD MANDATE (version 2025-09-02)
+        ///
+        ///### Role
+        ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, micro-segmenting Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of Japanese adult media, capable of deconstructing human speech into its smallest coherent, timed components.
+        ///
+        ///### Mission
+        ///Given a single, complete audio file, your mission is to meticulously segment all [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SystemPromptTranscriberAudioFull {
+            get {
+                return ResourceManager.GetString("SystemPromptTranscriberAudioFull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # TRANSCRIPTION MANDATE (version 2025-08-20)
+        ///### Role
+        ///You are an advanced audio intelligence engine specializing in Japanese transcription. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct *what* is said with the highest possible fidelity. You are an expert in the vocabulary and cadence of Japanese adult media, understanding that this includes both explicit scenes and mundane, plot-building dialogue.
+        ///### Mission
+        ///F [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SystemPromptTranscriberAudioSingleVAD {
+            get {
+                return ResourceManager.GetString("SystemPromptTranscriberAudioSingleVAD", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # OPTICAL INTELLIGENCE (OPTINT) MANDATE (version 2025-08-25)
+        ///### Role
+        ///You are a specialized Optical Intelligence Operative. Your sole function is to extract textual data from a batch of visual inputs (images). You will perform this task with precision and strict adherence to the provided directives.
+        ///### Mission
+        ///For each data packet you receive in a request, you will analyze the provided image, identify and transcribe the relevant text as specified by its corresponding `GrabOnScreenText` directive. You will  [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SystemPromptTranscriberOnScreenText {
+            get {
+                return ResourceManager.GetString("SystemPromptTranscriberOnScreenText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-01)
+        ///### Role
+        ///You are a Multimodal Translation Augmentation Specialist (MTAS) for legally produced adult films. Your primary function is to provide a preliminary, context-aware analysis of transcribed audio (`VoiceText`) by integrating visual information from a corresponding image. Your analysis provides critical evidence and nuance to a professional human translator. You operate in a stateful, batch-processing mode.
+        ///### Mission
+        ///You will re [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SystemPromptTranscriberVisualAnalyst {
+            get {
+                return ResourceManager.GetString("SystemPromptTranscriberVisualAnalyst", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (2025-08-01)
+        ///### Role
+        ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.
+        ///### Mission
+        ///Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. You will process each node, translating the original Japanese text (OnScreenText or VoiceText) into natural, compelling Engli [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SystemPromptTranslator {
+            get {
+                return ResourceManager.GetString("SystemPromptTranslator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # Directive: The Arbiter&apos;s Choice (2025-08-21)
+        ///#### Mission
+        ///Your task is to perform the final edit. The new process provides you with several high-quality &quot;takes&quot; from different operatives. Your job is to select the single best performance for each line that creates the most natural, compelling, and consistent character voice.
+        ///#### The Artistic Selection Protocol
+        ///1.  **Default to the Lead:** For each node, your default choice is the **first** English translation candidate provided. Treat it as the director&apos; [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UserPromptArbitrer {
+            get {
+                return ResourceManager.GetString("UserPromptArbitrer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Analyst
+        ///### Role
+        ///You are &apos;The Analyst&apos;. Your sole function is to perform a narrative deconstruction of the provided script. You do not create the final translation; you create the blueprint that guides it.
+        ///### Mission
+        ///Your mission is to analyze the entire script and produce a JSON object containing your findings. This output will serve as a critical directive for the next operative, &apos;The Weaver&apos;.
+        ///### Execution Protocol
+        ///1.  **Comprehensive Analysis:** Read the entire prov [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UserPromptTranslatorAnalyst {
+            get {
+                return ResourceManager.GetString("UserPromptTranslatorAnalyst", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Maverick
+        ///### Role
+        ///You are &apos;The Maverick&apos;. You are a high-risk, high-reward narrative amplifier. Your function is to take the Analyst&apos;s directives and produce the most impactful, evocative, and clever translation possible, prioritizing narrative punch over literal accuracy.
+        ///### Mission
+        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting dialogue to more powerfully reflect t [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UserPromptTranslatorMaverick {
+            get {
+                return ResourceManager.GetString("UserPromptTranslatorMaverick", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Naturalist
+        ///### Role
+        ///You are &apos;The Naturalist&apos;. Your function is to translate dialogue into authentic, age-appropriate, and situationally-genuine language. You are the bridge between a literal script and a believable human performance.
+        ///### Mission
+        ///Your mission is to discard stilted, overly-literal translations in favor of the natural cadence, idioms, and colloquialisms that a real person, matching the character profile from the Analyst&apos;s report, would use. The final transl [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UserPromptTranslatorNaturalist {
+            get {
+                return ResourceManager.GetString("UserPromptTranslatorNaturalist", resourceCulture);
             }
         }
         

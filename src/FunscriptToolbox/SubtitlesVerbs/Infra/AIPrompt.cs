@@ -1,6 +1,4 @@
 ﻿using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -11,18 +9,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public const string TranslationLanguageToken = "[TranslationLanguage]";
 
         [JsonProperty(Required = Required.Always)]
-        public string[] Lines { get; }
+        public string Text { get; }
 
-        public AIPrompt(IEnumerable<string> lines)
+        public AIPrompt(string text)
         {
-            this.Lines = lines.ToArray();
+            this.Text = text;
         }
 
         public string GetFinalText(
             Language transcribedLanguage = null,
             Language translatedLanguage = null)
         {
-            return string.Join("\n", this.Lines)
+            return this.Text
                 .Replace(TranscriptionLanguageToken, transcribedLanguage?.LongName ?? TranscriptionLanguageToken)
                 .Replace(TranslationLanguageToken, translatedLanguage?.LongName ?? TranslationLanguageToken);
         }

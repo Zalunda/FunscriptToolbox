@@ -211,6 +211,7 @@
     <Compile Include="SubtitlesVerbs\Infra\ITiming.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimingOverlap.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioFullAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioSingleVADAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImageAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberInteractifSetSpeaker.cs" />
@@ -297,6 +298,16 @@
     <Content Include="PythonSource\funscripttoolbox-extract-vad.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="SubtitlesVerbs\Prompts\SystemPromptArbitrer.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberAudioFull.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberAudioSingleVAD.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberOnScreenText.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberVisualAnalyst.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranslator.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\UserPromptArbitrer.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorAnalyst.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorMaverick.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorNaturalist.txt" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8">

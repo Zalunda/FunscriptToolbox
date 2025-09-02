@@ -15,7 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TimeSpan startTime, 
             TimeSpan endTime, 
             string text, 
-            double probability)
+            double probability = 0.0)
         {
             StartTime = startTime;
             EndTime = endTime;
