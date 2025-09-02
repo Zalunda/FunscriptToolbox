@@ -21,9 +21,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 {
     public class SubtitleGeneratorConfig
     {
-        const string STARTLONGSTRING = "__=";
-        const string ENDLONGSTRING = "=__";
-
         public static readonly JsonSerializer rs_serializer = JsonSerializer
                 .Create(new JsonSerializerSettings
                 {
@@ -49,17 +46,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public static SubtitleGeneratorConfig FromFile(string filepath)
         {
+            var adjustedContent = ReplaceLongStringFromHybridToJson(File.ReadAllText(filepath));
             try
             {
-                var content = ReplaceLongStringFromHybridToJson(File.ReadAllText(filepath));
-                using var reader = new StringReader(content);
+                using var reader = new StringReader(adjustedContent);
                 using var jsonReader = new JsonTextReader(reader);
                 rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
                 return rs_serializer.Deserialize<SubtitleGeneratorConfig>(jsonReader);
             }
-            catch (Exception ex)
+            catch (Exception ex)            
             {
-                throw new Exception($"Error while parsing file '{filepath}': {ex.Message}", ex);
+                var adjustedFileName = filepath + ".as.json";
+                File.WriteAllText(adjustedFileName, adjustedContent);
+                throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
             }
         }
 
@@ -73,6 +72,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 2)]
         public SubtitleWorker[] Workers { get; set; }
 
+        const string STARTLONGSTRING = "=_=__=______________________________";
+        const string ENDLONGSTRING   = "______________________________=__=_=";
+
         private static string CreateLongString(string text)
         {
             return STARTLONGSTRING + text + ENDLONGSTRING;
@@ -82,16 +84,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             return Regex.Replace(
                 originalJson,
-                @"__=(?<text>.*?)=__",
-                match => STARTLONGSTRING + "\n" + match.Groups["text"].Value.Replace(@"\n", "\n") + ENDLONGSTRING);
+                STARTLONGSTRING + @"(?<text>.*?)" + ENDLONGSTRING,
+                match => "\n" + STARTLONGSTRING + "\n\n" + match.Groups["text"].Value.Trim().Replace(@"\n", "\n") + "\n\n" + ENDLONGSTRING);
         }
 
         private static string ReplaceLongStringFromHybridToJson(string originalText)
         {
             return Regex.Replace(
                 originalText,
-                @"(__=(?<text>.*?)=__)",
-                match => match.Groups["text"].Value.Replace("\n", @"\n").Trim(),
+                @"\n*" + STARTLONGSTRING + @"(?<text>.*?)" + ENDLONGSTRING + @"\n*",
+                match => match.Groups["text"].Value.Trim().Replace("\n", @"\n").Trim(),
                 RegexOptions.Singleline);
         }
 

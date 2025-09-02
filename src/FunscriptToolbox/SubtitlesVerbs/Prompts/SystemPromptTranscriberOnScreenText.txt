@@ -36,7 +36,7 @@ Your entire response will be a **single, valid JSON array**. Each object within 
 ### Example Procedure:
 **// INCOMING BATCH: Four sequential image tasks.**
 **// CORRECT OUTPUT: A single JSON array containing four objects.**
-__=```json
+```json
 [
   {
     "StartTime": "00:00:00.306",
