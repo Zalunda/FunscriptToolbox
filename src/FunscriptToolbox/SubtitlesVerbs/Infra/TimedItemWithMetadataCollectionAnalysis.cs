@@ -36,8 +36,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 var transcribedItem = item as TranscribedItem;
 
                 foreach (var word in (transcribedItem?.Words.Length > 0)
-                    ? transcribedItem.Words
-                    : new[] { new TranscribedWord(item.StartTime, item.EndTime, string.Empty, 0) })
+                    ? (IEnumerable<TranscribedWord>)transcribedItem.Words
+                    : SplitEvenly(item, item.Metadata.Get(container.MetadataAlwaysProduced)))
                 {
                     // Check if this is a special case that should follow previous word
                     bool isSpecialCase = word.Text.EndsWith("...") ||
@@ -153,6 +153,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     .ToDictionary(
                         g => g.Key,
                         g => g.ToArray()));
+        }
+
+        private static IEnumerable<TranscribedWord> SplitEvenly(ITiming timing, string text)
+        {
+            text = text.Length == 0 ? " " : text;
+            var timePerCharacter = TimeSpan.FromMilliseconds(timing.Duration.TotalMilliseconds / text.Length);
+            var currentStartTime = timing.StartTime;
+            foreach (var c in text)
+            {
+                yield return new TranscribedWord(currentStartTime, currentStartTime + timePerCharacter, c.ToString());
+                currentStartTime += timePerCharacter;
+            }
         }
 
         public TimedItemWithMetadataCollectionAnalysis(

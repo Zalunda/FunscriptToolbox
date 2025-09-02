@@ -21,8 +21,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
-        protected override int GetNbEmptyItems(Transcription transcription) => transcription.Items.Count(item => string.IsNullOrWhiteSpace(item.Metadata.Get(this.Options.MetadataAlwaysProduced)));
-
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)

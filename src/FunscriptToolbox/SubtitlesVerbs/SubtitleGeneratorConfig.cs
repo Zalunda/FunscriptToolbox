@@ -183,32 +183,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbItemsMinimumReceivedToContinue = 10
                         }
                     },
-                    new TranscriberAudioFullAI()
-                    {
-                        TranscriptionId = "full-ai",
-                        SourceAudioId = "audio",
-                        MaxChunkDuration = TimeSpan.FromMinutes(15),
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                            Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",
-                            RequestBodyExtension = Expando(
-                                ("max_tokens", 64 * 1024),
-                                ("extra_body", new
-                                {
-                                    google = new
-                                    {
-                                        thinking_config = new
-                                        {
-                                            include_thoughts = true
-                                        }
-                                    }
-                                }))
-                        },
-                        SystemPrompt = systemPromptTranscriberAudioFull,
-                        MetadataProduced = "VoiceText",
-                    },
                     //new SubtitleOutputSrt()
                     //{
                     //    FileSuffix = ".perfect-vad-potential.srt",

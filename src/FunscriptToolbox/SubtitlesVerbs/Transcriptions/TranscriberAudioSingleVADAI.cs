@@ -2,7 +2,6 @@
 using Newtonsoft.Json;
 using System;
 using System.IO;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -23,8 +22,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public AIOptions Options { get; set; } = new AIOptions();
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
-
-        protected override int GetNbEmptyItems(Transcription transcription) => transcription.Items.Count(item => string.IsNullOrWhiteSpace(item.Metadata.Get(this.Options.MetadataAlwaysProduced)));
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,

@@ -12,7 +12,93 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
-    public class AIEngineRunner<T> where T: TimedItemWithMetadata
+    public abstract class AIEngineRunner
+    {
+        public static string TryToFixReceivedJson(AIRequest request, string json, bool tryToFixEnd = true)
+        {
+            // Remove thinking text
+            json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
+            json = Regex.Replace(json, @"^\s*>.*$", string.Empty, RegexOptions.Multiline);
+
+            var indexOfFirstBracket = json.IndexOf('[');
+            if (indexOfFirstBracket >= 0)
+            {
+                json = json.Substring(indexOfFirstBracket);
+            }
+
+            var indexOfLastBracket = json.LastIndexOf(']');
+            if (indexOfLastBracket < 0 && tryToFixEnd)
+            {
+                // Try to find and remove partial json object
+                var bracesCounter = 0;
+                var lastIndex = 0;
+                for (var index = 0; index < json.Length; index++)
+                {
+                    // Make string 'disappear' so that { or } inside the string don't messup bracesCounter
+                    if (json[index] == '"')
+                    {
+                        index++;
+                        while (index < json.Length && json[index] != '"')
+                        {
+                            if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
+                            {
+                                index += 2;
+                            }
+                            else
+                            {
+                                index++;
+                            }
+                        }
+                        index++; // skip closing "
+                    }
+                    else
+                    {
+                        var c = json[index];
+                        var diff = (c == '{')
+                            ? 1
+                            : (c == '}')
+                            ? -1
+                            : 0;
+                        bracesCounter += diff;
+                        if (diff != 0 && bracesCounter == 0)
+                        {
+                            lastIndex = index + 1;
+                        }
+                    }
+                }
+
+                json = json.Substring(0, lastIndex);
+                json += "]";
+            }
+            else
+            {
+                json = json.Substring(0, indexOfLastBracket + 1);
+            }
+
+            // Add ',' between fields
+            json = Regex.Replace(json, @"(""([^""]*)"": ""[^""]*""(?!\s*,))", "$1,");
+            // Add ',' between braces
+            json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
+
+            return json;
+        }
+
+        public static TimeSpan LooseTimeSpanParse(string text)
+        {
+            var splitsMillisecond = text.Split('.');
+            var hhmmss = splitsMillisecond[0].Split(':').Select(f => int.Parse(f)).ToArray();
+            var milliseconds = splitsMillisecond.Length > 1 ? int.Parse(splitsMillisecond[1]) : 0;
+
+            return hhmmss.Length switch
+            {
+                3 => new TimeSpan(0, hhmmss[0], hhmmss[1], hhmmss[2], milliseconds),
+                2 => new TimeSpan(0, 0, hhmmss[0], hhmmss[1], milliseconds),
+                _ => new TimeSpan(0, 0, 0, hhmmss[0], milliseconds),
+            };
+        }
+    }
+
+    public class AIEngineRunner<T> : AIEngineRunner where T: TimedItemWithMetadata
     {
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
@@ -140,6 +226,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             return nbErrors;
         }
+
         private List<T> ParseAssistantMessageAndAddItems(
             ITiming[] timings,
             string responseReceived,
@@ -217,75 +304,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 // This is crucial for debugging parsing failures.
                 throw new AIRequestException(ex, request, ex.Message, fixedJson ?? responseReceived);
             }
-        }
-
-        private static string TryToFixReceivedJson(AIRequest request, string json, bool aggressiveFix = false)
-        {
-            // Remove thinking text
-            json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
-            json = Regex.Replace(json, @"^\s*>.*$", string.Empty, RegexOptions.Multiline);
-
-            var indexOfFirstBracket = json.IndexOf('[');
-            if (indexOfFirstBracket >= 0)
-            {
-                json = json.Substring(indexOfFirstBracket);
-            }
-
-            var indexOfLastBracket = json.LastIndexOf(']');
-            if (indexOfLastBracket < 0)
-            {
-                // Try to find and remove partial json object
-                var bracesCounter = 0;
-                var lastIndex = 0;
-                for (var index = 0; index < json.Length; index++)
-                {
-                    // Make string 'disappear' so that { or } inside the string don't messup bracesCounter
-                    if (json[index] == '"')
-                    {
-                        index++;
-                        while (index < json.Length && json[index] != '"')
-                        {
-                            if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
-                            {
-                                index += 2;
-                            }
-                            else
-                            {
-                                index++;
-                            }
-                        }
-                        index++; // skip closing "
-                    }
-                    else
-                    {
-                        var c = json[index];
-                        var diff = (c == '{')
-                            ? 1
-                            : (c == '}')
-                            ? -1
-                            : 0;
-                        bracesCounter += diff;
-                        if (diff != 0 && bracesCounter == 0)
-                        {
-                            lastIndex = index + 1;
-                        }
-                    }
-                }
-
-                json = json.Substring(0, lastIndex);
-                json += "]";
-            }
-            else
-            {
-                json = json.Substring(0, indexOfLastBracket + 1);
-            }
-
-            // Add ',' between fields
-            json = Regex.Replace(json, @"(""([^""]*)"": ""[^""]*""(?!\s*,))", "$1,");
-            // Add ',' between braces
-            json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
-
-            return json;
         }
     }
 }

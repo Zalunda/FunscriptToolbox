@@ -120,9 +120,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             var firstPerfectVadId = context.Config.Workers.OfType<TranscriberPerfectVAD>().FirstOrDefault()?.TranscriptionId;
             var timings = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId)?.GetItems();
-            if (timings != null )
+            if (timings != null && transcription.MetadataAlwaysProduced != null)
             {
-                var nbEmptyItems = GetNbEmptyItems(transcription);
+                var nbEmptyItems = transcription.Items.Count(item => string.IsNullOrWhiteSpace(item.Metadata.Get(transcription.MetadataAlwaysProduced)));
                 var suffixeEmptyItems = nbEmptyItems == 0 ? string.Empty : $" ({nbEmptyItems} are empty)";
 
                 var analysis = transcription.GetAnalysis(timings);
