@@ -28,13 +28,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             typeof(AIEngine),
                             typeof(AIOptions),
                             typeof(AIPrompt),
+                            typeof(AudioExtractor),
                             typeof(SubtitleOutput),
                             typeof(TranscriberToolAudio),
                             typeof(Transcriber),
                             typeof(Translator)
                         }),
                     TypeNameHandling = TypeNameHandling.Auto,
-                    PreserveReferencesHandling = PreserveReferencesHandling.All
+                    PreserveReferencesHandling = PreserveReferencesHandling.Objects
                 });
         static SubtitleGeneratorConfig()
         {
@@ -71,7 +72,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var jtokenIdOverrides = new List<JTokenIdOverride>();
             var sharedObjects = new List<object>();
 
-            jtokenIdOverrides.Add(new JTokenIdOverride("PurfviewWhisper", "TranscriberToolPurfviewWhisper"));
+            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(TranscriberToolAudioPurfviewWhisper).Name, "TranscriberToolPurfviewWhisper"));
             var transcriberToolPurfviewWhisper = new TranscriberToolAudioPurfviewWhisper
             {
                 ApplicationFullPath = @"[TOREPLACE-WITH-PathToPurfview]\Purfview-Whisper-Faster\faster-whisper-xxl.exe",

@@ -10,7 +10,7 @@ namespace FunscriptToolbox.Core.Infra
         private readonly Dictionary<string, Type> r_nameToType;
         private readonly Dictionary<Type, string> r_typeToName;
 
-        public SimpleTypeNameSerializationBinder(Type[] baseTypes)
+        public SimpleTypeNameSerializationBinder(Type[] baseTypes, bool simplifyName = false)
         {
             var matchingTypes =
                 AppDomain
@@ -21,7 +21,7 @@ namespace FunscriptToolbox.Core.Infra
                     baseType => baseType.IsAssignableFrom(x) && !x.IsAbstract));
 
             r_nameToType = matchingTypes.ToDictionary(
-                t => SimplifyName(t.Name, baseTypes),
+                t => simplifyName ? SimplifyName(t.Name, baseTypes) : t.Name,
                 t => t);
             r_typeToName = r_nameToType.ToDictionary(
                 t => t.Value,
