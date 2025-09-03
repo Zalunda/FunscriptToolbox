@@ -185,16 +185,33 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbItemsMinimumReceivedToContinue = 10
                         }
                     },
-                    //new SubtitleOutputSrt()
-                    //{
-                    //    FileSuffix = ".perfect-vad-potential.srt",
-                    //    Metadatas = new MetadataAggregator()
-                    //    {
-                    //        TimingsSource = "full",
-                    //    }
-                    //    WorkerId = "full",
-
-                    //}
+                    new TranscriberAudioFullAI()
+                    {
+                        TranscriptionId = "full-ai",
+                        SourceAudioId = "audio",
+                        Enabled = false,
+                        Engine = new AIEngineAPI()
+                        {
+                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                            Model = "gemini-2.5-pro",
+                            APIKeyName = "APIGeminiAI",
+                            RequestBodyExtension = Expando(
+                                ("max_tokens", 64 * 1024),
+                                ("extra_body", new
+                                {
+                                    google = new
+                                    {
+                                        thinking_config = new
+                                        {
+                                            include_thoughts = true
+                                        }
+                                    }
+                                }))
+                        },
+                        SystemPrompt = systemPromptTranscriberAudioFull,
+                        MetadataProduced = "VoiceText",                        
+                        MaxChunkDuration = TimeSpan.FromMinutes(5)
+                    },
                     new SubtitleOutputSingleTranslationSrt()
                     {
                         FileSuffix = ".perfect-vad-potential.srt",

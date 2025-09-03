@@ -9,6 +9,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAudioFullAI : TranscriberAudio
     {
+        public class JobState
+        {
+            public TimeSpan NextStartTime { get; set; }
+        }
+
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
@@ -77,8 +82,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return data;
             });
 
+            var jobState = transcription.CurrentJobState as JobState;
+            if (jobState == null)
+            {
+                jobState = new JobState
+                {
+                    NextStartTime = TimeSpan.Zero
+                };
+                transcription.CurrentJobState = jobState;
+            }
+
             var requestNumber = 1;
-            var nextStartTime = TimeSpan.Zero;
+            var nextStartTime = jobState.NextStartTime;
             while (nextStartTime < fullPcmAudio.EndTime)
             {
                 var chunkStartTime = nextStartTime;
@@ -105,59 +120,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? startOfBufferZone;
                 }
 
+                jobState.NextStartTime = nextStartTime;
                 context.WIP.Save();
             }
-
-            TimeSpan minRetryBlockDuration = TimeSpan.FromSeconds(15);
-            TimeSpan retryBlockSize = TimeSpan.FromSeconds(10000);
-            TimeSpan lastEnd = TimeSpan.Zero;
-            var xItem = 0;
-            var xDuration = TimeSpan.Zero;
-                
-            foreach (var item in transcription.Items.ToArray())
-            {
-                var gapSize = item.StartTime - lastEnd;
-                if (gapSize > minRetryBlockDuration)
-                {
-                    //    xItem++;
-                    //    xDuration += gapSize;
-                    //}
-                    //else
-                    //{
-                    var bufferZoneDuration = TimeSpan.FromSeconds(2);
-                    var nextGapStartTime = lastEnd;
-                    var gapEndTime = nextGapStartTime + retryBlockSize + bufferZoneDuration;
-                    //var nbRetryBlockcomputedretryBlockSize = ((gapSize.TotalMilliseconds / retryBlockSize.TotalMilliseconds) + 1);
-                    //var x = 
-
-                    while (nextGapStartTime < item.StartTime)
-                    {
-                        var request = CreateRequestForFullAudio(
-                            context,
-                            requestNumber,
-                            new Timing(
-                                nextGapStartTime,
-                                gapEndTime > item.StartTime ? item.StartTime : gapEndTime),
-                            binaryGenerator);
-                        var response = this.Engine.Execute(context, request);
-                        HandleResponse(transcription, response, nextGapStartTime, "GAP: ");
-                        nextGapStartTime = transcription.Items.LastOrDefault()?.EndTime ?? TimeSpan.Zero;
-
-                        var startOfBufferZone = gapEndTime - bufferZoneDuration;
-                        if (nextGapStartTime < startOfBufferZone)
-                        {
-                            nextGapStartTime = startOfBufferZone;
-                        }
-                        else
-                        {
-                            transcription.Items.Remove(transcription.Items.Last());
-                            nextGapStartTime = transcription.Items.LastOrDefault()?.EndTime ?? startOfBufferZone;
-                        }
-                    }
-                }
-                lastEnd = item.EndTime;
-            }
-            // TODO Last gap at end of scene
 
             transcription.MarkAsFinished();
             context.WIP.Save();
@@ -165,30 +130,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SaveDebugSrtIfVerbose(context, transcription);
         }
 
-        private void HandleResponse(
-            Transcription transcription,
-            AIResponse response,
-            TimeSpan offset,
-            string prefix = "")
-        {
-            foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
-                                    response.Request,
-                                    response.AssistantMessage,
-                                    tryToFixEnd: false)))
-            {
-                transcription.Items.Add(
-                    new TranscribedItem(
-                        offset + AIEngineRunner.LooseTimeSpanParse((string)node.StartTime),
-                        offset + AIEngineRunner.LooseTimeSpanParse((string)node.EndTime), 
-                        MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
-            }
-        }
-
-
         private AIRequest CreateRequestForFullAudio(
             SubtitleGeneratorContext context,
             int requestNumber,
-            ITiming timing, 
+            ITiming timing,
             CachedBinaryGenerator binaryGenerator)
         {
             var messages = new List<dynamic>();
@@ -225,6 +170,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 messages,
                 0,
                 this.MetadataProduced);
+        }
+
+        private void HandleResponse(
+            Transcription transcription,
+            AIResponse response,
+            TimeSpan offset,
+            string prefix = "")
+        {
+            foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
+                                    response.Request,
+                                    response.AssistantMessage,
+                                    tryToFixEnd: false)))
+            {
+                transcription.Items.Add(
+                    new TranscribedItem(
+                        offset + AIEngineRunner.LooseTimeSpanParse((string)node.StartTime),
+                        offset + AIEngineRunner.LooseTimeSpanParse((string)node.EndTime), 
+                        MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
+            }
         }
     }
 }

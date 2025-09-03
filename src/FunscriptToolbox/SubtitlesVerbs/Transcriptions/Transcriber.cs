@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.Core.Infra;
+﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -111,8 +112,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
             }
         }
-
-        protected virtual int GetNbEmptyItems(Transcription transcription) => 0;
 
         private IEnumerable<string> GetTranscriptionAnalysis(
             SubtitleGeneratorContext context,

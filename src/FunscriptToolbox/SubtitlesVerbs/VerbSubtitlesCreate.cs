@@ -59,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     r_options.ConfigPath),
                 SubtitleGeneratorPrivateConfig.FromFile(
                     Path.ChangeExtension(r_options.ConfigPath, 
-                    ".private.json")),
+                    ".private.config")),
                 Language.FromString(r_options.SourceLanguage ?? "ja"));
 
             var errors = new List<string>();
