@@ -11,9 +11,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Required = Required.Always)]
         public string Text { get; }
 
+        [JsonConstructor]
         public AIPrompt(string text)
         {
             this.Text = text;
+        }
+
+        public AIPrompt(string[] lines) 
+        {
+            this.Text = string.Join("\n", lines);
         }
 
         public string GetFinalText(

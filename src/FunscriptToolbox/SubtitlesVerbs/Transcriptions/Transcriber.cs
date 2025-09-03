@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -16,6 +17,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         [JsonProperty(Order = 2, Required = Required.Always)]
         public string TranscriptionId { get; set; }
+
+        [JsonProperty(Order = 3, Required = Required.Always)]
+        public bool ExportMetadataSrt { get; set; } = false;
 
         [JsonIgnore]
         public virtual bool CanBeUpdated { get; } = false;
@@ -34,6 +38,58 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected abstract string GetMetadataProduced();
 
+        private void DoExportMetatadaSrt(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            bool isAlreadyFinished)
+        {
+            if (!isAlreadyFinished)
+            {
+                SaveDebugSrtIfVerbose(context, transcription);
+            }
+            if (this.ExportMetadataSrt)
+            {
+                var filename = context.WIP.BaseFilePath + $".Worker.{this.TranscriptionId}.srt";
+                if (!isAlreadyFinished || !File.Exists(filename))
+                {
+                    context.SoftDelete(filename);
+                    CreateMetadatasSrt(filename, transcription);
+                }
+            }
+        }
+
+        private Transcription TryImportMetadatasSrt(
+            SubtitleGeneratorContext context, 
+            Transcription transcription)
+        {
+            var filename = context.WIP.BaseFilePath + $".Worker.{this.TranscriptionId}.import.srt";
+            if (File.Exists(filename))
+            {
+                int i = 2;
+                string newId = $"{transcription.Id}-OLD";
+                while (context.WIP.Transcriptions.Any(t => t.Id == newId))
+                {
+                    newId = $"{transcription.Id}-OLD{i++}";
+                }
+                transcription.ChangeId(newId);
+                var importedTranscription = new Transcription(
+                    this.TranscriptionId,
+                    this.GetMetadataProduced(),
+                    context.OverrideSourceLanguage,
+                    true,
+                    ReadMetadataFromSrt(filename).
+                        Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
+                context.WIP.Transcriptions.Add(importedTranscription);
+                context.WIP.Save();
+
+                return importedTranscription;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         public override void Execute(
             SubtitleGeneratorContext context)
         {
@@ -47,14 +103,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (transcription == null)
             {
                 transcription = new Transcription(
-                    this.TranscriptionId,
-                    context.OverrideSourceLanguage,
-                    this.GetMetadataProduced());
+                    this.TranscriptionId,                 
+                    this.GetMetadataProduced(),
+                    context.OverrideSourceLanguage);
                 context.WIP.Transcriptions.Add(transcription);
             }
 
             if (transcription.IsFinished && !this.CanBeUpdated)
             {
+                DoExportMetatadaSrt(context, transcription, isAlreadyFinished: true);
+
                 context.WriteInfoAlreadyDone($"Transcription '{this.TranscriptionId}' have already been done:");
                 context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Count}");
                 context.WriteInfoAlreadyDone($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
@@ -76,8 +134,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 try
                 {
                     var watch = Stopwatch.StartNew();
-                    context.WriteInfo($"Transcribing '{this.TranscriptionId}'...");
-                    this.Transcribe(context, transcription);
+                    var importedTranscription = TryImportMetadatasSrt(context, transcription);
+
+                    if (importedTranscription == null)
+                    {
+                        context.WriteInfo($"Transcribing '{this.TranscriptionId}'...");
+                        this.Transcribe(context, transcription);
+                    }
+                    else
+                    {
+                        context.WriteInfo($"Importing transcription '{this.TranscriptionId}'...");
+                        transcription = importedTranscription;
+                    }
 
                     if (transcription.IsFinished)
                     {
@@ -110,6 +178,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     context.WriteError($"An error occured while transcribing '{this.TranscriptionId}':\n{ex.Message}");
                     context.WriteLog(ex.ToString());
                 }
+
+                DoExportMetatadaSrt(context, transcription, isAlreadyFinished: false);
             }
         }
 
@@ -118,7 +188,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Transcription transcription)
         {
             var firstPerfectVadId = context.Config.Workers.OfType<TranscriberPerfectVAD>().FirstOrDefault()?.TranscriptionId;
-            var timings = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId)?.GetItems();
+            var timings = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId && t.IsFinished)?.GetItems();
             if (timings != null && transcription.MetadataAlwaysProduced != null)
             {
                 var nbEmptyItems = transcription.Items.Count(item => string.IsNullOrWhiteSpace(item.Metadata.Get(transcription.MetadataAlwaysProduced)));

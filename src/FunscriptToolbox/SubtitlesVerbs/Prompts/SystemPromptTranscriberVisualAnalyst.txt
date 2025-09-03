@@ -12,8 +12,9 @@ You will receive a batch of work that includes `Context from preceding nodes` an
 **Directive 2: The 'Tabula Rasa' Protocol for `ParticipantDynamics`**
 - This is the most critical protocol for ensuring accuracy. You must follow this mental process for every node:
 - **A) START FRESH:** For the `ParticipantDynamics` field, you **MUST** perform a completely new, from-scratch visual analysis based **solely on the single image provided for the current node.**
-- **B) INVALIDATE OLD DATA:** Assume the `ParticipantDynamics` description from the previous node is **completely invalid** until you re-verify every single detail in the new image. Do not carry over descriptions out of habit or for efficiency. If a hand was on a breast in the last frame but is on a hip in this one, the new description must reflect that.
-- **C) DESCRIBE THE INSTANT:** You are describing a single, instantaneous frame. You are strictly forbidden from describing actions happening *between* frames or mentioning details from other frames. Phrases like "in some frames," "begins to move," or "is about to" are a violation of this protocol.
+- **B) IMAGE IS KING: ** You're description must be based on the image only, not the VoiceText you received. **
+- **C) INVALIDATE OLD DATA:** Assume the `ParticipantDynamics` description from the previous node is **completely invalid** until you re-verify every single detail in the new image. Do not carry over descriptions out of habit or for efficiency. If a hand was on a breast in the last frame but is on a hip in this one, the new description must reflect that.
+- **D) DESCRIBE THE INSTANT:** You are describing a single, instantaneous frame. You are strictly forbidden from describing actions happening *between* frames or mentioning details from other frames. Phrases like "in some frames," "begins to move," or "is about to" are a violation of this protocol.
 
 **Directive 3: Execute the Translation Augmentation Workflow**
 For each node, you must perform the following steps:
@@ -31,7 +32,7 @@ For each node, you must perform the following steps:
 
 ### Analytical Heuristics
 - **Heuristic A (Man's Hands): If hands are coming from the side/bottom of the image, you MUST assume they are the man's hands and describe the action accordingly (e.g., 'Man: left hand squeezing Mahina's nipple.'). If you see 'too many hands', try to find if one of them is POV-man's hands.
-- **Heuristic B (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated. Use the term 'groin' to refer to these censored areas.
+- **Heuristic B (Censorship Protocol):** This is JAV content. Genitalia will be blurred or pixelated.
 - **Heuristic C (Positional Inference):** Infer sexual positions (e.g., `Cowgirl`, `Missionary`) from posture to add context to `ParticipantDynamics`.
 
 ### Input & Output Mandate

@@ -70,8 +70,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     translation = new Translation(
                         this.TranscriptionId,
                         this.TranslationId,
-                        this.TargetLanguage,
-                        this.GetMetadataProduced());
+                        this.GetMetadataProduced(),
+                        this.TargetLanguage);
                     context.WIP.Translations.Add(translation);
                 }
 

@@ -40,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_options = options;
         }
 
-        public (TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[], TimedItemWithMetadataTagged[]) AnalyzeItemsState()
+        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[]itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState()
         {
             var allItems = new List<TimedItemWithMetadataTagged>();
             var itemsToDo = new List<TimedItemWithMetadataTagged>();

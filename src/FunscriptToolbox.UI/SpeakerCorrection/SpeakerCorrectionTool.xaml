@@ -161,7 +161,7 @@
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Name="SkipButton" Content="→ Skip (S)" Click="SkipButton_Click" Height="50" Margin="2" Background="#F39C12" Foreground="White" FontSize="14" FontWeight="Bold"/>
                             <Button Grid.Column="1" Name="ApplyManualButton" Content="Apply Manual (M)" Click="ApplyManualButton_Click" Height="50" Margin="2" Background="#3498DB" Foreground="White" FontSize="14" FontWeight="Bold"/>
-                            <Button Grid.Column="2" Name="UndoButton" Content="Undo (Ctrl+Z)" Click="UndoButton_Click" Height="50" Margin="2" Background="#7F8C8D" Foreground="White" FontSize="14" FontWeight="Bold"/>
+                            <Button Grid.Column="2" Name="UndoButton" Content="Undo (Ctrl+Z)" Click="UndoButton_Click" Height="50" Margin="2" Background="#7F5C3D" Foreground="White" FontSize="14" FontWeight="Bold"/>
                             <Button Grid.Column="3" Name="PauseButton" Content="❚❚ Pause (Space)" Click="PauseButton_Click" Height="50" Margin="2" Background="#8E44AD" Foreground="White" FontSize="14" FontWeight="Bold"/>
                             <Button Grid.Column="4" Name="ExtendButton" Content="← Extend Duration →" Click="ExtendButton_Click" Height="50" Margin="2" Background="#7F8C8D" Foreground="White" FontSize="14" FontWeight="Bold"/>
                         </Grid>

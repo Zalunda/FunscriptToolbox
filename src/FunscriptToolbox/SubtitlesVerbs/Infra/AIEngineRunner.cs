@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class AIEngineRunner
     {
-        public static string TryToFixReceivedJson(AIRequest request, string json, bool tryToFixEnd = true)
+        public static string TryToFixReceivedJson(string json, bool tryToFixEnd = true)
         {
             // Remove thinking text
             json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
@@ -232,11 +232,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string responseReceived,
             AIRequest request)
         {
+            static string GetSegmentInformation(JToken segment)
+            {
+                var lineInfo = (IJsonLineInfo)segment;
+                return (lineInfo != null && lineInfo.HasLineInfo())
+                    ? $"Error is segment starting at line {lineInfo.LineNumber}, position {lineInfo.LinePosition}."
+                    : $"Error is segment at unknown location.";
+            }
+
             string fixedJson = null;
+            JToken currentSegment = null;
             try
             {
                 // Step 1: Get the cleaned-up JSON string from your fixing logic.
-                fixedJson = TryToFixReceivedJson(request, responseReceived);
+                fixedJson = TryToFixReceivedJson(responseReceived);
 
                 // Step 2: Parse the cleaned string using a reader to preserve line info.
                 JArray responseArray;
@@ -247,25 +256,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     responseArray = JArray.Load(jsonReader);
                 }
 
-                string GetSegmentInformation(JToken segment)
-                {
-                    var lineInfo = (IJsonLineInfo)segment;
-                    return (lineInfo != null && lineInfo.HasLineInfo())
-                        ? $"Error is segment starting at line {lineInfo.LineNumber}, position {lineInfo.LinePosition}."
-                        : $"Error is segment at unknown location.";
-                }
-
                 var itemsAdded = new List<T>();
                 foreach (var segment in responseArray)
                 {
+                    currentSegment = segment;
                     var seg = (JObject)segment;
 
                     // Extract and remove known fields
-                    var startTime = TimeSpan.Parse((string)seg["StartTime"]);
+                    var startTime = LooseTimeSpanParse((string)seg["StartTime"]);
                     TimeSpan endTime;
                     if (seg.ContainsKey("EndTime"))
                     {
-                        endTime = TimeSpan.Parse((string)seg["EndTime"]);
+                        endTime = LooseTimeSpanParse((string)seg["EndTime"]);
                     }
                     else
                     {
@@ -302,7 +304,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 // For any other exception, wrap it with the context of the fixed JSON.
                 // This is crucial for debugging parsing failures.
-                throw new AIRequestException(ex, request, ex.Message, fixedJson ?? responseReceived);
+                throw new AIRequestException(ex, request, ex.Message + $"\n{GetSegmentInformation(currentSegment)}", fixedJson ?? responseReceived);
             }
         }
     }

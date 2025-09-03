@@ -36,13 +36,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             out string reason)
         {
             var aggregate = this.Metadatas.Aggregate(context);
+            if (aggregate.IsPrerequisitesMetWithTimings(out reason) == false)
+            {
+                return false;
+            }
+
             if (this.WaitForFinished)
             {
-                if (aggregate.IsPrerequisitesMetWithTimings(out reason) == false)
-                {
-                    return false;
-                }
-
                 var (_, reasons) = this.Metadatas.GetOthersSources(context, this.CandidatesSources);
                 if (reasons.Any() == true)
                 {
@@ -71,8 +71,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.Clear();
             transcription.Items.AddRange(BuildCandidatesAggregation(context));
             transcription.MarkAsFinished();
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
 
         private IEnumerable<TranscribedItem> BuildCandidatesAggregation(SubtitleGeneratorContext context)

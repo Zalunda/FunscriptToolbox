@@ -126,8 +126,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             transcription.MarkAsFinished();
             context.WIP.Save();
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
 
         private AIRequest CreateRequestForFullAudio(
@@ -179,7 +177,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             string prefix = "")
         {
             foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
-                                    response.Request,
                                     response.AssistantMessage,
                                     tryToFixEnd: false)))
             {

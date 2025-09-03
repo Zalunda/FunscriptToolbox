@@ -146,50 +146,20 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SaveAsFileSuffixe = ".wav",
                         FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>  
                     },
+
                     new TranscriberAudioFull()
                     {
-                        TranscriptionId = "full",
+                        TranscriptionId = "full-whisper",
                         SourceAudioId = "audio",
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper,
                     },
-                    new TranslatorGoogleV1API()
-                    {
-                        TranscriptionId = "full",
-                        TranslationId = "google",
-                        TargetLanguage = Language.FromString("en"),
-                        MetadataNeeded = "VoiceText",
-                        MetadataProduced = "TranslatedText"
-                    },
-                    new TranslatorAI()
-                    {
-                        TranscriptionId = "full",
-                        TranslationId = "local-api",
-                        Enabled = false,
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI {
-                            BaseAddress = "http://localhost:10000/v1",
-                            Model = "mistralai/mistral-small-3.2",
-                            ValidateModelNameInResponse = true,
-                            UseStreaming = true
-                        },
-                        Metadatas = null,
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = systemPromptTranslator,
-                            MetadataNeeded = "VoiceText|OnScreenText",
-                            MetadataAlwaysProduced = "TranslatedText",
-
-                            BatchSize = 30,
-                            NbContextItems = null,
-                            NbItemsMinimumReceivedToContinue = 10
-                        }
-                    },
                     new TranscriberAudioFullAI()
                     {
+                        Enabled = false,
+
                         TranscriptionId = "full-ai",
                         SourceAudioId = "audio",
-                        Enabled = false,
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -209,19 +179,52 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 }))
                         },
                         SystemPrompt = systemPromptTranscriberAudioFull,
-                        MetadataProduced = "VoiceText",                        
+                        MetadataProduced = "VoiceText",
                         MaxChunkDuration = TimeSpan.FromMinutes(5)
+                    },
+                    new TranslatorGoogleV1API()
+                    {
+                        TranscriptionId = "full-whisper",
+                        TranslationId = "google",
+                        TargetLanguage = Language.FromString("en"),
+                        MetadataNeeded = "VoiceText",
+                        MetadataProduced = "TranslatedText"
+                    },
+                    new TranslatorAI()
+                    {
+                        Enabled = false,
+
+                        TranscriptionId = "full-whisper",
+                        TranslationId = "local-api",
+                        TargetLanguage = Language.FromString("en"),
+                        Engine = new AIEngineAPI {
+                            BaseAddress = "http://localhost:10000/v1",
+                            Model = "mistralai/mistral-small-3.2",
+                            ValidateModelNameInResponse = true,
+                            UseStreaming = true
+                        },
+                        Metadatas = null,
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = systemPromptTranslator,
+                            MetadataNeeded = "VoiceText|OnScreenText",
+                            MetadataAlwaysProduced = "TranslatedText",
+
+                            BatchSize = 30,
+                            NbContextItems = null,
+                            NbItemsMinimumReceivedToContinue = 10
+                        }
                     },
                     new SubtitleOutputSingleTranslationSrt()
                     {
                         FileSuffix = ".perfect-vad-potential.srt",
-                        WorkerId = "full_local-api",
+                        WorkerId = "full-whisper_google",
                         AddToFirstSubtitle = "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)\n- Action (if not using visual-analyst)"
                     },
 
                     new TranscriberPerfectVAD()
                     {
-                        TranscriptionId = "perfectvad",
+                        TranscriptionId = "perfect-vad",
                         FileSuffix = ".perfect-vad.srt"
                     },
                     new TranscriberAudioMergedVAD()
@@ -230,16 +233,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SourceAudioId = "audio",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "perfectvad" }
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "perfect-vad" }
                         },
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper
                     },
                     new TranscriberImageAI()
                     {
-                        TranscriptionId = "onscreen",
+                        TranscriptionId = "onscreentext",
                         FfmpegFilter = "crop=iw/2:ih:0:0",
+                        ExportMetadataSrt = true,
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -248,8 +252,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "perfectvad" }
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -286,8 +290,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "perfectvad" }
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "onscreentext", "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -301,13 +305,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "validated-speakers",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "perfectvad", "singlevad" },
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "perfect-vad", "singlevad" },
                         },
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "Speaker",
                         MetadataPotentialSpeakers = "OngoingSpeakers",
-                        MetadataDetectedSpeaker = "Speaker-A"
+                        MetadataDetectedSpeaker = "Speaker-A",
+                        ExportMetadataSrt = true
                     },
                     new TranscriberImageAI()
                     {
@@ -315,7 +320,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                         TranscriptionId = "visual-analyst",
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
-                        KeepTemporaryFiles = true,
+                        ExportMetadataSrt = true,
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
@@ -324,8 +329,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "validated-speakers", "singlevad", "perfectvad" }
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "onscreentext", "validated-speakers", "singlevad", "perfect-vad" },
+
                         },
                         Options = new AIOptions()
                         {
@@ -334,9 +340,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "ParticipantDynamics",
                             MetadataForTraining = "VisualTraining",
 
-                            BatchSize = 5,
-                            NbContextItems = 0,
-                            NbItemsMinimumReceivedToContinue = 5,
+                            BatchSize = 30, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
+                            NbContextItems = 5,
+                            NbItemsMinimumReceivedToContinue = 10,
                             TextAfterTrainingData = "Only use those images to identify the characters and to understand how the man's hand can be seen in a POV-view like this. Do not use part of those image for your analysis of nodes.",
                             TextBeforeAnalysis = "Begin Node Analysis:",
                             TextAfterAnalysis = "**REMINDER**:\n" +
@@ -350,7 +356,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false,
+                        Enabled = false, // TODO ACTIVATE
 
                         TranscriptionId = "singlevad",
                         TranslationId = "analyst",
@@ -376,9 +382,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "visual-analyst", "singlevad", "perfectvad" }
-                            // TODO MERGE add all metadata in output
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "onscreentext", "visual-analyst", "singlevad", "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -388,65 +393,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "Analyzed"
                         }
                     },
-                    // TODO REMOVE -------------------------------
-                    new TranslatorAI()
-                    {
-                        TranscriptionId = "singlevad",
-                        TranslationId = "local-api-1", // No Info
-                        Enabled = true,
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI {
-                            BaseAddress = "http://localhost:10000/v1",
-                            Model = "mistralai/mistral-small-3.2",
-                            ValidateModelNameInResponse = true
-                        },
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "singlevad", "perfectvad"}
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = systemPromptTranslator,
-                            MetadataNeeded = "VoiceText|OnScreenText",
-                            MetadataAlwaysProduced = "TranslatedText",
 
-                            BatchSize = 30,
-                            NbContextItems = null,
-                            NbItemsMinimumReceivedToContinue = 10
-                        }
-                    },
                     new TranslatorAI()
                     {
-                        TranscriptionId = "singlevad",
-                        TranslationId = "local-api-2", // Full Info
-                        Enabled = true,
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI {
-                            BaseAddress = "http://localhost:10000/v1",
-                            Model = "mistralai/mistral-small-3.2",
-                            ValidateModelNameInResponse = true
-                        },
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "visual-analyst", "singlevad", "perfectvad" }
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = systemPromptTranslator,
-                            MetadataNeeded = "VoiceText|OnScreenText",
-                            MetadataAlwaysProduced = "TranslatedText",
-
-                            BatchSize = 30,
-                            NbContextItems = null,
-                            NbItemsMinimumReceivedToContinue = 10
-                        }
-                    },
-                    // TODO -------------------------------
-                    new TranslatorAI()
-                    {
-                        Enabled = false,
+                        Enabled = false, // TODO ACTIVATE
 
                         TranscriptionId = "singlevad",
                         TranslationId = "naturalist",
@@ -459,8 +409,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "visual-analyst", "analyst", "perfectvad" }
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "onscreentext", "visual-analyst", "analyst", "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -473,7 +423,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false,
+                        Enabled = false, // TODO ACTIVATE
 
                         TranscriptionId = "singlevad",
                         TranslationId = "maverick",
@@ -486,8 +436,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "visual-analyst", "analyst", "perfectvad" }
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "onscreentext", "visual-analyst", "analyst", "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -503,9 +453,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "candidates-digest",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad"
+                            TimingsSource = "perfect-vad"
                         },
-                        CandidatesSources = new [] { "singlevad_local-api-1", "singlevad_local-api-2", "onscreen", "singlevad", "mergedvad", "full" }, // "singlevad_maverick-GPT5", "singlevad_naturalist-GPT5"
+                        CandidatesSources = new [] { "singlevad_maverick-GPT5", "singlevad_naturalist-GPT5", "onscreentext", "singlevad", "mergedvad", "full" },
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = true,
@@ -516,9 +466,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "partial-candidates-digest",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad"
+                            TimingsSource = "perfect-vad"
                         },
-                        CandidatesSources = new [] { "singlevad_local-api-1", "singlevad_local-api-2", "onscreen", "singlevad", "mergedvad", "full" }, // "singlevad_maverick-GPT5", "singlevad_naturalist-GPT5"
+                        CandidatesSources = new [] { "singlevad_maverick-GPT5", "singlevad_naturalist-GPT5", "onscreentext", "singlevad", "mergedvad", "full" },
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = false,
@@ -526,7 +476,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false,
+                        Enabled = false, // TODO ACTIVATE
 
                         TranscriptionId = "candidates-digest",
                         TranslationId = "arbitrer",
@@ -534,13 +484,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5", // Or "JAVTrans-Arbitrer" without systemPrompt below
+                            Model = "GPT-5",
                             APIKeyName = "APIKeyPoe"
                         },
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfectvad",
-                            Sources = new [] { "onscreen", "visual-analyst", "singlevad", "perfectvad"}
+                            TimingsSource = "perfect-vad",
+                            Sources = new [] { "onscreentext", "visual-analyst", "singlevad", "perfect-vad"}
                         },
                         Options = new AIOptions()
                         {

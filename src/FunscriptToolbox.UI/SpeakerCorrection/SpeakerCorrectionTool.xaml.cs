@@ -33,7 +33,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             }
         }
         private readonly List<UndoState> _undoHistory = new List<UndoState>();
-        private const int MaxUndoSteps = 5;
+        private const int MaxUndoSteps = 20;
 
         // --- Existing Fields ---
         private readonly string _videoPath;
@@ -115,7 +115,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 VideoPlaceholder.Text = "Video not available.";
             }
 
-            RefreshSpeakerLists();
+            RefreshSpeakerLists(new[] { Key.D1, Key.D2, Key.D3, Key.D4, Key.D5 });
             StatusText.Text = "Ready. Select a speaker and click 'Start Validation'.";
             UpdateUndoButtonState();
         }
@@ -324,19 +324,21 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         #endregion
 
         #region Data Loading and Preparation
-        private void RefreshSpeakerLists()
+        private void RefreshSpeakerLists(IEnumerable<Key> defaultAssignments = null)
         {
             // Discover names from FinalSpeaker as well
-            var allNames = this.WorkItems.Select(item => item.DetectedSpeaker)
+            var potentialSpeakers = this.WorkItems.SelectMany(item => item.PotentialSpeakers).Distinct().ToArray();
+            var allNames = potentialSpeakers
+                .Concat(this.WorkItems.Select(item => item.DetectedSpeaker))
                 .Concat(this.WorkItems.Select(item => item.FinalSpeaker))
-                .Concat(this.WorkItems.SelectMany(item => item.PotentialSpeakers))
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct();
 
             var allKnownNames = allNames.Union(SpeakerStats.Select(s => s.DisplayName)).Distinct().ToList();
+            var iterateOnDefaultAssignments = defaultAssignments?.GetEnumerator();
 
             // Add new speakers or update existing ones
-            foreach (var name in allKnownNames.OrderBy(n => n))
+            foreach (var name in allKnownNames)
             {
                 int currentTotal = this.WorkItems.Count(item => (item.FinalSpeaker ?? item.DetectedSpeaker) == name);
                 int currentFinalized = this.WorkItems.Count(item => item.FinalSpeaker == name);
@@ -349,15 +351,27 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 }
                 else
                 {
+                    if (iterateOnDefaultAssignments?.MoveNext() == false)
+                    {
+                        iterateOnDefaultAssignments = null;
+                    }
                     SpeakerStats.Add(new SpeakerStatsViewModel
                     {
                         DisplayName = name,
                         TotalCount = currentTotal,
                         FinalizedCount = currentFinalized,
-                        IsManuallyAdded = false
-                    });
+                        IsManuallyAdded = potentialSpeakers.Contains(name),
+                        AssignedKey = iterateOnDefaultAssignments?.Current
+                    }); ;
                 }
             }
+
+            SpeakerStats.Add(new SpeakerStatsViewModel
+            {
+                DisplayName = "Unknown",
+                TotalCount = this.WorkItems.Count(item => (item.FinalSpeaker ?? item.DetectedSpeaker) == null),
+                FinalizedCount = 0
+            });
 
             // After all counts are updated, find any speakers that are empty AND were not manually added.
             var speakersToRemove = SpeakerStats.Where(s => s.TotalCount == 0 && !s.IsManuallyAdded).ToList();

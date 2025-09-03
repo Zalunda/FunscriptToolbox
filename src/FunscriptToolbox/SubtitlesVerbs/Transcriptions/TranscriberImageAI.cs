@@ -1,7 +1,6 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -81,8 +80,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription.MarkAsFinished();
                 context.WIP.Save();
             }
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

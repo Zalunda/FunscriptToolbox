@@ -1,8 +1,6 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.Infra;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -11,8 +9,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public override bool CanBeUpdated => true;
 
         public string FileSuffix { get; set; } = ".perfect-vad.srt";
-
-        public string MetadataExtractionRegex { get; set; } = @"{(?<name>[^}:]*)(\:(?<value>[^}]*))?}";
 
         protected override string GetMetadataProduced() => null;
 
@@ -40,22 +36,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
             transcription.Items.Clear();
             transcription.Items.AddRange(
-                subtitleFile
-                .Subtitles
-                .Select(subtitle => new TranscribedItem(
-                    subtitle.StartTime,
-                    subtitle.EndTime,
-                    metadata: new MetadataCollection(
-                        Regex
-                        .Matches(subtitle.Text, this.MetadataExtractionRegex)
-                        .Cast<Match>()
-                        .ToDictionary(
-                            match => match.Groups["name"].Value,
-                            match => match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty)))));
+                ReadMetadataFromSrt(fullpath).
+                    Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
             transcription.MarkAsFinished();
             context.WIP.Save();
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

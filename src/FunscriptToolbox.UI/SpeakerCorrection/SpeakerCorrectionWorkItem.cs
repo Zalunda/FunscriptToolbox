@@ -15,12 +15,14 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             TimeSpan startTime, 
             TimeSpan endTime,
             IEnumerable<string> potentialSpeakers,
-            string detectedSpeaker)
+            string detectedSpeaker,
+            string finalSpeaker)
         {
             this.StartTime = startTime;
             this.EndTime = endTime;
             this.PotentialSpeakers = new List<string>(potentialSpeakers ?? Array.Empty<string>());
             this.DetectedSpeaker = detectedSpeaker;
+            this.FinalSpeaker = finalSpeaker;
         }
     }
 }

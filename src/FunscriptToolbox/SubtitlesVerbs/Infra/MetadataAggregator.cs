@@ -129,7 +129,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (allItems.Count > 0)
             {
                 // TODO Handle extra nodes
-                throw new Exception("TODO What to do with left over.");
+                //throw new Exception("TODO What to do with left over.");
             }
             return mergedItems
                 .OrderBy(f => f.StartTime)

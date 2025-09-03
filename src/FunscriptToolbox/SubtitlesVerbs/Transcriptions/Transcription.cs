@@ -11,18 +11,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public Language Language { get; }
         [JsonProperty(Order = 11, TypeNameHandling = TypeNameHandling.Auto)]
         public object CurrentJobState { get; set; }
-        [JsonProperty(Order = 12)]
-        public bool IsFinished { get; private set; }
 
         public Transcription(
             string id,
-            Language language,
             string metadataAlwaysProduced,
-            object currentJobState = null,
+            Language language,
             bool isFinished = false,
-            IEnumerable<TranscribedItem> items = null, 
-            IEnumerable<Cost> costs = null)
-            : base(id, metadataAlwaysProduced, items, costs)
+            IEnumerable<TranscribedItem> items = null,
+            IEnumerable<Cost> costs = null,
+            object currentJobState = null)
+            : base(id, metadataAlwaysProduced, isFinished, items, costs)
         {
             Language = language;
             CurrentJobState = currentJobState;

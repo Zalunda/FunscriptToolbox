@@ -21,9 +21,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 12)]
         public string MetadataPotentialSpeakers { get; set; }
         [JsonProperty(Order = 13)]
+        public bool WarnIfNoPotentialSpeakersProvided { get; set; } = true;
+        [JsonProperty(Order = 14)]
         public string MetadataDetectedSpeaker { get; set; }
 
-        protected override string GetMetadataProduced() => null;
+        protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context, 
@@ -54,8 +56,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 },
                 transcription.Language);
 
-            var (allItems, itemsToDo, _, _) = requestGenerator.AnalyzeItemsState();
-
+            var (allItems, itemsToDo, itemsAlreadyDone, _) = requestGenerator.AnalyzeItemsState();
 
             var nbUpdate = 1;
             void UpdateAndSave(SpeakerCorrectionWorkItem workItem)
@@ -79,15 +80,43 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.WIP.Save();
             }
 
-            // TODO Low priority, allows to save the left, right, center in the output (i.e. the key we used while doing it, if we always set those key relative to the position of characters)
-
             var nbItemsToDoBefore = itemsToDo.Length;
+            var workItems = CreateWorkItem(allItems, itemsToDo.Union(itemsAlreadyDone).ToArray()).ToArray();
+
+            if (this.WarnIfNoPotentialSpeakersProvided && !workItems.Any(f => f.PotentialSpeakers.Count > 0))
+            {
+                // No potential speakers instruction was given, warn the user and quit
+                context.WriteError($"No '{this.MetadataPotentialSpeakers}' provided. ");
+                context.AddUserTodo($"Add '{this.MetadataPotentialSpeakers}' in file perfectvad file.");
+                return;
+            }
+
+            if (itemsAlreadyDone.Length != 0)
+            {
+                var autoSpeakerChoices = workItems.Select(f => f.PotentialSpeakers.Count == 1 ? f.PotentialSpeakers[0] : null).Distinct().ToArray();
+                if (itemsAlreadyDone.Length == 0 && autoSpeakerChoices.Length == 1 && autoSpeakerChoices[0] != null)
+                {
+                    // Every item would have been marked with the same speaker, so we just mark the job as done and quit (without adding redundant metadata)
+                    transcription.MarkAsFinished();
+                    context.WIP.Save();
+                    return;
+                }
+            }
+
+            // Auto select all items that have only one potential speaker
+            foreach (var item in workItems)
+            {
+                if (item.FinalSpeaker == null && item.PotentialSpeakers?.Count == 1)
+                {
+                    item.FinalSpeaker = item.PotentialSpeakers[0];
+                    UpdateAndSave(item);
+                }
+            }
+
             var watch = Stopwatch.StartNew();
             Test.SpeakerCorrection(
                 Path.GetFullPath(context.WIP.OriginalVideoPath),
-                CreateWorkItem(
-                    allItems,
-                    itemsToDo),
+                workItems,
                 UpdateAndSave,
                 Undo);
             watch.Stop();
@@ -104,25 +133,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription.MarkAsFinished();
             }
             context.WIP.Save();
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
 
         private IEnumerable<SpeakerCorrectionWorkItem> CreateWorkItem(
-            TimedItemWithMetadataTagged[] allItems,
+            IEnumerable<TimedItemWithMetadataTagged> allItems,
             TimedItemWithMetadataTagged[] itemsToDo)
         {
-            string potentialSpeakers = null;
+            string[] potentialSpeakers = null;
             foreach (var item in allItems)
             {
-                potentialSpeakers = item.Metadata.Get(this.MetadataPotentialSpeakers) ?? potentialSpeakers;
+                potentialSpeakers = item.Metadata.Get(this.MetadataPotentialSpeakers)?.Split(',').Select(f => CleanName(f)).ToArray()
+                    ?? potentialSpeakers;
                 if (itemsToDo.Contains(item))
                 {
                     yield return new SpeakerCorrectionWorkItem(
                         item.StartTime,
                         item.EndTime,
-                        potentialSpeakers?.Split(',').Select(f => CleanName(f)) ?? Array.Empty<string>(),
-                        CleanName(item.Metadata.Get(this.MetadataDetectedSpeaker)));
+                        potentialSpeakers ?? Array.Empty<string>(),
+                        CleanName(item.Metadata.Get(this.MetadataDetectedSpeaker)),
+                        item.Metadata.Get(this.MetadataProduced));
                 }
             }
         }
@@ -132,7 +161,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (name == null)
                 return null;
             var index = name.IndexOf('(');
-            return index < 0 ? name : name.Substring(0, index).Trim();
+            return (index < 0 ? name : name.Substring(0, index)).Trim();
         }
     }
 }

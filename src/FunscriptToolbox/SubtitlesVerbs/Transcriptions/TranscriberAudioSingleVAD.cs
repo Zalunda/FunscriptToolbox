@@ -65,8 +65,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.AddRange(transcribedTexts);
             transcription.MarkAsFinished();
             context.WIP.Save();
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

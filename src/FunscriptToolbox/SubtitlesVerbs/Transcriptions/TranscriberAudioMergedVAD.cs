@@ -138,8 +138,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.AddRange(remappedItems);
             transcription.MarkAsFinished();
             context.WIP.Save();
-
-            SaveDebugSrtIfVerbose(context, transcription);
         }
     }
 }

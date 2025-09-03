@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -13,46 +14,49 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             if (context.IsVerbose)
             {
-                var srt = new SubtitleFile();
-                srt.Subtitles.AddRange(container.GetItems().Select(item =>
-                    new Subtitle(
-                        item.StartTime,
-                        item.EndTime,                        
-                        string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{AddNewLineIfMultilines(kvp.Value)}}}")))));
-                srt.SaveSrt(context.GetPotentialVerboseFilePath($"{container.Id}.srt", DateTime.Now));
+                CreateMetadatasSrt(
+                    context.GetPotentialVerboseFilePath($"{container.Id}.srt", DateTime.Now),
+                    container);
             }
         }
 
-        private static string AddNewLineIfMultilines(string value)
+        protected static void CreateMetadatasSrt(string filename, TimedItemWithMetadataCollection container)
+        {
+            var srt = new SubtitleFile();
+            srt.Subtitles.AddRange(container.GetItems().Select(item =>
+                new Subtitle(
+                    item.StartTime,
+                    item.EndTime,
+                    string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{AddNewLineIfMultilines(kvp.Value)}}}")))));
+            srt.SaveSrt(filename);
+        }
+
+        protected static IEnumerable<TimedItemWithMetadata> ReadMetadataFromSrt(string fullpath)
+        {
+            const string MetadataExtractionRegex = @"{(?<name>[^}:]*)(\:(?<value>[^}]*))?}";
+
+            var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
+            return subtitleFile
+                .Subtitles
+                .Select(subtitle => new TimedItemWithMetadata(
+                    subtitle.StartTime,
+                    subtitle.EndTime,
+                    metadata: new MetadataCollection(
+                        Regex
+                        .Matches(subtitle.Text, MetadataExtractionRegex)
+                        .Cast<Match>()
+                        .ToDictionary(
+                            match => match.Groups["name"].Value,
+                            match => match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty))));
+        }
+
+        protected static string AddNewLineIfMultilines(string value)
         {
             return value == null
                 ? null
                 : (value.Contains("\n")) 
                     ? "\n" + value
                     : value;
-        }
-        protected string[] CreateFinalOrder(string[] order, IEnumerable<string> allIds)
-        {
-            if (order == null)
-                return allIds.Distinct().ToArray();
-
-            var remainingCandidats = allIds.Distinct().ToList();
-            var finalOrder = new List<string>();
-            foreach (var id in order)
-            {
-                if (id == "*")
-                {
-                    finalOrder.AddRange(remainingCandidats);
-                    break;
-                }
-                else if (remainingCandidats.Contains(id))
-                {
-                    finalOrder.Add(id);
-                    remainingCandidats.Remove(id);
-                }
-            }
-
-            return finalOrder.ToArray();
         }
     }
 }
