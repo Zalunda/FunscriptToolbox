@@ -211,7 +211,6 @@
     <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="KeyboardShortcuts.cs" />
     <Compile Include="SpeakerCorrection\SpeakerCorrectionWorkItem.cs" />
     <Compile Include="SpeakerCorrection\SpeakerCorrectionTool.xaml.cs">
       <DependentUpon>SpeakerCorrectionTool.xaml</DependentUpon>

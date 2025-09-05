@@ -82,14 +82,6 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             this.Closing += SpeakerCorrectionTool_Closing;
             this.PreviewKeyDown += SpeakerCorrectionTool_PreviewKeyDown;
 
-            // REMOVED some keys from here as they are now dynamic
-            KeyboardShortcuts.RegisterShortcuts(this, new Dictionary<Key, Action>
-            {
-                { Key.S, () => SkipButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)) },
-                { Key.M, () => ApplyManualButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)) },
-                { Key.Space, () => PauseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)) }
-            });
-
             _videoPath = videoPath;
             _saveCallBack = saveCallBack;
             _undoCallBack = undoCallBack;
@@ -128,9 +120,14 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
         private void SpeakerCorrectionTool_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // --- MODIFIED: KeyDown logic is now more complex ---
+            // If the event is coming from a TextBox, ignore all shortcuts and let the user type.
+            if (e.OriginalSource is TextBox)
+            {
+                return;
+            }
 
-            // Step 1: Handle key assignment mode first
+            // --- Key Assignment Mode ---
+            // Handle this first, as it's a special mode.
             if (_isWaitingForKeyAssignment)
             {
                 HandleKeyAssignment(e.Key);
@@ -138,7 +135,8 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 return;
             }
 
-            // Step 2: Handle standard shortcuts like Undo
+            // --- Global Shortcuts ---
+            // Handle standard shortcuts like Undo.
             if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 UndoButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -146,15 +144,34 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 return;
             }
 
-            // Step 3: If in validation, check for dynamic speaker hotkeys
+            // --- Validation Mode Shortcuts ---
+            // Only process these if we are in the middle of validation.
             if (CurrentItem != null)
             {
+                // Check for dynamic speaker hotkeys
                 var assignedSpeaker = SpeakerStats.FirstOrDefault(s => s.AssignedKey.HasValue && s.AssignedKey.Value == e.Key);
                 if (assignedSpeaker != null)
                 {
                     AssignSpeaker(assignedSpeaker.DisplayName);
                     e.Handled = true;
                     return;
+                }
+
+                // Check for other validation-specific keys
+                switch (e.Key)
+                {
+                    case Key.S:
+                        SkipButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        e.Handled = true;
+                        break;
+                    case Key.M:
+                        ApplyManualButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        e.Handled = true;
+                        break;
+                    case Key.Space:
+                        PauseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        e.Handled = true;
+                        break;
                 }
             }
         }
