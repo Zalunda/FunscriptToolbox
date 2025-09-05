@@ -11,6 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public List<dynamic> Messages { get; }
         public int NbItemsToDoTotal { get; }
         public string MetadataAlwaysProduced { get; }
+        public string UpdateMessage { get; }
 
         public string FullPrompt { get; }
 
@@ -19,13 +20,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string taskId,
             List<dynamic> messages,
             int nbItemsToDoTotal,
-            string metadataAlwaysProduced)
+            string metadataAlwaysProduced,
+            string updateMessage)
         {
             this.Number = requestNumber;
             this.TaskId = taskId;
             this.Messages = messages;
             this.NbItemsToDoTotal = nbItemsToDoTotal;
             this.MetadataAlwaysProduced = metadataAlwaysProduced;
+            this.UpdateMessage = updateMessage;
+
             var fullpromptBuilder = new StringBuilder();
             if (messages != null)
             {

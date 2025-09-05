@@ -20,6 +20,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
         [JsonProperty(Order = 3)]
         public Language TargetLanguage { get; set; } = Language.FromString("en");
+        [JsonIgnore]
         public string FullId => $"{this.TranscriptionId}_{this.TranslationId}";
 
         public Translator()
@@ -37,7 +38,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         protected Transcription GetTranscription(
             SubtitleGeneratorContext context)
         {
-            return context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId);
+            return context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId && f.IsFinished);
         }
 
         protected abstract string GetMetadataProduced();

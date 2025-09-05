@@ -14,9 +14,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
     public class SubtitleGeneratorContext : VerbContext
     {
         public FfmpegAudioHelper FfmpegAudioHelper { get; }
-        public SubtitleGeneratorConfig Config { get; internal set; }
+        private readonly string r_configPath;
         private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
-        public Language OverrideSourceLanguage { get; }
+        public SubtitleGeneratorConfig Config { get; private set; }
 
         public List<string> UserTodoList { get; }
 
@@ -26,18 +26,32 @@ namespace FunscriptToolbox.SubtitlesVerbs
             ILog log,
             bool isVerbose,
             FfmpegAudioHelper ffmpegAudioHelper,
-            SubtitleGeneratorConfig config,
-            SubtitleGeneratorPrivateConfig privateConfig,
-            Language overrideSourceLanguage) 
+            string configPath,
+            SubtitleGeneratorPrivateConfig privateConfig) 
             : base(log, isVerbose, null)
         {
             this.FfmpegAudioHelper = ffmpegAudioHelper;
-            this.Config = config;
+            r_configPath = configPath;
             r_privateConfig = privateConfig;
-            this.OverrideSourceLanguage = overrideSourceLanguage;
 
             this.UserTodoList = new List<string>();
+            this.Config = SubtitleGeneratorConfig.FromFile(configPath);
             this.WIP = null;
+        }
+
+        public void ChangeCurrentFile(
+            WorkInProgressSubtitles wipsub,
+            string overrideConfigPath)
+        {
+            this.Config = SubtitleGeneratorConfig.FromFile(r_configPath, overrideConfigPath);
+            this.WIP = wipsub;
+            this.ChangePrefix(Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": ");
+        }
+
+        public void ForgetCurrentFile()
+        {
+            this.WIP = null;
+            this.ChangePrefix(string.Empty);
         }
 
         public string GetPrivateConfig(string itemName)
@@ -80,19 +94,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
         internal void AddUserTodo(string message)
         {
             this.UserTodoList.Add(this.Prefix + message);
-        }
-
-        public void ChangeCurrentFile(
-            WorkInProgressSubtitles wipsub)
-        {
-            this.WIP = wipsub;
-            this.ChangePrefix(Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": ");
-        }
-
-        public void ForgetCurrentFile()
-        {
-            this.WIP = null;
-            this.ChangePrefix(string.Empty);
         }
 
         internal string GetPotentialVerboseFilePath(string suffixe, DateTime? processStartTime = null)

@@ -71,6 +71,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.Clear();
             transcription.Items.AddRange(BuildCandidatesAggregation(context));
             transcription.MarkAsFinished();
+            context.WIP.Save();
         }
 
         private IEnumerable<TranscribedItem> BuildCandidatesAggregation(SubtitleGeneratorContext context)

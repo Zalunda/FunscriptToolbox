@@ -75,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var importedTranscription = new Transcription(
                     this.TranscriptionId,
                     this.GetMetadataProduced(),
-                    context.OverrideSourceLanguage,
+                    context.Config.SourceLanguage,
                     true,
                     ReadMetadataFromSrt(filename).
                         Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
@@ -105,7 +105,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription = new Transcription(
                     this.TranscriptionId,                 
                     this.GetMetadataProduced(),
-                    context.OverrideSourceLanguage);
+                    context.Config.SourceLanguage);
                 context.WIP.Transcriptions.Add(transcription);
             }
 

@@ -86,8 +86,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.WarnIfNoPotentialSpeakersProvided && !workItems.Any(f => f.PotentialSpeakers.Count > 0))
             {
                 // No potential speakers instruction was given, warn the user and quit
-                context.WriteError($"No '{this.MetadataPotentialSpeakers}' provided. ");
-                context.AddUserTodo($"Add '{this.MetadataPotentialSpeakers}' in file perfectvad file.");
+                context.WriteError($"No '{this.MetadataPotentialSpeakers}' provided in referenced metadatas.");
+                context.AddUserTodo($"Add '{this.MetadataPotentialSpeakers}' in referenced metadatas.");
                 return;
             }
 

@@ -141,7 +141,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 messages.Add(new
                 {
                     role = "system",
-                    content = this.SystemPrompt.GetFinalText(context.OverrideSourceLanguage)
+                    content = this.SystemPrompt.GetFinalText(context.Config.SourceLanguage)
                 });
             }
 
@@ -150,7 +150,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 contentList.Add(new
                 {
                     type = "text",
-                    text = this.UserPrompt.GetFinalText(context.OverrideSourceLanguage)
+                    text = this.UserPrompt.GetFinalText(context.Config.SourceLanguage)
                 });
             }
 
@@ -166,8 +166,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 requestNumber,
                 this.SourceAudioId,
                 messages,
-                0,
-                this.MetadataProduced);
+                (int)timing.EndTime.TotalMinutes,
+                this.MetadataProduced,
+                $"{timing.StartTime} to {timing.EndTime}");
         }
 
         private void HandleResponse(

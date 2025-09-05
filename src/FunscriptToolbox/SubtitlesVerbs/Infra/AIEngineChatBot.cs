@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             context.AddUserTodo($"Feed the content of '{Path.GetFileName(filepath)}' to an AI, then replace the content of the file with the AI's answer.");
 
-            return new AIResponse(request);
+            return null; // TODO NEED A DIFFERENT SOLUTION SO THAT EVERY FILE IS CREATED
         }
     }
 }

@@ -44,21 +44,227 @@ namespace FunscriptToolbox.SubtitlesVerbs
             rs_serializer.Converters.Add(new StringEnumConverter());
         }
 
-        public static SubtitleGeneratorConfig FromFile(string filepath)
+        public static SubtitleGeneratorConfig FromFile(string filepath, string userOverrideFilepath = null)
         {
-            var adjustedContent = ReplaceLongStringFromHybridToJson(File.ReadAllText(filepath));
+            var adjustedContent = PreprocessHybridJsonFile(File.ReadAllText(filepath));
+            JObject baseConfig;
             try
             {
-                using var reader = new StringReader(adjustedContent);
-                using var jsonReader = new JsonTextReader(reader);
-                rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
-                return rs_serializer.Deserialize<SubtitleGeneratorConfig>(jsonReader);
+                baseConfig = JObject.Parse(adjustedContent);
             }
-            catch (Exception ex)            
+            catch (Exception ex)
             {
                 var adjustedFileName = filepath + ".as.json";
                 File.WriteAllText(adjustedFileName, adjustedContent);
                 throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
+            }
+
+            if (userOverrideFilepath != null)
+            {
+                if (File.Exists(userOverrideFilepath))
+                {
+                    try
+                    {
+                        var overrideContent = PreprocessHybridJsonFile(File.ReadAllText(userOverrideFilepath));
+                        JObject userConfig = JObject.Parse(overrideContent);
+
+                        // Use our custom merge logic that works with older Newtonsoft.Json versions
+                        MergeConfigs(baseConfig, userConfig);
+                    }
+                    catch (Exception ex)
+                    {
+                        // TODO
+                        var adjustedFileName = userOverrideFilepath + ".as.json";
+                        File.WriteAllText(adjustedFileName, adjustedContent);
+                        throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
+                    }
+                }
+                else
+                {
+                    File.WriteAllText(userOverrideFilepath, Resources.Example_wipconfig);
+                }
+            }
+
+            try
+            {
+                using var reader = new StringReader(baseConfig.ToString());
+                using var jsonReader = new JsonTextReader(reader);
+                rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
+                return rs_serializer.Deserialize<SubtitleGeneratorConfig>(jsonReader);
+            }
+            catch(Exception ex)
+            {
+                // merged version ???
+                var adjustedFileName = filepath + ".as.json";
+                File.WriteAllText(adjustedFileName, adjustedContent);
+                throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Merges a user override configuration into a base configuration, with special handling for arrays
+        /// to support older versions of Newtonsoft.Json.
+        /// </summary>
+        /// <param name="baseConfig">The base configuration JObject to merge into.</param>
+        /// <param name="userConfig">The user override JObject.</param>
+        private static void MergeConfigs(JObject baseConfig, JObject userConfig)
+        {
+            // --- Step 1: Merge all non-worker properties ---
+            // We clone the user config and remove 'Workers' so the default merge
+            // doesn't corrupt our array with its index-based logic.
+            var userConfigWithoutWorkers = (JObject)userConfig.DeepClone();
+            userConfigWithoutWorkers.Remove("Workers");
+            baseConfig.Merge(userConfigWithoutWorkers, new JsonMergeSettings
+            {
+                PropertyNameComparison = StringComparison.OrdinalIgnoreCase
+            });
+
+            // --- Step 2: Custom, ID-based merge for the 'Workers' array ---
+            if (!(userConfig["Workers"] is JArray userWorkers) || !(baseConfig["Workers"] is JArray baseWorkers))
+            {
+                return; // Nothing to do if one of the configs is missing the Workers array.
+            }
+
+            var newWorkersToPlace = new List<JObject>();
+
+            foreach (var userWorkerToken in userWorkers)
+            {
+                if (!(userWorkerToken is JObject userWorker)) continue;
+
+                JObject baseWorkerToUpdate = FindMatchingWorker(baseWorkers, userWorker);
+
+                if (baseWorkerToUpdate != null)
+                {
+                    // We found a match, so merge the user's changes into the existing worker.
+                    baseWorkerToUpdate.Merge(userWorker);
+                }
+                else
+                {
+                    // No match found. This is a new worker the user wants to add.
+                    newWorkersToPlace.Add(userWorker);
+                }
+            }
+
+            // --- Step 3: Place the new workers into the array ---
+            InsertNewWorkers(baseWorkers, newWorkersToPlace);
+        }
+
+        /// <summary>
+        /// Finds a worker in the base list that matches a worker from the user's override file.
+        /// </summary>
+        private static JObject FindMatchingWorker(JArray baseWorkers, JObject userWorker)
+        {
+            string userWorkerType = userWorker["$type"]?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(userWorkerType)) return null; // Can't match without a type.
+
+            var userWorkerTranscriptionId = userWorker["TranscriptionId"]?.ToString();
+            var userWorkerTranslationId = userWorker["TranslationId"]?.ToString();
+            var userWorkerAudioExtractionId = userWorker["AudioExtractionId"]?.ToString();
+            var userWorkerOutputId = userWorker["OutputId"]?.ToString();
+
+            foreach (var baseWorkerToken in baseWorkers)
+            {
+                if (!(baseWorkerToken is JObject baseWorker)) continue;
+
+                string baseWorkerType = baseWorker["$type"]?.ToString() ?? string.Empty;
+                if (baseWorkerType != userWorkerType) continue; // Types must match.
+
+                var baseWorkerTranscriptionId = baseWorker["TranscriptionId"]?.ToString();
+                var baseWorkerTranslationId = baseWorker["TranslationId"]?.ToString();
+                var baseWorkerAudioExtractionId = baseWorker["AudioExtractionId"]?.ToString();
+                var baseWorkerOutputId = baseWorker["OutputId"]?.ToString();
+
+                // For Translation
+                if (userWorkerTranslationId != null && userWorkerTranscriptionId != null
+                    && userWorkerTranslationId == baseWorkerTranslationId 
+                    && userWorkerTranscriptionId == baseWorkerTranscriptionId)
+                {
+                    return baseWorker;
+                }
+
+                // For Transcription
+                if (userWorkerTranslationId == null && userWorkerTranscriptionId != null
+                    && userWorkerTranscriptionId == baseWorkerTranscriptionId)
+                {
+                    return baseWorker;
+                }
+
+                if (userWorkerAudioExtractionId != null
+                    && userWorkerAudioExtractionId == baseWorkerAudioExtractionId)
+                {
+                    return baseWorker;
+                }
+
+                if (userWorkerOutputId != null
+                    && userWorkerOutputId == baseWorkerOutputId)
+                {
+                    return baseWorker;
+                }
+            }
+
+            return null; // No match found
+        }
+
+        /// <summary>
+        /// Inserts new workers into the base worker list according to the '$insertAt' meta-property.
+        /// This method processes insertions from highest index to lowest to ensure that insertions
+        /// do not affect the position of subsequent insertion targets.
+        /// </summary>
+        private static void InsertNewWorkers(JArray baseWorkers, List<JObject> newWorkers)
+        {
+            // --- Step 1: Group new workers by their target index and separate those to be appended ---
+            var insertionsByOriginalIndex = new Dictionary<int, List<JObject>>();
+            var workersToAppend = new List<JObject>();
+
+            foreach (var newWorker in newWorkers)
+            {
+                // Remove the meta-property so it doesn't pollute the final config.
+                var insertAtToken = newWorker.GetValue("$insertAt", StringComparison.OrdinalIgnoreCase);
+                newWorker.Remove("$insertAt");
+
+                if (insertAtToken != null && int.TryParse(insertAtToken.ToString(), out int index))
+                {
+                    if (!insertionsByOriginalIndex.ContainsKey(index))
+                    {
+                        insertionsByOriginalIndex[index] = new List<JObject>();
+                    }
+                    // The order of workers in the user's file for the same index is preserved.
+                    insertionsByOriginalIndex[index].Add(newWorker);
+                }
+                else
+                {
+                    // If '$insertAt' is missing or invalid, queue it for appending at the end.
+                    workersToAppend.Add(newWorker);
+                }
+            }
+
+            // --- Step 2: Process the grouped insertions from HIGHEST index to LOWEST ---
+            // This is the crucial step that solves the shifting index problem.
+            var sortedIndices = insertionsByOriginalIndex.Keys.OrderByDescending(k => k);
+
+            foreach (var index in sortedIndices)
+            {
+                // Clamp the target index to be a valid insertion point (0 to Count).
+                int insertionPoint = index;
+                if (insertionPoint < 0) insertionPoint = 0;
+                if (insertionPoint > baseWorkers.Count) insertionPoint = baseWorkers.Count;
+
+                // Get the list of workers to insert at this original index.
+                var workersForThisIndex = insertionsByOriginalIndex[index];
+
+                // We insert them in reverse order so they end up in the correct final order.
+                // E.g., to insert [A, B] at index 3, we first insert B at 3, then A at 3.
+                // The final result is [..., item_2, A, B, item_3, ...].
+                for (int i = workersForThisIndex.Count - 1; i >= 0; i--)
+                {
+                    baseWorkers.Insert(insertionPoint, workersForThisIndex[i]);
+                }
+            }
+
+            // --- Step 3: Append any remaining workers ---
+            foreach (var worker in workersToAppend)
+            {
+                baseWorkers.Add(worker);
             }
         }
 
@@ -67,9 +273,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         [JsonProperty(Order = 1)]
-        public object[] SharedObjects { get; set; }
+        public Language SourceLanguage { get; set; } = Language.FromString("ja");
 
         [JsonProperty(Order = 2)]
+        public object[] SharedObjects { get; set; }
+
+        [JsonProperty(Order = 3)]
         public SubtitleWorker[] Workers { get; set; }
 
         const string STARTLONGSTRING = "=_=__=______________________________";
@@ -78,6 +287,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
         private static string CreateLongString(string text)
         {
             return STARTLONGSTRING + text + ENDLONGSTRING;
+        }
+
+        private static string PreprocessHybridJsonFile(string originalText)
+        { 
+            return ReplaceLongStringFromHybridToJson(
+                originalText.Replace("^\\s*//.*$\n", string.Empty));
         }
 
         private static string ReplaceLongStringFromJsonToHybrid(string originalJson)
@@ -156,10 +371,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberAudioFullAI()
                     {
-                        Enabled = false,
-
                         TranscriptionId = "full-ai",
                         SourceAudioId = "audio",
+                        Enabled = false,
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -192,10 +406,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false,
-
                         TranscriptionId = "full-whisper",
                         TranslationId = "local-api",
+                        Enabled = false,
                         TargetLanguage = Language.FromString("en"),
                         Engine = new AIEngineAPI {
                             BaseAddress = "http://localhost:10000/v1",
@@ -274,7 +487,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                             Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",
+                            APIKeyName = "APIGeminiAI",                            
                             RequestBodyExtension = Expando(
                                 ("max_tokens", 64 * 1024),
                                 ("extra_body", new
@@ -297,7 +510,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = systemPromptTranscriberAudioSingleVAD,
                             MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "VoiceText"
+                            MetadataAlwaysProduced = "VoiceText",
+                            BatchSize = 150
                         }
                     },
                     new TranscriberInteractifSetSpeaker()
@@ -316,7 +530,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberImageAI()
                     {
-                        Enabled = false,
+                        Enabled = false, // TODO REWORK
 
                         TranscriptionId = "visual-analyst",
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
@@ -342,21 +556,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BatchSize = 30, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
                             NbContextItems = 5,
-                            NbItemsMinimumReceivedToContinue = 10,
-                            TextAfterTrainingData = "Only use those images to identify the characters and to understand how the man's hand can be seen in a POV-view like this. Do not use part of those image for your analysis of nodes.",
-                            TextBeforeAnalysis = "Begin Node Analysis:",
-                            TextAfterAnalysis = "**REMINDER**:\n" +
-                            //"For EVERY image, not just the first one: Ask yourself, where are POV-man's hands, are they grabbing breasts? and they in a girl's short?\n" +
-                            //"Do not stop analysing man's limb position even if they hadn't be seen for a while (for example, where is POV-man's left hand?). Everything need to be reevaluated on every image.\n" +
-                            "Don't forget to return a node for every nodes received. Count the number of nodes in the Begin Analysis section and the number of nodes in your answer and make sure that it match! Do not return a single node!"
-                            //"FOR DEBUGGING PURPOSE: After the producing the JSON, please tell me if you can find POV-man's hands on the image of node 3:27.213?\n" +
-                            //"Last time I asked, you said: Yes — in the image for node 00:03:27.213 I can see the POV-man's right hand resting on the bed/near the right side of his torso (visible near Ena's hip), and his left hand is not clearly visible in the frame.  (sorry to work like this, I trying going through an API)\n" +
-                            //"You can't see that his right hand is firmly on Ena's breast, and his left and are less clearly on Hana's breast?"
+                            NbItemsMinimumReceivedToContinue = 10
                         }
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false, // TODO ACTIVATE
+                        Enabled = false, // TODO REWORK
 
                         TranscriptionId = "singlevad",
                         TranslationId = "analyst",
@@ -396,21 +601,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     new TranslatorAI()
                     {
-                        Enabled = false, // TODO ACTIVATE
-
                         TranscriptionId = "singlevad",
                         TranslationId = "naturalist",
                         TargetLanguage = Language.FromString("en"),
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5", // Or "JAVTrans-GPT5" without systemPrompt below
+                            Model = "GPT-5",
                             APIKeyName = "APIKeyPoe"
                         },
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "visual-analyst", "analyst", "perfect-vad" }
+                            Sources = new [] { "onscreentext", "validated-speakers", "visual-analyst", "analyst", "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -423,21 +626,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false, // TODO ACTIVATE
-
                         TranscriptionId = "singlevad",
                         TranslationId = "maverick",
                         TargetLanguage = Language.FromString("en"),
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5", // Or "JAVTrans-GPT5" without systemPrompt below
+                            Model = "GPT-5",
                             APIKeyName = "APIKeyPoe"
                         },
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "visual-analyst", "analyst", "perfect-vad" }
+                            Sources = new [] { "onscreentext", "validated-speakers", "visual-analyst", "analyst", "perfect-vad" }
                         },
                         Options = new AIOptions()
                         {
@@ -446,6 +647,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
+                            BatchSize = 300
                         }
                     },
                     new TranscriberAggregator
@@ -455,7 +657,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "perfect-vad"
                         },
-                        CandidatesSources = new [] { "singlevad_maverick-GPT5", "singlevad_naturalist-GPT5", "onscreentext", "singlevad", "mergedvad", "full" },
+                        CandidatesSources = new [] { "singlevad_maverick", "singlevad_naturalist", "onscreentext", "singlevad", "mergedvad", "full" },
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = true,
@@ -468,7 +670,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "perfect-vad"
                         },
-                        CandidatesSources = new [] { "singlevad_maverick-GPT5", "singlevad_naturalist-GPT5", "onscreentext", "singlevad", "mergedvad", "full" },
+                        CandidatesSources = new [] { "singlevad_maverick", "singlevad_naturalist", "onscreentext", "singlevad", "mergedvad", "full" },
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = false,
@@ -476,8 +678,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false, // TODO ACTIVATE
-
                         TranscriptionId = "candidates-digest",
                         TranslationId = "arbitrer",
                         TargetLanguage = Language.FromString("en"),
@@ -490,7 +690,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "visual-analyst", "singlevad", "perfect-vad"}
+                            Sources = new [] { "onscreentext", "validated-speakers", "analyst", "perfect-vad" } // "visual-analyst", 
                         },
                         Options = new AIOptions()
                         {
@@ -498,7 +698,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             FirstUserPrompt = userPromptArbitrer,
 
                             MetadataNeeded = "CandidatesText",
-                            MetadataAlwaysProduced = "FinalText",
+                            MetadataAlwaysProduced = "Translation",
                         }
                     },
                     new SubtitleOutputCostReport()

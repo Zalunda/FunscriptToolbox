@@ -1,6 +1,5 @@
 ﻿using CommandLine;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
-using FunscriptToolbox.SubtitlesVerbs.Infra;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -31,9 +30,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             [Option("config", Required = true, HelpText = "")]
             public string ConfigPath { get; set; }
-
-            [Option("sourcelanguage", Required = false, HelpText = "")]
-            public string SourceLanguage { get; set; }
         }
 
         private readonly Options r_options;
@@ -55,12 +51,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 rs_log,
                 r_options.Verbose,
                 new FfmpegAudioHelper(),
-                SubtitleGeneratorConfig.FromFile(
-                    r_options.ConfigPath),
+                r_options.ConfigPath,
                 SubtitleGeneratorPrivateConfig.FromFile(
                     Path.ChangeExtension(r_options.ConfigPath, 
-                    ".private.config")),
-                Language.FromString(r_options.SourceLanguage ?? "ja"));
+                    ".private.config")));
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
@@ -81,7 +75,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     : new WorkInProgressSubtitles(wipsubFullpath, inputVideoFullpath);
                 wipsub.FinalizeLoad();
 
-                context.ChangeCurrentFile(wipsub);
+                context.ChangeCurrentFile(
+                    wipsub, 
+                    Path.ChangeExtension(wipsubFullpath, ".wipconfig"));
                 UpdateWipSubFileIfNeeded(context);
 
                 try

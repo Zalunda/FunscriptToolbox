@@ -1,0 +1,10 @@
+{
+//  "SourceLanguage": "es",
+  "Workers": [
+//    {
+//      "$type": "TranscriberImageAI",
+//      "TranscriptionId": "visual-analyst",
+//      "Enabled": true
+//    }
+  ]
+}

@@ -13,16 +13,17 @@ Your task is to perform the final edit. The new process provides you with severa
     *   **Do not blend or combine candidates.** Your job is to choose the best complete take for each line, not to create a composite.
 4.  **Final Conformity Check (Non-Negotiable):**
     *   Before finalizing the `Translation`, you MUST verify that your choice complies with EVERY rule in your System Prompt (Node Integrity, Physical Constraints, Flagging Logic).
-#### Example Walkthrough
-**Node 00:04:43.407 - 私ね、フェラに自信あるんだ。**
-1.  **Candidates:**
-    *   `[GPT5-maverick]`: "I give mean head."
-    *   `[gpt5-naturalist-2]`: "I’m really good at blowjobs."
-    *   `[gemini-pro-2.5-provocateur]`: "I'm very, very good at this, you know."
-    *   `[gemini-pro-2.5-naturalist]`: "You know, I'm pretty confident in my blowjobs."
-2.  **Analysis:**
-    *   The default (`GPT5-maverick`) is short, punchy, and has a strong, confident character voice.
-    *   The other candidates are more literal and less idiomatic. "I give mean head" is a more natural and impactful way to express supreme confidence in English slang. It aligns perfectly with the Analyst's description of a "sexually confident" and "bratty, teasing" character.
-3.  **Decision:** The `GPT5-maverick` candidate is the superior artistic choice.
-4.  **Conformity Check:** The line is short and fits all constraints. No flags are needed.
-    *   **Final Translation:** `I give mean head.`
+// TODO FIND BETTER EXAMPLE
+// #### Example Walkthrough
+// **Node 00:04:43.407 - 私ね、フェラに自信あるんだ。**
+// 1.  **Candidates:**
+//     *   `[GPT5-maverick]`: "I give mean head."
+//     *   `[gpt5-naturalist-2]`: "I’m really good at blowjobs."
+//     *   `[gemini-pro-2.5-provocateur]`: "I'm very, very good at this, you know."
+//     *   `[gemini-pro-2.5-naturalist]`: "You know, I'm pretty confident in my blowjobs."
+// 2.  **Analysis:**
+//     *   The default (`GPT5-maverick`) is short, punchy, and has a strong, confident character voice.
+//     *   The other candidates are more literal and less idiomatic. "I give mean head" is a more natural and impactful way to express supreme confidence in English slang. It aligns perfectly with the Analyst's description of a "sexually confident" and "bratty, teasing" character.
+// 3.  **Decision:** The `GPT5-maverick` candidate is the superior artistic choice.
+// 4.  **Conformity Check:** The line is short and fits all constraints. No flags are needed.
+//     *   **Final Translation:** `I give mean head.`

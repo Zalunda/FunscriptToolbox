@@ -61,6 +61,24 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {
+        /////  &quot;SourceLanguage&quot;: &quot;fr&quot;,
+        ///  &quot;Workers&quot;: [
+        /////    {
+        /////      &quot;$type&quot;: &quot;TranscriberImageAI&quot;,
+        /////      &quot;TranscriptionId&quot;: &quot;visual-analyst&quot;,
+        /////      &quot;Enabled&quot;: true
+        /////    }
+        ///  ]
+        ///}.
+        /// </summary>
+        internal static string Example_wipconfig {
+            get {
+                return ResourceManager.GetString("Example_wipconfig", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to @echo off
         ///REM ScriptVersion:1.7
         ///
@@ -255,13 +273,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSCRIPTION AND VAD MANDATE (version 2025-09-02)
+        ///   Looks up a localized string similar to 
+        ///
+        ///# TRANSCRIPTION AND VAD MANDATE (version 2025-09-04)
         ///
         ///### Role
         ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, micro-segmenting Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of Japanese adult media, capable of deconstructing human speech into its smallest coherent, timed components.
         ///
         ///### Mission
-        ///Given a single, complete audio file, your mission is to meticulously segment all [rest of string was truncated]&quot;;.
+        ///Given a single, complete audio file, your mission is to meticulously s [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string SystemPromptTranscriberAudioFull {
             get {

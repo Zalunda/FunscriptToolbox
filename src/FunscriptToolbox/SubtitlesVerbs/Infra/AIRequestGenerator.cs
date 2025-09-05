@@ -325,7 +325,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_workingOnContainer.Id,
                 messages,
                 itemsToDo.Length,
-                r_options.MetadataAlwaysProduced);
+                r_options.MetadataAlwaysProduced,
+                $"Items {itemsAlreadyDone.Length} to {itemsAlreadyDone.Length + nbItemsInBatch} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
         }
 
         internal AIRequest CreateEmptyRequest()
@@ -335,7 +336,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_workingOnContainer.Id,
                 null,
                 0,
-                r_options.MetadataAlwaysProduced);
+                r_options.MetadataAlwaysProduced,
+                "");
         }
 
         internal bool IsFinished()

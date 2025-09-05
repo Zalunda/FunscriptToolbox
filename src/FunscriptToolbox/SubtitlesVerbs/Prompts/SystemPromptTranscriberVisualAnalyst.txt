@@ -7,14 +7,18 @@ You will receive a batch of work that includes `Context from preceding nodes` an
 **Directive 1: Contextual Continuity for Static Elements**
 - You MUST use the `Context from preceding nodes` to inform your analysis.
 - However, this continuity applies primarily to static, unchanging elements.
-- **`OngoingEnvironment`** and **`OngoingAppearance`** should only be populated in your output if the information has fundamentally changed relative to the context provided or the previous node.
-
+- **`OngoingEnvironment`**: Describe the physical location. This field is **mandatory on the first node only**, or on any subsequent node where the environment *changes*.\n",
+- **`OngoingAppearance`**: Provide a single string summarizing the state of all visible participants.\n",
+-   Use the format: `Role1: state; Role2: state; Man: state;`.\n",
+-   This field is **mandatory on the first node only**, or on any subsequent node where the apperance of one *changes* (ex. Role2 is now topless). Knowing about been topless, pantie-less state is more important than the color of cloth.\n",
+            
 **Directive 2: The 'Tabula Rasa' Protocol for `ParticipantDynamics`**
+- **`ParticipantDynamics`**: What are the character doing with their hands? What action are they doing ? Blowjob, handjob, Pazuri, fucking cowgirl, reverse-cowgirl, grabbing?
+    -   Use the format: `Man: dynamics; Role1: dynamics; Role2: dynamics;`.\n",
 - This is the most critical protocol for ensuring accuracy. You must follow this mental process for every node:
 - **A) START FRESH:** For the `ParticipantDynamics` field, you **MUST** perform a completely new, from-scratch visual analysis based **solely on the single image provided for the current node.**
-- **B) IMAGE IS KING: ** You're description must be based on the image only, not the VoiceText you received. **
-- **C) INVALIDATE OLD DATA:** Assume the `ParticipantDynamics` description from the previous node is **completely invalid** until you re-verify every single detail in the new image. Do not carry over descriptions out of habit or for efficiency. If a hand was on a breast in the last frame but is on a hip in this one, the new description must reflect that.
-- **D) DESCRIBE THE INSTANT:** You are describing a single, instantaneous frame. You are strictly forbidden from describing actions happening *between* frames or mentioning details from other frames. Phrases like "in some frames," "begins to move," or "is about to" are a violation of this protocol.
+- **B) INVALIDATE OLD DATA:** Assume the `ParticipantDynamics` description from the previous node is **completely invalid** until you re-verify every single detail in the new image. Do not carry over descriptions out of habit or for efficiency. If a hand was on a breast in the last frame but is on a hip in this one, the new description must reflect that.
+- **C) DESCRIBE THE INSTANT:** You are describing a single, instantaneous frame. You are strictly forbidden from describing actions happening *between* frames or mentioning details from other frames. Phrases like "in some frames," "begins to move," or "is about to" are a violation of this protocol.
 
 **Directive 3: Execute the Translation Augmentation Workflow**
 For each node, you must perform the following steps:
@@ -29,6 +33,9 @@ For each node, you must perform the following steps:
     - **Handling Mismatches:** If the `VoiceText` appears to conflict with the visual evidence, your analysis **MUST** state this discrepancy directly. Your role is to report the conflict, not to invent a narrative to resolve it.
         - *Correct Example for Mismatch*: `VoiceText` is "Hurry up and touch my breasts...". `TranslationAnalysis`: "The speaker is verbally urging the man to touch her breasts, implying the action is not yet happening. However, the image clearly shows the POV-Man's hands are already cupping her breasts. This suggests the dialogue is meant to express escalating excitement or a desire for more intense action, rather than being a literal request for an action to start. The translator must convey this nuance."
     - DO NOT include metadata repetitions like "Ground Truth speaker is X..." in the analysis. The translator has this data. Focus only on the synthesis.
+
+3. ** Segment Integrity Validation (Self-Correction Loop)**
+    - Revalidate that what you described can be found on the image (ex. "She's looking in his eye" but on the image, we don't see her face because she whispering in his ear). Every generated segment **MUST** undergo a final validation check before being included in the output.
 
 ### Analytical Heuristics
 - **Heuristic A (Man's Hands): If hands are coming from the side/bottom of the image, you MUST assume they are the man's hands and describe the action accordingly (e.g., 'Man: left hand squeezing Mahina's nipple.'). If you see 'too many hands', try to find if one of them is POV-man's hands.

@@ -135,26 +135,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             var response = r_engine.Execute(r_context, request);
                             watch.Stop();
 
-                            var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request);
-                            if (response.DraftOfCost != null)
+                            if (response != null) // ChatBot return null TODO NEED DIFFERENT SOLUTION FOR CHATBOT
                             {
-                                r_workingOnContainer.Costs.Add(new Cost(
-                                        response.DraftOfCost.TaskName,
-                                        watch.Elapsed,
-                                        itemsAdded.Count,
-                                        response.DraftOfCost.NbPromptCharacters,
-                                        response.DraftOfCost.NbCompletionCharacters,
-                                        response.DraftOfCost.NbTotalTokens,
-                                        response.DraftOfCost.NbCompletionTokens,
-                                        response.DraftOfCost.NbTotalTokens));
-                            }
+                                var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request);
+                                if (response.DraftOfCost != null)
+                                {
+                                    r_workingOnContainer.Costs.Add(new Cost(
+                                            response.DraftOfCost.TaskName,
+                                            watch.Elapsed,
+                                            itemsAdded.Count,
+                                            response.DraftOfCost.NbPromptCharacters,
+                                            response.DraftOfCost.NbCompletionCharacters,
+                                            response.DraftOfCost.NbTotalTokens,
+                                            response.DraftOfCost.NbCompletionTokens,
+                                            response.DraftOfCost.NbTotalTokens));
+                                }
 
-                            if (itemsAdded.Count > 0)
-                            {
-                                r_context.WIP.Save();
+                                if (itemsAdded.Count > 0)
+                                {
+                                    r_context.WIP.Save();
+                                }
+                                lastRequestExecuted = request;
                             }
-
-                            lastRequestExecuted = request;
                         }
                     } while (request != null);
                 }

@@ -58,6 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     : rule;
                 var regex = new Regex($"^{pattern}$");
 
+                var foundTranscriber = false;
                 foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
                         .Where(t => regex.IsMatch(t.TranscriptionId)))
                 {
@@ -69,20 +70,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                     if (transcription?.IsFinished == true)
                     {
+                        metadataProviders.Add(transcription); 
+                        foundTranscriber = true;
+                    }
+                }
+                if (!foundTranscriber)
+                {
+                    var transcription = context.WIP.Transcriptions.FirstOrDefault(t => regex.IsMatch(t.Id));
+                    if (transcription?.IsFinished == true)
+                    {
                         metadataProviders.Add(transcription);
                     }
                 }
 
+                var foundTranslator = false;
                 foreach (var translator in context.Config.Workers.OfType<Translator>()
                         .Where(t => regex.IsMatch(t.FullId)))
                 {
                     var translation = context.WIP.Translations
-                        .FirstOrDefault(t => t.TranscriptionId == translator.TranscriptionId && t.TranslationId == translator.TranslationId);
+                        .FirstOrDefault(t => regex.IsMatch(t.Id));
 
                     if (translator.Enabled && translation?.IsFinished != true)
                     {
                         reasons.Add($"Translation '{translator.FullId}' is not done yet.");
                     }
+                    if (translation?.IsFinished == true)
+                    {
+                        metadataProviders.Add(translation);
+                        foundTranslator = true;
+                    }
+                }
+                if (!foundTranslator)
+                {
+                    var translation = context.WIP.Translations.FirstOrDefault(t => regex.IsMatch(t.Id));
                     if (translation?.IsFinished == true)
                     {
                         metadataProviders.Add(translation);
@@ -121,7 +141,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (nbMerges >= 2)
                     {
                         // TODO 
-                        throw new Exception("do we handle this differently? do we merge the values?");
+                        //throw new Exception("do we handle this differently? do we merge the values?");
                     }
                 }
                 mergedItems.Add(new TimedItemWithMetadata(timing.StartTime, timing.EndTime, metadata));
