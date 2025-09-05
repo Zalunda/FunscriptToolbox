@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 1)]
         public string TimingsSource { get; set; }
         [JsonProperty(Order = 2)]
-        public string[] Sources { get; set; }
+        public string Sources { get; set; }
         [JsonProperty(Order = 3)]
         public Dictionary<string, string> MergeRules { get; set; }
 
@@ -26,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             TimedItemWithMetadataCollection additionalSource = null)
         {
             var timings = context.WIP?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
-            var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(context, this.Sources, additionalSource);
+            var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(context, this.Sources?.Split(',').Select(f => f.Trim()).ToArray(), additionalSource);
             var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, this.MergeRules) : null;
             return new MetadataAggregation(
                 this.TimingsSource,

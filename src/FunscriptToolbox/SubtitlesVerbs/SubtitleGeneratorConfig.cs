@@ -447,7 +447,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "perfect-vad" }
+                            Sources = "perfect-vad"
                         },
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper
@@ -466,7 +466,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "perfect-vad" }
+                            Sources = "perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -504,7 +504,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "perfect-vad" }
+                            Sources = "onscreentext,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -520,7 +520,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "perfect-vad", "singlevad" },
+                            Sources = "perfect-vad,singlevad"
                         },
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "Speaker",
@@ -544,7 +544,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "validated-speakers", "singlevad", "perfect-vad" },
+                            Sources = "onscreentext,validated-speakers,singlevad,perfect-vad"
 
                         },
                         Options = new AIOptions()
@@ -588,7 +588,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "visual-analyst", "singlevad", "perfect-vad" }
+                            Sources = "onscreentext,visual-analyst,singlevad,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -613,7 +613,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "validated-speakers", "visual-analyst", "analyst", "perfect-vad" }
+                            Sources = "onscreentext,validated-speakers,visual-analyst,analyst,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -638,7 +638,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "validated-speakers", "visual-analyst", "analyst", "perfect-vad" }
+                            Sources = "onscreentext,validated-speakers,visual-analyst,analyst,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -657,7 +657,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "perfect-vad"
                         },
-                        CandidatesSources = new [] { "singlevad_maverick", "singlevad_naturalist", "onscreentext", "singlevad", "mergedvad", "full" },
+                        CandidatesSources = "singlevad_maverick,singlevad_naturalist,onscreentext,singlevad,mergedvad,full",
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = true,
@@ -670,7 +670,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "perfect-vad"
                         },
-                        CandidatesSources = new [] { "singlevad_maverick", "singlevad_naturalist", "onscreentext", "singlevad", "mergedvad", "full" },
+                        CandidatesSources = "singlevad_maverick,singlevad_naturalist,onscreentext,singlevad,mergedvad,full",
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = false,
@@ -690,7 +690,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = new [] { "onscreentext", "validated-speakers", "analyst", "perfect-vad" } // "visual-analyst", 
+                            Sources = "onscreentext,validated-speakers,analyst,perfect-vad" // visual-analyst,
                         },
                         Options = new AIOptions()
                         {

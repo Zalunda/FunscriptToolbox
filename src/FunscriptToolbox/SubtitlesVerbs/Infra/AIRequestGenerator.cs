@@ -40,7 +40,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_options = options;
         }
 
-        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[]itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState()
+        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[]itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState(
+            TimeSpan? assumeAllItemsFinishedBefore = null)
         {
             var allItems = new List<TimedItemWithMetadataTagged>();
             var itemsToDo = new List<TimedItemWithMetadataTagged>();
@@ -61,7 +62,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
 
                 var isItemNeeded = r_metadataNeededRules == null ? true : IsRulesRespected(r_metadataNeededRules, referenceTiming.Metadata);
-                var isItemAlreadyDone = (workingOnItem != null && IsRulesRespected(r_metadataProducedRule, workingOnItem.Metadata));
+                var isItemAlreadyDone = (workingOnItem != null && IsRulesRespected(r_metadataProducedRule, workingOnItem.Metadata))
+                    || (referenceTiming.StartTime < assumeAllItemsFinishedBefore);
 
                 if (isItemNeeded && isItemAlreadyDone)
                 {
@@ -86,18 +88,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public AIRequest CreateNextRequest(
             SubtitleGeneratorContext context,
             int requestNumber,
-            AIRequest lastRequestExecuted,
+            AIResponse lastResponseReceived,
             CachedBinaryGenerator binaryGenerator = null)
         {
-            var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState();
+            // If no assistant message => Chatbot => assume all items were processed
+            var assumeAllItemsFinishedBefore = (lastResponseReceived?.AssistantMessage == null)
+                ? lastResponseReceived?.Request.ItemsIncluded.Last().EndTime
+                : null;
+
+            var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState(assumeAllItemsFinishedBefore);
 
             if (itemsToDo.Length == 0)
                 return null;
 
-            var nbItemsInLastResponse = lastRequestExecuted?.NbItemsToDoTotal - itemsToDo.Length;
-            if (nbItemsInLastResponse < r_options.BatchSize && nbItemsInLastResponse < r_options.NbItemsMinimumReceivedToContinue)
+            var nbItemsDoneInLastRequest = lastResponseReceived?.Request.ItemsIncluded.Count(item => itemsAlreadyDone.Any(f => f.StartTime == item.StartTime && f.EndTime == item.EndTime));
+            if (nbItemsDoneInLastRequest < r_options.NbItemsMinimumReceivedToContinue)
             {
-                context.WriteError($"Last response only contained {nbItemsInLastResponse} items when minimum to continue is {r_options.NbItemsMinimumReceivedToContinue}.");
+                context.WriteError($"Last response only contained {nbItemsDoneInLastRequest} items when minimum to continue is {r_options.NbItemsMinimumReceivedToContinue}.");
                 return null;
             }
 
@@ -157,7 +164,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             var waitingForFirstToDo = true;
-            var nbItemsInBatch = 0;
+            var itemsInBatch = new List<TimedItemWithMetadata>();
             int nbExtraContextItems = 0;
             var metadataOngoing = new MetadataCollection();
             var contentBefore = new Queue<TimedItemWithMetadata>();
@@ -283,9 +290,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         {
                             contentList.AddRange(binaryGenerator.GetBinaryContent(item));
                         }
-                        nbItemsInBatch++;
+                        itemsInBatch.Add(item);
 
-                        if (nbItemsInBatch >= r_options.BatchSize)
+                        if (itemsInBatch.Count >= r_options.BatchSize)
                         {
                             break;
                         }
@@ -297,7 +304,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             prefix: (needSeparatorLine ? separatorLine : string.Empty)));
                         nbExtraContextItems++;
 
-                        if ((nbItemsInBatch > 0) && (contentBefore.Count + nbExtraContextItems >= r_options.NbContextItems))
+                        if ((itemsInBatch.Count > 0) && (contentBefore.Count + nbExtraContextItems >= r_options.NbContextItems))
                         {
                             break;
                         }
@@ -323,10 +330,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return new AIRequest(
                 requestNumber,
                 r_workingOnContainer.Id,
+                itemsInBatch.ToArray(),
                 messages,
-                itemsToDo.Length,
                 r_options.MetadataAlwaysProduced,
-                $"Items {itemsAlreadyDone.Length} to {itemsAlreadyDone.Length + nbItemsInBatch} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
+                $"Items {itemsAlreadyDone.Length} to {itemsAlreadyDone.Length + itemsInBatch.Count} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
         }
 
         internal AIRequest CreateEmptyRequest()
@@ -335,7 +342,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 1, 
                 r_workingOnContainer.Id,
                 null,
-                0,
+                null,
                 r_options.MetadataAlwaysProduced,
                 "");
         }

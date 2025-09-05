@@ -8,8 +8,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         public int Number { get; }
         public string TaskId { get; }
+        public TimedItemWithMetadata[] ItemsIncluded { get; }
         public List<dynamic> Messages { get; }
-        public int NbItemsToDoTotal { get; }
         public string MetadataAlwaysProduced { get; }
         public string UpdateMessage { get; }
 
@@ -18,15 +18,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public AIRequest(
             int requestNumber,
             string taskId,
+            TimedItemWithMetadata[] ItemsIncluded,
             List<dynamic> messages,
-            int nbItemsToDoTotal,
             string metadataAlwaysProduced,
             string updateMessage)
         {
             this.Number = requestNumber;
             this.TaskId = taskId;
+            this.ItemsIncluded = ItemsIncluded;
             this.Messages = messages;
-            this.NbItemsToDoTotal = nbItemsToDoTotal;
             this.MetadataAlwaysProduced = metadataAlwaysProduced;
             this.UpdateMessage = updateMessage;
 

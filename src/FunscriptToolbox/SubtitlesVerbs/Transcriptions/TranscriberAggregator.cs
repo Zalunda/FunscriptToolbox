@@ -15,7 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 20, Required = Required.Always)]
         public MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 21, Required = Required.Always)]
-        public string[] CandidatesSources { get; set; }
+        public string CandidatesSources { get; set; }
         [JsonProperty(Order = 22, Required = Required.Always)]
         public string MetadataProduced { get; set; }
         [JsonProperty(Order = 23)]
@@ -43,7 +43,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (this.WaitForFinished)
             {
-                var (_, reasons) = this.Metadatas.GetOthersSources(context, this.CandidatesSources);
+                var (_, reasons) = this.Metadatas.GetOthersSources(context, this.CandidatesSources?.Split(',').Select(f => f.Trim()).ToArray());
                 if (reasons.Any() == true)
                 {
                     reason = (reasons.Length > 0)
@@ -78,7 +78,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             var aggregation = this.Metadatas.Aggregate(context);
             var timings = aggregation.ReferenceTimingsWithMetadata;
-            var (othersSourcesRaw, _) = this.Metadatas.GetOthersSources(context, this.CandidatesSources);
+            var (othersSourcesRaw, _) = this.Metadatas.GetOthersSources(context, this.CandidatesSources?.Split(',').Select(f => f.Trim()).ToArray());
             var othersSources = othersSourcesRaw.Select(osr => osr.GetAnalysis(timings)).ToArray();
 
             foreach (var timing in timings)

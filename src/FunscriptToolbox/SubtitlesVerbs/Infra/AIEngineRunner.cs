@@ -124,18 +124,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 try
                 {
                     AIRequest request = null;
-                    AIRequest lastRequestExecuted = null;
+                    AIResponse lastResponseReceived = null;
                     int requestNumber = 1;
                     do
                     {
-                        request = requestsGenerator.CreateNextRequest(r_context, requestNumber++, lastRequestExecuted, binaryGenerator);
+                        request = requestsGenerator.CreateNextRequest(r_context, requestNumber++, lastResponseReceived, binaryGenerator);
                         if (request != null)
                         {
                             var watch = Stopwatch.StartNew();
                             var response = r_engine.Execute(r_context, request);
                             watch.Stop();
 
-                            if (response != null) // ChatBot return null TODO NEED DIFFERENT SOLUTION FOR CHATBOT
+                            lastResponseReceived = response;
+
+                            if (response.AssistantMessage != null)
                             {
                                 var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request);
                                 if (response.DraftOfCost != null)
@@ -155,7 +157,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 {
                                     r_context.WIP.Save();
                                 }
-                                lastRequestExecuted = request;
                             }
                         }
                     } while (request != null);
@@ -297,8 +298,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present. {GetSegmentInformation(segment)}");
                     }
 
-                    var tt = r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas);
-                    itemsAdded.Add(tt);
+                    itemsAdded.Add(r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas));
                 }
                 return itemsAdded;
             }

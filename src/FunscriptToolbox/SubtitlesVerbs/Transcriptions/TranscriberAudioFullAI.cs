@@ -165,8 +165,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return new AIRequest(
                 requestNumber,
                 this.SourceAudioId,
+                null,
                 messages,
-                (int)timing.EndTime.TotalMinutes,
                 this.MetadataProduced,
                 $"{timing.StartTime} to {timing.EndTime}");
         }
