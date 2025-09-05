@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 return false;
             }
-            if (!this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
+            if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
             }

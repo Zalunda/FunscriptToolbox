@@ -305,7 +305,6 @@
     <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberOnScreenText.txt" />
     <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberVisualAnalyst.txt" />
     <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranslator.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\UserPromptArbitrer.txt" />
     <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorAnalyst.txt" />
     <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorMaverick.txt" />
     <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorNaturalist.txt" />

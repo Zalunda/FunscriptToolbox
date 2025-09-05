@@ -11,8 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly TimedItemWithMetadata[] r_referenceTimings;
         private readonly TimedItemWithMetadataCollection r_workingOnContainer;
         private readonly string r_systemPrompt;
-        private readonly string r_firstUserPrompt;
-        private readonly string r_otherUserPrompt;
+        private readonly string r_userPrompt;
         private readonly string[] r_metadataNeededRules;
         private readonly string[] r_metadataProducedRule;
         private readonly string[] r_metadataForTrainingRules;
@@ -31,8 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_workingOnContainer = workingOnContainer;
 
             r_systemPrompt = options.SystemPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
-            r_firstUserPrompt = options.FirstUserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
-            r_otherUserPrompt = options.OtherUserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
+            r_userPrompt = options.UserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
             r_metadataNeededRules = options.MetadataNeeded?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataProducedRule = options.MetadataAlwaysProduced?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
@@ -119,12 +117,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 });
             }
 
-            if (r_firstUserPrompt != null)
+            if (r_userPrompt != null)
             {
                 contentList.Add(new
                 {
                     type = "text",
-                    text = r_firstUserPrompt
+                    text = r_userPrompt
                 });
             }
 

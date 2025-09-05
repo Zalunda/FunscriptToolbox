@@ -7,18 +7,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         [JsonProperty(Order = 2)]
         public AIPrompt SystemPrompt { get; set; }
-
         [JsonProperty(Order = 3)]
-        public AIPrompt FirstUserPrompt { get; set; }
+        public AIPrompt UserPrompt { get; set; }
 
-        [JsonProperty(Order = 4)]
-        public AIPrompt OtherUserPrompt { get; set; }
-
-        [JsonProperty(Order = 5, Required = Required.Always)]
+        [JsonProperty(Order = 4, Required = Required.Always)]
         public string MetadataNeeded { get; set; }
-        [JsonProperty(Order = 6, Required = Required.Always)]
+        [JsonProperty(Order = 5, Required = Required.Always)]
         public string MetadataAlwaysProduced { get; set; }
-        [JsonProperty(Order = 7)]
+        [JsonProperty(Order = 6)]
         public string MetadataForTraining { get; set; }
 
         [JsonProperty(Order = 10)]

@@ -281,8 +281,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
         [JsonProperty(Order = 3)]
         public SubtitleWorker[] Workers { get; set; }
 
-        const string STARTLONGSTRING = "=_=__=______________________________";
-        const string ENDLONGSTRING   = "______________________________=__=_=";
+        const string STARTLONGSTRING = "=_______________________________________";
+        const string ENDLONGSTRING   = "_______________________________________=";
 
         private static string CreateLongString(string text)
         {
@@ -299,7 +299,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             return Regex.Replace(
                 originalJson,
-                STARTLONGSTRING + @"(?<text>.*?)" + ENDLONGSTRING,
+                @"=_{3,}(?<text>.*?)_{3,}=",
                 match => "\n" + STARTLONGSTRING + "\n\n" + match.Groups["text"].Value.Trim().Replace(@"\n", "\n") + "\n\n" + ENDLONGSTRING);
         }
 
@@ -307,7 +307,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             return Regex.Replace(
                 originalText,
-                @"\n*" + STARTLONGSTRING + @"(?<text>.*?)" + ENDLONGSTRING + @"\n*",
+                @"\n*=_{3,}(?<text>.*?)_{3,}=\n*",
                 match => match.Groups["text"].Value.Trim().Replace("\n", @"\n").Trim(),
                 RegexOptions.Singleline);
         }
@@ -343,7 +343,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var systemPromptTranslator = AddPromptToSharedObjects("SystemPromptTranslator", Resources.SystemPromptTranslator);
             var userPromptTranslatorNaturalist = AddPromptToSharedObjects("UserPromptTranslatorNaturalist", Resources.UserPromptTranslatorNaturalist);
             var userPromptTranslatorMaverick = AddPromptToSharedObjects("UserPromptTranslatorMaverick", Resources.UserPromptTranslatorMaverick);
-            var userPromptArbitrer = AddPromptToSharedObjects("UserPromptArbitrer", Resources.UserPromptArbitrer);
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -530,9 +529,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberImageAI()
                     {
-                        Enabled = false, // TODO REWORK
-
                         TranscriptionId = "visual-analyst",
+                        Enabled = false,
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
                         ExportMetadataSrt = true,
                         Engine = new AIEngineAPI()
@@ -561,46 +559,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        Enabled = false, // TODO REWORK
-
-                        TranscriptionId = "singlevad",
-                        TranslationId = "analyst",
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                            Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",
-                            RequestBodyExtension = Expando(
-                                ("max_tokens", 64 * 1024),
-                                ("extra_body", new
-                                {
-                                    google = new
-                                    {
-                                        thinking_config = new
-                                        {
-                                            include_thoughts = true
-                                        }
-                                    }
-                                })),
-                            UseStreaming = true
-                        },
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,visual-analyst,singlevad,perfect-vad"
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = systemPromptTranslator,
-                            FirstUserPrompt = userPromptTranslatorAnalyst,
-                            MetadataNeeded = "",
-                            MetadataAlwaysProduced = "Analyzed"
-                        }
-                    },
-
-                    new TranslatorAI()
-                    {
                         TranscriptionId = "singlevad",
                         TranslationId = "naturalist",
                         TargetLanguage = Language.FromString("en"),
@@ -618,7 +576,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Options = new AIOptions()
                         {
                             SystemPrompt = systemPromptTranslator,
-                            FirstUserPrompt = userPromptTranslatorNaturalist,
+                            UserPrompt = userPromptTranslatorNaturalist,
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -643,7 +601,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Options = new AIOptions()
                         {
                             SystemPrompt = systemPromptTranslator,
-                            FirstUserPrompt = userPromptTranslatorMaverick,
+                            UserPrompt = userPromptTranslatorMaverick,
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -695,10 +653,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Options = new AIOptions()
                         {
                             SystemPrompt = systemPromptArbitrer,
-                            FirstUserPrompt = userPromptArbitrer,
 
                             MetadataNeeded = "CandidatesText",
-                            MetadataAlwaysProduced = "Translation",
+                            MetadataAlwaysProduced = "FinalText",
                         }
                     },
                     new SubtitleOutputCostReport()

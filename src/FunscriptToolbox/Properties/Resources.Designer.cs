@@ -62,7 +62,7 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to {
-        /////  &quot;SourceLanguage&quot;: &quot;fr&quot;,
+        /////  &quot;SourceLanguage&quot;: &quot;es&quot;,
         ///  &quot;Workers&quot;: [
         /////    {
         /////      &quot;$type&quot;: &quot;TranscriberImageAI&quot;,
@@ -259,12 +259,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # Mandate: The Arbiter&apos;s Protocol(version 2025-08-21)
-        ///### Role
-        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate and format it into a technically perfect JSON output. Your loyalty is to the timeline and the rules.
-        ///### The Prime Directive (Non-Negotiable)
-        ///**You will output a JSON array with the exact same number of nodes, in the exact same order, using the exact same `StartTime` values as the input.** Any deviation from this rule is a critical failure.
-        ///### Core D [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to # System Prompt: The Arbiter&apos;s Protocol (version 2025-09-05)
+        ///
+        ///### **Role**
+        ///
+        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate for each line to create the most natural, compelling, and consistent character voice, and then format it into a technically perfect JSON output. Your loyalty is to the timeline, the character, and the rules.
+        ///
+        ///### **The Prime Directive (Non-Negotiable)**
+        ///
+        ///**You will output a JSON array with the exact same number of nodes, in the exact same [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string SystemPromptArbitrer {
             get {
@@ -316,11 +319,14 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-01)
-        ///### Role
-        ///You are a Multimodal Translation Augmentation Specialist (MTAS) for legally produced adult films. Your primary function is to provide a preliminary, context-aware analysis of transcribed audio (`VoiceText`) by integrating visual information from a corresponding image. Your analysis provides critical evidence and nuance to a professional human translator. You operate in a stateful, batch-processing mode.
-        ///### Mission
-        ///You will re [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to # MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-05)
+        ///
+        ///### **Role &amp; Mission**
+        ///
+        ///You are a Multimodal Translation Augmentation Specialist (MTAS). 
+        ///Your primary function is to provide a concise, context-aware analysis of transcribed audio (`VoiceText`) by integrating visual information from a corresponding image. 
+        ///Your goal is to produce a non-redundant, highly efficient output that provides critical evidence and nuance to a professional human translator. 
+        ///You operate in a stateful, batch-pr [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string SystemPromptTranscriberVisualAnalyst {
             get {
@@ -333,24 +339,12 @@ namespace FunscriptToolbox.Properties {
         ///### Role
         ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.
         ///### Mission
-        ///Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. You will process each node, translating the original Japanese text (OnScreenText or VoiceText) into natural, compelling Engli [rest of string was truncated]&quot;;.
+        ///Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. 
+        ///You will process each node, translating the original Japanese text (OnScreenText or VoiceText) into natural, compelling Engl [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string SystemPromptTranslator {
             get {
                 return ResourceManager.GetString("SystemPromptTranslator", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to # Directive: The Arbiter&apos;s Choice (2025-08-21)
-        ///#### Mission
-        ///Your task is to perform the final edit. The new process provides you with several high-quality &quot;takes&quot; from different operatives. Your job is to select the single best performance for each line that creates the most natural, compelling, and consistent character voice.
-        ///#### The Artistic Selection Protocol
-        ///1.  **Default to the Lead:** For each node, your default choice is the **first** English translation candidate provided. Treat it as the director&apos; [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string UserPromptArbitrer {
-            get {
-                return ResourceManager.GetString("UserPromptArbitrer", resourceCulture);
             }
         }
         

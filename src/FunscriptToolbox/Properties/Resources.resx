@@ -163,9 +163,6 @@
   <data name="SystemPromptTranslator" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\SystemPromptTranslator.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
-  <data name="UserPromptArbitrer" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\UserPromptArbitrer.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
   <data name="UserPromptTranslatorAnalyst" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\UserPromptTranslatorAnalyst.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
