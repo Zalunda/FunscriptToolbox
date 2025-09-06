@@ -278,7 +278,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         if (startTimeItem == null)
                         {
                             // Step 3: Use the location info in your exceptions.
-                            throw new Exception($"EndTime not received. {GetSegmentInformation(segment)}");
+                            throw new Exception($"EndTime not received and StartTime '{startTime}' cannot be matched to an existing item. {GetSegmentInformation(segment)}");
                         }
                         endTime = startTimeItem.EndTime;
                     }

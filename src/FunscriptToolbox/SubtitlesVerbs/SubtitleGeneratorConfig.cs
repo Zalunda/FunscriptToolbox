@@ -486,7 +486,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                             Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",                            
+                            APIKeyName = "APIGeminiAI",
                             RequestBodyExtension = Expando(
                                 ("max_tokens", 64 * 1024),
                                 ("extra_body", new
@@ -560,31 +560,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranslatorAI()
                     {
                         TranscriptionId = "singlevad",
-                        TranslationId = "naturalist",
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5",
-                            APIKeyName = "APIKeyPoe"
-                        },
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,visual-analyst,analyst,perfect-vad"
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = systemPromptTranslator,
-                            UserPrompt = userPromptTranslatorNaturalist,
-
-                            MetadataNeeded = "VoiceText|OnScreenText",
-                            MetadataAlwaysProduced = "TranslatedText",
-                        }
-                    },
-                    new TranslatorAI()
-                    {
-                        TranscriptionId = "singlevad",
                         TranslationId = "maverick",
                         TargetLanguage = Language.FromString("en"),
                         Engine = new AIEngineAPI()
@@ -602,6 +577,32 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = systemPromptTranslator,
                             UserPrompt = userPromptTranslatorMaverick,
+
+                            MetadataNeeded = "VoiceText|OnScreenText",
+                            MetadataAlwaysProduced = "TranslatedText",
+                            BatchSize = 300
+                        }
+                    },
+                    new TranslatorAI()
+                    {
+                        TranscriptionId = "singlevad",
+                        TranslationId = "naturalist",
+                        TargetLanguage = Language.FromString("en"),
+                        Engine = new AIEngineAPI()
+                        {
+                            BaseAddress = "https://api.poe.com/v1",
+                            Model = "GPT-5",
+                            APIKeyName = "APIKeyPoe"
+                        },
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfect-vad",
+                            Sources = "onscreentext,validated-speakers,visual-analyst,analyst,perfect-vad"
+                        },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = systemPromptTranslator,
+                            UserPrompt = userPromptTranslatorNaturalist,
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -641,9 +642,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TargetLanguage = Language.FromString("en"),
                         Engine = new AIEngineAPI()
                         {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5",
-                            APIKeyName = "APIKeyPoe"
+                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                            Model = "gemini-2.5-pro",
+                            APIKeyName = "APIGeminiAI",
                         },
                         Metadatas = new MetadataAggregator()
                         {
@@ -656,7 +657,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
-                        }
+                            BatchSize = 100
+                        },
+                        AutoMergeOn = "[!MERGED]"
                     },
                     new SubtitleOutputCostReport()
                     {

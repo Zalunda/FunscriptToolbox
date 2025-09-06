@@ -85,6 +85,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public List<AudioExtraction> AudioExtractions { get; set; }
         public List<Transcription> Transcriptions { get; set; }
         public List<Translation> Translations { get; set; }
+
+        [JsonIgnore]
         public IEnumerable<TimedItemWithMetadataCollection> WorkersResult => ((IEnumerable<TimedItemWithMetadataCollection>)this.Transcriptions ?? Array.Empty<TimedItemWithMetadataCollection>())
             .Union((IEnumerable<TimedItemWithMetadataCollection>)this.Translations ?? Array.Empty<TimedItemWithMetadataCollection>());
 

@@ -1,5 +1,6 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -18,6 +19,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 22, Required = Required.Always)]
         public AIOptions Options { get; set; }
+        [JsonProperty(Order = 23)]
+        public string AutoMergeOn { get; set; }
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
@@ -59,6 +62,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             if (requestGenerator.IsFinished())
             {
+                if (this.AutoMergeOn != null)
+                {
+                    var originalItems = translation.Items;
+                    var newItems = new List<TranslatedItem>();
+                    TranslatedItem currentItem = null;
+                    foreach (var item in originalItems)
+                    {
+                        if (currentItem != null && item.Metadata.Get(this.GetMetadataProduced()).Contains(this.AutoMergeOn))
+                        {
+                            currentItem = new TranslatedItem(
+                                currentItem.StartTime,
+                                item.EndTime,
+                                currentItem.Metadata);
+                        }
+                        else
+                        {
+                            if (currentItem != null)
+                            {
+                                newItems.Add(currentItem);
+                            }
+                            currentItem = item;
+                        }
+                    }
+                    if (currentItem != null)
+                    {
+                        newItems.Add(currentItem);
+                    }
+                    translation.Items.Clear();
+                    translation.Items.AddRange(newItems);
+                }
+
                 translation.MarkAsFinished();
                 context.WIP.Save();
             }
