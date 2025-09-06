@@ -427,7 +427,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbItemsMinimumReceivedToContinue = 10
                         }
                     },
-                    new SubtitleOutputSingleTranslationSrt()
+                    new SubtitleOutputSimpleSrt()
                     {
                         FileSuffix = ".perfect-vad-potential.srt",
                         WorkerId = "full-whisper_google",
@@ -455,7 +455,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "onscreentext",
                         FfmpegFilter = "crop=iw/2:ih:0:0",
-                        ExportMetadataSrt = true,
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -525,14 +524,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataProduced = "Speaker",
                         MetadataPotentialSpeakers = "OngoingSpeakers",
                         MetadataDetectedSpeaker = "Speaker-A",
-                        ExportMetadataSrt = true
                     },
                     new TranscriberImageAI()
                     {
                         TranscriptionId = "visual-analyst",
                         Enabled = false,
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
-                        ExportMetadataSrt = true,
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
@@ -571,7 +568,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,visual-analyst,analyst,perfect-vad"
+                            Sources = "onscreentext,validated-speakers,visual-analyst,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -597,7 +594,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,visual-analyst,analyst,perfect-vad"
+                            Sources = "onscreentext,validated-speakers,visual-analyst,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -649,7 +646,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,analyst,perfect-vad" // visual-analyst,
+                            Sources = "onscreentext,validated-speakers,perfect-vad" // visual-analyst,
                         },
                         Options = new AIOptions()
                         {
@@ -661,6 +658,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         AutoMergeOn = "[!MERGED]"
                     },
+                    new TranscriberImport
+                    {
+                        TranscriptionId = "final-user-edited",
+                        FileSuffix = ".final.srt",
+                        MetadataProduced = "FinalText"
+                    },
                     new SubtitleOutputCostReport()
                     {
                         FileSuffix = ".cost.txt",
@@ -668,23 +671,20 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
 
                     // TODO 
-                    new SubtitleOutputSingleTranslationSrt()
+                    new SubtitleOutputComplexSrt()
                     {
-                        WorkerId = "candidates-digest_arbitrer",
-                        FileSuffix = ".final-arbitrer-choice.srt",
-                        SubtitlesToInject = CreateSubtitlesToInject(),
+                        FileSuffix = ".learning.srt",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "candidates-digest_arbitrer",
+                            Sources = "perfect-vad,onscreentext,validated-speakers", //"visual-analyst"
+                        },
+                        TextSources = "final-user-edited,candidates-digest_arbitrer,singlevad,mergedvad,full", // singlevad_maverick,singlevad_naturalist,singlevad,mergedvad,full"
                     },
-                    new SubtitleOutputSingleTranslationSrt()
+                    new SubtitleOutputSimpleSrt()
                     {
                         WorkerId = "partial-candidates-digest",
                         FileSuffix = ".partial-arbitrer-choice-for-debugging.srt",
-                    },
-                    new SubtitleOutputMultiTranslationSrt()
-                    {
-                        Enabled = false,
-                        TranscriptionId = "mergedvad",
-                        TranslationsOrder = new [] { "analyst", "naturalist-GPT5", "*" },
-                        FileSuffix = ".mergedvad.srt"
                     }
                 }
             };

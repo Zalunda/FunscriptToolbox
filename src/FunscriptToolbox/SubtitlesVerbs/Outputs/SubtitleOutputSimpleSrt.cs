@@ -5,9 +5,9 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    internal class SubtitleOutputSingleTranslationSrt : SubtitleOutput
+    internal class SubtitleOutputSimpleSrt : SubtitleOutput
     {
-        public SubtitleOutputSingleTranslationSrt()
+        public SubtitleOutputSimpleSrt()
         {
 
         }

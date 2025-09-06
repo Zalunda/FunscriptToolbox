@@ -25,7 +25,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             TimedItemWithMetadataCollection additionalSource = null)
         {
-            var timings = context.WIP?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
+            var timings = context.WIP?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings() 
+                ?? context.WIP?.Translations?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
             var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(context, this.Sources?.Split(',').Select(f => f.Trim()).ToArray(), additionalSource);
             var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, this.MergeRules) : null;
             return new MetadataAggregation(
@@ -39,6 +40,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string[] sources)
         {
             return GetRawSources(context, sources);
+        }
+
+        public TimedItemWithMetadataCollection[] GetSources(
+            SubtitleGeneratorContext context,
+            TimedItemWithMetadataCollection additionalSource = null)
+        {
+            var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(
+                context, 
+                this.Sources?.Split(',').Select(f => f.Trim()).ToArray(), 
+                additionalSource);
+
+            return rawSourceReferences;
         }
 
         private static (TimedItemWithMetadataCollection[], string[]) GetRawSources(

@@ -201,12 +201,12 @@
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataCollection.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadata.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataTagged.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImport.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputMultiTranslationSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
     <Compile Include="SubtitlesVerbs\Infra\ITiming.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimingOverlap.cs" />
@@ -226,7 +226,7 @@
     <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSingleTranslationSrt.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSimpleSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />

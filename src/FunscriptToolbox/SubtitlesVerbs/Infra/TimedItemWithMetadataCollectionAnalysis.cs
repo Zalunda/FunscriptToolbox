@@ -37,7 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                 foreach (var word in (transcribedItem?.Words.Length > 0)
                     ? (IEnumerable<TranscribedWord>)transcribedItem.Words
-                    : SplitEvenly(item, item.Metadata.Get(container.MetadataAlwaysProduced)))
+                    : SplitEvenly(item, container.MetadataAlwaysProduced == null ? new string('.', 100) : item.Metadata.Get(container.MetadataAlwaysProduced)))
                 {
                     // Check if this is a special case that should follow previous word
                     bool isSpecialCase = word.Text.EndsWith("...") ||

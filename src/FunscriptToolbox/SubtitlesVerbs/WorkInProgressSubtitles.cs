@@ -78,7 +78,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public string OriginalFilePath { get; private set; }
         [JsonIgnore]
         public string OriginalVideoPath { get; private set; }
+        [JsonIgnore]
         public string BaseFilePath { get; private set; }
+        [JsonIgnore]
         public string BackupFolder { get; private set; }
 
         public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
