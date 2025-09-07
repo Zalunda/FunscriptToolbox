@@ -669,8 +669,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".cost.txt",
                         OutputToConsole = false
                     },
-
-                    // TODO 
+                    new SubtitleOutputComplexSrt()
+                    {
+                        FileSuffix = ".wip-metadatas.srt",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "candidates-digest_arbitrer",
+                            Sources = "perfect-vad,onscreentext,singlevad,validated-speakers,visual-analyst",
+                        },
+                    },
+                    new SubtitleOutputSimpleSrt()
+                    {
+                        WorkerId = "candidates-digest_arbitrer",
+                        FileSuffix = ".final-arbitrer-choice.srt",
+                        SubtitlesToInject = CreateSubtitlesToInject(),
+                    },
                     new SubtitleOutputComplexSrt()
                     {
                         FileSuffix = ".learning.srt",
@@ -680,11 +693,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             Sources = "perfect-vad,onscreentext,validated-speakers", //"visual-analyst"
                         },
                         TextSources = "final-user-edited,candidates-digest_arbitrer,singlevad,mergedvad,full", // singlevad_maverick,singlevad_naturalist,singlevad,mergedvad,full"
-                    },
-                    new SubtitleOutputSimpleSrt()
-                    {
-                        WorkerId = "partial-candidates-digest",
-                        FileSuffix = ".partial-arbitrer-choice-for-debugging.srt",
+                        SkipWhenTextSourcesAreIdentical = "final-user-edited,candidates-digest_arbitrer"
                     }
                 }
             };

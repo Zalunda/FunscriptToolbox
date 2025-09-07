@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using FunscriptToolbox.Core;
 using System;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
@@ -25,6 +26,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 21)]
         public string TextSources { get; set; }
+        [JsonProperty(Order = 22)]
+        public string SkipWhenTextSourcesAreIdentical { get; set; }
 
         public override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -73,27 +76,48 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             var metadataSourcesRaw = this.Metadatas.GetSources(context);
             var metadataSources = metadataSourcesRaw.Select(osr => osr.GetAnalysis(timings)).ToArray();
 
+            var sourcesToCompareIds = this.SkipWhenTextSourcesAreIdentical?.Split(',').Select(f => f.Trim()).ToHashSet();
+
             foreach (var timing in timings)
             {
                 var sb = new StringBuilder();
+                var uniqueValuesToCompare = new HashSet<string>();
+                int sourcesWithValueCount = 0;
 
-                // 1. Append Text from specified sources
+                // 1. Append Text from specified sources & collect values for skip-check in a single loop
                 foreach (var textSource in textSources)
                 {
+                    bool containsValue = false;
                     if (textSource.TimingsWithOverlapItems.TryGetValue(timing, out var overlaps))
                     {
                         foreach (var overlap in overlaps)
                         {
                             var text = overlap.Item.Metadata.Get(textSource.Container.MetadataAlwaysProduced);
+                            if (text == null) continue;
+
+                            // Action A: Always build the text portion of the subtitle
                             sb.AppendLine($"[{textSource.Container.Id}] {text}");
+
+                            // Action B: If this source is targeted, collect its value for the skip-check
+                            if (sourcesToCompareIds?.Contains(textSource.Container.Id) == true)
+                            {
+                                uniqueValuesToCompare.Add(text);
+                                containsValue = true;
+                            }
                         }
                     }
+                    sourcesWithValueCount += containsValue ? 1 : 0;
                 }
 
-                // 2. Append Metadata separator and header
+                // Decision Point: After gathering all text, check if we should skip this timing
+                if (sourcesToCompareIds?.Any() == true && sourcesWithValueCount > 1 && uniqueValuesToCompare.Count == 1)
+                {
+                    continue; // The values were identical; skip to the next timing.
+                }
+
                 sb.AppendLine("------- Metadatas -------");
 
-                // 3. Append Metadatas from all sources in the aggregator
+                // 2. Append Metadatas from all sources in the aggregator
                 foreach (var metadataSource in metadataSources)
                 {
                     if (metadataSource.TimingsWithOverlapItems.TryGetValue(timing, out var overlaps))
@@ -108,10 +132,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     }
                 }
 
-                subtitleFile.Subtitles.Add(
-                    new Subtitle(timing.StartTime,
-                    timing.EndTime,
-                    sb.ToString().TrimEnd()));
+                if (sb.Length > 0)
+                {
+                    subtitleFile.Subtitles.Add(
+                        new Subtitle(timing.StartTime,
+                        timing.EndTime,
+                        sb.ToString().TrimEnd()));
+                }
             }
 
             var filename = context.WIP.BaseFilePath + this.FileSuffix;
