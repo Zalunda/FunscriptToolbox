@@ -18,7 +18,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 2, Required = Required.Always)]
         public string TranscriptionId { get; set; }
 
-        [JsonProperty(Order = 3, Required = Required.Always)]
+        [JsonProperty(Order = 3)]
         public bool ExportMetadataSrt { get; set; } = false;
 
         [JsonIgnore]

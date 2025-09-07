@@ -201,6 +201,7 @@
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataCollection.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadata.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataTagged.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\UserStoppedWorkerException.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
@@ -305,6 +306,7 @@
     <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberOnScreenText.txt" />
     <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranscriberVisualAnalyst.txt" />
     <Content Include="SubtitlesVerbs\Prompts\SystemPromptTranslator.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\UserPromptVisualAnalyst.txt" />
     <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorAnalyst.txt" />
     <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorMaverick.txt" />
     <Content Include="SubtitlesVerbs\Prompts\UserPromptTranslatorNaturalist.txt" />

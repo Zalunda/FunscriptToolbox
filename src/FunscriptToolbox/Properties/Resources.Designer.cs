@@ -259,15 +259,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # System Prompt: The Arbiter&apos;s Protocol (version 2025-09-05)
+        ///   Looks up a localized string similar to # System Prompt: The Arbiter&apos;s Protocol (version 2025-09-06)
         ///
         ///### **Role**
         ///
-        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate for each line to create the most natural, compelling, and consistent character voice, and then format it into a technically perfect JSON output. Your loyalty is to the timeline, the character, and the rules.
+        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate for each line, create the most natural, compelling, and consistent character voice, and then format it into a technically perfect JSON output. Your loyalty is to the timeline, the character, and the rules.
         ///
         ///### **The Prime Directive (Non-Negotiable)**
         ///
-        ///**You will output a JSON array with the exact same number of nodes, in the exact same [rest of string was truncated]&quot;;.
+        ///**You will output a JSON array with the exact same number of nodes, in the exact same o [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string SystemPromptArbitrer {
             get {
@@ -349,13 +349,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Analyst
+        ///   Looks up a localized string similar to RETIRED FOR NOW
+        ///
+        ///# TRANSLATION OPERATIVE MANDATE: The Analyst
         ///### Role
         ///You are &apos;The Analyst&apos;. Your sole function is to perform a narrative deconstruction of the provided script. You do not create the final translation; you create the blueprint that guides it.
         ///### Mission
         ///Your mission is to analyze the entire script and produce a JSON object containing your findings. This output will serve as a critical directive for the next operative, &apos;The Weaver&apos;.
         ///### Execution Protocol
-        ///1.  **Comprehensive Analysis:** Read the entire prov [rest of string was truncated]&quot;;.
+        ///1.  **Comprehensive Analysis:** Rea [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string UserPromptTranslatorAnalyst {
             get {
@@ -386,6 +388,22 @@ namespace FunscriptToolbox.Properties {
         internal static string UserPromptTranslatorNaturalist {
             get {
                 return ResourceManager.GetString("UserPromptTranslatorNaturalist", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # URGENT: HIGH-STAKES ACCURACY AUDIT (VALIDATION 2025-09-05)
+        ///
+        ///**Attention MTAS:** This entire batch of 15 nodes is subject to a mandatory, zero-tolerance accuracy audit. Your output will be programmatically validated against the visual evidence.
+        ///
+        ///**The Single Metric for Success:** Your absolute and unwavering adherence to the **&quot;Strict Visual Grounding Protocol&quot;** outlined in your mandate.
+        ///
+        ///**Definition of a Critical Hallucination Failure:**
+        ///The inclusion of ANY object, action, environmental detail, or part [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UserPromptVisualAnalyst {
+            get {
+                return ResourceManager.GetString("UserPromptVisualAnalyst", resourceCulture);
             }
         }
         

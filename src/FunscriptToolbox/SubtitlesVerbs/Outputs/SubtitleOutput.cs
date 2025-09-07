@@ -12,7 +12,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
     {
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;
-        
+
+        [JsonIgnore]
         public virtual string Description => $"{this.GetType().Name.Replace(typeof(SubtitleOutput).Name, string.Empty)}";
 
         public abstract bool IsPrerequisitesMet(

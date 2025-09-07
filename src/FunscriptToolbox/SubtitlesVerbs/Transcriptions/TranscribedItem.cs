@@ -15,8 +15,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TimeSpan endTime,
             MetadataCollection metadata = null,
             double noSpeechProbability = 0.0,
-            IEnumerable<TranscribedWord> words = null)
-            : base(startTime, endTime, metadata)
+            IEnumerable<TranscribedWord> words = null,
+            DateTime? creationTime = null)
+            : base(startTime, endTime, metadata, creationTime)
         {
             NoSpeechProbability = noSpeechProbability;
             Words = words?.ToArray() ?? Array.Empty<TranscribedWord>();

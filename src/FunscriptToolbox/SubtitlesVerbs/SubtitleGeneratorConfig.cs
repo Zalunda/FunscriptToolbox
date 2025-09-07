@@ -46,60 +46,47 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public static SubtitleGeneratorConfig FromFile(string filepath, string userOverrideFilepath = null)
         {
-            var adjustedContent = PreprocessHybridJsonFile(File.ReadAllText(filepath));
-            JObject baseConfig;
+            static T HandleJsonException<T>(Func<T> action, string path, string content)
+            {
             try
             {
-                baseConfig = JObject.Parse(adjustedContent);
+                    return action();
             }
-            catch (Exception ex)
+                catch (JsonSerializationException ex)
             {
-                var adjustedFileName = filepath + ".as.json";
-                File.WriteAllText(adjustedFileName, adjustedContent);
-                throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
+                    var adjustedFileName = path + ".as.json";
+                    File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT (remove this line and above line to get accurate line number)---\n" + content);
+                    // It's better to throw a more specific exception or preserve the original stack trace.
+                    throw new Exception($"Error parsing configuration file. A detailed report was written to '{adjustedFileName}'. Please correct the error in the original '.config' file and then delete the '.as.json' file.\n\nDetails: {ex.Message}", ex);
             }
+            }
+
+            static JObject ReadHybridJsonFile(string path, string content = null)
+            {
+                var adjustedContent = content ?? PreprocessHybridJsonFile(File.ReadAllText(path));
+                return HandleJsonException(() => JObject.Parse(adjustedContent), path, content);
+            }
+
+            var config = ReadHybridJsonFile(filepath);
 
             if (userOverrideFilepath != null)
             {
                 if (File.Exists(userOverrideFilepath))
                 {
-                    try
-                    {
-                        var overrideContent = PreprocessHybridJsonFile(File.ReadAllText(userOverrideFilepath));
-                        JObject userConfig = JObject.Parse(overrideContent);
-
-                        // Use our custom merge logic that works with older Newtonsoft.Json versions
-                        MergeConfigs(baseConfig, userConfig);
+                    JObject userConfig = ReadHybridJsonFile(userOverrideFilepath);
+                    MergeConfigs(config, userConfig);
                     }
-                    catch (Exception ex)
-                    {
-                        // TODO
-                        var adjustedFileName = userOverrideFilepath + ".as.json";
-                        File.WriteAllText(adjustedFileName, adjustedContent);
-                        throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
-                    }
-                }
                 else
                 {
                     File.WriteAllText(userOverrideFilepath, Resources.Example_wipconfig);
                 }
             }
 
-            try
-            {
-                using var reader = new StringReader(baseConfig.ToString());
-                using var jsonReader = new JsonTextReader(reader);
-                rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
-                return rs_serializer.Deserialize<SubtitleGeneratorConfig>(jsonReader);
+            return HandleJsonException(
+                () => ReadHybridJsonFile(filepath, config.ToString()).ToObject<SubtitleGeneratorConfig>(rs_serializer), 
+                filepath, 
+                config.ToString());
             }
-            catch(Exception ex)
-            {
-                // merged version ???
-                var adjustedFileName = filepath + ".as.json";
-                File.WriteAllText(adjustedFileName, adjustedContent);
-                throw new Exception($"Error while parsing file '{adjustedFileName}' (make the change in '.config' file then delete '.config.as.json' file):\n{ex.Message}", ex);
-            }
-        }
 
         /// <summary>
         /// Merges a user override configuration into a base configuration, with special handling for arrays
@@ -343,6 +330,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var systemPromptTranslator = AddPromptToSharedObjects("SystemPromptTranslator", Resources.SystemPromptTranslator);
             var userPromptTranslatorNaturalist = AddPromptToSharedObjects("UserPromptTranslatorNaturalist", Resources.UserPromptTranslatorNaturalist);
             var userPromptTranslatorMaverick = AddPromptToSharedObjects("UserPromptTranslatorMaverick", Resources.UserPromptTranslatorMaverick);
+            var userPromptVisualAnalyst = AddPromptToSharedObjects("UserPromptVisualAnalyst", Resources.UserPromptVisualAnalyst);
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -540,16 +528,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "perfect-vad",
                             Sources = "onscreentext,validated-speakers,singlevad,perfect-vad"
-
                         },
                         Options = new AIOptions()
                         {
                             SystemPrompt = systemPromptTranscriberVisualAnalyst,
+                            UserPrompt = userPromptVisualAnalyst,
                             MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "ParticipantDynamics",
                             MetadataForTraining = "VisualTraining",
 
-                            BatchSize = 30, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
+                            BatchSize = 50, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
                             NbContextItems = 5,
                             NbItemsMinimumReceivedToContinue = 10
                         }

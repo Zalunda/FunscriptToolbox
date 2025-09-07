@@ -31,11 +31,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 15, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject RequestBodyExtension { get; set; }
 
-        [JsonProperty(Order = 16)]
-        public int? DebugNbRequestsLimit { get; set; } = null;
-
         [JsonProperty(Order = 17)]
         public bool UseStreaming { get; set; } = true;
+
+        [JsonProperty(Order = 20)]
+        public bool PauseBeforeSendingRequest { get; set; } = false;
+        [JsonProperty(Order = 21)]
+        public bool PauseBeforeSavingResponse { get; set; } = false;
+
 
         public override AIResponse Execute(
             SubtitleGeneratorContext context,
@@ -56,11 +59,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var processStartTime = DateTime.Now;
             var lastTimeSaved = DateTime.Now;
 
-            if (DebugNbRequestsLimit != null && request.Number > DebugNbRequestsLimit.Value)
-            {
-                throw new AIRequestException(request, $"Stopping because DebugNbRequestsLimit has been reached ({DebugNbRequestsLimit.Value})");
-            }
-
             dynamic requestBody = new ExpandoObject();
             if (this.Model != null)
             {
@@ -78,6 +76,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var verbosePrefix = request.GetVerbosePrefix();
             context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
             context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
+
+            PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
 
             var response = UseStreaming
                 ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime)
@@ -122,6 +122,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 throw new AIRequestException(request, $"Empty response receive.");
             }
+
+            PauseIfEnabled(this.PauseBeforeSavingResponse);
 
             // Let the request handle the response and store the api cost
             return new AIResponse(
@@ -286,6 +288,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     throw new AIRequestException(request, $"Empty response received.");
                 }
 
+
+                PauseIfEnabled(this.PauseBeforeSavingResponse);
+                
                 return new AIResponse(
                     request,
                     assistantMessage,
@@ -302,6 +307,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             finally
             {
                 waitingTimer?.Dispose();
+            }
+        }
+
+        private void PauseIfEnabled(bool isEnabled, string content = null)
+        {
+            if (isEnabled)
+            {
+                if (content != null)
+                {
+                    Console.WriteLine("\n\n" + content);
+                }
+                Console.WriteLine("\n\nPress Q to stop this worker. Any other key to continue.");
+                var keyInfo = Console.ReadKey(true);
+                if (keyInfo.Key == ConsoleKey.Q)
+                {
+                    throw new UserStoppedWorkerException();
+                }
             }
         }
 
