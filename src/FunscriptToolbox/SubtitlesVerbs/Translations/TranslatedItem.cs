@@ -11,8 +11,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public TranslatedItem(
             TimeSpan startTime,
             TimeSpan endTime,
-            Dictionary<string, string> metadata = null)
-            : base(startTime, endTime, metadata)
+            Dictionary<string, string> metadata = null,
+            DateTime? creationTime = null)
+            : base(startTime, endTime, metadata, creationTime)
         {
         }
     }

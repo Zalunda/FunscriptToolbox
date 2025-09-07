@@ -48,17 +48,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             static T HandleJsonException<T>(Func<T> action, string path, string content)
             {
-            try
-            {
+                try
+                {
                     return action();
-            }
+                }
                 catch (JsonSerializationException ex)
-            {
+                {
                     var adjustedFileName = path + ".as.json";
                     File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT (remove this line and above line to get accurate line number)---\n" + content);
                     // It's better to throw a more specific exception or preserve the original stack trace.
                     throw new Exception($"Error parsing configuration file. A detailed report was written to '{adjustedFileName}'. Please correct the error in the original '.config' file and then delete the '.as.json' file.\n\nDetails: {ex.Message}", ex);
-            }
+                }
             }
 
             static JObject ReadHybridJsonFile(string path, string content = null)
@@ -75,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     JObject userConfig = ReadHybridJsonFile(userOverrideFilepath);
                     MergeConfigs(config, userConfig);
-                    }
+                }
                 else
                 {
                     File.WriteAllText(userOverrideFilepath, Resources.Example_wipconfig);
@@ -86,7 +86,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 () => ReadHybridJsonFile(filepath, config.ToString()).ToObject<SubtitleGeneratorConfig>(rs_serializer), 
                 filepath, 
                 config.ToString());
-            }
+        }
 
         /// <summary>
         /// Merges a user override configuration into a base configuration, with special handling for arrays
@@ -627,14 +627,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TargetLanguage = Language.FromString("en"),
                         Engine = new AIEngineAPI()
                         {
-                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                            Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",
+                            BaseAddress = "https://api.poe.com/v1",
+                            Model = "GPT-5",
+                            APIKeyName = "APIKeyPoe"
                         },
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,perfect-vad" // visual-analyst,
+                            Sources = "onscreentext,visual-analyst,validated-speakers,perfect-vad"
                         },
                         Options = new AIOptions()
                         {
@@ -642,9 +642,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
-                            BatchSize = 100
+                            NbContextItems = 15,
+                            BatchSize = 150
                         },
-                        AutoMergeOn = "[!MERGED]"
+                        AutoMergeOn = "[!MERGED]",
+                        AutoDeleteOn = "[!UNNEEDED]",
+                        ExportMetadataSrt = true
                     },
                     new TranscriberImport
                     {

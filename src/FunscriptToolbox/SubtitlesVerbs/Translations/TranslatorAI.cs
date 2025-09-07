@@ -21,6 +21,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public AIOptions Options { get; set; }
         [JsonProperty(Order = 23)]
         public string AutoMergeOn { get; set; }
+        [JsonProperty(Order = 24)]
+        public string AutoDeleteOn { get; set; }
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
@@ -75,6 +77,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                                 currentItem.StartTime,
                                 item.EndTime,
                                 currentItem.Metadata);
+                        }
+                        else if (currentItem != null && item.Metadata.Get(this.GetMetadataProduced()).Contains(this.AutoDeleteOn))
+                        {
+                            // Ignore node
                         }
                         else
                         {

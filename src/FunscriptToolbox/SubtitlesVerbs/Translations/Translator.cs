@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System;
 using System.Linq;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -20,6 +21,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
         [JsonProperty(Order = 3)]
         public Language TargetLanguage { get; set; } = Language.FromString("en");
+
+        [JsonProperty(Order = 4)]
+        public bool ExportMetadataSrt { get; set; } = false;
+
+
         [JsonIgnore]
         public string FullId => $"{this.TranscriptionId}_{this.TranslationId}";
 
@@ -43,6 +49,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
         protected abstract string GetMetadataProduced();
 
+        private void DoExportMetatadaSrt(
+            SubtitleGeneratorContext context,
+            Translation translation,
+            bool isAlreadyFinished)
+        {
+            if (!isAlreadyFinished)
+            {
+                SaveDebugSrtIfVerbose(context, translation);
+            }
+            if (this.ExportMetadataSrt)
+            {
+                var filename = context.WIP.BaseFilePath + $".Worker.{this.FullId}.srt";
+                if (!isAlreadyFinished || !File.Exists(filename))
+                {
+                    context.SoftDelete(filename);
+                    CreateMetadatasSrt(filename, translation);
+                }
+            }
+        }
+
         public override void Execute(
             SubtitleGeneratorContext context)
         {
@@ -56,6 +82,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             if (translation?.IsFinished == true)
             {
+                DoExportMetatadaSrt(context, translation, isAlreadyFinished: true);
+
                 context.WriteInfoAlreadyDone($"Translation '{this.FullId}' have already been done.");
                 context.WriteInfoAlreadyDone();
             }
@@ -92,6 +120,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     context.WriteError($"An error occured while translating '{this.FullId}':\n{ex.Message}");
                     context.WriteLog(ex.ToString());
                 }
+
+                DoExportMetatadaSrt(context, translation, isAlreadyFinished: false);
             }
         }
     }
