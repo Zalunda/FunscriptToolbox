@@ -55,7 +55,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var fullPcmAudio = base.GetPcmAudio(context);
 
-            var binaryGenerator = new CachedBinaryGenerator((timing) =>
+            var binaryGenerator = new CachedBinaryGenerator("Audio", (timing) =>
             {
                 context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                 var tempWavFile = Path.GetTempFileName() + ".wav";

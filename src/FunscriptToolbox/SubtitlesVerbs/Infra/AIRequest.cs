@@ -46,19 +46,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         {
                             if (item?.type == "text")
                             {
-                                fullpromptBuilder.AppendLine(item.text ?? item.content);
+                                fullpromptBuilder.Append(item.text ?? item.content);
                             }
                             else if (item?.type == "input_audio")
                             {
-                                fullpromptBuilder.AppendLine("[Audio data]");
+                                fullpromptBuilder.Append("[Audio data]");
                             }
                             else if (item?.type == "image_url")
                             {
-                                fullpromptBuilder.AppendLine("[Image data]");
+                                fullpromptBuilder.Append("[Image data]");
                             }
                         }
                     }
-                    fullpromptBuilder.AppendLine(new string('+', 40));
+                    fullpromptBuilder.AppendLine();
+                    fullpromptBuilder.AppendLine(new string('=', 40));
                 }
             }
             FullPrompt = fullpromptBuilder.ToString();

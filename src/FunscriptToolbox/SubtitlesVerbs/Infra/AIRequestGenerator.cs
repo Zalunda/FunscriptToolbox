@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -126,23 +127,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 });
             }
 
-            bool needSeparatorLine = false;
-            var separatorLine = new string('-', 20) + "\n";
-
             if (itemsForTraining.Length > 0)
             {
-                contentList.Add(new
+                if (r_options.TextBeforeTrainingData != null)
                 {
-                    type = "text",
-                    text = $"{(needSeparatorLine ? separatorLine : string.Empty)}{r_options.TextBeforeTrainingData}"
-                });
+                    contentList.Add(new
+                    {
+                        type = "text",
+                        text = r_options.TextBeforeTrainingData + "\n"
+                    });
+                }
 
                 foreach (var item in itemsForTraining.Take(r_options.NbItemsMaximumForTraining))
                 {
                     contentList.Add(new
                     {
                         type = "text",
-                        text = item.Metadata.Get(r_metadataForTrainingRules.First())
+                        text = item.Metadata.Get(r_metadataForTrainingRules.First()) + "\n"
                     });
                     if (binaryGenerator != null)
                     {
@@ -154,33 +155,55 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     contentList.Add(new
                     {
                         type = "text",
-                        text = r_options.TextAfterTrainingData
+                        text = r_options.TextAfterTrainingData + "\n"
                     });
                 }
-
-                needSeparatorLine = true;
             }
 
             var waitingForFirstToDo = true;
             var itemsInBatch = new List<TimedItemWithMetadata>();
-            int nbExtraContextItems = 0;
             var metadataOngoing = new MetadataCollection();
             var contentBefore = new Queue<TimedItemWithMetadata>();
             var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
-                dynamic CreateMetadataContent(TimedItemWithMetadata item, MetadataCollection overrides = null, string prefix = "") => new
+                static IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, (dynamic[] data, string type)? binaryContents = null, MetadataCollection overrides = null)
                 {
-                    type = "text",
-                    text = prefix + JsonConvert.SerializeObject(
-                        new MetadataCollection(overrides ?? item.Metadata)
+                    var nodeContents = new List<dynamic>();
+                    var sb = new StringBuilder();
+                    sb.AppendLine("  {");
+                    sb.AppendLine($"    \"StartTime\": \"{item.StartTime:hh\\:mm\\:ss\\.fff}\",");
+                    sb.AppendLine($"    \"EndTime\": \"{item.EndTime:hh\\:mm\\:ss\\.fff}\",");
+                    var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
+                    foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
+                    {
+                        sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
+                    }
+                    if (binaryContents != null)
+                    {
+                        sb.Append($"    \"{binaryContents.Value.type}\": ");
+                        nodeContents.Add(new
                         {
-                        { "StartTime", item.StartTime.ToString(@"hh\:mm\:ss\.fff") },
-                        { "EndTime", item.EndTime.ToString(@"hh\:mm\:ss\.fff") }
-                        },
-                        Formatting.Indented)
-                };
-                MetadataCollection AddOngoingMetadata(MetadataCollection metadataForItem, MetadataCollection metadataOngoing)
+                            type = "text",
+                            text = sb.ToString()
+                        });
+                        sb.Clear();
+
+                        // 5. Add the actual data.
+                        nodeContents.AddRange(binaryContents.Value.data);
+                        sb.AppendLine();
+                    }
+                    sb.AppendLine("  },");
+                    nodeContents.Add(new
+                    {
+                        type = "text",
+                        text = sb.ToString()
+                    });
+                    sb.Clear();
+
+                    return nodeContents;
+                }
+                static MetadataCollection AddOngoingMetadata(MetadataCollection metadataForItem, MetadataCollection metadataOngoing)
                 {
                     if (metadataOngoing == null)
                         return metadataForItem;
@@ -220,74 +243,58 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             contentList.Add(new
                             {
                                 type = "text",
-                                text = $"{(needSeparatorLine ? separatorLine : string.Empty)}{r_options.TextBeforeContextData}"
+                                text = $"{r_options.TextBeforeContextData}\n[\n"
                             });
 
                             var firstContent = contentBefore.Dequeue();
-                            contentList.Add(
-                                CreateMetadataContent(
+                            contentList.AddRange(
+                                CreateNodeContents(
                                     firstContent,
-                                    AddOngoingMetadata(firstContent.Metadata, metadataOngoing)));
+                                    overrides: AddOngoingMetadata(firstContent.Metadata, metadataOngoing)));
                             metadataOngoing = null;
 
                             contentList.AddRange(
-                                contentBefore.Select(c => CreateMetadataContent(c)));
-
-                            if (r_options.TextAfterContextData != null)
-                            {
-                                contentList.Add(new
-                                {
-                                    type = "text",
-                                    text = r_options.TextAfterContextData
-                                });
-                            }
-                            needSeparatorLine = true;
-                        }
-
-                        if (r_options.TextBeforeAnalysis != null)
-                        {
+                                contentBefore.SelectMany(c => CreateNodeContents(c)));
                             contentList.Add(new
                             {
                                 type = "text",
-                                text = r_options.TextBeforeAnalysis
+                                text = "]\n"
+                            });
+
+                            contentList.Add(new
+                            {
+                                type = "text",
+                                text = r_options.TextAfterContextData + "\n"
                             });
                         }
+
+                        contentList.Add(new
+                        {
+                            type = "text",
+                            text = r_options.TextBeforeAnalysis + "\n\n[\n"
+                        });
                     }
                 }
 
                 if (!waitingForFirstToDo)
                 {
-                    if (binaryGenerator != null)
-                    {
-                        needSeparatorLine = true;
-                    }
-
                     if (itemsToDo.Contains(item))
                     {
                         contentList.AddRange(contentExtraContext);
                         contentExtraContext.Clear();
 
+                        var metadataForThisItem = item.Metadata;
+
                         if (metadataOngoing != null)
                         {
-                            contentList.Add(
-                                CreateMetadataContent(
-                                    item,
-                                    AddOngoingMetadata(item.Metadata, metadataOngoing),
-                                    (needSeparatorLine ? separatorLine : string.Empty)));
+                            metadataForThisItem = AddOngoingMetadata(item.Metadata, metadataOngoing);
                             metadataOngoing = null;
                         }
-                        else
-                        {
-                            contentList.Add(
-                                CreateMetadataContent(
-                                    item, 
-                                    prefix: (needSeparatorLine ? separatorLine : string.Empty)));
-                        }
 
-                        if (binaryGenerator != null)
-                        {
-                            contentList.AddRange(binaryGenerator.GetBinaryContent(item));
-                        }
+                        contentList.AddRange(CreateNodeContents(
+                            item,
+                            binaryGenerator?.GetBinaryContentWithType(item),
+                            metadataForThisItem));
                         itemsInBatch.Add(item);
 
                         if (itemsInBatch.Count >= r_options.BatchSize)
@@ -295,20 +302,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             break;
                         }
                     }
-                    else if (r_options.NbContextItems != null)
-                    {
-                        contentExtraContext.Add(
-                            CreateMetadataContent(item,
-                            prefix: (needSeparatorLine ? separatorLine : string.Empty)));
-                        nbExtraContextItems++;
-
-                        if ((itemsInBatch.Count > 0) && (contentBefore.Count + nbExtraContextItems >= r_options.NbContextItems))
-                        {
-                            break;
-                        }
-                    }
                 }
             }
+            contentList.Add(new
+            {
+                type = "text",
+                text = "]\n"
+            });
 
             if (r_options.TextAfterAnalysis != null)
             {

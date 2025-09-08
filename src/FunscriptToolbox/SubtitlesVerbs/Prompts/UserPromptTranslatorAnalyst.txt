@@ -21,4 +21,4 @@ Woman's Character: {Your deduction of the woman's core personality traits in thi
     -   **All Subsequent Nodes:** For every other node in the JSON array (from the second node to the last), the `Translation` field **MUST** be an empty string (`""`).
 
 Your final output is a data packet. It is intentionally incomplete, designed to be passed to the next stage of the pipeline. Do not translate any lines beyond the first node's analysis block.
-Don't think too much.
+

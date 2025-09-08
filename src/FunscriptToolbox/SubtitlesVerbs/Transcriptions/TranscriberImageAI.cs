@@ -48,7 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription);
 
             // TODO be able to take the screenshot in the highest percentage for speaker detection (ex. when she open mouth or something)
-            var binaryGenerator = new CachedBinaryGenerator((timing) =>
+            var binaryGenerator = new CachedBinaryGenerator("Image", (timing) =>
                     {
                         var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                         context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");

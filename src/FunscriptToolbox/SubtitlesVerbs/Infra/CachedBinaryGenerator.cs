@@ -6,22 +6,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     public class CachedBinaryGenerator
     {
         private Dictionary<TimeSpan, dynamic[]> r_cache;
+        private readonly string r_dataType;
         private readonly Func<ITiming, dynamic[]> r_createBinaryFunc;
 
-        public CachedBinaryGenerator(Func<ITiming, dynamic[]> createBinaryFunc)
+        public CachedBinaryGenerator(string dataType, Func<ITiming, dynamic[]> createBinaryFunc)
         {
             r_cache = new Dictionary<TimeSpan, dynamic[]>();
+            r_dataType = dataType;
             r_createBinaryFunc = createBinaryFunc;
         }
 
         public dynamic[] GetBinaryContent(ITiming timing)
+        {
+            var (data, _) = GetBinaryContentWithType(timing);
+            return data;
+        }
+
+        public (dynamic[] data, string type) GetBinaryContentWithType(ITiming timing)
         {
             if (!r_cache.TryGetValue(timing.StartTime, out var data))
             {
                 data = r_createBinaryFunc(timing);
                 r_cache[timing.StartTime] = data;
             }
-            return data;
+            return (data, r_dataType);
         }
     }
 }

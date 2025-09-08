@@ -29,13 +29,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 20)]
         public string TextBeforeTrainingData { get; set; } = "Character Identification Reference:";
         [JsonProperty(Order = 21)]
-        public string TextAfterTrainingData { get; set; } = null;
+        public string TextAfterTrainingData { get; set; } = "--------------------------------------------------";
         [JsonProperty(Order = 22)]
-        public string TextBeforeContextData { get; set; } = "-----------------------------------------------------------------\nContext from preceding nodes:";
+        public string TextBeforeContextData { get; set; } = "Context from preceding nodes:";
         [JsonProperty(Order = 23)]
-        public object TextAfterContextData { get; set; } = null;
+        public object TextAfterContextData { get; set; } = "--------------------------------------------------";
         [JsonProperty(Order = 24)]
-        public string TextBeforeAnalysis { get; set; } = "-----------------------------------------------------------------\nBegin Node Analysis:";
+        public string TextBeforeAnalysis { get; set; } = "Begin Node Analysis:";
         [JsonProperty(Order = 25)]
         public string TextAfterAnalysis { get; set; } = null;
 

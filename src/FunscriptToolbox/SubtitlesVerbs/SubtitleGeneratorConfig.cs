@@ -534,7 +534,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             SystemPrompt = systemPromptTranscriberVisualAnalyst,
                             UserPrompt = userPromptVisualAnalyst,
                             MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "ParticipantDynamics",
+                            MetadataAlwaysProduced = "ParticipantsPoses",
                             MetadataForTraining = "VisualTraining",
 
                             BatchSize = 50, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.

@@ -25,3 +25,4 @@ The audit will programmatically check three critical metrics:
 
 **Consequence:**
 Failure on any QA metric will result in the **immediate rejection of the batch** and require a full reprocessing. Your goal is a zero-error technical pass.
+
