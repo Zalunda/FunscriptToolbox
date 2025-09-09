@@ -61,6 +61,41 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-09)**
+        ///
+        ///This version establishes a clear, non-conflicting hierarchy of operations: first, pick the absolute best text for the current node *in isolation*. Only then, as a separate step, check if that finalized text can be merged.
+        ///
+        ///```markdown
+        ///# System Prompt: The Arbiter&apos;s Protocol (version 2025-09-09)
+        ///
+        ///### **Role**
+        ///
+        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate, create the most natural and consistent character voice, and [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string ArbitrerSystemPrompt {
+            get {
+                return ResourceManager.GetString("ArbitrerSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # ATTENTION: FULL-SPECTRUM QA AUDIT INITIATED (SPEC 2025-09-09)
+        ///
+        ///**To the Subtitle Editor:** This batch is undergoing a full-spectrum Quality Assurance audit. Your output will be validated by an automated linter for strict adherence to protocol. Zero deviations are permitted.
+        ///
+        ///The audit will programmatically check three critical metrics:
+        ///
+        ///**QA Metric 1: Strict Physical Constraint Compliance (ZERO TOLERANCE)**
+        ///*   **Objective:** Every finalized subtitle must adhere perfectly to the physical format rules.
+        ///*   [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string ArbitrerUserPrompt {
+            get {
+                return ResourceManager.GetString("ArbitrerUserPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {
         /////  &quot;SourceLanguage&quot;: &quot;es&quot;,
         ///  &quot;Workers&quot;: [
@@ -259,23 +294,6 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # System Prompt: The Arbiter&apos;s Protocol (version 2025-09-06)
-        ///
-        ///### **Role**
-        ///
-        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate for each line, create the most natural, compelling, and consistent character voice, and then format it into a technically perfect JSON output. Your loyalty is to the timeline, the character, and the rules.
-        ///
-        ///### **The Prime Directive (Non-Negotiable)**
-        ///
-        ///**You will output a JSON array with the exact same number of nodes, in the exact same o [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string SystemPromptArbitrer {
-            get {
-                return ResourceManager.GetString("SystemPromptArbitrer", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to 
         ///
         ///# TRANSCRIPTION AND VAD MANDATE (version 2025-09-04)
@@ -286,9 +304,19 @@ namespace FunscriptToolbox.Properties {
         ///### Mission
         ///Given a single, complete audio file, your mission is to meticulously s [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string SystemPromptTranscriberAudioFull {
+        internal static string TranscriberAudioFullSystemPrompt {
             get {
-                return ResourceManager.GetString("SystemPromptTranscriberAudioFull", resourceCulture);
+                return ResourceManager.GetString("TranscriberAudioFullSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The audio should be in [TranscriptionLanguage].
+        ///.
+        /// </summary>
+        internal static string TranscriberAudioFullUserPrompt {
+            get {
+                return ResourceManager.GetString("TranscriberAudioFullUserPrompt", resourceCulture);
             }
         }
         
@@ -299,9 +327,19 @@ namespace FunscriptToolbox.Properties {
         ///### Mission
         ///F [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string SystemPromptTranscriberAudioSingleVAD {
+        internal static string TranscriberAudioSingleVADSystemPrompt {
             get {
-                return ResourceManager.GetString("SystemPromptTranscriberAudioSingleVAD", resourceCulture);
+                return ResourceManager.GetString("TranscriberAudioSingleVADSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The audio should be in [TranscriptionLanguage].
+        ///.
+        /// </summary>
+        internal static string TranscriberAudioSingleVADUserPrompt {
+            get {
+                return ResourceManager.GetString("TranscriberAudioSingleVADUserPrompt", resourceCulture);
             }
         }
         
@@ -312,39 +350,42 @@ namespace FunscriptToolbox.Properties {
         ///### Mission
         ///For each data packet you receive in a request, you will analyze the provided image, identify and transcribe the relevant text as specified by its corresponding `GrabOnScreenText` directive. You will  [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string SystemPromptTranscriberOnScreenText {
+        internal static string TranscriberOnScreenTextSystemPrompt {
             get {
-                return ResourceManager.GetString("SystemPromptTranscriberOnScreenText", resourceCulture);
+                return ResourceManager.GetString("TranscriberOnScreenTextSystemPrompt", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-05)
+        ///   Looks up a localized string similar to # **MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-06)**
         ///
         ///### **Role &amp; Mission**
         ///
-        ///You are a Multimodal Translation Augmentation Specialist (MTAS). 
-        ///Your primary function is to provide a concise, context-aware analysis of transcribed audio (`VoiceText`) by integrating visual information from a corresponding image. 
-        ///Your goal is to produce a non-redundant, highly efficient output that provides critical evidence and nuance to a professional human translator. 
-        ///You operate in a stateful, batch-pr [rest of string was truncated]&quot;;.
+        ///You are a Multimodal Translation Augmentation Specialist (MTAS). Your job is to analyze an image and its corresponding `VoiceText` to create a concise JSON output for a human translator. You must process a batch of nodes, treating each one as a completely separate task.
+        ///
+        ///### **Core Directives (Non-Negotiable)**
+        ///
+        ///1.  **The Per-Node Firewall:** You MUST process each node in the input array one at a time. The  [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string SystemPromptTranscriberVisualAnalyst {
+        internal static string TranscriberVisualAnalystSystemPrompt {
             get {
-                return ResourceManager.GetString("SystemPromptTranscriberVisualAnalyst", resourceCulture);
+                return ResourceManager.GetString("TranscriberVisualAnalystSystemPrompt", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (2025-08-01)
-        ///### Role
-        ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.
-        ///### Mission
-        ///Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. 
-        ///You will process each node, translating the original Japanese text (OnScreenText or VoiceText) into natural, compelling Engl [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to # URGENT: HIGH-STAKES ACCURACY AUDIT (VALIDATION 2025-09-05)
+        ///
+        ///**Attention MTAS:** This entire batch of nodes is subject to a mandatory, zero-tolerance accuracy audit. Your output will be programmatically validated against the visual evidence.
+        ///
+        ///**The Single Metric for Success:** Your absolute and unwavering adherence to the **&quot;Strict Visual Grounding Protocol&quot;** outlined in your mandate.
+        ///
+        ///**Definition of a Critical Hallucination Failure:**
+        ///An analysis is given on the wrong node (i.e. describing image from St [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string SystemPromptTranslator {
+        internal static string TranscriberVisualAnalystUserPrompt {
             get {
-                return ResourceManager.GetString("SystemPromptTranslator", resourceCulture);
+                return ResourceManager.GetString("TranscriberVisualAnalystUserPrompt", resourceCulture);
             }
         }
         
@@ -359,51 +400,49 @@ namespace FunscriptToolbox.Properties {
         ///### Execution Protocol
         ///1.  **Comprehensive Analysis:** Rea [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string UserPromptTranslatorAnalyst {
+        internal static string TranslatorAnalystUserPrompt {
             get {
-                return ResourceManager.GetString("UserPromptTranslatorAnalyst", resourceCulture);
+                return ResourceManager.GetString("TranslatorAnalystUserPrompt", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Maverick
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-08-01)
         ///### Role
         ///You are &apos;The Maverick&apos;. You are a high-risk, high-reward narrative amplifier. Your function is to take the Analyst&apos;s directives and produce the most impactful, evocative, and clever translation possible, prioritizing narrative punch over literal accuracy.
         ///### Mission
-        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting dialogue to more powerfully reflect t [rest of string was truncated]&quot;;.
+        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting dialogue to more [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string UserPromptTranslatorMaverick {
+        internal static string TranslatorMaverickUserPrompt {
             get {
-                return ResourceManager.GetString("UserPromptTranslatorMaverick", resourceCulture);
+                return ResourceManager.GetString("TranslatorMaverickUserPrompt", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Naturalist
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Naturalist (version 2025-08-01)
         ///### Role
         ///You are &apos;The Naturalist&apos;. Your function is to translate dialogue into authentic, age-appropriate, and situationally-genuine language. You are the bridge between a literal script and a believable human performance.
         ///### Mission
-        ///Your mission is to discard stilted, overly-literal translations in favor of the natural cadence, idioms, and colloquialisms that a real person, matching the character profile from the Analyst&apos;s report, would use. The final transl [rest of string was truncated]&quot;;.
+        ///Your mission is to discard stilted, overly-literal translations in favor of the natural cadence, idioms, and colloquialisms that a real person, matching the character profile from the Analyst&apos;s report, would  [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string UserPromptTranslatorNaturalist {
+        internal static string TranslatorNaturalistUserPrompt {
             get {
-                return ResourceManager.GetString("UserPromptTranslatorNaturalist", resourceCulture);
+                return ResourceManager.GetString("TranslatorNaturalistUserPrompt", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # URGENT: HIGH-STAKES ACCURACY AUDIT (VALIDATION 2025-09-05)
-        ///
-        ///**Attention MTAS:** This entire batch of 15 nodes is subject to a mandatory, zero-tolerance accuracy audit. Your output will be programmatically validated against the visual evidence.
-        ///
-        ///**The Single Metric for Success:** Your absolute and unwavering adherence to the **&quot;Strict Visual Grounding Protocol&quot;** outlined in your mandate.
-        ///
-        ///**Definition of a Critical Hallucination Failure:**
-        ///The inclusion of ANY object, action, environmental detail, or part [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (2025-08-01)
+        ///### Role
+        ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.
+        ///### Mission
+        ///Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. 
+        ///You will process each node, translating the original Japanese text (OnScreenText or VoiceText) into natural, compelling Engl [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string UserPromptVisualAnalyst {
+        internal static string TranslatorSystemPrompt {
             get {
-                return ResourceManager.GetString("UserPromptVisualAnalyst", resourceCulture);
+                return ResourceManager.GetString("TranslatorSystemPrompt", resourceCulture);
             }
         }
         

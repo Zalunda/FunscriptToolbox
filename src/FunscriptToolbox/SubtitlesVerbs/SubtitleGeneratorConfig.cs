@@ -321,16 +321,23 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 return prompt;
             }
 
-            var systemPromptTranscriberOnScreenText = AddPromptToSharedObjects("SystemPromptTranscriberOnScreenText", Resources.SystemPromptTranscriberOnScreenText);
-            var systemPromptTranscriberVisualAnalyst = AddPromptToSharedObjects("SystemPromptTranscriberVisualAnalyst", Resources.SystemPromptTranscriberVisualAnalyst);
-            var systemPromptTranscriberAudioSingleVAD = AddPromptToSharedObjects("SystemPromptTranscriberAudioSingleVAD", Resources.SystemPromptTranscriberAudioSingleVAD);
-            var systemPromptTranscriberAudioFull = AddPromptToSharedObjects("SystemPromptTranscriberAudioFull", Resources.SystemPromptTranscriberAudioFull);
-            var systemPromptArbitrer = AddPromptToSharedObjects("SystemPromptArbitrer", Resources.SystemPromptArbitrer);
-            var userPromptTranslatorAnalyst = AddPromptToSharedObjects("UserPromptTranslatorAnalyst", Resources.UserPromptTranslatorAnalyst);
-            var systemPromptTranslator = AddPromptToSharedObjects("SystemPromptTranslator", Resources.SystemPromptTranslator);
-            var userPromptTranslatorNaturalist = AddPromptToSharedObjects("UserPromptTranslatorNaturalist", Resources.UserPromptTranslatorNaturalist);
-            var userPromptTranslatorMaverick = AddPromptToSharedObjects("UserPromptTranslatorMaverick", Resources.UserPromptTranslatorMaverick);
-            var userPromptVisualAnalyst = AddPromptToSharedObjects("UserPromptVisualAnalyst", Resources.UserPromptVisualAnalyst);
+            var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects("TranscriberAudioFullSystemPrompt", Resources.TranscriberAudioFullSystemPrompt);
+            var transcriberAudioFullUserPrompt = AddPromptToSharedObjects("TranscriberAudioFullUserPrompt", Resources.TranscriberAudioFullUserPrompt);
+
+            var transcriberAudioSingleVADSystemPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADSystemPrompt", Resources.TranscriberAudioSingleVADSystemPrompt);
+            var transcriberAudioSingleVADUserPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADUserPrompt", Resources.TranscriberAudioSingleVADUserPrompt);
+
+            var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects("TranscriberOnScreenTextSystemPrompt", Resources.TranscriberOnScreenTextSystemPrompt);
+
+            var transcriberVisualAnalystSystemPrompt = AddPromptToSharedObjects("TranscriberVisualAnalystSystemPrompt", Resources.TranscriberVisualAnalystSystemPrompt);
+            var transcriberVisualAnalystUserPrompt = AddPromptToSharedObjects("TranscriberVisualAnalystUserPrompt", Resources.TranscriberVisualAnalystUserPrompt);
+
+            var arbitrerSystemPrompt = AddPromptToSharedObjects("ArbitrerSystemPrompt", Resources.ArbitrerSystemPrompt);
+
+            var translatorSystemPrompt = AddPromptToSharedObjects("TranslatorSystemPrompt", Resources.TranslatorSystemPrompt);
+            var translatorAnalystUserPrompt = AddPromptToSharedObjects("TranslatorAnalystUserPrompt", Resources.TranslatorAnalystUserPrompt);
+            var translatorNaturalistUserPrompt = AddPromptToSharedObjects("TranslatorNaturalistUserPrompt", Resources.TranslatorNaturalistUserPrompt);
+            var translatorMaverickUserPrompt = AddPromptToSharedObjects("TranslatorMaverickUserPrompt", Resources.TranslatorMaverickUserPrompt);
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -379,7 +386,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     }
                                 }))
                         },
-                        SystemPrompt = systemPromptTranscriberAudioFull,
+                        SystemPrompt = transcriberAudioFullSystemPrompt,
+                        UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
                         MaxChunkDuration = TimeSpan.FromMinutes(5)
                     },
@@ -406,7 +414,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = null,
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptTranslator,
+                            SystemPrompt = translatorSystemPrompt,
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
 
@@ -456,7 +464,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptTranscriberOnScreenText,
+                            SystemPrompt = transcriberOnScreenTextSystemPrompt,
                             MetadataNeeded = "GrabOnScreenText",
                             MetadataAlwaysProduced = "OnScreenText",
 
@@ -494,7 +502,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptTranscriberAudioSingleVAD,
+                            SystemPrompt = transcriberAudioSingleVADSystemPrompt,
+                            UserPrompt = transcriberAudioSingleVADUserPrompt,
                             MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "VoiceText",
                             BatchSize = 150
@@ -516,13 +525,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberImageAI()
                     {
                         TranscriptionId = "visual-analyst",
-                        Enabled = false,
+                        Enabled = true,
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
                             Model = "gpt5",
                             APIKeyName = "APIKeyPoe",
+                            RequestBodyExtension = Expando(
+                                ("reasoning", new
+                                {
+                                    effort = "high"
+                                }))
                         },
                         Metadatas = new MetadataAggregator()
                         {
@@ -531,13 +545,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptTranscriberVisualAnalyst,
-                            UserPrompt = userPromptVisualAnalyst,
+                            SystemPrompt = transcriberVisualAnalystSystemPrompt,
+                            UserPrompt = transcriberVisualAnalystUserPrompt,
                             MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "ParticipantsPoses",
                             MetadataForTraining = "VisualTraining",
 
-                            BatchSize = 50, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
+                            BatchSize = 30, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
                             NbContextItems = 5,
                             NbItemsMinimumReceivedToContinue = 10
                         }
@@ -560,8 +574,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptTranslator,
-                            UserPrompt = userPromptTranslatorMaverick,
+                            SystemPrompt = translatorSystemPrompt,
+                            UserPrompt = translatorMaverickUserPrompt,
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -586,8 +600,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptTranslator,
-                            UserPrompt = userPromptTranslatorNaturalist,
+                            SystemPrompt = translatorSystemPrompt,
+                            UserPrompt = translatorNaturalistUserPrompt,
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -638,7 +652,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = systemPromptArbitrer,
+                            SystemPrompt = arbitrerSystemPrompt,
 
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
