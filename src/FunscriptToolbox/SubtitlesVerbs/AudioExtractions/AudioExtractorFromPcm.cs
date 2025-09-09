@@ -43,14 +43,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             {
                 var originalPcmAudio = GetPcmAudio(context);
 
-                context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(originalPcmAudio, tempPcmFile, $"-f s16le -ar {originalPcmAudio.SamplingRate} " + this.FfmpegParameters);
+                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(originalPcmAudio, tempPcmFile, $"-f s16le -ar {originalPcmAudio.SamplingRate} " + this.FfmpegParameters);
                var newPcmAudio = new PcmAudio(originalPcmAudio.SamplingRate, File.ReadAllBytes(tempPcmFile));
 
                 audioExtraction.SetPcmAudio(context, newPcmAudio);
                 if (this.SaveAsFileSuffixe != null)
                 {
                     var saveAsPath = context.WIP.BaseFilePath + this.SaveAsFileSuffixe;
-                    context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(newPcmAudio, saveAsPath);
+                    context.FfmpegHelper.ConvertPcmAudioToOtherFormat(newPcmAudio, saveAsPath);
                 }
 
                 context.WIP.Save();

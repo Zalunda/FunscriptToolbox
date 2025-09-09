@@ -50,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var context = new SubtitleGeneratorContext(
                 rs_log,
                 r_options.Verbose,
-                new FfmpegAudioHelper(),
+                new FfmpegHelper(),
                 r_options.ConfigPath,
                 SubtitleGeneratorPrivateConfig.FromFile(
                     Path.ChangeExtension(r_options.ConfigPath, 

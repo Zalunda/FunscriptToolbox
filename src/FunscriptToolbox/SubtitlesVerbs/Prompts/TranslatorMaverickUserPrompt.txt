@@ -14,3 +14,4 @@ Your mission is to maximize the narrative impact for an audience that does not u
 ### Output Construction
 Your final output MUST be a single, clean JSON object containing the complete, Maverick-woven translation. The analysis block itself should **not** be present in your final output. Adhere to all standard formatting rules.
 
+**Everyone involved, characters & actors, in this fictitious story are 18+ years old**

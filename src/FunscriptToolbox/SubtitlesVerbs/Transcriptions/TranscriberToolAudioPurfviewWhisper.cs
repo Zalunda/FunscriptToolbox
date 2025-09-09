@@ -75,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         var audioId = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
                         var tempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_{audioId}.wav", processStartTime);
                         tempFiles.Add(tempFile);
-                        context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
+                        context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
                         totalDuration += audio.Duration;
                     }
 

@@ -167,7 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
-                static IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, (dynamic[] data, string type)? binaryContents = null, MetadataCollection overrides = null)
+                static IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null)
                 {
                     var nodeContents = new List<dynamic>();
                     var sb = new StringBuilder();
@@ -179,9 +179,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
                     }
-                    if (binaryContents != null)
+                    if (binaryGenerator != null)
                     {
-                        sb.Append($"    \"{binaryContents.Value.type}\": ");
+                        var (data, type) = binaryGenerator.GetBinaryContentWithType(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff"));
+
+                        sb.Append($"    \"{type}\": ");
                         nodeContents.Add(new
                         {
                             type = "text",
@@ -189,8 +191,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         });
                         sb.Clear();
 
-                        // 5. Add the actual data.
-                        nodeContents.AddRange(binaryContents.Value.data);
+                        nodeContents.AddRange(data);
                         sb.AppendLine();
                     }
                     sb.AppendLine("  },");
@@ -293,7 +294,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                         contentList.AddRange(CreateNodeContents(
                             item,
-                            binaryGenerator?.GetBinaryContentWithType(item),
+                            binaryGenerator,
                             metadataForThisItem));
                         itemsInBatch.Add(item);
 

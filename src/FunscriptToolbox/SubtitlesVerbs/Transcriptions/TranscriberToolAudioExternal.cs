@@ -46,7 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     if (!File.Exists(wavFilename))
                     {
-                        context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(audio, wavFilename);
+                        context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, wavFilename);
                     }
                     userTodos.Add($"Use external tool to transcribe '{Path.GetFileName(wavFilename)}'.");
                 }

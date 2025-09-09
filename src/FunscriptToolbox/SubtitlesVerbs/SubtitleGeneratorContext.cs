@@ -13,7 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
     public class SubtitleGeneratorContext : VerbContext
     {
-        public FfmpegAudioHelper FfmpegAudioHelper { get; }
+        public FfmpegHelper FfmpegHelper { get; }
         private readonly string r_configPath;
         private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
         public SubtitleGeneratorConfig Config { get; private set; }
@@ -25,12 +25,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public SubtitleGeneratorContext(
             ILog log,
             bool isVerbose,
-            FfmpegAudioHelper ffmpegAudioHelper,
+            FfmpegHelper ffmpegAudioHelper,
             string configPath,
             SubtitleGeneratorPrivateConfig privateConfig) 
             : base(log, isVerbose, null)
         {
-            this.FfmpegAudioHelper = ffmpegAudioHelper;
+            this.FfmpegHelper = ffmpegAudioHelper;
             r_configPath = configPath;
             r_privateConfig = privateConfig;
 

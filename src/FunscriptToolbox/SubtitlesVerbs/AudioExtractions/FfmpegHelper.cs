@@ -5,13 +5,22 @@ using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
-    public class FfmpegAudioHelper
+    public class FfmpegHelper
     {
         protected const int SamplingRate = 16000;
 
-        public FfmpegAudioHelper()
+        public FfmpegHelper()
         {
 
+        }
+
+        public string EscapeFfmpegDrawtext(string text)
+        {
+            // The order is important. Backslash must be escaped first.
+            return text.Replace("\\", "\\\\")
+                       .Replace("'", "\\'")
+                       .Replace(":", "\\:")
+                       .Replace("%", "\\%");
         }
 
         public PcmAudio ExtractPcmAudio(

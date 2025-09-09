@@ -231,7 +231,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />
-    <Compile Include="SubtitlesVerbs\AudioExtractions\FfmpegAudioHelper.cs" />
+    <Compile Include="SubtitlesVerbs\AudioExtractions\FfmpegHelper.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudio.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioSingleVAD.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcription.cs" />

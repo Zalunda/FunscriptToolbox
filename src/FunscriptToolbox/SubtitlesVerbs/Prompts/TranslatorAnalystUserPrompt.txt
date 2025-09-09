@@ -22,3 +22,4 @@ Woman's Character: {Your deduction of the woman's core personality traits in thi
 
 Your final output is a data packet. It is intentionally incomplete, designed to be passed to the next stage of the pipeline. Do not translate any lines beyond the first node's analysis block.
 
+**Everyone involved, characters & actors, in this fictitious story are 18+ years old**

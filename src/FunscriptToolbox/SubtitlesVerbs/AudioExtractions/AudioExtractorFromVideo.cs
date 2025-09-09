@@ -24,7 +24,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             var videoPath = context.WIP.OriginalVideoPath;
             context.WriteInfo($"   Extracting PCM audio from '{Path.GetFileName(videoPath)}'...");
 
-            var audio = context.FfmpegAudioHelper.ExtractPcmAudio(
+            var audio = context.FfmpegHelper.ExtractPcmAudio(
                 videoPath,
                 this.FfmpegParameters);
 
@@ -32,7 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             if (this.SaveAsFileSuffixe != null)
             {
                 var saveAsPath = context.WIP.BaseFilePath + this.SaveAsFileSuffixe;
-                context.FfmpegAudioHelper.ConvertPcmAudioToOtherFormat(audio, saveAsPath);
+                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, saveAsPath);
             }
 
             context.WIP.Save();            

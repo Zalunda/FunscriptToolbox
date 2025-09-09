@@ -16,3 +16,4 @@ Your mission is to discard stilted, overly-literal translations in favor of the 
 ### Output Construction
 Your final output MUST be a single, clean JSON object containing the complete, naturalized translation. The analysis block itself should **not** be present in your final output. Adhere to all standard formatting rules.
 
+**Everyone involved, characters & actors, in this fictitious story are 18+ years old**
