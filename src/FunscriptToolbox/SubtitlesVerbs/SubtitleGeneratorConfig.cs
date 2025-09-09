@@ -525,18 +525,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberImageAI()
                     {
                         TranscriptionId = "visual-analyst",
-                        Enabled = true,
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
                             Model = "gpt5",
-                            APIKeyName = "APIKeyPoe",
-                            RequestBodyExtension = Expando(
-                                ("reasoning", new
-                                {
-                                    effort = "high"
-                                }))
+                            APIKeyName = "APIKeyPoe"
                         },
                         Metadatas = new MetadataAggregator()
                         {
@@ -695,9 +689,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "candidates-digest_arbitrer",
-                            Sources = "perfect-vad,onscreentext,validated-speakers", //"visual-analyst"
+                            Sources = "perfect-vad,onscreentext,visual-analyst, validated-speakers",
                         },
-                        TextSources = "final-user-edited,candidates-digest_arbitrer,singlevad,mergedvad,full", // singlevad_maverick,singlevad_naturalist,singlevad,mergedvad,full"
+                        TextSources = "final-user-edited,candidates-digest_arbitrer,singlevad",
                         SkipWhenTextSourcesAreIdentical = "final-user-edited,candidates-digest_arbitrer"
                     }
                 }

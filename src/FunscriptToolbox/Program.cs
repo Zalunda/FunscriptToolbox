@@ -119,9 +119,8 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
-                        "--sourcelanguage", "Japanese",
                         "--config", ".\\--FSTB-SubtitleGeneratorConfigExample-2.0-MINE.config",
-                        "XXX-DEBUG\\KAVR-134-XXX*.mp4"
+                        "XXX-DEBUG\\---FINAL-TESTING\\3DSVR-1278-SLR*.mp4"
                     };
                     break;
 
