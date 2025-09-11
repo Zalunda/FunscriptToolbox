@@ -623,7 +623,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
         private void ExtendButton_Click(object sender, RoutedEventArgs e)
         {
-            _extendSegmentDuration = TimeSpan.FromSeconds(0.5);
+            _extendSegmentDuration += TimeSpan.FromSeconds(0.5);
 
         }
 

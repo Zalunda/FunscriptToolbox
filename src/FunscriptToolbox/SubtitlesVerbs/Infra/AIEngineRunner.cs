@@ -277,8 +277,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         var startTimeItem = timings.FirstOrDefault(i => i.StartTime == startTime);
                         if (startTimeItem == null)
                         {
-                            // Step 3: Use the location info in your exceptions.
-                            throw new Exception($"EndTime not received and StartTime '{startTime:hh\\:mm\\:ss\\.fff}' cannot be matched to an existing item. {GetSegmentInformation(segment)}");
+                            var closestTimeItem = timings.OrderByDescending(i => Math.Abs((i.StartTime - startTime).TotalMilliseconds)).FirstOrDefault();
+                            throw new Exception($"EndTime not received and StartTime '{startTime:hh\\:mm\\:ss\\.fff}' cannot be matched to an existing item (closest time found:{closestTimeItem?.StartTime ?? TimeSpan.Zero:hh\\:mm\\:ss\\.fff}). {GetSegmentInformation(segment)}");
                         }
                         endTime = startTimeItem.EndTime;
                     }

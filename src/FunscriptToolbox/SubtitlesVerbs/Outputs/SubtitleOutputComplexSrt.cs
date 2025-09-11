@@ -126,7 +126,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                         {
                             foreach (var metadata in overlap.Item.Metadata.OrderBy(kvp => kvp.Key))
                             {
-                                sb.AppendLine($"[{metadataSource.Container.Id}] {metadata.Key}:{metadata.Value}");
+                                sb.AppendLine($"[{metadataSource.Container.Id}] {{{metadata.Key}:{metadata.Value}}}");
                             }
                         }
                     }

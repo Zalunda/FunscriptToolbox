@@ -299,7 +299,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 RegexOptions.Singleline);
         }
 
-        public static string GetDefaultExample()
+        public static string GetExample()
         {
             var jtokenIdOverrides = new List<JTokenIdOverride>();
             var sharedObjects = new List<object>();
@@ -372,7 +372,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                             Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",
+                            APIKeyName = "APIKeyGemini",
                             RequestBodyExtension = Expando(
                                 ("max_tokens", 64 * 1024),
                                 ("extra_body", new
@@ -427,7 +427,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         FileSuffix = ".perfect-vad-potential.srt",
                         WorkerId = "full-whisper_google",
-                        AddToFirstSubtitle = "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)\n- Action (if not using visual-analyst)"
+                        AddToFirstSubtitle = "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)"
                     },
 
                     new TranscriberPerfectVAD()
@@ -455,7 +455,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                             Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI"
+                            APIKeyName = "APIKeyGemini"
                         },
                         Metadatas = new MetadataAggregator()
                         {
@@ -481,7 +481,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                             Model = "gemini-2.5-pro",
-                            APIKeyName = "APIGeminiAI",
+                            APIKeyName = "APIKeyGemini",
                             RequestBodyExtension = Expando(
                                 ("max_tokens", 64 * 1024),
                                 ("extra_body", new
@@ -673,9 +673,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".wip-metadatas.srt",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "candidates-digest_arbitrer",
-                            Sources = "perfect-vad,onscreentext,singlevad,validated-speakers,visual-analyst",
+                            TimingsSource = "perfect-vad",
+                            Sources = "candidates-digest_arbitrer,onscreentext,singlevad,validated-speakers,visual-analyst,perfect-vad",
                         },
+                        WaitForFinished = false
                     },
                     new SubtitleOutputSimpleSrt()
                     {

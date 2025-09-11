@@ -75,5 +75,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 return value; 
             }
         }
+
+        internal static string GetExample()
+        {
+            using (var writer = new StringWriter())
+            {
+                var newConfig = new ExpandoObject();
+                ((IDictionary<string, object>)newConfig)["APIKeyPoe"] = string.Empty;
+                ((IDictionary<string, object>)newConfig)["APIKeyGemini"] = string.Empty;
+                rs_serializer.Serialize(writer, newConfig);
+                return writer.ToString();
+            }
+        }
     }
 }

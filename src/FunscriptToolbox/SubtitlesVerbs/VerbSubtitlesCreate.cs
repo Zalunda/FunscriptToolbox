@@ -25,9 +25,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', allow to search recursivly for matches", Default = false)]
             public bool Recursive { get; set; }
 
-            [Option('s', "suffix", Required = false, HelpText = "Suffix for the files produced", Default = "")]
-            public string Suffix { get; set; }
-
             [Option("config", Required = true, HelpText = "")]
             public string ConfigPath { get; set; }
         }
@@ -68,7 +65,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                 var wipsubFullpath = Path.ChangeExtension(
                     inputVideoFullpath,
-                    r_options.Suffix + WorkInProgressSubtitles.Extension);
+                    WorkInProgressSubtitles.Extension);
 
                 var wipsub = File.Exists(wipsubFullpath)
                     ? WorkInProgressSubtitles.FromFile(wipsubFullpath, inputVideoFullpath)

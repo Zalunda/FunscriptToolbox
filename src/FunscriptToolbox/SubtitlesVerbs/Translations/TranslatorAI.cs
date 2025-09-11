@@ -6,13 +6,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
     public class TranslatorAI : Translator
     {
-        [JsonProperty(Order = 10)]
-        public int MaxItemsInRequest { get; set; } = 10000;
-        [JsonProperty(Order = 11)]
-        public int IncludePreviousItems { get; set; } = 0;
-        [JsonProperty(Order = 12)]
-        public int OverlapItemsInRequest { get; set; } = 0;
-
         [JsonProperty(Order = 20, Required = Required.Always)]
         public AIEngine Engine { get; set; }
         [JsonProperty(Order = 21)]
