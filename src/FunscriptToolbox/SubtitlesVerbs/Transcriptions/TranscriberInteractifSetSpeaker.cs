@@ -91,7 +91,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return;
             }
 
-            if (itemsAlreadyDone.Length != 0)
+            if (itemsAlreadyDone.Length == 0)
             {
                 var autoSpeakerChoices = workItems.Select(f => f.PotentialSpeakers.Count == 1 ? f.PotentialSpeakers[0] : null).Distinct().ToArray();
                 if (itemsAlreadyDone.Length == 0 && autoSpeakerChoices.Length == 1 && autoSpeakerChoices[0] != null)
@@ -115,8 +115,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var watch = Stopwatch.StartNew();
             Test.SpeakerCorrection(
-                Path.GetFullPath(context.WIP.OriginalVideoPath),
                 workItems,
+                time => { 
+                    var (filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time); 
+                    return (Path.Combine(context.WIP.ParentPath, filename), adjustedTime); 
+                },
                 UpdateAndSave,
                 Undo);
             watch.Stop();

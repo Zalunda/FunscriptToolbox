@@ -50,21 +50,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         protected abstract string GetMetadataProduced();
 
         private void DoExportMetatadaSrt(
-            SubtitleGeneratorContext context,
-            Translation translation,
-            bool isAlreadyFinished)
+             SubtitleGeneratorContext context,
+             Translation translation,
+             bool isAlreadyFinished)
         {
-            if (!isAlreadyFinished)
-            {
-                SaveDebugSrtIfVerbose(context, translation);
-            }
             if (this.ExportMetadataSrt)
             {
-                var filename = context.WIP.BaseFilePath + $".Worker.{this.FullId}.srt";
-                if (!isAlreadyFinished || !File.Exists(filename))
+                if (!isAlreadyFinished || !context.WIP.TimelineMap.GetFullPaths(context.WIP.ParentPath).Any(fullpath => File.Exists(fullpath)))
                 {
-                    context.SoftDelete(filename);
-                    CreateMetadatasSrt(filename, translation);
+                    var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
+                    virtualSubtitleFile.Subtitles.AddRange(CreateMetadataSubtitles(translation));
+                    virtualSubtitleFile.Save(
+                    context.WIP.ParentPath,
+                    $".Worker.{this.TranscriptionId}.srt",
+                    context.SoftDelete);
                 }
             }
         }

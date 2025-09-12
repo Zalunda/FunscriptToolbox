@@ -525,7 +525,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberImageAI()
                     {
                         TranscriptionId = "visual-analyst",
-                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024",
+                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=10:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",

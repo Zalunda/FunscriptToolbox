@@ -41,8 +41,8 @@ namespace FunscriptToolbox.UI
         }
 
         public static SpeakerCorrectionWorkItem[] SpeakerCorrection(
-            string videopath,
             IEnumerable<SpeakerCorrectionWorkItem> workItems,
+            Func<TimeSpan, (string fullpath, TimeSpan newPosition)> getPathAndPositionFunc,
             Action<SpeakerCorrectionWorkItem> saveCallBack,
             Action<SpeakerCorrectionWorkItem> undoCallBack)
         {
@@ -52,8 +52,8 @@ namespace FunscriptToolbox.UI
                 try
                 {
                     tool = new SpeakerCorrectionTool(
-                        videopath,
                         workItems,
+                        getPathAndPositionFunc,
                         saveCallBack,
                         undoCallBack);
                     tool.ShowDialog();

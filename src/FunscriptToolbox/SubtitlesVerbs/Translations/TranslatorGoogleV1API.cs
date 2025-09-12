@@ -92,8 +92,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             translation.MarkAsFinished();
             context.WIP.Save();
-
-            SaveDebugSrtIfVerbose(context, translation);
         }
 
     public static Language DetectLanguage(IEnumerable<TranscribedItem> items, string metadataNeeded)

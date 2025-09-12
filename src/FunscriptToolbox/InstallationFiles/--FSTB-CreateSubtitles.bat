@@ -1,5 +1,5 @@
 @echo off
-REM ScriptVersion:1.7
+REM ScriptVersion:2.0
 
 set "path=[[FunscriptToolboxFolder]];%path%"
 
@@ -7,11 +7,10 @@ set "path=[[FunscriptToolboxFolder]];%path%"
 echo --- subtitles.create ---
 "FunscriptToolbox.exe" ^
 		subtitles.create ^
-		--config ".\--FSTB-SubtitleGeneratorConfig.json" ^
-		--sourcelanguage Japanese ^
+		--config ".\--FSTB-SubtitleGenerator.config" ^
 		--recursive ^
 		--verbose ^
-		"*.mp4"
+		"*.mp4" "*.vseq"
 pause
 REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)
 REM goto start

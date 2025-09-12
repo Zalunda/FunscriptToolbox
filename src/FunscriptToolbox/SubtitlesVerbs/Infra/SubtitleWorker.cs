@@ -10,34 +10,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         public abstract void Execute(SubtitleGeneratorContext context);
 
-        protected static void SaveDebugSrtIfVerbose(SubtitleGeneratorContext context, TimedItemWithMetadataCollection container)
+        protected static IEnumerable<Subtitle> CreateMetadataSubtitles(TimedItemWithMetadataCollection container)
         {
-            if (context.IsVerbose)
-            {
-                CreateMetadatasSrt(
-                    context.GetPotentialVerboseFilePath($"{container.Id}.srt", DateTime.Now),
-                    container);
-            }
-        }
-
-        protected static void CreateMetadatasSrt(string filename, TimedItemWithMetadataCollection container)
-        {
-            var srt = new SubtitleFile();
-            srt.Subtitles.AddRange(container.GetItems().Select(item =>
+            return container.GetItems().Select(item =>
                 new Subtitle(
                     item.StartTime,
                     item.EndTime,
-                    string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{AddNewLineIfMultilines(kvp.Value)}}}")))));
-            srt.SaveSrt(filename);
+                    string.Join("\n", item.Metadata.Select(kvp => $"{{{kvp.Key}:{AddNewLineIfMultilines(kvp.Value)}}}"))));
         }
 
-        protected static IEnumerable<TimedItemWithMetadata> ReadMetadataFromSrt(string fullpath)
+        protected static IEnumerable<TimedItemWithMetadata> ReadMetadataSubtitles(IEnumerable<Subtitle> subtitles)
         {
             const string MetadataExtractionRegex = @"{(?<name>[^}:]*)(\:(?<value>[^}]*))?}";
 
-            var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
-            return subtitleFile
-                .Subtitles
+            return subtitles
                 .Select(subtitle => new TimedItemWithMetadata(
                     subtitle.StartTime,
                     subtitle.EndTime,

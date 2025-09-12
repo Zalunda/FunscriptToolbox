@@ -44,11 +44,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         {
             var container = context.WIP.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId);
 
-            var subtitleFile = new SubtitleFile();
+            var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
             var addToNextSubtitle = this.AddToFirstSubtitle == null ? null : "\n" + this.AddToFirstSubtitle;
             foreach (var item in container.GetItems())
             {
-                subtitleFile.Subtitles.Add(
+                virtualSubtitleFile.Subtitles.Add(
                     new Subtitle(item.StartTime, 
                     item.EndTime, 
                     item.Metadata.Get(this.MetadataToUse ?? container.MetadataAlwaysProduced) + (addToNextSubtitle ?? string.Empty)));
@@ -56,18 +56,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
 
             // Apply minimum duration and expansion
-            subtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+            virtualSubtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
 
-            // Apply injections
-            subtitleFile.Subtitles.AddRange(
-                GetAdjustedSubtitlesToInject(
-                    subtitleFile.Subtitles,
-                    this.SubtitlesToInject,
-                    context.WIP.GetVideoDuration()));
-
-            var filename = context.WIP.BaseFilePath + this.FileSuffix;
-            context.SoftDelete(filename);
-            subtitleFile.SaveSrt(filename);
+            virtualSubtitleFile.Save(
+                context.WIP.ParentPath, 
+                this.FileSuffix, 
+                context.SoftDelete, 
+                this.SubtitlesToInject);
         }
     }
 }

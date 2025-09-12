@@ -1,6 +1,7 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -51,11 +52,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                         context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
+                        var (filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
                         var image = context.FfmpegHelper.TakeScreenshotAsBytes(
-                            context.WIP.OriginalVideoPath,
-                            middleTime,
+                            Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
+                            middleTimeInRightFile,
                             ".jpg",
-                            this.FfmpegFilter + $",drawtext=textfile='{context.FfmpegHelper.EscapeFfmpegDrawtext(text)}':fontsize=10:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5");
+                            this.FfmpegFilter?.Replace("[STARTTIME]", context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
                         var data = new[]
                             {
                                 new

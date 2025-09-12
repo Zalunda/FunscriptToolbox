@@ -65,7 +65,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public override void CreateOutput(
             SubtitleGeneratorContext context)
         {
-            var subtitleFile = new SubtitleFile();
+            var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
+
             var aggregation = this.Metadatas.Aggregate(context);
             var timings = aggregation.ReferenceTimingsWithMetadata;
 
@@ -134,16 +135,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
                 if (sb.Length > 0)
                 {
-                    subtitleFile.Subtitles.Add(
+                    virtualSubtitleFile.Subtitles.Add(
                         new Subtitle(timing.StartTime,
                         timing.EndTime,
                         sb.ToString().TrimEnd()));
                 }
             }
 
-            var filename = context.WIP.BaseFilePath + this.FileSuffix;
-            context.SoftDelete(filename);
-            subtitleFile.SaveSrt(filename);
+
+            virtualSubtitleFile.Save(
+                context.WIP.ParentPath,
+                this.FileSuffix,
+                context.SoftDelete);
         }
     }
 }

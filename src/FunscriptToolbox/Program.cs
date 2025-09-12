@@ -110,8 +110,9 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
-                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-2.0.config", SubtitleGeneratorConfig.GetDefaultExample(), Encoding.UTF8);
-                    File.WriteAllText("--FSTB-SubtitleGeneratorConfigExample-2.0-MINE.config", SubtitleGeneratorConfig.GetDefaultExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0.config", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0-MINE.config", SubtitleGeneratorConfig.GetExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
+                    File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0.private.config", SubtitleGeneratorPrivateConfig.GetExample(), Encoding.UTF8);
                     // Environment.CurrentDirectory = @"P:\...";
                     args = new[]
                     {
@@ -119,8 +120,8 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
-                        "--config", ".\\--FSTB-SubtitleGeneratorConfigExample-2.0-MINE.config",
-                        "XXX-DEBUG\\---FINAL-TESTING\\3DSVR-1278-SLR*.mp4"
+                        "--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config",
+                        "XXX-DEBUG\\---FINAL-TESTING\\CRVR-286*.vseq"
                     };
                     break;
 

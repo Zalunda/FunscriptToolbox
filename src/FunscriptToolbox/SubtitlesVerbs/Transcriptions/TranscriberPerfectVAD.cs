@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.Core;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -16,11 +15,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context, 
             out string reason)
         {
-            var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
-            if (!File.Exists(fullpath))
+            if (context.WIP.LoadVirtualSubtitleFile(this.FileSuffix).Subtitles.Count == 0)
             {
-                reason = $"File '{Path.GetFileName(fullpath)}' does not exists yet.";
-                context.AddUserTodo($"Create file '{Path.GetFileName(fullpath)}'.");
+                reason = $"Files '{this.FileSuffix}' does not exists yet.";
+                context.AddUserTodo($"Create file '{this.FileSuffix}'.");
                 return false;
             }
 
@@ -32,12 +30,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
-            var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
+            var subtitleFile = context.WIP.LoadVirtualSubtitleFile(this.FileSuffix);
+
             transcription.Items.Clear();
             transcription.Items.AddRange(
-                ReadMetadataFromSrt(fullpath).
-                    Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
+                ReadMetadataSubtitles(subtitleFile.Subtitles)
+                .Select(item => new TranscribedItem(item.StartTime, item.EndTime, item.Metadata)));
             transcription.MarkAsFinished();
             context.WIP.Save();
         }

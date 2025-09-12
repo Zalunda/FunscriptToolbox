@@ -1,5 +1,4 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
-using FunscriptToolbox.SubtitlesVerbs.Infra;
 using log4net;
 using System;
 using System.Collections.Generic;

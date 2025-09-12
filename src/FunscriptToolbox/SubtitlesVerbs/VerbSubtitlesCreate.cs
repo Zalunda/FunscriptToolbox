@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using log4net;
 using Newtonsoft.Json;
@@ -42,6 +43,60 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return Task.Run<int>(() => ExecuteAsync()).Result;
         }
 
+        private class VideoSequence
+        { 
+            public string ContainerFullPath { get; }
+            public string[] VideoFullPaths { get; }
+
+            public VideoSequence(string containerFullPath, string[] videoFullPaths)
+            {
+                ContainerFullPath = containerFullPath;
+                VideoFullPaths = videoFullPaths;
+            }
+        }
+
+        private static IEnumerable<VideoSequence> ToVideoSequences(IEnumerable<string> masterFileList)
+        {
+            static bool IsVseqPath(string path) => path.EndsWith(".vseq", StringComparison.OrdinalIgnoreCase);
+
+            var sequences = new List<VideoSequence>();
+
+            // Use a HashSet for efficient O(1) lookups to track which files have been
+            // claimed as part of a .vseq sequence.
+            var claimedVideoPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Make a concrete list to avoid multiple enumerations of the input.
+            var allFiles = masterFileList.ToList();
+
+            // --- Pass 1: Process all .vseq files first to claim their video parts. ---
+            foreach (var vseqPath in allFiles.Where(f => IsVseqPath(f)))
+            {
+                var vseqDirectory = PathExtension.SafeGetDirectoryName(vseqPath);
+
+                // Construct the full paths for the video parts.
+                var fullVideoPaths = File.ReadAllLines(vseqPath)
+                                        .Where(line => !string.IsNullOrWhiteSpace(line))
+                                        .Select(relative => Path.GetFullPath(Path.Combine(vseqDirectory, relative.Trim())))
+                                        .ToArray();
+
+                // Add this multi-part sequence to our results.
+                yield return new VideoSequence(vseqPath, fullVideoPaths);
+
+                // Mark these video files as "claimed" so they are not processed individually later.
+                foreach (var videoPath in fullVideoPaths)
+                {
+                    claimedVideoPaths.Add(videoPath);
+                }
+            }
+
+            foreach (var fullpath in allFiles
+                .Select(path => Path.GetFullPath(path))
+                .Where(fullPath => !IsVseqPath(fullPath) && !claimedVideoPaths.Contains(fullPath)))
+            {
+                yield return new VideoSequence(fullpath, new[] { fullpath });
+            }
+        }
+
         public async Task<int> ExecuteAsync()
         {   
             var context = new SubtitleGeneratorContext(
@@ -55,21 +110,22 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
-            foreach (var inputVideoFullpath in r_options
+            foreach (var videoSequence in ToVideoSequences(
+                r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
                 .Distinct()
-                .OrderBy(f => f))
+                .OrderBy(f => f)))
             {
                 var watchGlobal = Stopwatch.StartNew();
 
                 var wipsubFullpath = Path.ChangeExtension(
-                    inputVideoFullpath,
+                    videoSequence.ContainerFullPath,
                     WorkInProgressSubtitles.Extension);
 
                 var wipsub = File.Exists(wipsubFullpath)
-                    ? WorkInProgressSubtitles.FromFile(wipsubFullpath, inputVideoFullpath)
-                    : new WorkInProgressSubtitles(wipsubFullpath, inputVideoFullpath);
+                    ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
+                    : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);
                 wipsub.FinalizeLoad();
 
                 context.ChangeCurrentFile(

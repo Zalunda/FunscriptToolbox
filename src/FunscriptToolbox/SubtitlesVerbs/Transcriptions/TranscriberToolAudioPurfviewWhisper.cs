@@ -216,12 +216,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var subtitleFile = new SubtitleFile();
                     subtitleFile.Subtitles.AddRange(
                         transcription.Items
-                        .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
                         .Select(f => new Subtitle(f.StartTime, f.EndTime, f.Metadata.Get(metadataProduced))));
                     subtitleFile.SaveSrt(fullSrtTempFile);
 
                     // Add the text only when we are sure that everything is working
-                    return transcribedItems.ToArray();
+                    return transcribedItems
+                        .Where(f => f.Duration >= this.IgnoreSubtitleShorterThen)
+                        .ToArray();
                 }
                 finally
                 {

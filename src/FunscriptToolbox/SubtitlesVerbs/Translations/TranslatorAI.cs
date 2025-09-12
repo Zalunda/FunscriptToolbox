@@ -95,8 +95,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 translation.MarkAsFinished();
                 context.WIP.Save();
             }
-
-            SaveDebugSrtIfVerbose(context, translation);
         }
     }
 }

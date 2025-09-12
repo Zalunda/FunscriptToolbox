@@ -43,17 +43,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             Transcription transcription,
             bool isAlreadyFinished)
         {
-            if (!isAlreadyFinished)
-            {
-                SaveDebugSrtIfVerbose(context, transcription);
-            }
             if (this.ExportMetadataSrt)
             {
-                var filename = context.WIP.BaseFilePath + $".Worker.{this.TranscriptionId}.srt";
-                if (!isAlreadyFinished || !File.Exists(filename))
+                if (!isAlreadyFinished || !context.WIP.TimelineMap.GetFullPaths(context.WIP.ParentPath).Any(fullpath => File.Exists(fullpath)))
                 {
-                    context.SoftDelete(filename);
-                    CreateMetadatasSrt(filename, transcription);
+                    var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
+                    virtualSubtitleFile.Subtitles.AddRange(CreateMetadataSubtitles(transcription));
+                    virtualSubtitleFile.Save(
+                    context.WIP.ParentPath,
+                    $".Worker.{this.TranscriptionId}.srt",
+                    context.SoftDelete);
                 }
             }
         }
@@ -62,8 +61,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context, 
             Transcription transcription)
         {
-            var filename = context.WIP.BaseFilePath + $".Worker.{this.TranscriptionId}.import.srt";
-            if (File.Exists(filename))
+            var virtualSubtitleFile = context.WIP.LoadVirtualSubtitleFile(
+                $".Worker.{this.TranscriptionId}.import.srt");
+            if (virtualSubtitleFile.Subtitles.Count > 0)
             {
                 int i = 2;
                 string newId = $"{transcription.Id}-OLD";
@@ -77,7 +77,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     this.GetMetadataProduced(),
                     context.Config.SourceLanguage,
                     true,
-                    ReadMetadataFromSrt(filename).
+                    ReadMetadataSubtitles(virtualSubtitleFile.Subtitles).
                         Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
                 context.WIP.Transcriptions.Add(importedTranscription);
                 context.WIP.Save();

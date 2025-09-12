@@ -44,13 +44,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 var originalPcmAudio = GetPcmAudio(context);
 
                 context.FfmpegHelper.ConvertPcmAudioToOtherFormat(originalPcmAudio, tempPcmFile, $"-f s16le -ar {originalPcmAudio.SamplingRate} " + this.FfmpegParameters);
-               var newPcmAudio = new PcmAudio(originalPcmAudio.SamplingRate, File.ReadAllBytes(tempPcmFile));
+                var newPcmAudio = new PcmAudio(originalPcmAudio.SamplingRate, File.ReadAllBytes(tempPcmFile));
 
                 audioExtraction.SetPcmAudio(context, newPcmAudio);
                 if (this.SaveAsFileSuffixe != null)
                 {
-                    var saveAsPath = context.WIP.BaseFilePath + this.SaveAsFileSuffixe;
-                    context.FfmpegHelper.ConvertPcmAudioToOtherFormat(newPcmAudio, saveAsPath);
+                    // Need to resplit using TimelineMap
+                    foreach (var segment in context.WIP.TimelineMap.Segments)
+                    {
+                        context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
+                            newPcmAudio.ExtractSnippet(
+                                segment.Offset, 
+                                segment.Offset + segment.Duration),
+                            Path.Combine(
+                                context.WIP.ParentPath, 
+                                Path.ChangeExtension(segment.Filename, this.SaveAsFileSuffixe)));
+                    }
                 }
 
                 context.WIP.Save();

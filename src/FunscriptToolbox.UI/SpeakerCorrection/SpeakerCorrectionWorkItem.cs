@@ -10,6 +10,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         public List<string> PotentialSpeakers { get; set; }
         public string DetectedSpeaker { get; set; }
         public string FinalSpeaker { get; set; }
+        public TimeSpan Duration => EndTime - StartTime;
 
         public SpeakerCorrectionWorkItem(
             TimeSpan startTime, 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FunscriptToolbox.Core.Infra;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -35,10 +36,9 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         private readonly List<UndoState> _undoHistory = new List<UndoState>();
         private const int MaxUndoSteps = 20;
 
-        // --- Existing Fields ---
-        private readonly string _videoPath;
-        private readonly Action<SpeakerCorrectionWorkItem> _saveCallBack;
-        private readonly Action<SpeakerCorrectionWorkItem> _undoCallBack;
+        private readonly Func<TimeSpan, (string fullpath, TimeSpan newPosition)> r_getPathAndPositionFunc;
+        private readonly Action<SpeakerCorrectionWorkItem> r_saveCallBack;
+        private readonly Action<SpeakerCorrectionWorkItem> r_undoCallBack;
         public List<SpeakerCorrectionWorkItem> WorkItems { get; }
         private List<SpeakerCorrectionWorkItem> _validationQueue;
         private int _currentItemIndex = -1;
@@ -58,13 +58,14 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             get => _currentItem;
             set { _currentItem = value; OnPropertyChanged(); UpdateUIForCurrentItem(); }
         }
+        private TimeSpan _currentAdjustedStartTime;
 
         // --- Constructor ---
         public SpeakerCorrectionTool() : this(null, null, null, null) { }
 
         public SpeakerCorrectionTool(
-            string videoPath,
             IEnumerable<SpeakerCorrectionWorkItem> items,
+            Func<TimeSpan, (string fullpath, TimeSpan newPosition)> getPathAndPositionFunc,
             Action<SpeakerCorrectionWorkItem> saveCallBack,
             Action<SpeakerCorrectionWorkItem> undoCallBack)
         {
@@ -82,30 +83,10 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             this.Closing += SpeakerCorrectionTool_Closing;
             this.PreviewKeyDown += SpeakerCorrectionTool_PreviewKeyDown;
 
-            _videoPath = videoPath;
-            _saveCallBack = saveCallBack;
-            _undoCallBack = undoCallBack;
+            r_getPathAndPositionFunc = getPathAndPositionFunc;
+            r_saveCallBack = saveCallBack;
+            r_undoCallBack = undoCallBack;
             this.WorkItems = new List<SpeakerCorrectionWorkItem>(items ?? Array.Empty<SpeakerCorrectionWorkItem>());
-
-            if (!string.IsNullOrWhiteSpace(_videoPath) && File.Exists(_videoPath))
-            {
-                try
-                {
-                    VideoPlayer.Source = new Uri(_videoPath, UriKind.Absolute);
-                    FilePathText.Text = _videoPath;
-                    VideoPlaceholder.Text = "Loading video...";
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Failed to load video URI: {ex.Message}", "URI Error");
-                    FilePathText.Text = "Error loading video path.";
-                }
-            }
-            else
-            {
-                FilePathText.Text = "Video file not found or not provided.";
-                VideoPlaceholder.Text = "Video not available.";
-            }
 
             RefreshSpeakerLists(new[] { Key.D1, Key.D2, Key.D3, Key.D4, Key.D5 });
             StatusText.Text = "Ready. Select a speaker and click 'Start Validation'.";
@@ -249,7 +230,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             var itemToRestore = lastState.Item;
             itemToRestore.FinalSpeaker = lastState.PreviousFinalSpeaker;
             itemToRestore.PotentialSpeakers = new List<string>(lastState.PreviousPotentialSpeakers);
-            _undoCallBack(itemToRestore);
+            r_undoCallBack(itemToRestore);
 
             StatusText.Text = $"Undid action for speaker '{itemToRestore.DetectedSpeaker}'.";
             RefreshSpeakerLists();
@@ -302,7 +283,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             }
             else
             {
-                VideoPlayer.Position = CurrentItem.StartTime - _extendSegmentDuration;
+                VideoPlayer.Position = TimeSpanExtensions.Max(TimeSpan.Zero, _currentAdjustedStartTime - _extendSegmentDuration);
                 VideoPlayer.Play();
                 _loopTimer.Start();
                 PauseButton.Content = "❚❚ Pause (Space)";
@@ -311,7 +292,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
         private void PlayCurrentSegment()
         {
-            if (CurrentItem == null || !_isMediaReady)
+            if (CurrentItem == null)
             {
                 _loopTimer.Stop();
                 VideoPlayer.Stop();
@@ -324,7 +305,16 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             _isPaused = false;
             PauseButton.Content = "❚❚ Pause (Space)";
 
-            VideoPlayer.Position = CurrentItem.StartTime - _extendSegmentDuration;
+            var (fullpath, adjustedStartTime) = r_getPathAndPositionFunc(CurrentItem.StartTime);
+            if (fullpath != FilePathText.Text)
+            {
+                VideoPlayer.Source = new Uri(Path.GetFullPath(fullpath), UriKind.Absolute);
+                VideoPlaceholder.Text = "Loading video...";
+                FilePathText.Text = fullpath;
+            }
+            _currentAdjustedStartTime = adjustedStartTime;
+
+            VideoPlayer.Position = TimeSpanExtensions.Max(TimeSpan.Zero, _currentAdjustedStartTime - _extendSegmentDuration);
             VideoPlayer.Play();
             _loopTimer.Start();
         }
@@ -333,9 +323,9 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         {
             if (_isPaused || CurrentItem == null || !_isMediaReady) return;
 
-            if (VideoPlayer.Position >= CurrentItem.EndTime + _extendSegmentDuration)
+            if (VideoPlayer.Position >= _currentAdjustedStartTime + CurrentItem.Duration + _extendSegmentDuration)
             {
-                VideoPlayer.Position = CurrentItem.StartTime - _extendSegmentDuration;
+                VideoPlayer.Position = TimeSpanExtensions.Max(TimeSpan.Zero, _currentAdjustedStartTime - _extendSegmentDuration);
             }
         }
         #endregion
@@ -470,9 +460,9 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 if (item.DetectedSpeaker == oldName) item.DetectedSpeaker = newName;
                 if (item.FinalSpeaker == oldName)
                 {
-                    _undoCallBack(item);
+                    r_undoCallBack(item);
                     item.FinalSpeaker = newName;
-                    _saveCallBack(item);
+                    r_saveCallBack(item);
                 }
                 for (int i = 0; i < item.PotentialSpeakers.Count; i++)
                 {
@@ -617,7 +607,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             if (CurrentItem == null || string.IsNullOrWhiteSpace(speakerName)) return;
             PushUndoState(CurrentItem);
             CurrentItem.FinalSpeaker = speakerName;
-            _saveCallBack(CurrentItem);
+            r_saveCallBack(CurrentItem);
             MoveNext();
         }
 
