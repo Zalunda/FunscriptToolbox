@@ -160,6 +160,33 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
             }
 
+            var optimalBatchSize = r_options.BatchSize;
+            if (itemsToDo.Length > optimalBatchSize && r_options.BatchSplitWindows > 0)
+            {
+                // Define the window to search for the optimal split point.
+                // Example: BatchSize=1000, Window=20 -> Search starts at index 980.
+                int searchStartIndex = Math.Max(0, optimalBatchSize - r_options.BatchSplitWindows);
+
+                // We search for a gap up to the end of the ideal batch size.
+                // The loop limit must be one less than the item we are accessing.
+                int searchEndIndex = Math.Min(optimalBatchSize, itemsToDo.Length - 1);
+
+                // Loop from the start of the window up to the second-to-last item in the search range.
+                var largestGap = TimeSpan.MinValue;
+                for (int i = searchStartIndex; i < searchEndIndex; i++)
+                {
+                    // Calculate the gap between the current item and the next one.
+                    var gap = itemsToDo[i + 1].StartTime - itemsToDo[i].EndTime;
+
+                    if (gap > largestGap)
+                    {
+                        largestGap = gap;
+                        // The new batch size should be i + 1, as we want to include item 'i'.
+                        optimalBatchSize = i + 1;
+                    }
+                }
+            }
+
             var waitingForFirstToDo = true;
             var itemsInBatch = new List<TimedItemWithMetadata>();
             var metadataOngoing = new MetadataCollection();
@@ -298,7 +325,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             metadataForThisItem));
                         itemsInBatch.Add(item);
 
-                        if (itemsInBatch.Count >= r_options.BatchSize)
+                        if (itemsInBatch.Count >= optimalBatchSize)
                         {
                             break;
                         }

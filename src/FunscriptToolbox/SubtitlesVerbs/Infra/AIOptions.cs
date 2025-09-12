@@ -20,10 +20,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 10)]
         public int BatchSize { get; set; } = 100000;
         [JsonProperty(Order = 11)]
-        public int? NbContextItems { get; set; } = 100000;
+        public int BatchSplitWindows { get; set; } = 0;
         [JsonProperty(Order = 12)]
-        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        public int? NbContextItems { get; set; } = 100000;
         [JsonProperty(Order = 13)]
+        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        [JsonProperty(Order = 14)]
         public int NbItemsMaximumForTraining { get; set; } = 100000;
 
         [JsonProperty(Order = 20)]
@@ -38,6 +40,5 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string TextBeforeAnalysis { get; set; } = "Begin Node Analysis:";
         [JsonProperty(Order = 25)]
         public string TextAfterAnalysis { get; set; } = null;
-
     }
 }

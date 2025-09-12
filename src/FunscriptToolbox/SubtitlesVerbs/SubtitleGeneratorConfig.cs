@@ -506,7 +506,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             UserPrompt = transcriberAudioSingleVADUserPrompt,
                             MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "VoiceText",
-                            BatchSize = 150
+                            BatchSize = 150,
+                            BatchSplitWindows = 5
                         }
                     },
                     new TranscriberInteractifSetSpeaker()
@@ -546,7 +547,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "ParticipantsPoses",
                             MetadataForTraining = "VisualTraining",
 
-                            BatchSize = 30, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
+                            BatchSize = 5, // 5 => ~100pts per image, 30 => ~35pts per image, 50 => ~32pts per image.
                             NbContextItems = 5,
                             NbItemsMinimumReceivedToContinue = 10
                         }
@@ -575,7 +576,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
-                            BatchSize = 300
+                            BatchSize = 300,
+                            BatchSplitWindows = 10
                         }
                     },
                     new TranslatorAI()
@@ -602,7 +604,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
-                            BatchSize = 300
+                            BatchSize = 300,
+                            BatchSplitWindows = 10
                         }
                     },
                     new TranscriberAggregator
@@ -655,7 +658,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
                             NbContextItems = 15,
-                            BatchSize = 150
+                            BatchSize = 150,
+                            BatchSplitWindows = 5
                         },
                         AutoMergeOn = "[!MERGED]",
                         AutoDeleteOn = "[!UNNEEDED]",
