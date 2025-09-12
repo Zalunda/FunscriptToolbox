@@ -517,7 +517,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             TimingsSource = "perfect-vad",
                             Sources = "perfect-vad,singlevad"
                         },
-                        MetadataNeeded = "VoiceText",
+                        MetadataNeeded = "VoiceText,!GrabOnScreenText,!OnScreenText",
                         MetadataProduced = "Speaker",
                         MetadataPotentialSpeakers = "OngoingSpeakers",
                         MetadataDetectedSpeaker = "Speaker-A",
@@ -529,7 +529,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Engine = new AIEngineAPI()
                         {
                             BaseAddress = "https://api.poe.com/v1",
-                            Model = "gpt5",
+                            Model = "GPT-5",
                             APIKeyName = "APIKeyPoe"
                         },
                         Metadatas = new MetadataAggregator()
@@ -541,6 +541,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = transcriberVisualAnalystSystemPrompt,
                             UserPrompt = transcriberVisualAnalystUserPrompt,
+                            TextAfterAnalysis = " --reasoning_effort medium",
                             MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "ParticipantsPoses",
                             MetadataForTraining = "VisualTraining",
@@ -570,6 +571,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = translatorSystemPrompt,
                             UserPrompt = translatorMaverickUserPrompt,
+                            TextAfterAnalysis = " --reasoning_effort medium",
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -596,6 +598,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = translatorSystemPrompt,
                             UserPrompt = translatorNaturalistUserPrompt,
+                            TextAfterAnalysis = " --reasoning_effort low",
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -647,6 +650,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Options = new AIOptions()
                         {
                             SystemPrompt = arbitrerSystemPrompt,
+                            TextAfterAnalysis = " --reasoning_effort medium",
 
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",

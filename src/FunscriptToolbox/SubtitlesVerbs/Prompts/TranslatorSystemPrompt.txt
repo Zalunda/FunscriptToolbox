@@ -19,3 +19,9 @@ If a text is an empty string, return an empty string as TranslatedText.
 2.  Each node in the output array must contain three fields: `StartTime` and `TranslatedText`.
 3.  The `StartTime` values must be identical to the corresponding node in the input data stream.
 4.  You must explicitly exclude all other fields found in the original node in your final output. Their purpose is for your internal analysis only.
+# **Output Example**
+[
+	{"StartTime": "00:00:15.325", "TranslatedText": "Hello there!"},
+	...
+	{"StartTime": "00:00:19.125", "TranslatedText": "See you next time!"}
+]

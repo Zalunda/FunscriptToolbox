@@ -298,7 +298,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present. {GetSegmentInformation(segment)}");
                     }
 
-                    itemsAdded.Add(r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas));
+                    // Add the item only if we don't already have it.
+                    if (!r_workingOnContainer.Items.Any(f => f.StartTime == startTime))
+                    {
+                        itemsAdded.Add(r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas));
+                    }
                 }
                 return itemsAdded;
             }

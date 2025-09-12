@@ -54,7 +54,8 @@ You will process each node (`Node N`) through a strict, sequential process. Do n
 *   **This is a mandatory final check on all non-flagged text.**
 *   **Line Count:** Maximum 2 lines per subtitle.
 *   **Line Length:** Maximum ~50 characters per line.
-*   **Action:** You **must** insert line breaks (`\n`) or perform other minimal edits as necessary to ensure every single subtitle node complies with these physical constraints before finalizing your output. When adding '\n', use your judgment to split in the most optimal place for the reader.
+*   **Action:** You **must** insert line breaks (`\n`) or perform other minimal edits as necessary to ensure every single subtitle node complies with these physical constraints before finalizing your output. 
+    Prioritize breaking it at a natural grammatical pause. This often occurs at conjunctions (like 'and,' 'but,' 'or'), commas, or before prepositional phrases. The goal is to create two lines that each make sense on their own, even if this means the split isn't perfectly in the middle.
 
 ### **Example Walkthrough**
 

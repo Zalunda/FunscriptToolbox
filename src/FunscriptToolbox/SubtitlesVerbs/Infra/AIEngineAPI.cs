@@ -26,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string APIKeyName { get; set; }
 
         [JsonProperty(Order = 14)]
-        public TimeSpan TimeOut { get; set; } = TimeSpan.FromSeconds(300);
+        public TimeSpan TimeOut { get; set; } = TimeSpan.FromMinutes(15);
 
         [JsonProperty(Order = 15, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject RequestBodyExtension { get; set; }

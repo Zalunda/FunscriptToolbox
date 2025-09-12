@@ -80,10 +80,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.WIP.Save();
             }
 
-            var nbItemsToDoBefore = itemsToDo.Length;
-            var workItems = CreateWorkItem(allItems, itemsToDo.Union(itemsAlreadyDone).ToArray()).ToArray();
+            if (itemsToDo.Length == 0)
+            {
+                transcription.MarkAsFinished();
+                context.WIP.Save();
+                return;
+            }
 
-            if (this.WarnIfNoPotentialSpeakersProvided && !workItems.Any(f => f.PotentialSpeakers.Count > 0))
+            var nbItemsToDoBefore = itemsToDo.Length;
+            var workItems = CreateWorkItem(allItems, itemsToDo.Union(itemsAlreadyDone).ToArray(), UpdateAndSave).ToArray();
+
+            if (itemsToDo.Length > 0 && this.WarnIfNoPotentialSpeakersProvided && !workItems.Any(f => f.PotentialSpeakers.Count > 0))
             {
                 // No potential speakers instruction was given, warn the user and quit
                 context.WriteError($"No '{this.MetadataPotentialSpeakers}' provided in referenced metadatas.");
@@ -140,7 +147,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private IEnumerable<SpeakerCorrectionWorkItem> CreateWorkItem(
             IEnumerable<TimedItemWithMetadataTagged> allItems,
-            TimedItemWithMetadataTagged[] itemsToDo)
+            TimedItemWithMetadataTagged[] itemsToDo,
+            Action<SpeakerCorrectionWorkItem> updateAndSave)
         {
             string[] potentialSpeakers = null;
             foreach (var item in allItems)
@@ -149,12 +157,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     ?? potentialSpeakers;
                 if (itemsToDo.Contains(item))
                 {
-                    yield return new SpeakerCorrectionWorkItem(
+                    var workItem = new SpeakerCorrectionWorkItem(
                         item.StartTime,
                         item.EndTime,
                         potentialSpeakers ?? Array.Empty<string>(),
                         CleanName(item.Metadata.Get(this.MetadataDetectedSpeaker)),
                         item.Metadata.Get(this.MetadataProduced));
+
+                    // If finalSpeaker is already defined in referenced metadata, we recopy it and save it
+                    var finalSpeaker = item.Metadata.Get(this.MetadataProduced);
+                    if (finalSpeaker != null)
+                    {
+                        workItem.FinalSpeaker = finalSpeaker.Trim();
+                        updateAndSave(workItem);
+                    }
+                    else 
+                    {
+                        yield return workItem;
+                    }
                 }
             }
         }
