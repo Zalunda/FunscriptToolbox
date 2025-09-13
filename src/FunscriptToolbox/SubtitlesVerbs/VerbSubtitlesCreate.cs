@@ -117,24 +117,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 .Distinct()
                 .OrderBy(f => f)))
             {
-                var watchGlobal = Stopwatch.StartNew();
-
-                var wipsubFullpath = Path.ChangeExtension(
-                    videoSequence.ContainerFullPath,
-                    WorkInProgressSubtitles.Extension);
-
-                var wipsub = File.Exists(wipsubFullpath)
-                    ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
-                    : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);
-                wipsub.FinalizeLoad();
-
-                context.ChangeCurrentFile(
-                    wipsub, 
-                    Path.ChangeExtension(wipsubFullpath, ".wipconfig"));
-                UpdateWipSubFileIfNeeded(context);
-
                 try
                 {
+                    var watchGlobal = Stopwatch.StartNew();
+
+                    var wipsubFullpath = Path.ChangeExtension(
+                        videoSequence.ContainerFullPath,
+                        WorkInProgressSubtitles.Extension);
+
+                    var wipsub = File.Exists(wipsubFullpath)
+                        ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
+                        : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);
+                    wipsub.FinalizeLoad();
+
+                    context.ChangeCurrentFile(
+                        wipsub, 
+                        Path.ChangeExtension(wipsubFullpath, ".wipconfig"));
+                    UpdateWipSubFileIfNeeded(context);
+
                     foreach (var worker in context.Config.Workers)
                     {
                         worker.Execute(context);

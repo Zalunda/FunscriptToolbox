@@ -36,13 +36,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             out string reason)
         {
             var aggregate = this.Metadatas.Aggregate(context);
-            if (aggregate.IsPrerequisitesMetWithTimings(out reason) == false)
-            {
-                return false;
-            }
 
             if (this.WaitForFinished)
             {
+                if (aggregate.IsPrerequisitesMetWithTimings(out reason) == false)
+                {
+                    return false;
+                }
                 var (_, reasons) = this.Metadatas.GetOthersSources(context, this.CandidatesSources?.Split(',').Select(f => f.Trim()).ToArray());
                 if (reasons.Any() == true)
                 {

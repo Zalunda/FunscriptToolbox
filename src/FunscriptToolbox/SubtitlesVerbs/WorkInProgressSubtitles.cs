@@ -32,20 +32,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public static WorkInProgressSubtitles FromFile(string fullpath)
         {
-            try 
+            var fileContent = File.ReadAllText(fullpath);
+            if (fileContent.IndexOf("\"FormatVersion\": \"1.", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                using var reader = File.OpenText(fullpath);
-                using var jsonReader = new JsonTextReader(reader);
+                throw new Exception($"File format for '{Path.GetFileName(fullpath)}' has changed. You need to delete or rename the file and start from the start.");
+            }
+
+            try
+            {
+                using var jsonReader = new JsonTextReader(new StringReader(fileContent));
                 var content = rs_serializer.Deserialize<WorkInProgressSubtitles>(jsonReader);
                 content.SetPaths(fullpath);
                 return content;
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
-                if (File.Exists(fullpath) && File.ReadAllText(fullpath).Contains("\"FormatVersion\": \"1."))
-                {
-                    throw new Exception($"File format for '{Path.GetFileName(fullpath)}' has changed. Need to delete or rename the file and start from the start.", ex);
-                }
                 ex.Data.Add("File", fullpath);
                 throw new Exception($"Error parsing file '{fullpath}': {ex.Message}", ex);
             }
