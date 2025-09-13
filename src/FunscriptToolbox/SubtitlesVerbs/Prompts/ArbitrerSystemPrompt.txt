@@ -46,6 +46,7 @@ You will process each node (`Node N`) through a strict, sequential process. Do n
 *   **IF a merge is invalid:**
     1.  Set the `FinalText` of `Node N` to the text you selected in Step 1.
 *   **Apply Deterministic Flags:**
+    *   **`[!MISSING]`:** If there is not Text available to translate.** 
     *   **`[!UNNEEDED]`:** If the finalized text for a node is a generic, non-verbal utterance (e.g., "Mmm," "Ah!") and is not part of a merge, set 'FinalText' to the translation with the flag appended, and give the justification after the [!UNNEEDED] flag.
     *   **`[!REVIEW]`:** Use for unrecoverable technical errors (corrupt source, constraint violation on the only valid candidate). Give the reason after the [!REVIEW] flag.
 
