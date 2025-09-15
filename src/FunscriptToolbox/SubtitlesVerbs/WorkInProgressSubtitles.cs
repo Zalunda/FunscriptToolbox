@@ -52,7 +52,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
-
         [JsonConstructor]
         public WorkInProgressSubtitles()
         {

@@ -64,12 +64,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 requestBody.model = this.Model;
             }
-            requestBody = Merge(requestBody, RequestBodyExtension);
-            requestBody.messages = request.Messages;
             if (UseStreaming)
             {
                 requestBody.stream = true;
             }
+            requestBody = Merge(requestBody, RequestBodyExtension);
+            requestBody.messages = request.Messages;
 
             var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 

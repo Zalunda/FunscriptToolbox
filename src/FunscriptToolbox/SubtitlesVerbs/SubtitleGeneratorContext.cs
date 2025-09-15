@@ -15,34 +15,32 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public FfmpegHelper FfmpegHelper { get; }
         private readonly string r_configPath;
         private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
-        public SubtitleGeneratorConfig Config { get; private set; }
 
         public List<string> UserTodoList { get; }
 
+        public SubtitleGeneratorConfig Config { get; private set; }
         public WorkInProgressSubtitles WIP { get; private set; }
 
         public SubtitleGeneratorContext(
             ILog log,
             bool isVerbose,
             FfmpegHelper ffmpegAudioHelper,
-            string configPath,
             SubtitleGeneratorPrivateConfig privateConfig) 
             : base(log, isVerbose, null)
         {
             this.FfmpegHelper = ffmpegAudioHelper;
-            r_configPath = configPath;
             r_privateConfig = privateConfig;
 
             this.UserTodoList = new List<string>();
-            this.Config = SubtitleGeneratorConfig.FromFile(configPath);
+            this.Config = null;
             this.WIP = null;
         }
 
         public void ChangeCurrentFile(
-            WorkInProgressSubtitles wipsub,
-            string overrideConfigPath)
+            SubtitleGeneratorConfig config,
+            WorkInProgressSubtitles wipsub)
         {
-            this.Config = SubtitleGeneratorConfig.FromFile(r_configPath, overrideConfigPath);
+            this.Config = config;
             this.WIP = wipsub;
             this.ChangePrefix(Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": ");
         }

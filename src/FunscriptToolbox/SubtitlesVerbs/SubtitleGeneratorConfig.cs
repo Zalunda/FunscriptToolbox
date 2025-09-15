@@ -43,6 +43,130 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             rs_serializer.Converters.Add(new StringEnumConverter());
         }
+        // This pattern looks for two letters inside square brackets, e.g., "[ja]".
+        private static readonly Regex s_languageInFolderNameRegex = new Regex(@"\[(?<name>[a-zA-Z]{2})\]", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Loads a base configuration and merges all override files found in the path
+        /// leading from the base config's directory down to the target file's directory.
+        /// </summary>
+        /// <param name="baseConfigPath">The full path to the main configuration file.</param>
+        /// <param name="targetFileFullPath">The full path of the video/wipsub file being processed.</param>
+        /// <returns>A fully resolved and merged SubtitleGeneratorConfig object.</returns>
+        public static SubtitleGeneratorConfig LoadHierarchically(string baseConfigPath, string targetFileFullPath)
+        {
+            // Helper function to read and parse a config file.
+            static JObject ReadHybridJsonFile(string path)
+            {
+                var content = File.ReadAllText(path);
+                var adjustedContent = PreprocessHybridJsonFile(content);
+                // We'll define a local version of HandleJsonException for simplicity.
+                try
+                {
+                    return JObject.Parse(adjustedContent);
+                }
+                catch (JsonSerializationException ex)
+                {
+                    var adjustedFileName = path + ".as.json";
+                    File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + content);
+                    throw new Exception($"Error parsing configuration file '{path}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
+                }
+            }
+
+            // 1. Load the base configuration file.
+            var finalConfig = ReadHybridJsonFile(baseConfigPath);
+
+            // 2. Determine paths and the name for override files.
+            var baseConfigDir = Path.GetFullPath(Path.GetDirectoryName(baseConfigPath));
+            var targetFileDir = Path.GetFullPath(Path.GetDirectoryName(targetFileFullPath));
+
+            // The name of the file that acts as a new root/base for a subtree.
+            var rootConfigFileName = Path.GetFileName(baseConfigPath);
+            var overrideConfigFileName = Path.GetFileNameWithoutExtension(baseConfigPath) + ".override.config";
+
+            // 3. Ensure the target file is in a subdirectory of the base config.
+            if (!targetFileDir.StartsWith(baseConfigDir + @"\", StringComparison.OrdinalIgnoreCase))
+            {
+                // If not, no overrides can be applied. Just return the base config.
+                return finalConfig.ToObject<SubtitleGeneratorConfig>(rs_serializer);
+            }
+
+            // 4. Create a list of all directories to scan, from the base down to the target.
+            var directoriesToScan = new List<string>();
+            var currentDir = new DirectoryInfo(targetFileDir);
+
+            // Traverse upwards from the target and add to list
+            while (currentDir != null && currentDir.FullName.Length >= baseConfigDir.Length)
+            {
+                directoriesToScan.Add(currentDir.FullName);
+                if (string.Equals(currentDir.FullName, baseConfigDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+                currentDir = currentDir.Parent;
+            }
+            // Reverse the list to process from top-down (base -> target)
+            directoriesToScan.Reverse();
+
+            // 5. Traverse the directories, applying folder-name shortcuts and merging override files.
+            foreach (var dirPath in directoriesToScan)
+            {
+                var dirInfo = new DirectoryInfo(dirPath);
+
+                // Check the directory name for a language code like "[ja]".
+                var languageMatch = s_languageInFolderNameRegex.Match(dirInfo.Name);
+                if (languageMatch.Success)
+                {
+                    string langCode = languageMatch.Groups["name"].Value;
+                    // Validate that it's a real language.
+                    if (Language.FromString(langCode) != null)
+                    {
+                        // It's valid, so override the "SourceLanguage" property in our JObject.
+                        finalConfig["SourceLanguage"] = langCode;
+                    }
+                }
+
+                var rootConfigPath = Path.Combine(dirPath, rootConfigFileName);
+                if (File.Exists(rootConfigPath))
+                {
+                    // Replace the config for the one we just found.
+                    finalConfig = ReadHybridJsonFile(rootConfigPath);
+                }
+
+                // Now, check for an override file in the same directory.
+                // This allows the file to override the folder-name shortcut if needed.
+                var overrideConfigPath = Path.Combine(dirPath, overrideConfigFileName);
+                if (File.Exists(overrideConfigPath))
+                {
+                    var overrideConfig = ReadHybridJsonFile(overrideConfigPath);
+                    MergeConfigs(finalConfig, overrideConfig);
+                }
+            }
+
+            // 6. Final Override from Filename (Highest Precedence) ---
+            string targetFileName = Path.GetFileName(targetFileFullPath);
+            Match fileNameMatch = s_languageInFolderNameRegex.Match(targetFileName);
+            if (fileNameMatch.Success)
+            {
+                string langCode = fileNameMatch.Groups["name"].Value;
+                if (Language.FromString(langCode) != null)
+                {
+                    // This will overwrite any language setting from the base config,
+                    // folder names, or override files.
+                    finalConfig["SourceLanguage"] = langCode;
+                }
+            }
+
+            // 7. Deserialize the final JObject into a config object.
+            try
+            {
+                return finalConfig.ToObject<SubtitleGeneratorConfig>(rs_serializer);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error during final deserialization of merged config for '{targetFileFullPath}'.", ex);
+            }
+        }
 
         public static SubtitleGeneratorConfig FromFile(string filepath, string userOverrideFilepath = null)
         {

@@ -26,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', allow to search recursivly for matches", Default = false)]
             public bool Recursive { get; set; }
 
-            [Option("config", Required = true, HelpText = "")]
+            [Option("config", Required = true, HelpText = "Path to the main configuration file (e.g., 'FSTB.config').")]
             public string ConfigPath { get; set; }
         }
 
@@ -98,15 +98,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         public async Task<int> ExecuteAsync()
-        {   
+        {
+            var privateConfig = SubtitleGeneratorPrivateConfig.FromFile(
+                    Path.ChangeExtension(r_options.ConfigPath, ".private.config"));
+
             var context = new SubtitleGeneratorContext(
                 rs_log,
                 r_options.Verbose,
                 new FfmpegHelper(),
-                r_options.ConfigPath,
-                SubtitleGeneratorPrivateConfig.FromFile(
-                    Path.ChangeExtension(r_options.ConfigPath, 
-                    ".private.config")));
+                privateConfig);
 
             var errors = new List<string>();
             var userTodoList = new List<string>();
@@ -130,9 +130,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);
                     wipsub.FinalizeLoad();
 
-                    context.ChangeCurrentFile(
-                        wipsub, 
-                        Path.ChangeExtension(wipsubFullpath, ".wipconfig"));
+                    var config = SubtitleGeneratorConfig.LoadHierarchically(
+                                            r_options.ConfigPath,
+                                            videoSequence.ContainerFullPath);
+                    context.ChangeCurrentFile(config, wipsub);
                     UpdateWipSubFileIfNeeded(context);
 
                     foreach (var worker in context.Config.Workers)
