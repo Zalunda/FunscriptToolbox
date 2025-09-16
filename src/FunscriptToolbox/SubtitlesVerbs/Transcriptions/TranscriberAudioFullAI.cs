@@ -47,10 +47,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void Transcribe(
-            SubtitleGeneratorContext context,
-            Transcription transcription)
+        protected override void DoWork(SubtitleGeneratorContext context)
         {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var processStartTime = DateTime.Now;
 
             var fullPcmAudio = base.GetPcmAudio(context);

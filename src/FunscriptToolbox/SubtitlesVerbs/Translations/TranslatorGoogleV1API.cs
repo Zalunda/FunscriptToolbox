@@ -17,9 +17,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         {
         }
 
+
         [JsonProperty(Order = 20, Required = Required.Always)]
-        public string MetadataNeeded { get; set; }
+        public string TranscriptionId { get; set; }
         [JsonProperty(Order = 21, Required = Required.Always)]
+        public string MetadataNeeded { get; set; }
+        [JsonProperty(Order = 22, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
@@ -28,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (GetTranscription(context) == null)
+            if (context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId && f.IsFinished) == null)
             {
                 reason = $"Transcription '{this.TranscriptionId}' is not done yet.";
                 return false;
@@ -38,19 +41,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return true;
         }
 
-        protected override void Translate(
-            SubtitleGeneratorContext context,
-            Translation translation)
+        protected override void DoWork(SubtitleGeneratorContext context)
         {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId && f.IsFinished);
+            var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == this.TranslationId);
+
+            var missingTranscriptions = transcription.Items
+                .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))
+                .ToArray();
+
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
-
-            var transcription = GetTranscription(context);
-            var missingTranscriptions = transcription.Items
-                .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))
-                .ToArray();
 
             var watch = Stopwatch.StartNew();
 

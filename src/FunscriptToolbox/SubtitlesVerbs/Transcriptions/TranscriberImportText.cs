@@ -6,13 +6,12 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberImport : Transcriber
+    public class TranscriberImportText : Transcriber
     {
-        public override bool CanBeUpdated => true;
-
+        [JsonProperty(Order = 20, Required = Required.Always)]
         public string FileSuffix { get; set; }
 
-        [JsonProperty(Order = 20, Required = Required.Always)]
+        [JsonProperty(Order = 21, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
@@ -33,10 +32,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void Transcribe(
-            SubtitleGeneratorContext context,
-            Transcription transcription)
+        protected override void DoWork(SubtitleGeneratorContext context)
         {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
             var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
             transcription.Items.Clear();

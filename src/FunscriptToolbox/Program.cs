@@ -120,8 +120,9 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
-                        "--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config",
-                        "XXX-DEBUG\\---FINAL-TESTING\\CRVR-286*.vseq"
+                        "--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config", // "--config", ".\\--FSTB-SubtitleGenerator.config"
+                        //"--config", ".\\--FSTB-SubtitleGenerator.config",
+                        "*.vseq", "*.mp4" //"XXX-DEBUG\\---FINAL-TESTING\\CRVR-286-M*.vseq"
                     };
                     break;
 

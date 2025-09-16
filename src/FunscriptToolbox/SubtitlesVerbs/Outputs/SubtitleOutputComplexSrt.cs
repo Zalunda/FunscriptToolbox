@@ -15,11 +15,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         }
 
-        public override string Description => $"{base.Description}: {this.FileSuffix}";
 
-        [JsonProperty(Order = 10, Required = Required.Always)]
+        [JsonProperty(Order = 5, Required = Required.Always)]
         public string FileSuffix { get; set; }
-        [JsonProperty(Order = 11)]
+        [JsonProperty(Order = 10)]
         public bool WaitForFinished { get; set; } = false;
 
         [JsonProperty(Order = 20, Required = Required.Always)]
@@ -29,7 +28,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 22)]
         public string SkipWhenTextSourcesAreIdentical { get; set; }
 
-        public override bool IsPrerequisitesMet(
+        protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
@@ -63,7 +62,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             return true;
         }
 
-        public override void CreateOutput(
+        protected override bool IsFinished(SubtitleGeneratorContext context)
+        {
+            return context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) != null;
+        }
+
+        protected override void DoWork(
             SubtitleGeneratorContext context)
         {
             var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();

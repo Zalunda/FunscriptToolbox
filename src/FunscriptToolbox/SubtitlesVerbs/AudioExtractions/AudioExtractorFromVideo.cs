@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
@@ -20,10 +21,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             return true;
         }
 
-        protected override void ExtractAudio(
-            SubtitleGeneratorContext context, 
-            AudioExtraction audioExtraction)
+        protected override void DoWork(
+            SubtitleGeneratorContext context)
         {
+            var audioExtraction = context.WIP.AudioExtractions.First(t => t.Id == this.AudioExtractionId);
             var mergedPcmStream = new MemoryStream();
 
             // The initial TimelineMap only has filenames. We now populate the durations, while accumulating the PcmAudioData

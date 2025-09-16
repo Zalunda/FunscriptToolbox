@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -40,10 +41,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void Transcribe(
-            SubtitleGeneratorContext context,
-            Transcription transcription)
+        protected override void DoWork(SubtitleGeneratorContext context)
         {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var processStartTime = DateTime.Now;
 
             var requestGenerator = this.Metadatas

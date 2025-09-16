@@ -1,6 +1,7 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -8,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
     {
         [JsonProperty(Order = 20, Required = Required.Always)]
         public AIEngine Engine { get; set; }
-        [JsonProperty(Order = 21)]
+        [JsonProperty(Order = 21, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 22, Required = Required.Always)]
         public AIOptions Options { get; set; }
@@ -23,14 +24,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (GetTranscription(context) == null)
-            {
-                reason = $"Transcription '{this.TranscriptionId}' is not done yet.";
-                return false;
-            }
-
-            this.Metadatas = this.Metadatas ?? new MetadataAggregator();
-            this.Metadatas.TimingsSource = this.Metadatas.TimingsSource ?? this.TranscriptionId;
             if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithTimings(out reason) == false)
             {
                 return false;
@@ -40,14 +33,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return true;
         }
 
-        protected override void Translate(
-            SubtitleGeneratorContext context,
-            Translation translation)
+        protected override void DoWork(SubtitleGeneratorContext context)
         {
-            var transcription = GetTranscription(context);
+            var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == this.TranslationId);
             var requestGenerator = this.Metadatas
-                .Aggregate(context, transcription)
-                .CreateRequestGenerator(translation, this.Options, transcription.Language, this.TargetLanguage);
+                .Aggregate(context, translation)
+                .CreateRequestGenerator(translation, this.Options, translationLanguage: this.TargetLanguage);
             var runner = new AIEngineRunner<TranslatedItem>(
                 context,
                 this.Engine,

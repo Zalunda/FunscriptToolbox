@@ -1,185 +1,62 @@
-﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.Core.Infra;
+﻿using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public abstract class Transcriber : SubtitleWorker
     {
-        [JsonProperty(Order = 1)]
-        public bool Enabled { get; set; } = true;
-
-        [JsonProperty(Order = 2, Required = Required.Always)]
+        [JsonProperty(Order = 1, Required = Required.Always)]
         public string TranscriptionId { get; set; }
 
-        [JsonProperty(Order = 3)]
+        [JsonProperty(Order = 6)]
         public bool ExportMetadataSrt { get; set; } = false;
 
-        [JsonIgnore]
-        public virtual bool CanBeUpdated { get; } = false;
-
-        protected Transcriber()
-        {
-        }
-
-        protected abstract bool IsPrerequisitesMet(
-            SubtitleGeneratorContext context,
-            out string reason);
-
-        protected abstract void Transcribe(
-            SubtitleGeneratorContext context,
-            Transcription transcription);
-
+        protected override string GetId() => this.TranscriptionId;
+        protected override string GetWorkerTypeName() => "Transcription";
+        protected override string GetExecutionVerb() => "Transcribing";
         protected abstract string GetMetadataProduced();
 
-        private void DoExportMetatadaSrt(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            bool isAlreadyFinished)
+        protected override bool IsFinished(SubtitleGeneratorContext context)
         {
-            if (this.ExportMetadataSrt)
-            {
-                if (!isAlreadyFinished || !context.WIP.TimelineMap.GetFullPaths(context.WIP.ParentPath).Any(fullpath => File.Exists(fullpath)))
-                {
-                    var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
-                    virtualSubtitleFile.Subtitles.AddRange(CreateMetadataSubtitles(transcription));
-                    virtualSubtitleFile.Save(
-                    context.WIP.ParentPath,
-                    $".Worker.{this.TranscriptionId}.srt",
-                    context.SoftDelete);
-                }
-            }
+            return context.WIP.Transcriptions.Any(t => t.Id == this.TranscriptionId && t.IsFinished);
         }
 
-        private Transcription TryImportMetadatasSrt(
-            SubtitleGeneratorContext context, 
-            Transcription transcription)
+        protected override void EnsureDataObjectExists(SubtitleGeneratorContext context)
         {
-            var virtualSubtitleFile = context.WIP.LoadVirtualSubtitleFile(
-                $".Worker.{this.TranscriptionId}.import.srt");
-            if (virtualSubtitleFile.Subtitles.Count > 0)
+            if (!context.WIP.Transcriptions.Any(t => t.Id == this.TranscriptionId))
             {
-                int i = 2;
-                string newId = $"{transcription.Id}-OLD";
-                while (context.WIP.Transcriptions.Any(t => t.Id == newId))
-                {
-                    newId = $"{transcription.Id}-OLD{i++}";
-                }
-                transcription.ChangeId(newId);
-                var importedTranscription = new Transcription(
+                var transcription = new Transcription(
                     this.TranscriptionId,
-                    this.GetMetadataProduced(),
-                    context.Config.SourceLanguage,
-                    true,
-                    ReadMetadataSubtitles(virtualSubtitleFile.Subtitles).
-                        Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
-                context.WIP.Transcriptions.Add(importedTranscription);
-                context.WIP.Save();
-
-                return importedTranscription;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public override void Execute(
-            SubtitleGeneratorContext context)
-        {
-            if (!this.Enabled)
-            {
-                return;
-            }
-
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(
-                t => t.Id == this.TranscriptionId);
-            if (transcription == null)
-            {
-                transcription = new Transcription(
-                    this.TranscriptionId,                 
                     this.GetMetadataProduced(),
                     context.Config.SourceLanguage);
                 context.WIP.Transcriptions.Add(transcription);
             }
+        }
 
-            if (transcription.IsFinished && !this.CanBeUpdated)
+        // DoWork
+
+        protected override void AfterWork(SubtitleGeneratorContext context, bool wasAlreadyFinished)
+        {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+            if (transcription != null && this.ExportMetadataSrt)
             {
-                DoExportMetatadaSrt(context, transcription, isAlreadyFinished: true);
-
-                context.WriteInfoAlreadyDone($"Transcription '{this.TranscriptionId}' have already been done:");
-                context.WriteInfoAlreadyDone($"    Number of subtitles = {transcription.Items.Count}");
-                context.WriteInfoAlreadyDone($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
-                context.WriteInfoAlreadyDone($"    Detected Language = {transcription.Language.LongName}");
-
-                foreach (var line in GetTranscriptionAnalysis(context, transcription))
-                {
-                    context.WriteInfoAlreadyDone(line);
-                }
-                context.WriteInfoAlreadyDone();
+                DoExportMetatadaSrt(context, transcription, wasAlreadyFinished);
             }
-            else if (!this.IsPrerequisitesMet(context, out var reason))
+        }
+
+        protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)
+        {
+            var transcription = context.WIP.Transcriptions.First(t => t.Id == this.TranscriptionId);
+
+            yield return $"Number of subtitles = {transcription.Items.Count}";
+            yield return $"Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}";
+            yield return $"Detected Language = {transcription.Language.LongName}";
+            foreach (var line in GetTranscriptionAnalysis(context, transcription))
             {
-                context.WriteInfo($"Transcription '{this.TranscriptionId}' can't be done yet: {reason}");
-                context.WriteInfo();
-            }
-            else
-            {
-                try
-                {
-                    var watch = Stopwatch.StartNew();
-                    var importedTranscription = TryImportMetadatasSrt(context, transcription);
-
-                    if (importedTranscription == null)
-                    {
-                        context.WriteInfo($"Transcribing '{this.TranscriptionId}'...");
-                        this.Transcribe(context, transcription);
-                    }
-                    else
-                    {
-                        context.WriteInfo($"Importing transcription '{this.TranscriptionId}'...");
-                        transcription = importedTranscription;
-                    }
-
-                    if (transcription.IsFinished)
-                    {
-                        context.WriteInfo($"Finished in {watch.Elapsed}:");
-                        context.WriteInfo($"    Number of subtitles = {transcription.Items.Count}");
-                        context.WriteInfo($"    Total subtitles duration = {transcription.Items.Sum(f => f.Duration)}");
-                        context.WriteInfo($"    Detected Language = {transcription.Language.LongName}");
-                        foreach (var line in GetTranscriptionAnalysis(context, transcription))
-                        {
-                            context.WriteInfo(line);
-                        }
-                    }
-                    else
-                    {
-                        context.WriteInfo($"Not finished yet in {watch.Elapsed}.");
-                    }
-                    context.WriteInfo();
-                }
-                catch (TranscriberNotReadyException ex)
-                {
-                    context.WriteInfo($"Transcription '{this.TranscriptionId}' can't be done yet: {ex.Reason}");
-                    context.WriteInfo();
-                    foreach (var userTodo in ex.UserTodos)
-                    {
-                        context.AddUserTodo(userTodo);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    context.WriteError($"An error occured while transcribing '{this.TranscriptionId}':\n{ex.Message}");
-                    context.WriteLog(ex.ToString());
-                }
-
-                DoExportMetatadaSrt(context, transcription, isAlreadyFinished: false);
+                yield return line;
             }
         }
 
@@ -187,7 +64,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription)
         {
-            var firstPerfectVadId = context.Config.Workers.OfType<TranscriberPerfectVAD>().FirstOrDefault()?.TranscriptionId;
+            var firstPerfectVadId = context.Config.Workers.OfType<TranscriberImportMetadatas>().FirstOrDefault(f => f.Enabled)?.TranscriptionId;
             var timings = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == firstPerfectVadId && t.IsFinished)?.GetItems();
             if (timings != null && transcription.MetadataAlwaysProduced != null)
             {
@@ -195,12 +72,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var suffixeEmptyItems = nbEmptyItems == 0 ? string.Empty : $" ({nbEmptyItems} are empty)";
 
                 var analysis = transcription.GetAnalysis(timings);
-                yield return $"    ForcedTimings Analysis:";
-                yield return $"       Number with transcription:    {analysis.NbTimingsWithTranscription}{suffixeEmptyItems}";
-                yield return $"       Number without transcription: {analysis.TimingsWithoutItem.Length}";
+                yield return $"ForcedTimings Analysis:";
+                yield return $"   Number with transcription:    {analysis.NbTimingsWithTranscription}{suffixeEmptyItems}";
+                yield return $"   Number without transcription: {analysis.TimingsWithoutItem.Length}";
                 if (analysis.ExtraItems.Count > 0)
                 {
-                    yield return $"       Extra transcriptions:         {analysis.ExtraItems.Count}";
+                    yield return $"   Extra transcriptions:         {analysis.ExtraItems.Count}";
                 }
             }
         }

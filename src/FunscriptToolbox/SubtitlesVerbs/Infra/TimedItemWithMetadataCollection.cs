@@ -11,7 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string Id { get; private set; }
 
         [JsonProperty(Order = 2)]
-        public string MetadataAlwaysProduced { get; }
+        public string MetadataAlwaysProduced { get; set; }
 
         [JsonProperty(Order = 3)]
         public bool IsFinished { get; protected set; }

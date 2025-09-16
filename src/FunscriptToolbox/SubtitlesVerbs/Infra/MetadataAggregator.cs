@@ -98,14 +98,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 var foundTranslator = false;
                 foreach (var translator in context.Config.Workers.OfType<Translator>()
-                        .Where(t => regex.IsMatch(t.FullId)))
+                        .Where(t => regex.IsMatch(t.TranslationId)))
                 {
                     var translation = context.WIP.Translations
                         .FirstOrDefault(t => regex.IsMatch(t.Id));
 
                     if (translator.Enabled && translation?.IsFinished != true)
                     {
-                        reasons.Add($"Translation '{translator.FullId}' is not done yet.");
+                        reasons.Add($"Translation '{translator.TranslationId}' is not done yet.");
                     }
                     if (translation?.IsFinished == true)
                     {

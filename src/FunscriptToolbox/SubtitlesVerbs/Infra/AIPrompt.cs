@@ -8,16 +8,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public const string TranscriptionLanguageToken = "[TranscriptionLanguage]";
         public const string TranslationLanguageToken = "[TranslationLanguage]";
 
-        [JsonProperty()]
+        [JsonProperty(Order = 1)]
+        public string TextBefore { get; }
+
+        [JsonProperty(Order = 2)]
         public string Text { get; }
 
-        [JsonProperty()]
+        [JsonProperty(Order = 3)]
+        public string TextAfter { get; }
+
+        [JsonProperty(Order = 4)]
         public string[] Lines { get; }
 
         [JsonConstructor]
-        public AIPrompt(string text, string[] lines = null)
+        public AIPrompt(string text, string textBefore = null, string textAfter = null, string[] lines = null)
         {
-            this.Text = text ?? string.Join("\n", lines);
+            this.Text = text == null 
+                ? string.Join("\n", lines)
+                : $"{textBefore}{text}{textAfter}";
         }
 
         public string GetFinalText(

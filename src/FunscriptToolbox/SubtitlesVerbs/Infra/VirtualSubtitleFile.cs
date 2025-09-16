@@ -17,6 +17,7 @@ public class VirtualSubtitleFile : SubtitleFile
         string fileSuffix)
     {
         var virtualFile = new VirtualSubtitleFile(timelineMap);
+        var nbFilesFound = 0;
 
         // 1. Iterate through every video part defined in the project.
         foreach (var segment in timelineMap.Segments)
@@ -27,6 +28,8 @@ public class VirtualSubtitleFile : SubtitleFile
 
             if (File.Exists(srtPath))
             {
+                nbFilesFound++;
+
                 // 2. Convert local subtitle times back to the merged virtual timeline.
                 foreach (var sub in SubtitleFile
                     .FromSrtFile(srtPath)
@@ -45,7 +48,7 @@ public class VirtualSubtitleFile : SubtitleFile
 
         // 3. Ensure the final collection is sorted by time.
         virtualFile.Subtitles.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
-        return virtualFile;
+        return nbFilesFound > 0 ? virtualFile : null;
     }
 
     private readonly TimelineMap r_timelineMap;

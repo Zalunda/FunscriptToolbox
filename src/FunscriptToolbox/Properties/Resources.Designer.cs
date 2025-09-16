@@ -61,7 +61,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-09)**
+        ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-11)**
         ///
         ///This version establishes a clear, non-conflicting hierarchy of operations: first, pick the absolute best text for the current node *in isolation*. Only then, as a separate step, check if that finalized text can be merged.
         ///
@@ -115,7 +115,7 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to @echo off
-        ///REM ScriptVersion:1.7
+        ///REM ScriptVersion:2.0
         ///
         ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
         ///
@@ -123,11 +123,10 @@ namespace FunscriptToolbox.Properties {
         ///echo --- subtitles.create ---
         ///&quot;FunscriptToolbox.exe&quot; ^
         ///		subtitles.create ^
-        ///		--config &quot;.\--FSTB-SubtitleGeneratorConfig.json&quot; ^
-        ///		--sourcelanguage Japanese ^
+        ///		--config &quot;.\--FSTB-SubtitleGenerator.config&quot; ^
         ///		--recursive ^
         ///		--verbose ^
-        ///		&quot;*.mp4&quot;
+        ///		&quot;*.mp4&quot; &quot;*.vseq&quot;
         ///pause
         ///REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)
         ///REM goto start
@@ -386,23 +385,6 @@ namespace FunscriptToolbox.Properties {
         internal static string TranscriberVisualAnalystUserPrompt {
             get {
                 return ResourceManager.GetString("TranscriberVisualAnalystUserPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to RETIRED FOR NOW
-        ///
-        ///# TRANSLATION OPERATIVE MANDATE: The Analyst
-        ///### Role
-        ///You are &apos;The Analyst&apos;. Your sole function is to perform a narrative deconstruction of the provided script. You do not create the final translation; you create the blueprint that guides it.
-        ///### Mission
-        ///Your mission is to analyze the entire script and produce a JSON object containing your findings. This output will serve as a critical directive for the next operative, &apos;The Weaver&apos;.
-        ///### Execution Protocol
-        ///1.  **Comprehensive Analysis:** Rea [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string TranslatorAnalystUserPrompt {
-            get {
-                return ResourceManager.GetString("TranslatorAnalystUserPrompt", resourceCulture);
             }
         }
         

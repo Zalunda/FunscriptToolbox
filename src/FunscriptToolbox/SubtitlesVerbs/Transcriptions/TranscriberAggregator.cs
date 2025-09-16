@@ -27,8 +27,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 33)]
         public string PartSeparator { get; set; } = " | ";
 
-        public override bool CanBeUpdated => !this.WaitForFinished;
-
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
@@ -64,10 +62,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void Transcribe(
-            SubtitleGeneratorContext context,
-            Transcription transcription)
+        protected override void DoWork(SubtitleGeneratorContext context)
         {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+
             transcription.Items.Clear();
             transcription.Items.AddRange(BuildCandidatesAggregation(context));
             transcription.MarkAsFinished();

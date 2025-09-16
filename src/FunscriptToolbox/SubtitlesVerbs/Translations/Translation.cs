@@ -7,25 +7,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
     public class Translation : TimedItemWithMetadataCollection<TranslatedItem>
     {
-        [JsonProperty(Order = 5)]
-        public string TranscriptionId { get; }
         [JsonProperty(Order = 6)]
-        public string TranslationId { get; }
-        [JsonProperty(Order = 7)]
         public Language Language { get; }
 
         public Translation(
-            string transcriptionId,
-            string translationId,
+            string id,
             string metadataAlwaysProduced,
             Language language,
             bool isFinished = false,
             IEnumerable<TranslatedItem> items = null,
             IEnumerable<Cost> costs = null)
-            : base($"{transcriptionId}_{translationId}", metadataAlwaysProduced, isFinished, items, costs)
+            : base(id, metadataAlwaysProduced, isFinished, items, costs)
         {
-            TranscriptionId = transcriptionId;
-            TranslationId = translationId;
             Language = language;
             IsFinished = isFinished;
         }

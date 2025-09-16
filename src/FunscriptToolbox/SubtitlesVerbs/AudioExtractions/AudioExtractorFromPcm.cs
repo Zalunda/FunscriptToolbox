@@ -32,10 +32,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             return context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == SourceAudioId)?.PcmAudio;
         }
 
-        protected override void ExtractAudio(
-            SubtitleGeneratorContext context, 
-            AudioExtraction audioExtraction)
+        protected override void DoWork(
+            SubtitleGeneratorContext context)
         {
+            var audioExtraction = context.WIP.AudioExtractions.First(t => t.Id == this.AudioExtractionId);
+
             context.WriteInfo($"   Transforming PCM audio from '{this.SourceAudioId}'...");
 
             var tempPcmFile = Path.GetTempFileName() + ".pcm";

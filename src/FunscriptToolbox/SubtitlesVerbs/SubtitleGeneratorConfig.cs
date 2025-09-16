@@ -75,6 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             // 1. Load the base configuration file.
             var finalConfig = ReadHybridJsonFile(baseConfigPath);
+            var lastFullPath = baseConfigPath;
 
             // 2. Determine paths and the name for override files.
             var baseConfigDir = Path.GetFullPath(Path.GetDirectoryName(baseConfigPath));
@@ -131,6 +132,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     // Replace the config for the one we just found.
                     finalConfig = ReadHybridJsonFile(rootConfigPath);
+                    lastFullPath = rootConfigPath;
                 }
 
                 // Now, check for an override file in the same directory.
@@ -139,6 +141,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 if (File.Exists(overrideConfigPath))
                 {
                     var overrideConfig = ReadHybridJsonFile(overrideConfigPath);
+                    lastFullPath = overrideConfigPath;
                     MergeConfigs(finalConfig, overrideConfig);
                 }
             }
@@ -158,13 +161,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
 
             // 7. Deserialize the final JObject into a config object.
+            var finalConfigText = finalConfig.ToString();
             try
             {
-                return finalConfig.ToObject<SubtitleGeneratorConfig>(rs_serializer);
+                return rs_serializer.Deserialize<SubtitleGeneratorConfig>(
+                    new JsonTextReader(
+                        new StringReader(finalConfigText)));
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error during final deserialization of merged config for '{targetFileFullPath}'.", ex);
+                var adjustedFileName = lastFullPath + ".as.json";
+                File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + finalConfigText);
+                throw new Exception($"Error during final deserialization of merged config for '{lastFullPath}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
             }
         }
 
@@ -265,47 +273,35 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// </summary>
         private static JObject FindMatchingWorker(JArray baseWorkers, JObject userWorker)
         {
-            string userWorkerType = userWorker["$type"]?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(userWorkerType)) return null; // Can't match without a type.
-
+            var userWorkerAudioExtractionId = userWorker["AudioExtractionId"]?.ToString();
             var userWorkerTranscriptionId = userWorker["TranscriptionId"]?.ToString();
             var userWorkerTranslationId = userWorker["TranslationId"]?.ToString();
-            var userWorkerAudioExtractionId = userWorker["AudioExtractionId"]?.ToString();
             var userWorkerOutputId = userWorker["OutputId"]?.ToString();
 
             foreach (var baseWorkerToken in baseWorkers)
             {
                 if (!(baseWorkerToken is JObject baseWorker)) continue;
 
-                string baseWorkerType = baseWorker["$type"]?.ToString() ?? string.Empty;
-                if (baseWorkerType != userWorkerType) continue; // Types must match.
-
+                var baseWorkerAudioExtractionId = baseWorker["AudioExtractionId"]?.ToString();
                 var baseWorkerTranscriptionId = baseWorker["TranscriptionId"]?.ToString();
                 var baseWorkerTranslationId = baseWorker["TranslationId"]?.ToString();
-                var baseWorkerAudioExtractionId = baseWorker["AudioExtractionId"]?.ToString();
                 var baseWorkerOutputId = baseWorker["OutputId"]?.ToString();
-
-                // For Translation
-                if (userWorkerTranslationId != null && userWorkerTranscriptionId != null
-                    && userWorkerTranslationId == baseWorkerTranslationId 
-                    && userWorkerTranscriptionId == baseWorkerTranscriptionId)
-                {
-                    return baseWorker;
-                }
-
-                // For Transcription
-                if (userWorkerTranslationId == null && userWorkerTranscriptionId != null
-                    && userWorkerTranscriptionId == baseWorkerTranscriptionId)
-                {
-                    return baseWorker;
-                }
 
                 if (userWorkerAudioExtractionId != null
                     && userWorkerAudioExtractionId == baseWorkerAudioExtractionId)
                 {
                     return baseWorker;
                 }
-
+                if (userWorkerTranslationId == null && userWorkerTranscriptionId != null
+                    && userWorkerTranscriptionId == baseWorkerTranscriptionId)
+                {
+                    return baseWorker;
+                }
+                if (userWorkerTranslationId != null
+                    && userWorkerTranslationId == baseWorkerTranslationId)
+                {
+                    return baseWorker;
+                }
                 if (userWorkerOutputId != null
                     && userWorkerOutputId == baseWorkerOutputId)
                 {
@@ -428,19 +424,71 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var jtokenIdOverrides = new List<JTokenIdOverride>();
             var sharedObjects = new List<object>();
 
-            jtokenIdOverrides.Add(new JTokenIdOverride(typeof(TranscriberToolAudioPurfviewWhisper).Name, "TranscriberToolPurfviewWhisper"));
             var transcriberToolPurfviewWhisper = new TranscriberToolAudioPurfviewWhisper
             {
                 ApplicationFullPath = @"[TOREPLACE-WITH-PathToPurfview]\Purfview-Whisper-Faster\faster-whisper-xxl.exe",
                 Model = "Large-V2",
                 ForceSplitOnComma = false
             };
+            jtokenIdOverrides.Add(new JTokenIdOverride(transcriberToolPurfviewWhisper.GetType().Name, "TranscriberToolPurfviewWhisper"));
             sharedObjects.Add(transcriberToolPurfviewWhisper);
+
+            var aiEngineGPT5ViaPoe = new AIEngineAPI()
+            {
+                BaseAddress = "https://api.poe.com/v1",
+                Model = "GPT-5",
+                APIKeyName = "APIKeyPoe"
+            };
+            jtokenIdOverrides.Add(new JTokenIdOverride(aiEngineGPT5ViaPoe.GetType().Name, "AIEngineGPT5ViaPoe"));
+            sharedObjects.Add(aiEngineGPT5ViaPoe);
+
+            var aiEngineGPT5 = new AIEngineAPI()
+            {
+                BaseAddress = "https://api.openai.com/v1",
+                Model = "gpt-5",
+                APIKeyName = "APIKeyOpenAI",
+                RequestBodyExtension = Expando(
+                    ("service_tier", "flex")),
+                UseStreaming = false
+            };
+            jtokenIdOverrides.Add(new JTokenIdOverride(aiEngineGPT5.GetType().Name, "AIEngineGPT5"));
+            sharedObjects.Add(aiEngineGPT5);
+
+            var aiEngineGemini = new AIEngineAPI()
+            {
+                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                Model = "gemini-2.5-pro",
+                APIKeyName = "APIKeyGemini",
+                RequestBodyExtension = Expando(
+                    ("max_tokens", 64 * 1024),
+                    ("extra_body", new
+                    {
+                        google = new
+                        {
+                            thinking_config = new
+                            {
+                                include_thoughts = true
+                            }
+                        }
+                    }))
+            };
+            jtokenIdOverrides.Add(new JTokenIdOverride(aiEngineGemini.GetType().Name, "AIEngineGemini"));
+            sharedObjects.Add(aiEngineGemini);
+
+            var aiEngineLocalAPI = new AIEngineAPI
+            {
+                BaseAddress = "http://localhost:10000/v1",
+                Model = "mistralai/mistral-small-3.2",
+                ValidateModelNameInResponse = true,
+                UseStreaming = true
+            };
+            jtokenIdOverrides.Add(new JTokenIdOverride(aiEngineLocalAPI.GetType().Name, "AIEngineLocalAPI"));
+            sharedObjects.Add(aiEngineLocalAPI);
 
             AIPrompt AddPromptToSharedObjects(string name, string value)
             {
-                jtokenIdOverrides.Add(new JTokenIdOverride(typeof(AIPrompt).Name, name));
                 var prompt = new AIPrompt(CreateLongString(value));
+                jtokenIdOverrides.Add(new JTokenIdOverride(prompt.GetType().Name, name));
                 sharedObjects.Add(prompt);
                 return prompt;
             }
@@ -459,7 +507,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var arbitrerSystemPrompt = AddPromptToSharedObjects("ArbitrerSystemPrompt", Resources.ArbitrerSystemPrompt);
 
             var translatorSystemPrompt = AddPromptToSharedObjects("TranslatorSystemPrompt", Resources.TranslatorSystemPrompt);
-            var translatorAnalystUserPrompt = AddPromptToSharedObjects("TranslatorAnalystUserPrompt", Resources.TranslatorAnalystUserPrompt);
             var translatorNaturalistUserPrompt = AddPromptToSharedObjects("TranslatorNaturalistUserPrompt", Resources.TranslatorNaturalistUserPrompt);
             var translatorMaverickUserPrompt = AddPromptToSharedObjects("TranslatorMaverickUserPrompt", Resources.TranslatorMaverickUserPrompt);
 
@@ -468,6 +515,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 SharedObjects = sharedObjects.ToArray(),
                 Workers = new SubtitleWorker[]
                 {
+                    // Audio extraction -----------------------------
                     new AudioExtractorFromVideo()
                     {
                         AudioExtractionId = "audio"
@@ -480,6 +528,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>  
                     },
 
+                    // Full transcription (whisper or AI) -----------------------------
                     new TranscriberAudioFull()
                     {
                         TranscriptionId = "full-whisper",
@@ -491,51 +540,35 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai",
                         SourceAudioId = "audio",
-                        Enabled = false,
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                            Model = "gemini-2.5-pro",
-                            APIKeyName = "APIKeyGemini",
-                            RequestBodyExtension = Expando(
-                                ("max_tokens", 64 * 1024),
-                                ("extra_body", new
-                                {
-                                    google = new
-                                    {
-                                        thinking_config = new
-                                        {
-                                            include_thoughts = true
-                                        }
-                                    }
-                                }))
-                        },
+                        Engine = aiEngineGemini,
                         SystemPrompt = transcriberAudioFullSystemPrompt,
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
                         MaxChunkDuration = TimeSpan.FromMinutes(5)
                     },
-                    new TranslatorGoogleV1API()
+                    new TranscriberClone()
                     {
-                        TranscriptionId = "full-whisper",
-                        TranslationId = "google",
+                        TranscriptionId = "full",
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper or full-ai
+                    },
+                    new TranslatorGoogleV1API() // TODO in code later: update if transcription changed from full-whisper to full-ai, for example
+                    {
+                        TranslationId = "full_google",
+                        TranscriptionId = "full",
                         TargetLanguage = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
                     },
-                    new TranslatorAI()
+                    new TranslatorAI() // TODO in code later: update if transcription changed from full-whisper to full-ai, for example
                     {
-                        TranscriptionId = "full-whisper",
-                        TranslationId = "local-api",
-                        Enabled = false,
+                        TranslationId = "full_local-api",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI {
-                            BaseAddress = "http://localhost:10000/v1",
-                            Model = "mistralai/mistral-small-3.2",
-                            ValidateModelNameInResponse = true,
-                            UseStreaming = true
+                        Engine = aiEngineLocalAPI,
+                        Metadatas = new MetadataAggregator
+                        {
+                            TimingsSource = "full",
+                            Sources = "full"
                         },
-                        Metadatas = null,
                         Options = new AIOptions()
                         {
                             SystemPrompt = translatorSystemPrompt,
@@ -543,86 +576,45 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "TranslatedText",
 
                             BatchSize = 30,
-                            NbContextItems = null,
                             NbItemsMinimumReceivedToContinue = 10
                         }
                     },
                     new SubtitleOutputSimpleSrt()
                     {
-                        FileSuffix = ".perfect-vad-potential.srt",
-                        WorkerId = "full-whisper_google",
-                        AddToFirstSubtitle = "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)"
+                        OutputId = "preliminary-srt",
+                        FileSuffix = ".srt",
+                        WorkerId = "full_google"
                     },
 
-                    new TranscriberPerfectVAD()
+                    // finalizing timings, manual-input and voice-texts clone -----------------------------
+                    new SubtitleOutputSimpleSrt()
                     {
-                        TranscriptionId = "perfect-vad",
-                        FileSuffix = ".perfect-vad.srt"
+                        OutputId = "generated-manual-input-srt",
+                        FileSuffix = ".manual-input.srt",
+                        WorkerId = "full",
+                        AddToFirstSubtitle = "[USER-REVISION-NEEDED] <= remove this line when revision is done\n{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)"
                     },
-                    new TranscriberAudioMergedVAD()
+                    new TranscriberImportMetadatas()
                     {
-                        TranscriptionId = "mergedvad",
-                        SourceAudioId = "audio",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad",
-                            Sources = "perfect-vad"
-                        },
-                        MetadataProduced = "VoiceText",
-                        TranscriberTool = transcriberToolPurfviewWhisper
+                        TranscriptionId = "manual-input",
+                        FileSuffix = ".manual-input.srt",
+                        CanBeUpdated = true,
+                        ProcessOnlyWhenStringIsRemoved = "[USER-REVISION-NEEDED]",
                     },
-                    new TranscriberImageAI()
+                    new TranscriberClone()
                     {
-                        TranscriptionId = "onscreentext",
-                        FfmpegFilter = "crop=iw/2:ih:0:0",
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                            Model = "gemini-2.5-pro",
-                            APIKeyName = "APIKeyGemini"
-                        },
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad",
-                            Sources = "perfect-vad"
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = transcriberOnScreenTextSystemPrompt,
-                            MetadataNeeded = "GrabOnScreenText",
-                            MetadataAlwaysProduced = "OnScreenText",
-
-                            NbContextItems = null
-                        }
+                        TranscriptionId = "timings",
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be manual-input or full
                     },
                     new TranscriberAudioSingleVADAI()
                     {
-                        TranscriptionId = "singlevad",
+                        TranscriptionId = "singlevad-ai",
                         SourceAudioId = "audio",
-                        Engine = new AIEngineAPI()
-                        {
-                            // https://ai.google.dev/gemini-api/docs/openai#rest_2
-
-                            BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                            Model = "gemini-2.5-pro",
-                            APIKeyName = "APIKeyGemini",
-                            RequestBodyExtension = Expando(
-                                ("max_tokens", 64 * 1024),
-                                ("extra_body", new
-                                {
-                                    google = new
-                                    {
-                                        thinking_config = new
-                                        {
-                                            include_thoughts = true
-                                        }
-                                    }
-                                }))
-                        },
+                        Engine = aiEngineGemini,
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,perfect-vad"
+                            TimingsSource = "timings",
+                            Sources = "onscreentext,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -634,33 +626,63 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BatchSplitWindows = 5
                         }
                     },
-                    new TranscriberInteractifSetSpeaker()
+                    new TranscriberClone()
                     {
-                        TranscriptionId = "validated-speakers",
+                        TranscriptionId = "voice-texts",
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-ai or singlevad-ai
+                    },
+
+                    // Use timings, manual-input and voice-texts to do all the rest of the tasks -----------------------------
+                    new TranscriberAudioMergedVAD()
+                    {
+                        TranscriptionId = "mergedvad",
+                        SourceAudioId = "audio",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad",
-                            Sources = "perfect-vad,singlevad"
+                            TimingsSource = "timings",
+                            Sources = "manual-input"
+                        },
+                        MetadataProduced = "VoiceText",
+                        TranscriberTool = transcriberToolPurfviewWhisper
+                    },
+                    new TranscriberInteractifSetSpeaker()
+                    {
+                        TranscriptionId = "speakers",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "timings",
+                            Sources = "voice-texts, manual-input"
                         },
                         MetadataNeeded = "VoiceText,!GrabOnScreenText,!OnScreenText",
                         MetadataProduced = "Speaker",
-                        MetadataPotentialSpeakers = "OngoingSpeakers",
-                        MetadataDetectedSpeaker = "Speaker-A",
+                        MetadataPotentialSpeakers = "OngoingSpeakers"
                     },
                     new TranscriberImageAI()
                     {
-                        TranscriptionId = "visual-analyst",
-                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=10:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5",
-                            APIKeyName = "APIKeyPoe"
-                        },
+                        TranscriptionId = "on-screen-texts",
+                        FfmpegFilter = "crop=iw/2:ih:0:0",
+                        Engine = aiEngineGemini,
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,singlevad,perfect-vad"
+                            TimingsSource = "timings",
+                            Sources = "manual-input"
+                        },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = transcriberOnScreenTextSystemPrompt,
+                            MetadataNeeded = "GrabOnScreenText",
+                            MetadataAlwaysProduced = "OnScreenText"
+                        }
+                    },
+                    new TranscriberImageAI()
+                    {
+                        TranscriptionId = "visual-analysis",
+                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=10:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+                        Engine = aiEngineGPT5ViaPoe,
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "timings",
+                            Sources = "on-screen-texts,voice-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -678,19 +700,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        TranscriptionId = "singlevad",
-                        TranslationId = "maverick",
+                        TranslationId = "translated-texts_maverick",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5",
-                            APIKeyName = "APIKeyPoe"
-                        },
+                        Engine = aiEngineGPT5ViaPoe,
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,visual-analyst,perfect-vad"
+                            TimingsSource = "timings",
+                            Sources = "on-screen-text,voice-texts,speakers,visual-analysis,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -706,19 +722,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranslatorAI()
                     {
-                        TranscriptionId = "singlevad",
-                        TranslationId = "naturalist",
+                        TranslationId = "translated-texts_naturalist",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5",
-                            APIKeyName = "APIKeyPoe"
-                        },
+                        Engine = aiEngineGPT5ViaPoe,
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,validated-speakers,visual-analyst,perfect-vad"
+                            TimingsSource = "timings",
+                            Sources = "on-screen-text,voice-texts,speakers,visual-analysis,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -734,45 +744,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberAggregator
                     {
-                        TranscriptionId = "candidates-digest",
+                        TranscriptionId = "arbitrer-choices",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad"
+                            TimingsSource = "timings"
                         },
-                        CandidatesSources = "singlevad_maverick,singlevad_naturalist,onscreentext,singlevad,mergedvad,full",
+                        CandidatesSources = "translated-texts_maverick,translated-texts_naturalist,voice-texts,on-screen-text,mergedvad,full",
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = true,
                         IncludeExtraItems = false
                     },
-                    new TranscriberAggregator
-                    {
-                        TranscriptionId = "partial-candidates-digest",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad"
-                        },
-                        CandidatesSources = "singlevad_maverick,singlevad_naturalist,onscreentext,singlevad,mergedvad,full",
-                        MetadataProduced = "CandidatesText",
-
-                        WaitForFinished = false,
-                        IncludeExtraItems = false
-                    },
                     new TranslatorAI()
                     {
-                        TranscriptionId = "candidates-digest",
-                        TranslationId = "arbitrer",
+                        TranslationId = "arbitrer-final-choice",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = new AIEngineAPI()
-                        {
-                            BaseAddress = "https://api.poe.com/v1",
-                            Model = "GPT-5",
-                            APIKeyName = "APIKeyPoe"
-                        },
+                        Engine = aiEngineGPT5ViaPoe,
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "perfect-vad",
-                            Sources = "onscreentext,visual-analyst,validated-speakers,perfect-vad"
+                            TimingsSource = "timings",
+                            Sources = "arbitrer-choices,voice-texts,on-screen-text,visual-analysis,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -789,43 +780,48 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         AutoDeleteOn = "[!UNNEEDED]",
                         ExportMetadataSrt = true
                     },
-                    new TranscriberImport
+                    new SubtitleOutputComplexSrt()
+                    {
+                        OutputId = "wip-metadatas-srt",
+                        FileSuffix = ".wip-metadatas.srt",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "perfect-vad",
+                            Sources = "arbitrer-final-choice,voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
+                        },
+                        WaitForFinished = false
+                    },
+                    new SubtitleOutputCostReport()
+                    {
+                        OutputId = "costs",
+                        FileSuffix = ".cost.txt",
+                        OutputToConsole = false
+                    },
+                    new SubtitleOutputSimpleSrt()
+                    {
+                        OutputId = "arbitrer-final-choice-srt",
+                        WorkerId = "arbitrer-final-choice",
+                        FileSuffix = ".arbitrer-final-choice.srt",
+                        SubtitlesToInject = CreateSubtitlesToInject(),
+                    },
+
+                    new TranscriberImportText
                     {
                         TranscriptionId = "final-user-edited",
                         FileSuffix = ".final.srt",
                         MetadataProduced = "FinalText"
                     },
-                    new SubtitleOutputCostReport()
-                    {
-                        FileSuffix = ".cost.txt",
-                        OutputToConsole = false
-                    },
                     new SubtitleOutputComplexSrt()
                     {
-                        FileSuffix = ".wip-metadatas.srt",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad",
-                            Sources = "candidates-digest_arbitrer,onscreentext,singlevad,validated-speakers,visual-analyst,perfect-vad",
-                        },
-                        WaitForFinished = false
-                    },
-                    new SubtitleOutputSimpleSrt()
-                    {
-                        WorkerId = "candidates-digest_arbitrer",
-                        FileSuffix = ".final-arbitrer-choice.srt",
-                        SubtitlesToInject = CreateSubtitlesToInject(),
-                    },
-                    new SubtitleOutputComplexSrt()
-                    {
+                        OutputId = "learning-srt",
                         FileSuffix = ".learning.srt",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "candidates-digest_arbitrer",
-                            Sources = "perfect-vad,onscreentext,visual-analyst, validated-speakers",
+                            TimingsSource = "arbitrer-final-choice",
+                            Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
                         },
-                        TextSources = "final-user-edited,candidates-digest_arbitrer,singlevad",
-                        SkipWhenTextSourcesAreIdentical = "final-user-edited,candidates-digest_arbitrer"
+                        TextSources = "final-user-edited,arbitrer-final-choice",
+                        SkipWhenTextSourcesAreIdentical = "final-user-edited,arbitrer-final-choice"
                     }
                 }
             };

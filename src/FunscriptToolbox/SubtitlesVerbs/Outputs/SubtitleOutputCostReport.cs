@@ -18,18 +18,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         }
 
-        public override string Description => this.FileSuffix == null ? base.Description : $"{base.Description}: {this.FileSuffix}";
 
+        [JsonProperty(Order = 5, Required = Required.Always)]
+        public string FileSuffix { get; set; }
         [JsonProperty(Order = 10)]
-        public string FileSuffix { get; set; } = null;
-        [JsonProperty(Order = 11)]
         public bool OutputToConsole { get; set; } = true;
-        [JsonProperty(Order = 12)]
+        [JsonProperty(Order = 11)]
         public bool IsGlobalTranscriptionReport { get; set; } = false;
-        [JsonProperty(Order = 13)]
+        [JsonProperty(Order = 12)]
         public bool IsGlobalTranslationReport { get; set; } = false;
 
-        public override bool IsPrerequisitesMet(
+        protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context, 
             out string reason)
         {
@@ -37,7 +36,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             return true;
         }
 
-        public override void CreateOutput(
+        protected override bool IsFinished(SubtitleGeneratorContext context)
+        {
+            var filepath = context.WIP.BaseFilePath + this.FileSuffix;
+            return File.Exists(filepath);
+        }
+
+        protected override void DoWork(
             SubtitleGeneratorContext context)
         {
             StreamWriter fileWriter;

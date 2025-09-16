@@ -208,7 +208,8 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImport.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberClone.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImportText.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInjectOrigin.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleToInject.cs" />
@@ -221,7 +222,7 @@
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberInteractifSetSpeaker.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudioExternal.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberPerfectVAD.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImportMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataCollectionAnalysis.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestException.cs" />
@@ -313,7 +314,6 @@
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystUserPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranslatorAnalystUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorNaturalistUserPrompt.txt" />
   </ItemGroup>

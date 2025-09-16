@@ -11,6 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         [JsonProperty(Order = 2)]
         public PcmAudio PcmAudio { get; private set; }
 
+        [JsonIgnore]
         public bool IsFinished => PcmAudio != null;
 
         public AudioExtraction(string id, PcmAudio pcmAudio = null)
