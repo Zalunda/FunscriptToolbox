@@ -42,5 +42,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             this.Items.Sort((a, b) => (int)(a.StartTime.TotalMilliseconds - b.StartTime.TotalMilliseconds));
             this.IsFinished = true;
         }
+
+        public void MarkAsNotFinished()
+        {
+            this.IsFinished = false;
+        }
     }
 }

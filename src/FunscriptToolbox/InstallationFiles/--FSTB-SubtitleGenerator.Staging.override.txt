@@ -1,0 +1,40 @@
+﻿{
+  "Workers": [
+    // -----------------------------
+    // Audio extraction
+    {
+      "AudioExtractionId": "audio",
+      "Enabled": true
+    },
+    {
+      "AudioExtractionId": "audio-clean-waveform",
+      "Enabled": true,
+    },
+    // -----------------------------
+    // Transcription with Whisper with a basic google translation
+    {
+      "TranscriptionId": "full-whisper",
+      "Enabled": true,
+    },
+    {
+      "TranscriptionId": "full",
+      "Enabled": true,
+      "SourceId": "full-whisper"
+    },
+    {
+      "TranslationId": "full_google",
+      "Enabled": true
+    },
+    {
+      "TranslationId": "full_local-api",
+      "$type": "TranslatorAI",
+      "Enabled": false
+	},
+    {
+	  "OutputId": "preliminary-srt",
+      "Enabled": true,
+      "FileSuffix": ".srt",
+      "WorkerId": "full_google"
+    }
+  ]
+}

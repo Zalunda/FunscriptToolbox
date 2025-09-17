@@ -32,6 +32,7 @@ namespace FunscriptToolbox
             switch (test)
             {
                 case 0:
+                    Environment.CurrentDirectory = @"InstallationTest";
                     args = new[]
                     {
                         "installation"
@@ -113,15 +114,15 @@ namespace FunscriptToolbox
                     File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0.config", SubtitleGeneratorConfig.GetExample(), Encoding.UTF8);
                     File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0-MINE.config", SubtitleGeneratorConfig.GetExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
                     File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0.private.config", SubtitleGeneratorPrivateConfig.GetExample(), Encoding.UTF8);
-                    // Environment.CurrentDirectory = @"P:\...";
+                    Environment.CurrentDirectory = @"InstallationTest\FSTB-CreateSubtitles2025";
                     args = new[]
                     {
                         "subtitles.create",
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
-                        "--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config", // "--config", ".\\--FSTB-SubtitleGenerator.config"
-                        //"--config", ".\\--FSTB-SubtitleGenerator.config",
+                        //"--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config",
+                        "--config", ".\\--FSTB-SubtitleGenerator.config",
                         "*.vseq", "*.mp4" //"XXX-DEBUG\\---FINAL-TESTING\\CRVR-286-M*.vseq"
                     };
                     break;

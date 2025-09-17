@@ -273,10 +273,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// </summary>
         private static JObject FindMatchingWorker(JArray baseWorkers, JObject userWorker)
         {
-            var userWorkerAudioExtractionId = userWorker["AudioExtractionId"]?.ToString();
-            var userWorkerTranscriptionId = userWorker["TranscriptionId"]?.ToString();
-            var userWorkerTranslationId = userWorker["TranslationId"]?.ToString();
-            var userWorkerOutputId = userWorker["OutputId"]?.ToString();
+            var userId = userWorker["Id"]?.ToString();
+            userWorker.Remove("Id");
+            var userWorkerAudioExtractionId = userWorker["AudioExtractionId"]?.ToString() ?? userId;
+            var userWorkerTranscriptionId = userWorker["TranscriptionId"]?.ToString() ?? userId;
+            var userWorkerTranslationId = userWorker["TranslationId"]?.ToString() ?? userId;
+            var userWorkerOutputId = userWorker["OutputId"]?.ToString() ?? userId;
 
             foreach (var baseWorkerToken in baseWorkers)
             {
@@ -292,7 +294,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     return baseWorker;
                 }
-                if (userWorkerTranslationId == null && userWorkerTranscriptionId != null
+                if (userWorkerTranscriptionId != null
                     && userWorkerTranscriptionId == baseWorkerTranscriptionId)
                 {
                     return baseWorker;
@@ -515,7 +517,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 SharedObjects = sharedObjects.ToArray(),
                 Workers = new SubtitleWorker[]
                 {
-                    // Audio extraction -----------------------------
+                    //---------------------------------------------------
+                    // Audio extraction
                     new AudioExtractorFromVideo()
                     {
                         AudioExtractionId = "audio"
@@ -528,7 +531,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>  
                     },
 
-                    // Full transcription (whisper or AI) -----------------------------
+                    //---------------------------------------------------
+                    // Full transcription (whisper or AI)
                     new TranscriberAudioFull()
                     {
                         TranscriptionId = "full-whisper",
@@ -551,7 +555,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "full",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper or full-ai
                     },
-                    new TranslatorGoogleV1API() // TODO in code later: update if transcription changed from full-whisper to full-ai, for example
+                    new TranslatorGoogleV1API()
                     {
                         TranslationId = "full_google",
                         TranscriptionId = "full",
@@ -559,7 +563,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
                     },
-                    new TranslatorAI() // TODO in code later: update if transcription changed from full-whisper to full-ai, for example
+                    new TranslatorAI()
                     {
                         TranslationId = "full_local-api",
                         TargetLanguage = Language.FromString("en"),
@@ -586,7 +590,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         WorkerId = "full_google"
                     },
 
-                    // finalizing timings, manual-input and voice-texts clone -----------------------------
+                    //---------------------------------------------------
+                    // finalizing timings, manual-input and voice-texts clone
                     new SubtitleOutputSimpleSrt()
                     {
                         OutputId = "generated-manual-input-srt",
@@ -604,7 +609,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberClone()
                     {
                         TranscriptionId = "timings",
-                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be manual-input or full
+                        SourceId = "manual-input"
                     },
                     new TranscriberAudioSingleVADAI()
                     {
@@ -632,7 +637,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-ai or singlevad-ai
                     },
 
-                    // Use timings, manual-input and voice-texts to do all the rest of the tasks -----------------------------
+                    //---------------------------------------------------
+                    // Use timings, manual-input and voice-texts to do all the rest of the tasks
                     new TranscriberAudioMergedVAD()
                     {
                         TranscriptionId = "mergedvad",
@@ -698,6 +704,27 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbItemsMinimumReceivedToContinue = 10
                         }
                     },
+                    new SubtitleOutputComplexSrt()
+                    {
+                        OutputId = "metadatas-srt",
+                        FileSuffix = ".metadatas.srt",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "timings",
+                            Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
+                        },
+                        WaitForFinished = true
+                    },
+                    new TranscriberResetImportedMetadatas()
+                    {
+                        TranscriptionId = "metadatas-review",
+                        SourceFileSuffix = ".metadatas.srt",
+                        TranscriptionIdToBeUpdated = "manual-input",
+                        AddToFirstSubtitle = "[USER-REVISION-NEEDED] <= remove this line when revision is done"
+                    },
+
+                    //---------------------------------------------------
+                    // Use timings, manual-input, voice-texts and AI-generated metadatas to the translations and final arbitration
                     new TranslatorAI()
                     {
                         TranslationId = "translated-texts_maverick",
@@ -734,7 +761,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = translatorSystemPrompt,
                             UserPrompt = translatorNaturalistUserPrompt,
-                            TextAfterAnalysis = " --reasoning_effort low",
+                            TextAfterAnalysis = " --reasoning_effort medium",
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
@@ -780,23 +807,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         AutoDeleteOn = "[!UNNEEDED]",
                         ExportMetadataSrt = true
                     },
-                    new SubtitleOutputComplexSrt()
-                    {
-                        OutputId = "wip-metadatas-srt",
-                        FileSuffix = ".wip-metadatas.srt",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "perfect-vad",
-                            Sources = "arbitrer-final-choice,voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
-                        },
-                        WaitForFinished = false
-                    },
-                    new SubtitleOutputCostReport()
-                    {
-                        OutputId = "costs",
-                        FileSuffix = ".cost.txt",
-                        OutputToConsole = false
-                    },
                     new SubtitleOutputSimpleSrt()
                     {
                         OutputId = "arbitrer-final-choice-srt",
@@ -804,7 +814,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".arbitrer-final-choice.srt",
                         SubtitlesToInject = CreateSubtitlesToInject(),
                     },
+                    new SubtitleOutputCostReport()
+                    {
+                        OutputId = "costs",
+                        FileSuffix = ".cost.txt",
+                        OutputToConsole = false,
+                        CanBeUpdated = true
+                    },
 
+                    //---------------------------------------------------
+                    // Potential 'Learning' workflow
                     new TranscriberImportText
                     {
                         TranscriptionId = "final-user-edited",

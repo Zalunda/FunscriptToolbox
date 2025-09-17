@@ -35,7 +35,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             out string reason)
         {
             reason = $"Cannot create file because transcription/translation '{this.WorkerId}' doesn't exists yet.";
-            return (this.WorkerId == null) || (null != (context.WIP.WorkersResult.FirstOrDefault(t => t.Id == this.WorkerId && t.IsFinished)));
+            return (this.WorkerId == null || context.WIP.WorkersResult.Any(t => t.Id == this.WorkerId && t.IsFinished));
         }
 
         protected override bool IsFinished(SubtitleGeneratorContext context)

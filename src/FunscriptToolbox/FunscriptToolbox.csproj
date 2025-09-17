@@ -208,6 +208,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberResetImportedMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberClone.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImportText.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAggregator.cs" />
@@ -300,6 +301,9 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.AutomaticHQWorkflow.override.txt" />
+    <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow.override.txt" />
+    <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.Staging.override.txt" />
     <Content Include="PythonSource\funscripttoolbox-extract-vad.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

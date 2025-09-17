@@ -184,4 +184,13 @@
   <data name="virtual_actions_lua" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\installationfiles\virtual_actions.lua;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-SubtitleGenerator.AutomaticHQWorkflow.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="__FSTB_SubtitleGenerator_ManualHQWorkflow_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="__FSTB_SubtitleGenerator_Staging_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-SubtitleGenerator.Staging.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
 </root>

@@ -61,6 +61,100 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;Workers&quot;: [
+        ///    // -----------------------------
+        ///    // Audio extraction
+        ///    {
+        ///      &quot;AudioExtractionId&quot;: &quot;audio&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    {
+        ///      &quot;AudioExtractionId&quot;: &quot;audio-clean-waveform&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///    },
+        ///    // -----------------------------
+        ///    // Creating initial manual-input source 
+        ///    {
+        ///      &quot;TranscriptionId&quot;: &quot;full-ai&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///    },
+        ///    {
+        ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///      &quot;SourceId&quot;: &quot;full-ai&quot;
+        ///    },
+        ///   [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
+            get {
+                return ResourceManager.GetString("__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;Workers&quot;: [
+        ///    // -----------------------------
+        ///    // Audio extraction
+        ///    {
+        ///      &quot;AudioExtractionId&quot;: &quot;audio&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    {
+        ///      &quot;AudioExtractionId&quot;: &quot;audio-clean-waveform&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///    },
+        ///    // -----------------------------
+        ///    // Creating initial manual-input source 
+        ///    {
+        ///      &quot;TranscriptionId&quot;: &quot;full-ai&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///    },
+        ///    {
+        ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///      &quot;SourceId&quot;: &quot;full-ai&quot;
+        ///    },
+        ///   [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
+            get {
+                return ResourceManager.GetString("__FSTB_SubtitleGenerator_ManualHQWorkflow_override", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;Workers&quot;: [
+        ///    // -----------------------------
+        ///    // Audio extraction
+        ///    {
+        ///      &quot;AudioExtractionId&quot;: &quot;audio&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    {
+        ///      &quot;AudioExtractionId&quot;: &quot;audio-clean-waveform&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///    },
+        ///    // -----------------------------
+        ///    // Transcription with Whisper with a basic google translation
+        ///    {
+        ///      &quot;TranscriptionId&quot;: &quot;full-whisper&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///    },
+        ///    {
+        ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///      &quot;Source [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string @__FSTB_SubtitleGenerator_Staging_override {
+            get {
+                return ResourceManager.GetString("__FSTB_SubtitleGenerator_Staging_override", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-11)**
         ///
         ///This version establishes a clear, non-conflicting hierarchy of operations: first, pick the absolute best text for the current node *in isolation*. Only then, as a separate step, check if that finalized text can be merged.

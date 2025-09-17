@@ -11,6 +11,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public string ProcessOnlyWhenStringIsRemoved { get; internal set; }
 
         protected override string GetMetadataProduced() => null;
+        protected override string GetExecutionVerb() => "Importing";
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context, 

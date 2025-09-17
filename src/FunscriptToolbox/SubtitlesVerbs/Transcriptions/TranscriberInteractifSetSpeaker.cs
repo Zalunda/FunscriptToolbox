@@ -161,7 +161,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         item.StartTime,
                         item.EndTime,
                         potentialSpeakers ?? Array.Empty<string>(),
-                        CleanName(item.Metadata.Get(this.MetadataDetectedSpeaker)),
+                        CleanName(item.Metadata.Get(this.MetadataDetectedSpeaker ?? string.Empty)),
                         item.Metadata.Get(this.MetadataProduced));
 
                     // If finalSpeaker is already defined in referenced metadata, we recopy it and save it

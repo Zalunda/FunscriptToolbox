@@ -29,17 +29,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 return;
             }
 
-            if (!IsPrerequisitesMet(context, out var reason))
+            if (!IsPrerequisitesMet(context, out var reasonPrerequisites))
             {
-                context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reason}");
+                context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
                 context.WriteInfo();
                 return;
             }
 
             // --- Core Execution Logic ---
-            if (!IsFinished(context) || NeedsToRun(context, out reason))
+            string reasonNeedsToRun = null;
+            if (!IsFinished(context) || NeedsToRun(context, out reasonNeedsToRun))
             {
-                var added = reason != null ? $" ({reason})" : string.Empty;
+                var added = reasonNeedsToRun != null ? $" ({reasonNeedsToRun})" : string.Empty;
                 context.WriteInfo($"{GetExecutionVerb()} '{GetId()}'...{added}");
                 var watch = Stopwatch.StartNew();
                 try
@@ -131,18 +132,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         protected static IEnumerable<TimedItemWithMetadata> ReadMetadataSubtitles(IEnumerable<Subtitle> subtitles)
         {
             const string MetadataExtractionRegex = @"{(?<name>[^}:]*)(\:(?<value>[^}]*))?}";
-
-            return subtitles
-                .Select(subtitle => new TimedItemWithMetadata(
+            foreach (var subtitle in subtitles)
+            {
+                var metadatas = new MetadataCollection();
+                foreach (var match in Regex
+                        .Matches(subtitle.Text, MetadataExtractionRegex)
+                        .Cast<Match>())
+                {
+                    metadatas[match.Groups["name"].Value] = match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty;
+                }
+                yield return new TimedItemWithMetadata(
                     subtitle.StartTime,
                     subtitle.EndTime,
-                    metadata: new MetadataCollection(
-                        Regex
-                        .Matches(subtitle.Text, MetadataExtractionRegex)
-                        .Cast<Match>()
-                        .ToDictionary(
-                            match => match.Groups["name"].Value,
-                            match => match.Groups["value"].Success ? match.Groups["value"].Value : string.Empty))));
+                    metadata: metadatas);
+            }
         }
 
         protected static string AddNewLineIfMultilines(string value)
