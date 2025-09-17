@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            var sourceTranscription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId);
+            var sourceTranscription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished);
             if (sourceTranscription == null || !sourceTranscription.IsFinished)
             {
                 reason = $"Source transcription '{this.SourceId}' has not been completed yet.";
