@@ -208,6 +208,8 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />
+    <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigLoader.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberResetImportedMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberClone.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImportText.cs" />

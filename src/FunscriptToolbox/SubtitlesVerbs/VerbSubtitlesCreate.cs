@@ -130,7 +130,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);
                     wipsub.FinalizeLoad();
 
-                    var config = SubtitleGeneratorConfig.LoadHierarchically(
+                    var config = SubtitleGeneratorConfigLoader.LoadHierarchically(
                                             r_options.ConfigPath,
                                             videoSequence.ContainerFullPath);
                     context.ChangeCurrentFile(config, wipsub);
