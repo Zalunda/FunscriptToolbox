@@ -57,7 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
                             middleTimeInRightFile,
                             ".jpg",
-                            this.FfmpegFilter?.Replace("[STARTTIME]", context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
+                            this.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
                         var data = new[]
                             {
                                 new

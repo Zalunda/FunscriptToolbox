@@ -359,7 +359,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 itemsInBatch.ToArray(),
                 messages,
                 r_options.MetadataAlwaysProduced,
-                $"Items {itemsAlreadyDone.Length} to {itemsAlreadyDone.Length + itemsInBatch.Count} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
+                $"Items {itemsAlreadyDone.Length + 1} to {itemsAlreadyDone.Length + itemsInBatch.Count} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
         }
 
         internal AIRequest CreateEmptyRequest()

@@ -94,6 +94,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string verbosePrefix,
             DateTime processStartTime)
         {
+            var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}]";
+            context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
             var response = client.PostAsync(
                 new Uri(client.BaseAddress, "chat/completions"),
                 new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
@@ -152,8 +154,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             try
             {
-                var requestId = $"request #{request.Number}";
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"opening connection...");
+                var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}]";
+                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
                 {
                     Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
@@ -163,10 +165,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"[{request.TaskId}, {request.UpdateMessage}] waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"sending request...");
+                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
 
                 if (!response.IsSuccessStatusCode)
