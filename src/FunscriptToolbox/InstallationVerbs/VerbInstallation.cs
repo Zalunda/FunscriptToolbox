@@ -31,9 +31,9 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             InstallOFSPlugin();
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGenerator", ".config", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGenerator", ".config", SubtitleGeneratorConfigExample.GetExample());
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGenerator.private", ".config", SubtitleGeneratorPrivateConfig.GetExample());
-            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGeneratorExample-2.1", ".config", SubtitleGeneratorConfig.GetExample());
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGeneratorExample-2.1", ".config", SubtitleGeneratorConfigExample.GetExample());
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\Staging", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_Staging_override);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_override);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\AutomaticHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override);
