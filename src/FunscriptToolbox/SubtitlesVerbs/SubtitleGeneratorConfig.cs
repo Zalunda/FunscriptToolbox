@@ -176,50 +176,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
-        public static SubtitleGeneratorConfig FromFile(string filepath, string userOverrideFilepath = null)
-        {
-            static T HandleJsonException<T>(Func<T> action, string path, string content)
-            {
-                try
-                {
-                    return action();
-                }
-                catch (JsonSerializationException ex)
-                {
-                    var adjustedFileName = path + ".as.json";
-                    File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT (remove this line and above line to get accurate line number)---\n" + content);
-                    // It's better to throw a more specific exception or preserve the original stack trace.
-                    throw new Exception($"Error parsing configuration file. A detailed report was written to '{adjustedFileName}'. Please correct the error in the original '.config' file and then delete the '.as.json' file.\n\nDetails: {ex.Message}", ex);
-                }
-            }
-
-            static JObject ReadHybridJsonFile(string path, string content = null)
-            {
-                var adjustedContent = content ?? PreprocessHybridJsonFile(File.ReadAllText(path));
-                return HandleJsonException(() => JObject.Parse(adjustedContent), path, content);
-            }
-
-            var config = ReadHybridJsonFile(filepath);
-
-            if (userOverrideFilepath != null)
-            {
-                if (File.Exists(userOverrideFilepath))
-                {
-                    JObject userConfig = ReadHybridJsonFile(userOverrideFilepath);
-                    MergeConfigs(config, userConfig);
-                }
-                else
-                {
-                    File.WriteAllText(userOverrideFilepath, Resources.Example_wipconfig);
-                }
-            }
-
-            return HandleJsonException(
-                () => ReadHybridJsonFile(filepath, config.ToString()).ToObject<SubtitleGeneratorConfig>(rs_serializer), 
-                filepath, 
-                config.ToString());
-        }
-
         /// <summary>
         /// Merges a user override configuration into a base configuration, with special handling for arrays
         /// to support older versions of Newtonsoft.Json.
@@ -229,16 +185,100 @@ namespace FunscriptToolbox.SubtitlesVerbs
         private static void MergeConfigs(JObject baseConfig, JObject userConfig)
         {
             // --- Step 1: Merge all non-worker properties ---
-            // We clone the user config and remove 'Workers' so the default merge
-            // doesn't corrupt our array with its index-based logic.
-            var userConfigWithoutWorkers = (JObject)userConfig.DeepClone();
-            userConfigWithoutWorkers.Remove("Workers");
-            baseConfig.Merge(userConfigWithoutWorkers, new JsonMergeSettings
+            // We clone the user config and remove 'Workers' and 'SharedObjects' so the default merge
+            // doesn't corrupt our arrays with its index-based logic.
+            var userConfigWithoutArrays = (JObject)userConfig.DeepClone();
+            userConfigWithoutArrays.Remove("Workers");
+            userConfigWithoutArrays.Remove("SharedObjects");
+            baseConfig.Merge(userConfigWithoutArrays, new JsonMergeSettings
             {
                 PropertyNameComparison = StringComparison.OrdinalIgnoreCase
             });
 
-            // --- Step 2: Custom, ID-based merge for the 'Workers' array ---
+            // --- Step 2: Custom, ID-based merge for 'SharedObjects' ---
+            MergeSharedObjects(baseConfig, userConfig);
+            MergeWorkers(baseConfig, userConfig);
+        }
+
+        /// <summary>
+        /// Performs a custom merge operation for the 'SharedObjects' array,
+        /// matching objects by their '$id' property.
+        /// </summary>
+        private static void MergeSharedObjects(JObject baseConfig, JObject userConfig)
+        {
+            if (!(userConfig["SharedObjects"] is JArray userSharedObjects) || !userSharedObjects.HasValues)
+            {
+                return; // Nothing to merge if the user config has no SharedObjects.
+            }
+
+            // Ensure the base config has a SharedObjects array to merge into.
+            if (!(baseConfig["SharedObjects"] is JArray baseSharedObjects))
+            {
+                // If the base doesn't have the array, we can just copy the user's array over.
+                baseConfig["SharedObjects"] = userSharedObjects.DeepClone();
+                return;
+            }
+
+            var newObjectsToAdd = new List<JObject>();
+
+            foreach (var userObjectToken in userSharedObjects)
+            {
+                if (!(userObjectToken is JObject userObject)) continue;
+
+                JObject baseObjectToUpdate = FindMatchingSharedObject(baseSharedObjects, userObject);
+
+                if (baseObjectToUpdate != null)
+                {
+                    // Found a match, so merge the user's changes into the existing object.
+                    baseObjectToUpdate.Merge(userObject);
+                }
+                else
+                {
+                    // No match found. This is a new object to be added to the array.
+                    newObjectsToAdd.Add(userObject);
+                }
+            }
+
+            // Add any completely new objects to the end of the base array.
+            foreach (var newObject in newObjectsToAdd)
+            {
+                baseSharedObjects.Add(newObject);
+            }
+        }
+
+        /// <summary>
+        /// Finds a shared object in the base list that matches a shared object from the user's override file
+        /// based on the '$id' property.
+        /// </summary>
+        private static JObject FindMatchingSharedObject(JArray baseSharedObjects, JObject userObject)
+        {
+            var userId = userObject["$id"]?.ToString();
+
+            // An ID is required to match an object for merging.
+            if (string.IsNullOrEmpty(userId))
+            {
+                return null;
+            }
+
+            foreach (var baseObjectToken in baseSharedObjects)
+            {
+                if (baseObjectToken is JObject baseObject)
+                {
+                    var baseId = baseObject["$id"]?.ToString();
+                    if (string.Equals(userId, baseId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return baseObject; // Found the matching object.
+                    }
+                }
+            }
+
+            return null; // No match found.
+        }
+
+        private static void MergeWorkers(JObject baseConfig, JObject userConfig)
+        {
+
+            // --- Step 3: Custom, ID-based merge for the 'Workers' array ---
             if (!(userConfig["Workers"] is JArray userWorkers) || !(baseConfig["Workers"] is JArray baseWorkers))
             {
                 return; // Nothing to do if one of the configs is missing the Workers array.
@@ -264,7 +304,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
             }
 
-            // --- Step 3: Place the new workers into the array ---
+            // --- Step 4: Place the new workers into the array ---
             InsertNewWorkers(baseWorkers, newWorkersToPlace);
         }
 
