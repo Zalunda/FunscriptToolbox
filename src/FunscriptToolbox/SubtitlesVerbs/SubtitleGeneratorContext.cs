@@ -13,7 +13,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
     public class SubtitleGeneratorContext : VerbContext
     {
         public FfmpegHelper FfmpegHelper { get; }
-        private readonly string r_configPath;
         private readonly SubtitleGeneratorPrivateConfig r_privateConfig;
 
         public List<string> UserTodoList { get; }
@@ -42,7 +41,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             this.Config = config;
             this.WIP = wipsub;
-            this.ChangePrefix(Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": ");
+            this.ChangePrefix((wipsub != null)
+                ? Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": "
+                : "root: ");
         }
 
         public void ForgetCurrentFile()
