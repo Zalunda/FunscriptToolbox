@@ -125,6 +125,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new AIRequestException(request, $"Empty response receive.");
             }
 
+            Console.WriteLine("\n\n" + assistantMessage + "\n\n");
+
             PauseIfEnabled(this.PauseBeforeSavingResponse);
 
             // Let the request handle the response and store the api cost
