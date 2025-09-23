@@ -17,6 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
     public class WorkInProgressSubtitles
     {
         public const string CURRENT_FORMAT_VERSION = "2.0";
+        public const string BACKUP_FOLDER_SUFFIX = "_Backup";
 
         private readonly static JsonSerializer rs_serializer = JsonSerializer
             .Create(new JsonSerializerSettings
@@ -74,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.BaseFilePath = Path.Combine(
                 this.ParentPath,
                 Path.GetFileNameWithoutExtension(this.OriginalFilePath));
-            this.BackupFolder = $"{BaseFilePath}_Backup";
+            this.BackupFolder = $"{BaseFilePath}{BACKUP_FOLDER_SUFFIX}";
         }
 
         [JsonIgnore]

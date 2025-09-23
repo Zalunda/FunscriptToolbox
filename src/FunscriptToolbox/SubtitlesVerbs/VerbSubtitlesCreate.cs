@@ -113,7 +113,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
             foreach (var videoSequence in ToVideoSequences(
                 r_options
                 .Input
-                .SelectMany(file => HandleStarAndRecusivity(file, r_options.Recursive))
+                .SelectMany(file => HandleStarAndRecusivity(
+                    file, 
+                    r_options.Recursive, 
+                    WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
                 .Distinct()
                 .OrderBy(f => f)))
             {
@@ -125,6 +128,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         videoSequence.ContainerFullPath,
                         WorkInProgressSubtitles.Extension);
 
+                    context.ChangeCurrentFile(null, null);
                     var wipsub = File.Exists(wipsubFullpath)
                         ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                         : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);

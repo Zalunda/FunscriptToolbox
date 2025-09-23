@@ -1,6 +1,7 @@
 ﻿using AudioSynchronization;
 using CommandLine;
 using FunscriptToolbox.Core;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.Properties;
 using log4net;
 using Newtonsoft.Json;
@@ -253,19 +254,48 @@ namespace FunscriptToolbox
             this.NbErrors++;
         }
 
-        protected IEnumerable<string> HandleStarAndRecusivity(string filename, bool recursive = false)
+        protected IEnumerable<string> HandleStarAndRecusivity(
+            string pathWithPossibleStar, 
+            bool recursive = false, 
+            string skipIfFolderEndsWith = null)
         {
-            if (filename.Contains("*"))
+            if (pathWithPossibleStar.Contains("*"))
             {
-                var parent = Path.GetDirectoryName(filename);
-                return Directory.GetFiles(
-                        string.IsNullOrEmpty(parent) ? Environment.CurrentDirectory : parent,
-                        Path.GetFileName(filename),
-                        recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
-                    .OrderBy(f => f);
+                return HandleStarAndRecusivityInternal(
+                    PathExtension.SafeGetDirectoryName(pathWithPossibleStar, Environment.CurrentDirectory),
+                    Path.GetFileName(pathWithPossibleStar),
+                    recursive,
+                    skipIfFolderEndsWith);
             }
             else
-                return new[] { filename };
+                return new[] { pathWithPossibleStar };
+        }
+
+
+        protected IEnumerable<string> HandleStarAndRecusivityInternal(
+            string parent, 
+            string filename, 
+            bool recursive,
+            string skipIfFolderEndsWith)
+        {
+            foreach (var file in Directory
+                .GetFiles(parent, filename))
+            {
+                yield return file;
+            }
+
+            if (recursive)
+            {
+                foreach (var subfolder in Directory
+                    .GetDirectories(parent)
+                    .Where(sf => skipIfFolderEndsWith == null || !sf.EndsWith(skipIfFolderEndsWith, StringComparison.OrdinalIgnoreCase)))
+                {
+                    foreach (var file in HandleStarAndRecusivityInternal(subfolder, filename, recursive, skipIfFolderEndsWith))
+                    {
+                        yield return file;
+                    }
+                }
+            }
         }
     }
 }
