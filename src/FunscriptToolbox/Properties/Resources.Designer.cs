@@ -66,25 +66,27 @@ namespace FunscriptToolbox.Properties {
         ///    // -----------------------------
         ///    // Audio extraction
         ///    {
-        ///      &quot;AudioExtractionId&quot;: &quot;audio&quot;,
+        ///      &quot;Id&quot;: &quot;audio&quot;,
         ///      &quot;Enabled&quot;: true
         ///    },
         ///    {
-        ///      &quot;AudioExtractionId&quot;: &quot;audio-clean-waveform&quot;,
+        ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
         ///    // -----------------------------
         ///    // Creating initial manual-input source 
         ///    {
-        ///      &quot;TranscriptionId&quot;: &quot;full-ai&quot;,
+        ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
         ///    {
-        ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
+        ///      &quot;Id&quot;: &quot;full&quot;,
         ///      &quot;Enabled&quot;: true,
         ///      &quot;SourceId&quot;: &quot;full-ai&quot;
         ///    },
-        ///   [rest of string was truncated]&quot;;.
+        ///    {
+        ///      &quot;Id&quot;: &quot;generated-manual-input-srt&quot;,
+        ///      &quot;E [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -98,25 +100,27 @@ namespace FunscriptToolbox.Properties {
         ///    // -----------------------------
         ///    // Audio extraction
         ///    {
-        ///      &quot;AudioExtractionId&quot;: &quot;audio&quot;,
+        ///      &quot;Id&quot;: &quot;audio&quot;,
         ///      &quot;Enabled&quot;: true
         ///    },
         ///    {
-        ///      &quot;AudioExtractionId&quot;: &quot;audio-clean-waveform&quot;,
+        ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
         ///    // -----------------------------
         ///    // Creating initial manual-input source 
         ///    {
-        ///      &quot;TranscriptionId&quot;: &quot;full-ai&quot;,
+        ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
         ///    {
-        ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
+        ///      &quot;Id&quot;: &quot;full&quot;,
         ///      &quot;Enabled&quot;: true,
         ///      &quot;SourceId&quot;: &quot;full-ai&quot;
         ///    },
-        ///   [rest of string was truncated]&quot;;.
+        ///    {
+        ///      &quot;Id&quot;: &quot;generated-manual-input-srt&quot;,
+        ///      &quot;E [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
@@ -410,6 +414,21 @@ namespace FunscriptToolbox.Properties {
         internal static string TranscriberAudioFullUserPrompt {
             get {
                 return ResourceManager.GetString("TranscriberAudioFullUserPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # SYSTEM PROMPT: PRECISION SEGMENT REFINER
+        ///
+        ///### Role
+        ///You are a highly specialized audio intelligence tool, functioning as a **Precision Segment Refiner**. Your expertise is in analyzing audio clips and precisely measuring the duration of all audible silence relative to a given transcription, then encoding this information into a single, unified string.
+        ///
+        ///### Mission
+        ///Given an audio clip (which may include padding) and its exact, verbatim transcription, your mission is to produce a single, refined text string  [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string TranscriberAudioPrecisionSegmentRefinerSystemPrompt {
+            get {
+                return ResourceManager.GetString("TranscriberAudioPrecisionSegmentRefinerSystemPrompt", resourceCulture);
             }
         }
         
