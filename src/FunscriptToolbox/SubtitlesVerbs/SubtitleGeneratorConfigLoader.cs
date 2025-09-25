@@ -62,10 +62,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     return JObject.Parse(adjustedContent);
                 }
-                catch (JsonSerializationException ex)
+                catch (JsonException ex)
                 {
                     var adjustedFileName = path + ".as.json";
-                    File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + content);
+                    File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + adjustedContent);
                     throw new Exception($"Error parsing configuration file '{path}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
                 }
             }
@@ -165,7 +165,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new JsonTextReader(
                         new StringReader(finalConfigText)));
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
                 var adjustedFileName = lastFullPath + ".as.json";
                 File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + finalConfigText);
@@ -423,9 +423,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         private static string PreprocessHybridJsonFile(string originalText)
-        { 
-            return ReplaceLongStringFromHybridToJson(
-                originalText.Replace("^\\s*//.*$\n", string.Empty));
+        {
+            var textWithoutComment = Regex.Replace(originalText, @"^\s*\/\/.*$\n*", string.Empty, RegexOptions.Multiline);
+            return ReplaceLongStringFromHybridToJson(textWithoutComment);
         }
 
         public static string ReplaceLongStringFromJsonToHybrid(string originalJson)
@@ -433,7 +433,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return Regex.Replace(
                 originalJson,
                 @"=_{3,}(?<text>.*?)_{3,}=",
-                match => "\n" + STARTLONGSTRING + "\n\n" + match.Groups["text"].Value.Trim().Replace(@"\n", "\n") + "\n\n" + ENDLONGSTRING);
+                match => "\n" + STARTLONGSTRING + "\n\n" + match.Groups["text"].Value.Trim().Replace(@"\n", "\n").Replace(@"\r", "\r") + "\n\n" + ENDLONGSTRING);
         }
 
         private static string ReplaceLongStringFromHybridToJson(string originalText)
@@ -441,7 +441,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return Regex.Replace(
                 originalText,
                 @"\n*=_{3,}(?<text>.*?)_{3,}=\n*",
-                match => match.Groups["text"].Value.Trim().Replace("\n", @"\n").Trim(),
+                match =>
+                {
+                    string capturedText = match.Groups["text"].Value.Trim();
+
+                    // Serialize the string to correctly escape all necessary characters.
+                    // This will also wrap the string in double quotes.
+                    string jsonString = JsonConvert.SerializeObject(capturedText);
+
+                    // Remove the surrounding quotes added by the serializer
+                    // to get just the escaped content.
+                    return jsonString.Substring(1, jsonString.Length - 2);
+                },
                 RegexOptions.Singleline);
         }
 
