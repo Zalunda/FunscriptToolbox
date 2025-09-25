@@ -25,17 +25,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         // --- Generic Accessors ---
         public string Get(string key) { this.TryGetValue(key, out var v); return v; }
 
-        public void Merge(MetadataCollection other, Dictionary<string, string> mergeRules = null)
+        public void Merge(MetadataCollection other, Dictionary<string, string> mergeRules = null, string id = null)
         {
             foreach (var kvp in other)
             {
-                string renamedKey = null;
-                var foundRule = mergeRules?.TryGetValue(kvp.Key, out renamedKey);
-                if (foundRule == true)
+                string renamedKeyGeneric = null;
+                var foundRuleGeneric = mergeRules?.TryGetValue(kvp.Key, out renamedKeyGeneric);
+                string renamedKeySpecific = null;
+                var foundRuleSpecific = mergeRules?.TryGetValue($"{id},{kvp.Key}", out renamedKeySpecific);
+                if (foundRuleGeneric == true)
                 {
-                    if (renamedKey != null)
+                    if (renamedKeyGeneric != null)
                     {
-                        this[renamedKey] = kvp.Value;
+                        this[renamedKeyGeneric] = kvp.Value;
+                    }
+                    else
+                    {
+                        // Ignore this metadata
+                    }
+                }
+                else if (foundRuleSpecific == true)
+                {
+                    if (renamedKeySpecific != null)
+                    {
+                        this[renamedKeySpecific] = kvp.Value;
                     }
                     else
                     {
