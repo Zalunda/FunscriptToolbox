@@ -118,14 +118,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     $"   [config]   {this.Model}");
             }
 
-            string assistantMessage = responseBody.choices[0].message.content;
+            string assistantMessage = responseBody.choices[0]?.message?.content;
+            string finish_reason = responseBody.choices[0]?.finish_reason;
+            Console.WriteLine($"\n\nFinish_reason: {finish_reason}");
             context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
             if (assistantMessage == null)
             {
-                throw new AIRequestException(request, $"Empty response receive.");
+                throw new AIRequestException(request, $"Empty response receive. Finish_reason: {finish_reason}");
             }
 
-            Console.WriteLine("\n\n" + assistantMessage + "\n\n");
+            Console.WriteLine("\n" + assistantMessage + "\n\n");
 
             PauseIfEnabled(this.PauseBeforeSavingResponse);
 
@@ -185,6 +187,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 int? promptTokens = null;
                 int? completionTokens = null;
                 int? totalTokens = null;
+                string finish_reason = null;
                 bool doneReceived = false;
 
                 try
@@ -245,6 +248,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             // Write to console as chunks arrive
                                             Console.Write(contentChunk);
                                         }
+                                        else if (chunk.choices[0].finish_reason != null)
+                                        {
+                                            finish_reason = chunk.choices[0].finish_reason.ToString();
+                                            Console.WriteLine($"Finish_reason: {finish_reason}");
+                                        }
                                     }
 
                                     // Some APIs send usage information in streaming mode
@@ -272,7 +280,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (!doneReceived)
                 {
-                    fullContent.Append($"DONE was not received in the response.");
+                    fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
                 }
                 Console.WriteLine();
 
@@ -289,9 +297,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (string.IsNullOrEmpty(assistantMessage))
                 {
-                    throw new AIRequestException(request, $"Empty response received.");
+                    throw new AIRequestException(request, $"Empty response received. Finish_reason: {finish_reason}");
                 }
-
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
                 
