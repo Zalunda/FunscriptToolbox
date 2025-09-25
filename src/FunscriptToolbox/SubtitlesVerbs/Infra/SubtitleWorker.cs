@@ -109,13 +109,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             TimedItemWithMetadataCollection container,
             bool wasAlreadyFinished)
         {
-            if (!wasAlreadyFinished || !context.WIP.TimelineMap.GetFullPaths(context.WIP.ParentPath).Any(fullpath => File.Exists(fullpath)))
+            var extension = $".Worker.{container.Id}.srt";
+            if (!wasAlreadyFinished || !context.WIP.TimelineMap.GetFullPaths(context.WIP.ParentPath)
+                .Any(fullpath => File.Exists(Path.ChangeExtension(fullpath, extension))))
             {
                 var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
                 virtualSubtitleFile.Subtitles.AddRange(CreateMetadataSubtitles(container));
                 virtualSubtitleFile.Save(
                 context.WIP.ParentPath,
-                $".Worker.{container.Id}.srt",
+                extension,
                 context.SoftDelete);
             }
         }
