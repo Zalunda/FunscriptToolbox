@@ -194,13 +194,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
-                static IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null)
+                IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null)
                 {
                     var nodeContents = new List<dynamic>();
                     var sb = new StringBuilder();
                     sb.AppendLine("  {");
                     sb.AppendLine($"    \"StartTime\": \"{item.StartTime:hh\\:mm\\:ss\\.fff}\",");
-                    sb.AppendLine($"    \"EndTime\": \"{item.EndTime:hh\\:mm\\:ss\\.fff}\",");
+                    if ((r_options.FieldsToInclude & NodeFields.EndTime) != 0)
+                    {
+                        sb.AppendLine($"    \"EndTime\": \"{item.EndTime:hh\\:mm\\:ss\\.fff}\",");
+                    }
+                    if ((r_options.FieldsToInclude & NodeFields.Duration) != 0)
+                    {
+                        sb.AppendLine($"    \"Duration\": \"{item.Duration:hh\\:mm\\:ss\\.fff}\",");
+                    }
                     var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
                     foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
                     {
