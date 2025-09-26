@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -13,6 +14,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 21)]
         public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
         [JsonProperty(Order = 22)]
+        public bool UpdateTimingsBeforeSaving { get; set; } = false;
+        [JsonProperty(Order = 23)]
+        public bool AddSpeechCadenceBeforeSaving { get; set; } = false;
+        [JsonProperty(Order = 23)]
         public bool KeepTemporaryFiles { get; set; } = false;
 
         [JsonProperty(Order = 30, Required = Required.Always)]
@@ -40,6 +45,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             reason = null;
             return true;
         }
+
+        private static Regex r_leadingTrailingRegex = new Regex(@"^(\.\.(?<Leading>\d+|\?)\.\.)?(?<VoiceText>.*?)(\.\.(?<Trailing>\d+|\?)\.\.)?$", RegexOptions.Compiled);
 
         protected override void DoWork(SubtitleGeneratorContext context)
         {
@@ -87,6 +94,64 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (requestGenerator.IsFinished())
             {
+                if (this.UpdateTimingsBeforeSaving || this.AddSpeechCadenceBeforeSaving)
+                {
+                    TimeSpan previousItemDesiredEndTime = TimeSpan.Zero;
+                    for(int index = 0; index < transcription.Items.Count; index++)
+                    {
+                        var item = transcription.Items[index];
+                        var previousItem = index > 0 ? transcription.Items[index - 1] : null;
+
+                        var match = r_leadingTrailingRegex.Match(item.Metadata.Get(this.Options.MetadataAlwaysProduced));
+                        if (match.Success)
+                        {
+                            var leadingDelay = TimeSpan.Zero;
+                            if (match.Groups["Leading"].Success)
+                            {
+                                var leading = match.Groups["Leading"].Value;
+                                if (leading != "?")
+                                {
+                                    leadingDelay = TimeSpan.FromSeconds(int.Parse(leading) * 0.1);
+                                }
+                                else
+                                {
+                                    leadingDelay = this.ExpandStart;
+                                    item.Metadata["StartTimeTooLate"] = "true";
+                                }
+                            }
+                            var trailingDelay = TimeSpan.Zero;
+                            if (match.Groups["Trailing"].Success)
+                            {
+                                var trailing = match.Groups["Trailing"].Value;
+                                if (trailing != "?")
+                                {
+                                    trailingDelay = TimeSpan.FromSeconds(int.Parse(trailing) * 0.1);
+                                }
+                                else
+                                {
+                                    trailingDelay = this.ExpandEnd;
+                                    item.Metadata["EndTimeTooEarly"] = "true";
+                                }
+                            }
+
+                            if (this.UpdateTimingsBeforeSaving)
+                            {
+                                item.StartTime = item.StartTime - this.ExpandStart + leadingDelay;
+                                if (previousItem != null)
+                                    previousItem.EndTime = (item.StartTime < previousItemDesiredEndTime) ? item.StartTime : previousItemDesiredEndTime;
+                                previousItemDesiredEndTime = item.EndTime + this.ExpandEnd - trailingDelay;
+                            }
+                            if (this.AddSpeechCadenceBeforeSaving)
+                            {
+                                item.Metadata[this.Options.MetadataAlwaysProduced] = match.Groups["VoiceText"].Value;
+                            }
+                        }
+                    }
+
+                    if (this.UpdateTimingsBeforeSaving && transcription.Items.Count > 0)
+                        transcription.Items.Last().EndTime = previousItemDesiredEndTime;
+                }
+
                 transcription.MarkAsFinished();
                 context.WIP.Save();
             }

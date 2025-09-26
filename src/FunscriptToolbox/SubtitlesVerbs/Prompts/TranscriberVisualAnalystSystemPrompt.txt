@@ -1,4 +1,4 @@
-# **MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-06)**
+# **MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-25)**
 
 ### **Role & Mission**
 
@@ -85,7 +85,7 @@ At the start of a request, you might receive a `Character Identification Referen
 *   **Purpose:** Explain how the visual context adds meaning (emotion, intensity, subtext) to the `VoiceText`. This field is **MANDATORY** on every node.
 *   **Rule for Empty `VoiceText`:** If `VoiceText` is empty or null, the value of this field **MUST** be the string: `"No VoiceText provided for analysis."`
 *   **Workflow:**
-    1.  Read the `VoiceText`.
+    1.  Read the `VoiceText`. Note that the text may contain timing markers like `..4..`. These indicate a pause in the original audio and should be understood as representing silence, not spoken words.
     2.  Look at your `ParticipantsPoses` description.
     3.  Answer: "How does the static pose I described change the meaning of these words?"
 *   **What to AVOID:**

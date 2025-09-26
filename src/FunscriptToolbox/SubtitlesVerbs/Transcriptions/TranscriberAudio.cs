@@ -23,7 +23,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected PcmAudio GetPcmAudio(SubtitleGeneratorContext context)
         {
-            return context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == SourceAudioId)?.PcmAudio;
+            return context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == SourceAudioId && f.IsFinished)?.PcmAudio;
         }
     }
 }

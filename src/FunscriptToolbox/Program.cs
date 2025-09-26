@@ -111,7 +111,20 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
-                    //File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0-MINE.config", SubtitleGeneratorConfigExample.GetExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
+                    args = new[]
+                    {
+                        "subtitles.create",
+                        "--verbose",
+                        "--recursive",
+                        "--skipupdate",
+                        "--config", ".\\--FSTB-SubtitleGenerator.config",
+                        "*.vseq", 
+                        "*.mp4"
+                    };
+                    break;
+
+                case 51:
+                    File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0-MINE.config", SubtitleGeneratorConfigExample.GetExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
                     //Environment.CurrentDirectory = @"InstallationTest\FSTB-CreateSubtitles2025";
                     args = new[]
                     {
@@ -119,13 +132,12 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
-                        //"--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config",
-                        "--config", ".\\--FSTB-SubtitleGenerator.config",
-                        "*.vseq", "*.mp4" //"XXX-DEBUG\\---FINAL-TESTING\\CRVR-286-M*.vseq"
+                        "--config", ".\\--FSTB-SubtitleGeneratorExample-2.0-MINE.config",
+                        "XXX-DEBUG\\*.vseq", "XXX-DEBUG\\*.mp4"
                     };
                     break;
 
-                case 51:
+                case 52:
                     var filename = "Test.funscript";
                     var minSpeed = 20;
                     var maxSpeed = 600;

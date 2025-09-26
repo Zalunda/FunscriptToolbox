@@ -5,8 +5,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class TimedItemWithMetadata : ITiming
     {
-        public TimeSpan StartTime { get; }
-        public TimeSpan EndTime { get; }
+        public TimeSpan StartTime { get; set; }
+        public TimeSpan EndTime { get; set; }
         public TimeSpan Duration => EndTime - StartTime;
         public MetadataCollection Metadata { get; }
         public DateTime? CreationTime { get; }

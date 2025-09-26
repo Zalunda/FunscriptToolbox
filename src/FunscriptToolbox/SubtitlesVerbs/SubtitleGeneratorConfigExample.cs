@@ -94,6 +94,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var transcriberAudioSingleVADSystemPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADSystemPrompt", Resources.TranscriberAudioSingleVADSystemPrompt);
             var transcriberAudioSingleVADUserPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADUserPrompt", Resources.TranscriberAudioSingleVADUserPrompt);
 
+            var transcriberAudioPrecisionSegmentRefinerSystemPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerSystemPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerSystemPrompt);
+            var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects("transcriberAudioPrecisionSegmentRefinerUserPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerUserPrompt);
+
             var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects("TranscriberOnScreenTextSystemPrompt", Resources.TranscriberOnScreenTextSystemPrompt);
 
             var transcriberVisualAnalystSystemPrompt = AddPromptToSharedObjects("TranscriberVisualAnalystSystemPrompt", Resources.TranscriberVisualAnalystSystemPrompt);
@@ -143,10 +146,41 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataProduced = "VoiceText",
                         MaxChunkDuration = TimeSpan.FromMinutes(5)
                     },
+                    new TranscriberAudioSingleVADAI()
+                    {
+                        TranscriptionId = "full-ai-refined",
+                        SourceAudioId = "audio",
+                        Engine = aiEngineGemini,
+                        ExpandStart = TimeSpan.FromSeconds(1.0),
+                        ExpandEnd = TimeSpan.FromSeconds(1.0),
+                        UpdateTimingsBeforeSaving = true,
+                        AddSpeechCadenceBeforeSaving = true,
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "full-ai",
+                            Sources = "full-ai",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "VoiceText", "OriginalVoiceText" }
+                            }
+                        },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = transcriberAudioPrecisionSegmentRefinerSystemPrompt,
+                            UserPrompt = transcriberAudioPrecisionSegmentRefinerUserPrompt,
+                            MetadataNeeded = "OriginalVoiceText",
+                            MetadataAlwaysProduced = "VoiceText",
+                            FieldsToInclude = NodeFields.StartTime,
+                            BatchSize = 50,
+                            BatchSplitWindows = 0,
+                            NbContextItems = 0,
+                            NbItemsMinimumReceivedToContinue = 30
+                        }
+                    },
                     new TranscriberClone()
                     {
                         TranscriptionId = "full",
-                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper or full-ai
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper or full-ai or full-ai-refined
                     },
                     new TranslatorGoogleV1API()
                     {

@@ -418,17 +418,32 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # SYSTEM PROMPT: PRECISION SEGMENT REFINER
+        ///   Looks up a localized string similar to # AUDIO-TEXT ALIGNMENT AND ANNOTATION MANDATE (version 2025-09-07)
         ///
         ///### Role
-        ///You are a highly specialized audio intelligence tool, functioning as a **Precision Segment Refiner**. Your expertise is in analyzing audio clips and precisely measuring the duration of all audible silence relative to a given transcription, then encoding this information into a single, unified string.
+        ///You are a Precision Audio-Text Alignment and Annotation Engine. Your function is to process a batch of audio clips and a corresponding text string, precisely locate the audio of the text within the clip, and generate a new string that annotates the leading, trailing, and internal pauses.
         ///
         ///### Mission
-        ///Given an audio clip (which may include padding) and its exact, verbatim transcription, your mission is to produce a single, refined text string  [rest of string was truncated]&quot;;.
+        ///Given an array of `AudioClip` and an associated `OriginalVoiceText`, your mission is to produce a single JSON arrqay of result object [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioPrecisionSegmentRefinerSystemPrompt {
             get {
                 return ResourceManager.GetString("TranscriberAudioPrecisionSegmentRefinerSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # URGENT: ACOUSTIC-PHONETIC ALIGNMENT AUDIT (VALIDATION 2025-09-08)
+        ///
+        ///**Attention AAE (Audio Annotation Engine):** This entire batch of tasks is subject to a mandatory, zero-tolerance audit for phonetic boundary accuracy. Your output will be programmatically validated against the visual waveform evidence.
+        ///
+        ///**The Single Metric for Success:** Your unwavering adherence to the **&quot;Clean Phonetic Onset Protocol&quot;** for placing the `SpeechStartTime`.
+        ///
+        ///**Definition of a Critical Failure: &quot;Premature Speech Onset Detec [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string TranscriberAudioPrecisionSegmentRefinerUserPrompt {
+            get {
+                return ResourceManager.GetString("TranscriberAudioPrecisionSegmentRefinerUserPrompt", resourceCulture);
             }
         }
         
