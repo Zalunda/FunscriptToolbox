@@ -17,11 +17,6 @@
       "Enabled": true,
     },
     {
-      "Id": "full",
-      "Enabled": true,
-      "SourceId": "full-ai"
-    },
-    {
       "Id": "full-ai-refined",
       // [OPTION] Enable to get a second pass on the audio that should improve the timings (i.e. start and end) of the subtitles, and add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
       "Enabled": false

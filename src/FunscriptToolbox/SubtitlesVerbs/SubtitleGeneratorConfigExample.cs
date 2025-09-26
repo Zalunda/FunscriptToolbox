@@ -207,7 +207,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "TranslatedText",
 
                             BatchSize = 30,
-                            NbItemsMinimumReceivedToContinue = 10
+                            NbItemsMinimumReceivedToContinue = 10,
+                            FieldsToInclude = NodeFields.StartTime
                         }
                     },
                     new SubtitleOutputSimpleSrt()
@@ -282,11 +283,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             UserPrompt = transcriberAudioPrecisionSegmentRefinerUserPrompt,
                             MetadataNeeded = "OriginalVoiceText",
                             MetadataAlwaysProduced = "VoiceText",
-                            FieldsToInclude = NodeFields.StartTime,
                             BatchSize = 50,
                             BatchSplitWindows = 0,
                             NbContextItems = 0,
-                            NbItemsMinimumReceivedToContinue = 30
+                            NbItemsMinimumReceivedToContinue = 30,
+                            FieldsToInclude = NodeFields.StartTime
                         }
                     },
                     new TranscriberClone()
@@ -335,7 +336,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = transcriberOnScreenTextSystemPrompt,
                             MetadataNeeded = "GrabOnScreenText",
-                            MetadataAlwaysProduced = "OnScreenText"
+                            MetadataAlwaysProduced = "OnScreenText",
+                            FieldsToInclude = NodeFields.StartTime
                         }
                     },
                     new TranscriberImageAI()
@@ -359,7 +361,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BatchSize = 30,
                             NbContextItems = 5,
-                            NbItemsMinimumReceivedToContinue = 10
+                            NbItemsMinimumReceivedToContinue = 10,
+                            FieldsToInclude = NodeFields.StartTime
                         }
                     },
                     new SubtitleOutputComplexSrt()

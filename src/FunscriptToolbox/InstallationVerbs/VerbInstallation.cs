@@ -15,6 +15,8 @@ namespace FunscriptToolbox.MotionVectorsVerbs
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
+        private static readonly Encoding UTF8NoBOM = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
         [Verb("installation", aliases: new[] { "inst" }, HelpText = "Installation of the OFSPlugin, creation of multiples 'use-case' folder.")]
         public class Options : OptionsBase
         {
@@ -30,23 +32,23 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         public int Execute()
         {
             InstallOFSPlugin();
-            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat);
-            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat, UTF8NoBOM);
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGenerator", ".config", SubtitleGeneratorConfigExample.GetExample(), Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGenerator.private", ".config", SubtitleGeneratorPrivateConfig.GetExample(), Encoding.UTF8);
-            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGeneratorExample-2.1", ".config", SubtitleGeneratorConfigExample.GetExample(), Encoding.UTF8);
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGeneratorExample-2.0.3", ".config", SubtitleGeneratorConfigExample.GetExample(), Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\Staging", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_Staging_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\AutomaticHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override, Encoding.UTF8);
 
-            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat);
-            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat, UTF8NoBOM);
+            CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
 
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", ".bat", Resources.FSTB_PrepareVideoForOFS_bat);
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", ".bat", Resources.FSTB_PrepareVideoForOFS_bat, UTF8NoBOM);
+            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
 
-            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-VerifyDownloadedScripts", ".bat", Resources.FSTB_VerifyDownloadedScripts_bat);
-            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat);
+            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-VerifyDownloadedScripts", ".bat", Resources.FSTB_VerifyDownloadedScripts_bat, UTF8NoBOM);
+            CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
 
             return 0;
         }
@@ -64,10 +66,10 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                     WriteInfo($@"Adding extension '{extensionName} to OpenFunscripter folder '<appdata>\OFS\{ofsVersionName}'.");
                     var extensionFolder = Path.Combine(ofsVersionFullPath, "extensions", extensionName);
                     Directory.CreateDirectory(extensionFolder);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "json.lua"), Resources.json_lua);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "main.lua"), Resources.main_lua);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "server_connection.lua"), Resources.server_connection_lua);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "virtual_actions.lua"), Resources.virtual_actions_lua);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "json.lua"), Resources.json_lua, UTF8NoBOM);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "main.lua"), Resources.main_lua, UTF8NoBOM);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "server_connection.lua"), Resources.server_connection_lua, UTF8NoBOM);
+                    CreateFileWithReplace(Path.Combine(extensionFolder, "virtual_actions.lua"), Resources.virtual_actions_lua, UTF8NoBOM);
                 }
             }
             else
@@ -76,7 +78,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             }
         }
 
-        private void CreateUseCaseFolder(string folderName, string baseFileName, string extension, string fileContent, Encoding encoding = null)
+        private void CreateUseCaseFolder(string folderName, string baseFileName, string extension, string fileContent, Encoding encoding)
         {
             if (!Directory.Exists(folderName))
             {
@@ -99,7 +101,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             }
         }
 
-        private static void CreateFileWithReplace(string path, string content, Encoding encoding = null)
+        private static void CreateFileWithReplace(string path, string content, Encoding encoding)
         {
             var funscriptToolboxExe = Assembly.GetExecutingAssembly().Location;
             var funscriptToolboxFolder = Path.GetDirectoryName(funscriptToolboxExe) ?? ".";

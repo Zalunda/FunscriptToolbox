@@ -58,7 +58,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /y *.dll FunscriptToolbox-0.0.0\
+    <PostBuildEvent>rmdir /S /Q FunscriptToolbox-0.0.0
+xcopy /y *.dll FunscriptToolbox-0.0.0\
 del FunscriptToolbox-0.0.0\CreateZipRelease.dll
 xcopy /y *.exe FunscriptToolbox-0.0.0\
 xcopy /y *.bat FunscriptToolbox-0.0.0\

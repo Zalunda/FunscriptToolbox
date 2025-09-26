@@ -32,6 +32,7 @@ namespace FunscriptToolbox
             switch (test)
             {
                 case 0:
+                    Directory.CreateDirectory(@"InstallationTest");
                     Environment.CurrentDirectory = @"InstallationTest";
                     args = new[]
                     {
