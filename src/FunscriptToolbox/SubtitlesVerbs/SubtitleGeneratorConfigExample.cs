@@ -258,10 +258,41 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BatchSplitWindows = 5
                         }
                     },
+                    new TranscriberAudioSingleVADAI()
+                    {
+                        TranscriptionId = "singlevad-ai-refined",
+                        SourceAudioId = "audio",
+                        Engine = aiEngineGemini,
+                        ExpandStart = TimeSpan.FromSeconds(1.0),
+                        ExpandEnd = TimeSpan.FromSeconds(1.0),
+                        UpdateTimingsBeforeSaving = false,
+                        AddSpeechCadenceBeforeSaving = true,
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "singlevad-ai",
+                            Sources = "singlevad-ai",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "VoiceText", "OriginalVoiceText" }
+                            }
+                        },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = transcriberAudioPrecisionSegmentRefinerSystemPrompt,
+                            UserPrompt = transcriberAudioPrecisionSegmentRefinerUserPrompt,
+                            MetadataNeeded = "OriginalVoiceText",
+                            MetadataAlwaysProduced = "VoiceText",
+                            FieldsToInclude = NodeFields.StartTime,
+                            BatchSize = 50,
+                            BatchSplitWindows = 0,
+                            NbContextItems = 0,
+                            NbItemsMinimumReceivedToContinue = 30
+                        }
+                    },
                     new TranscriberClone()
                     {
                         TranscriptionId = "voice-texts",
-                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-ai or singlevad-ai
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-ai or singlevad-ai or singlevad-ai-refined
                     },
 
                     //---------------------------------------------------

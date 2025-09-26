@@ -17,8 +17,15 @@
       "Enabled": true,
     },
     {
+      "Id": "full-ai-refined",
+      // [OPTION] Enable to get a second pass on that should improve the timings (i.e. start and end) of the subtitles, and add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
+      // Note: It's less useful for this workflow since the start and end should be adjusted manually and another transcription will be done that override the cadence markers.
+      "Enabled": false
+    },
+    {
       "Id": "full",
       "Enabled": true,
+      // [OPTION] Change to "full-ai-refined" if you enabled it above
       "SourceId": "full-ai"
     },
     {
@@ -40,8 +47,15 @@
       "Enabled": true
     },
     {
+      "Id": "singlevad-ai-refined",
+      // [OPTION] Enable to get a second pass on that should add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
+      // Note: Enable only if you prefer creating 'full sentence' subtitles but want the cadence. Not useful if you already split those sentence in parts.
+      "Enabled": false
+    },
+    {
       "Id": "voice-texts",
       "Enabled": true,
+      // [OPTION] Change to "singlevad-ai-refined" if you enabled it above
       "SourceId": "singlevad-ai"
     },    
     // -----------------------------
