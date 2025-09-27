@@ -157,13 +157,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         private static IEnumerable<TranscribedWord> SplitEvenly(ITiming timing, string text)
         {
-            text = text.Length == 0 ? " " : text;
-            var timePerCharacter = TimeSpan.FromMilliseconds(timing.Duration.TotalMilliseconds / text.Length);
+            text = text.Length == 0 
+                ? " " 
+                : text;
+            var nbBlocks = Math.Min(text.Length, 15);
+            var nbCharactersPerBlock = text.Length / nbBlocks;
+            var timePerBlock = TimeSpan.FromMilliseconds(timing.Duration.TotalMilliseconds / nbBlocks);
             var currentStartTime = timing.StartTime;
-            foreach (var c in text)
+            var currentIndexInString = 0;
+            for (int i = 0; i < nbBlocks; i++, currentIndexInString += nbCharactersPerBlock)
             {
-                yield return new TranscribedWord(currentStartTime, currentStartTime + timePerCharacter, c.ToString());
-                currentStartTime += timePerCharacter;
+                yield return new TranscribedWord(currentStartTime, currentStartTime + timePerBlock, text.Substring(currentIndexInString, nbCharactersPerBlock));
+                currentStartTime += timePerBlock;
             }
         }
 

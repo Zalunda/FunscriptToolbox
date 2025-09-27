@@ -66,7 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     $"&sl={sourceLanguage}" +
                     $"&tl={translation.Language.ShortName}" +
                     $"&dt=t" +
-                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded))}";
+                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded) ?? string.Empty)}";
 
                 var response = client.GetAsync(apiUrl).Result;
                 if (!response.IsSuccessStatusCode)

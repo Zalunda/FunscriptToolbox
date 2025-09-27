@@ -32,10 +32,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 // Try to find and remove partial json object
                 var bracesCounter = 0;
-                var lastIndex = 0;
-                for (var index = 0; index < json.Length; index++)
+                var lastIndex = -1;
+                var index = 0;
+                while (index < json.Length)
                 {
-                    // Make string 'disappear' so that { or } inside the string don't messup bracesCounter
+                    // Skip string so that { or } inside the string don't messup bracesCounter
                     if (json[index] == '"')
                     {
                         index++;
@@ -54,7 +55,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                     else
                     {
-                        var c = json[index];
+                        var c = json[index++];
                         var diff = (c == '{')
                             ? 1
                             : (c == '}')
@@ -63,13 +64,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         bracesCounter += diff;
                         if (diff != 0 && bracesCounter == 0)
                         {
-                            lastIndex = index + 1;
+                            lastIndex = index;
                         }
                     }
                 }
 
-                json = json.Substring(0, lastIndex);
-                json += "]";
+                if (lastIndex >= 0)
+                {
+                    json = json.Substring(0, lastIndex);
+                    json += "]";
+                }
             }
             else
             {
@@ -216,10 +220,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     try
                     {
                         r_context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var nbAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response, requestsGenerator.CreateEmptyRequest());
+                        var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response, requestsGenerator.CreateEmptyRequest());
                         r_context.WriteInfo($"        Finished:");
-                        r_context.WriteInfo($"            Nb items added: {nbAdded.Count}");
-                        if (nbAdded.Count > 0)
+                        r_context.WriteInfo($"            Nb items added: {itemsAdded.Count}");
+                        if (itemsAdded.Count > 0)
                         {
                             r_context.WIP.Save();
                         }
