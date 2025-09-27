@@ -121,7 +121,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             var watch = Stopwatch.StartNew();
-            Test.SpeakerCorrection(
+            var isFinished = Test.SpeakerCorrection(
                 workItems,
                 time => { 
                     var (filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time); 
@@ -138,7 +138,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     watch.Elapsed,
                     nbItemsToDoBefore - itemsToDoAfter.Length));
 
-            if (requestGenerator.IsFinished())
+            if (isFinished || requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
             }
@@ -166,7 +166,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     // If finalSpeaker is already defined in referenced metadata, we recopy it and save it
                     var finalSpeaker = item.Metadata.Get(this.MetadataProduced);
-                    if (finalSpeaker != null)
+                    if (finalSpeaker != null && workItem.FinalSpeaker == null)
                     {
                         workItem.FinalSpeaker = finalSpeaker.Trim();
                         updateAndSave(workItem);

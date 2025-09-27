@@ -47,6 +47,8 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         private bool _isMediaReady = false;
         private bool _isPaused = false;
 
+        public bool IsFinishForced { get; private set; } = false;
+
         // --- Properties ---
         public ObservableCollection<SpeakerStatsViewModel> SpeakerStats { get; set; }
 
@@ -91,6 +93,11 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             RefreshSpeakerLists(new[] { Key.D1, Key.D2, Key.D3, Key.D4, Key.D5 });
             StatusText.Text = "Ready. Select a speaker and click 'Start Validation'.";
             UpdateUndoButtonState();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            this.Activate();
         }
 
         private void SpeakerCorrectionTool_Closing(object sender, CancelEventArgs e)
@@ -206,7 +213,6 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
         #endregion
 
-
         #region Undo Logic
 
         private void PushUndoState(SpeakerCorrectionWorkItem item)
@@ -301,7 +307,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
             // Reset the player's state before playing.
             VideoPlayer.Stop();
-            
+
             _isPaused = false;
             PauseButton.Content = "❚❚ Pause (Space)";
 
@@ -509,6 +515,33 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
             RefreshSpeakerLists();
             StatusText.Text = $"Merged {itemsToMerge.Count} speaker(s) into '{targetName}'.";
         }
+
+        private void SetAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is SpeakerStatsViewModel selectedSpeaker)
+            {
+                var result = MessageBox.Show(
+                    $"Are you sure you want to set ALL remaining unassigned segments to '{selectedSpeaker.DisplayName}'?",
+                    "Confirm Set All",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    var itemsToUpdate = WorkItems.Where(item => string.IsNullOrEmpty(item.FinalSpeaker)).ToList();
+                    foreach (var item in itemsToUpdate)
+                    {
+                        // Don't push to undo history for bulk operation
+                        item.FinalSpeaker = selectedSpeaker.DisplayName;
+                        r_saveCallBack(item);
+                    }
+
+                    RefreshSpeakerLists();
+                    StatusText.Text = $"Set {itemsToUpdate.Count} remaining segments to '{selectedSpeaker.DisplayName}'.";
+                    MessageBox.Show("All remaining segments have been assigned.", "Operation Complete");
+                }
+            }
+        }
         #endregion
 
         #region Validation Workflow
@@ -525,7 +558,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
                 if (_validationQueue.Count == 0)
                 {
-                    MessageBox.Show($"There are no unvalidated items for '{selectedSpeaker.DisplayName}'.", "Validation Complete");
+                    MessageBox.Show($"There are no unvalidated items for '{selectedSpeaker.DisplayName}' matching the criteria.", "Validation Complete");
                     return;
                 }
 
@@ -547,7 +580,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
             if (_validationQueue.Count == 0)
             {
-                MessageBox.Show("There are no unvalidated items remaining.", "Validation Complete");
+                MessageBox.Show("There are no unvalidated items remaining that match the criteria.", "Validation Complete");
                 return;
             }
 
@@ -557,6 +590,21 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
 
             MoveNext();
             StatusText.Text = "Validation started for all unvalidated items.";
+        }
+
+        private void FinishButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                "Are you sure you want to leave the remaining segments unassigned and set the task as finished?",
+                "Confirm",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                IsFinishForced = true;
+                this.Close();
+            }
         }
 
         private void MoveNext()
@@ -591,7 +639,7 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
                 return;
             }
 
-            TimeRangeText.Text = $"{CurrentItem.StartTime:hh\\:mm\\:ss\\.fff} -> {CurrentItem.EndTime:hh\\:mm\\:ss\\.fff}";
+            TimeRangeText.Text = $"{CurrentItem.StartTime:hh\\:mm\\:ss\\.fff} -> {CurrentItem.EndTime:hh\\:mm\\:ss\\.fff} (Duration: {CurrentItem.Duration.TotalSeconds:F2}s)";
             PotentialSpeakersText.Text = string.Join(", ", CurrentItem.PotentialSpeakers);
             AIDetectedText.Text = CurrentItem.DetectedSpeaker;
             SegmentIndexText.Text = $"{_currentItemIndex + 1} / {_validationQueue.Count}";
@@ -614,7 +662,6 @@ namespace FunscriptToolbox.UI.SpeakerCorrection
         private void ExtendButton_Click(object sender, RoutedEventArgs e)
         {
             _extendSegmentDuration += TimeSpan.FromSeconds(0.5);
-
         }
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)

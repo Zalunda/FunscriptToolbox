@@ -40,7 +40,7 @@ namespace FunscriptToolbox.UI
             return editor?.FinalFrameAnalyser;
         }
 
-        public static SpeakerCorrectionWorkItem[] SpeakerCorrection(
+        public static bool SpeakerCorrection(
             IEnumerable<SpeakerCorrectionWorkItem> workItems,
             Func<TimeSpan, (string fullpath, TimeSpan newPosition)> getPathAndPositionFunc,
             Action<SpeakerCorrectionWorkItem> saveCallBack,
@@ -69,7 +69,7 @@ namespace FunscriptToolbox.UI
             if (threadEx != null)
                 throw new Exception("Rethrown exception.", threadEx);
 
-            return tool?.WorkItems.ToArray();
+            return tool.IsFinishForced;
         }
     }
 }

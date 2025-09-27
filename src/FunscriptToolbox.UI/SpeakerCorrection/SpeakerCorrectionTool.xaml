@@ -4,7 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Speaker Identification Tool" Height="800" Width="1400">
+        Title="Speaker Identification Tool" Height="800" Width="1400"
+        WindowStartupLocation="CenterScreen" Loaded="Window_Loaded">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -41,16 +42,15 @@
                                 </ListBox.ItemContainerStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <!-- Use a Grid to align elements horizontally -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
 
-                                            <!-- Speaker Name and Counts -->
                                             <TextBlock Grid.Column="0" VerticalAlignment="Center">
                                                 <Run Text="{Binding DisplayName}" FontWeight="Bold"/>
                                                 <TextBlock Foreground="Gray" Margin="5,0,0,0">
@@ -63,18 +63,20 @@
                                                 </TextBlock>
                                             </TextBlock>
 
-                                            <!-- Key Display -->
                                             <Border Grid.Column="1" Background="#ECF0F1" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="3" Padding="6,3" Margin="0,0,8,0" MinWidth="25" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding AssignedKeyDisplay}" HorizontalAlignment="Center" FontWeight="Bold" Foreground="#34495E"/>
                                             </Border>
 
-                                            <!-- Assign Key Button -->
                                             <Button Grid.Column="2" Name="AssignKeyButton" Content="Assign Key" FontSize="10" Padding="5,2" Margin="0,0,5,0"
                                                     Click="AssignKeyButton_Click"
                                                     Tag="{Binding}"/>
-                                            
-                                            <Button Grid.Column="3" Name="ValidateSpeakerButton" Content="Validate" FontSize="10" Padding="5,2"
+
+                                            <Button Grid.Column="3" Name="ValidateSpeakerButton" Content="Validate" FontSize="10" Padding="5,2" Margin="0,0,5,0"
                                                     Click="ValidateSpeakerButton_Click"
+                                                    Tag="{Binding}"/>
+
+                                            <Button Grid.Column="4" Name="SetAllButton" Content="Set All" FontSize="10" Padding="5,2"
+                                                    Click="SetAllButton_Click"
                                                     Tag="{Binding}"/>
                                         </Grid>
                                     </DataTemplate>
@@ -108,11 +110,12 @@
                     </ScrollViewer>
                     <StackPanel Grid.Row="2" Margin="10" Orientation="Vertical">
                         <Button Name="StartAllValidationButton" Content="Start Validation (All)" Click="StartAllValidationButton_Click" Padding="10" Background="#E74C3C" Foreground="White" FontWeight="Bold" Margin="0,5"/>
+                        <Button Name="FinishButton" Content="Finish Without Setting Speakers" Click="FinishButton_Click" Padding="10" Background="#7F8C8D" Foreground="White" Margin="0,5"/>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Right Panel (No changes here) -->
+            <!-- Right Panel -->
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
@@ -139,14 +142,19 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
+
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Time:" FontWeight="Bold" Margin="0,2,10,2" VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="0" Grid.Column="1" Name="TimeRangeText" Margin="0,2" VerticalAlignment="Center"/>
+
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Potential Speakers:" FontWeight="Bold" Margin="0,2,10,2" VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="1" Grid.Column="1" Name="PotentialSpeakersText" TextWrapping="Wrap" Margin="0,2" VerticalAlignment="Center"/>
+
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="AI Detected:" FontWeight="Bold" Margin="0,2,10,2" VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="2" Grid.Column="1" Name="AIDetectedText" Margin="0,2" VerticalAlignment="Center"/>
+
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Segment Index:" FontWeight="Bold" Margin="0,2,10,2" VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" Name="SegmentIndexText" Margin="0,2" VerticalAlignment="Center"/>
+
                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Manual Override:" FontWeight="Bold" Margin="0,2,10,2" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="4" Grid.Column="1" Name="ManualSpeakerTextBox" Margin="0,2" VerticalAlignment="Center"/>
                         </Grid>
