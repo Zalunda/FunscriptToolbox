@@ -65,7 +65,7 @@
     {
       "Id": "visual-analysis",
       "Enabled": true
-      // [OPTION] =>  Set to false to save some time and API costs but will not produce lower quality subtitles.
+      // [OPTION] =>  Set to false to save some time and API costs but should produce lower quality subtitles.
     },
     
     // -----------------------------

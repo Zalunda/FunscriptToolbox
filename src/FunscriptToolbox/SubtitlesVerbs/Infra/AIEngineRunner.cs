@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System.Net.Http;
 using System.Diagnostics;
 using System.Linq;
+using System.Globalization;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -83,18 +84,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return json;
         }
 
-        public static TimeSpan LooseTimeSpanParse(string text)
+        public static TimeSpan FlexibleTimeSpanParse(string text)
         {
-            var splitsMillisecond = text.Split('.');
-            var hhmmss = splitsMillisecond[0].Split(':').Select(f => int.Parse(f)).ToArray();
-            var milliseconds = splitsMillisecond.Length > 1 ? int.Parse(splitsMillisecond[1]) : 0;
-
-            return hhmmss.Length switch
-            {
-                3 => new TimeSpan(0, hhmmss[0], hhmmss[1], hhmmss[2], milliseconds),
-                2 => new TimeSpan(0, 0, hhmmss[0], hhmmss[1], milliseconds),
-                _ => new TimeSpan(0, 0, 0, hhmmss[0], milliseconds),
+            // Defines the expected formats, from most specific to least specific.
+            string[] formats = {
+                    @"h\:m\:s\.fff",
+                    @"h\:m\:s",
+                    @"m\:s\.fff",
+                    @"m\:s",
+                    @"s\.fff",
+                    @"s"
             };
+
+            if (TimeSpan.TryParseExact(text, formats, CultureInfo.InvariantCulture, out TimeSpan result))
+            {
+                return result;
+            }
+
+            throw new FormatException($"The input string '{text}' was not in a correct format for a TimeSpan.");
         }
     }
 
@@ -266,11 +273,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     var seg = (JObject)segment;
 
                     // Extract and remove known fields
-                    var startTime = LooseTimeSpanParse((string)seg["StartTime"]);
+                    var startTime = FlexibleTimeSpanParse((string)seg["StartTime"]);
                     TimeSpan endTime;
                     if (seg.ContainsKey("EndTime"))
                     {
-                        endTime = LooseTimeSpanParse((string)seg["EndTime"]);
+                        endTime = FlexibleTimeSpanParse((string)seg["EndTime"]);
                     }
                     else
                     {

@@ -99,7 +99,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var chunkEndTime = nextStartTime + this.MaxChunkDuration;
                 var request = CreateRequestForFullAudio(
                     context,
-                    requestNumber,
+                    processStartTime,
+                    requestNumber++,
                     new Timing(
                         chunkStartTime,
                         chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime),
@@ -129,6 +130,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private AIRequest CreateRequestForFullAudio(
             SubtitleGeneratorContext context,
+            DateTime processStartTime,
             int requestNumber,
             ITiming timing,
             CachedBinaryGenerator binaryGenerator)
@@ -162,6 +164,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             });
 
             return new AIRequest(
+                processStartTime,
                 requestNumber,
                 this.SourceAudioId,
                 null,
@@ -182,8 +185,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 transcription.Items.Add(
                     new TranscribedItem(
-                        offset + AIEngineRunner.LooseTimeSpanParse((string)node.StartTime),
-                        offset + AIEngineRunner.LooseTimeSpanParse((string)node.EndTime), 
+                        offset + AIEngineRunner.FlexibleTimeSpanParse((string)node.StartTime),
+                        offset + AIEngineRunner.FlexibleTimeSpanParse((string)node.EndTime), 
                         MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
             }
         }

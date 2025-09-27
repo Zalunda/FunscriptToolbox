@@ -18,6 +18,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly string[] r_metadataForTrainingRules;
         private readonly AIOptions r_options;
 
+        private readonly DateTime r_processStartTime;
+
         public AIRequestGenerator(
             TimedItemWithMetadata[] referenceTimings,
             TimedItemWithMetadataCollection workingOnContainer,
@@ -37,6 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
 
             r_options = options;
+            r_processStartTime = DateTime.Now;
         }
 
         public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[]itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState(
@@ -361,6 +364,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             });
 
             return new AIRequest(
+                r_processStartTime,
                 requestNumber,
                 r_workingOnContainer.Id,
                 itemsInBatch.ToArray(),
@@ -372,6 +376,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         internal AIRequest CreateEmptyRequest()
         {
             return new AIRequest(
+                r_processStartTime,
                 1, 
                 r_workingOnContainer.Id,
                 null,

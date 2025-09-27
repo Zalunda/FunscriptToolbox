@@ -56,7 +56,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
             }
 
-            var processStartTime = DateTime.Now;
             var lastTimeSaved = DateTime.Now;
 
             dynamic requestBody = new ExpandoObject();
@@ -74,14 +73,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
             var verbosePrefix = request.GetVerbosePrefix();
-            context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, processStartTime);
-            context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, processStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, request.ProcessStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
             PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
 
             var response = UseStreaming
-                ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime)
-                : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix, processStartTime);
+                ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix)
+                : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix);
 
             return response;
         }
@@ -91,8 +90,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             AIRequest request,
             string requestBodyAsJson,
             SubtitleGeneratorContext context,
-            string verbosePrefix,
-            DateTime processStartTime)
+            string verbosePrefix)
         {
             var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}]";
             context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
@@ -109,7 +107,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string responseAsJson = response.Content.ReadAsStringAsync().Result;
 
             dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), processStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", JsonConvert.SerializeObject(responseBody, Formatting.Indented), request.ProcessStartTime);
 
             if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
             {
@@ -121,7 +119,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string assistantMessage = responseBody.choices[0]?.message?.content;
             string finish_reason = responseBody.choices[0]?.finish_reason;
             Console.WriteLine($"\n\nFinish_reason: {finish_reason}");
-            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessage, processStartTime);
+            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessage, request.ProcessStartTime);
             if (assistantMessage == null)
             {
                 throw new AIRequestException(request, $"Empty response receive. Finish_reason: {finish_reason}");
@@ -151,8 +149,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             AIRequest request,
             string requestBodyAsJson,
             SubtitleGeneratorContext context,
-            string verbosePrefix,
-            DateTime processStartTime)
+            string verbosePrefix)
         {
             Timer waitingTimer = null;
 
@@ -285,8 +282,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 Console.WriteLine();
 
                 string assistantMessage = fullContent.ToString();
-                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), processStartTime);
-                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, processStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, request.ProcessStartTime);
 
                 if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
                 {

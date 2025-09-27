@@ -6,6 +6,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIRequest
     {
+        public DateTime ProcessStartTime { get; }
         public int Number { get; }
         public string TaskId { get; }
         public TimedItemWithMetadata[] ItemsIncluded { get; }
@@ -16,6 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string FullPrompt { get; }
 
         public AIRequest(
+            DateTime processStartTime,
             int requestNumber,
             string taskId,
             TimedItemWithMetadata[] ItemsIncluded,
@@ -23,6 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string metadataAlwaysProduced,
             string updateMessage)
         {
+            this.ProcessStartTime = processStartTime;
             this.Number = requestNumber;
             this.TaskId = taskId;
             this.ItemsIncluded = ItemsIncluded;
