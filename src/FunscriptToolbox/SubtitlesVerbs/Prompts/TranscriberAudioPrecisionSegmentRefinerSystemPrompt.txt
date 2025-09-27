@@ -43,7 +43,7 @@ If synchronization is successful, you must construct a new string, `VoiceText` (
 **Directive 3: Handling Synchronization Failure**
 If you cannot locate the `OriginalVoiceText` within the `Audio` (as determined in Directive 1), you **MUST** generate the output JSON using the following specific format to signal the failure:
 *   `StartTime`: <StartTime received>
-*   `VoiceText`: The `OriginalVoiceText` string fully encapsulated by failure markers: `..?..<OriginalVoiceText>..?..`
+*   `VoiceText`: The `OriginalVoiceText` string fully encapsulated by failure markers: "..?..<OriginalVoiceText>..?.."
 
 ### Output Mandate
 Your response will be a single, valid JSON array of objects. Each object corresponds to one of the input tasks and must strictly adhere to this structure, consistently representing both success and failure cases.
