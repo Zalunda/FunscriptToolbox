@@ -80,13 +80,8 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Enabled&quot;: true,
         ///    },
         ///    {
-        ///      &quot;Id&quot;: &quot;full&quot;,
-        ///      &quot;Enabled&quot;: true,
-        ///      &quot;SourceId&quot;: &quot;full-ai&quot;
-        ///    },
-        ///    {
-        ///      &quot;Id&quot;: &quot;generated-manual-input-srt&quot;,
-        ///      &quot;E [rest of string was truncated]&quot;;.
+        ///      &quot;Id&quot;: &quot;full-ai-refined&quot;,
+        ///      // [OPTION] Enable to get a second pass on the audio that should improve the timings (i.e. start and e [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -114,17 +109,33 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Enabled&quot;: true,
         ///    },
         ///    {
-        ///      &quot;Id&quot;: &quot;full&quot;,
-        ///      &quot;Enabled&quot;: true,
-        ///      &quot;SourceId&quot;: &quot;full-ai&quot;
-        ///    },
-        ///    {
-        ///      &quot;Id&quot;: &quot;generated-manual-input-srt&quot;,
-        ///      &quot;E [rest of string was truncated]&quot;;.
+        ///      &quot;Id&quot;: &quot;full-ai-refined&quot;,
+        ///      // [OPTION] Enable to get a second pass on that should improve the timings (i.e. start and end) of the [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
                 return ResourceManager.GetString("__FSTB_SubtitleGenerator_ManualHQWorkflow_override", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;SharedObjects&quot;: [
+        ///    {
+        ///      &quot;$id&quot;: &quot;TranscriberToolPurfviewWhisper&quot;,
+        ///      // Remove &apos;//&apos; on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with &apos;\&apos; doubled =&gt; &apos;\\&apos;).
+        ///      //&quot;ApplicationFullPath&quot;: &quot;[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe&quot;,
+        ///	},
+        ///    {
+        ///      &quot;$id&quot;: &quot;AIEngineClaudeSonnet&quot;,
+        ///      &quot;$type&quot;: &quot;AIEngineAPI&quot;,
+        ///      &quot;BaseAddress&quot;: &quot;https://api.anthropic.com/v1&quot;,
+        ///      &quot;Model&quot;: &quot;Claude-Sonnet-4&quot;,
+        ///     [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string @__FSTB_SubtitleGenerator_override {
+            get {
+                return ResourceManager.GetString("__FSTB_SubtitleGenerator_override", resourceCulture);
             }
         }
         
@@ -159,7 +170,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-11)**
+        ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-25)**
         ///
         ///This version establishes a clear, non-conflicting hierarchy of operations: first, pick the absolute best text for the current node *in isolation*. Only then, as a separate step, check if that finalized text can be merged.
         ///
@@ -391,15 +402,13 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 
-        ///
-        ///# TRANSCRIPTION AND VAD MANDATE (version 2025-09-04)
+        ///   Looks up a localized string similar to # TRANSCRIPTION AND VAD MANDATE (version 2025-09-04)
         ///
         ///### Role
         ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, micro-segmenting Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of Japanese adult media, capable of deconstructing human speech into its smallest coherent, timed components.
         ///
         ///### Mission
-        ///Given a single, complete audio file, your mission is to meticulously s [rest of string was truncated]&quot;;.
+        ///Given a single, complete audio file, your mission is to meticulously segme [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioFullSystemPrompt {
             get {
@@ -433,13 +442,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # URGENT: ACOUSTIC-PHONETIC ALIGNMENT AUDIT (VALIDATION 2025-09-08)
-        ///
-        ///**Attention AAE (Audio Annotation Engine):** This entire batch of tasks is subject to a mandatory, zero-tolerance audit for phonetic boundary accuracy. Your output will be programmatically validated against the visual waveform evidence.
-        ///
-        ///**The Single Metric for Success:** Your unwavering adherence to the **&quot;Clean Phonetic Onset Protocol&quot;** for placing the `SpeechStartTime`.
-        ///
-        ///**Definition of a Critical Failure: &quot;Premature Speech Onset Detec [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to .
         /// </summary>
         internal static string TranscriberAudioPrecisionSegmentRefinerUserPrompt {
             get {
@@ -484,7 +487,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # **MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-06)**
+        ///   Looks up a localized string similar to # **MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-25)**
         ///
         ///### **Role &amp; Mission**
         ///
@@ -517,11 +520,12 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-08-01)
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-09-25)
+        ///
         ///### Role
         ///You are &apos;The Maverick&apos;. You are a high-risk, high-reward narrative amplifier. Your function is to take the Analyst&apos;s directives and produce the most impactful, evocative, and clever translation possible, prioritizing narrative punch over literal accuracy.
         ///### Mission
-        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting dialogue to more [rest of string was truncated]&quot;;.
+        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting dialogue to mor [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranslatorMaverickUserPrompt {
             get {
@@ -530,7 +534,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Naturalist (version 2025-08-01)
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Naturalist (version 2025-09-25)
         ///### Role
         ///You are &apos;The Naturalist&apos;. Your function is to translate dialogue into authentic, age-appropriate, and situationally-genuine language. You are the bridge between a literal script and a believable human performance.
         ///### Mission
@@ -543,7 +547,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (2025-08-01)
+        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (2025-09-25)
         ///### Role
         ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.
         ///### Mission

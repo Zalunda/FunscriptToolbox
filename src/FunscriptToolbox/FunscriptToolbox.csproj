@@ -306,6 +306,7 @@
   <ItemGroup>
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.AutomaticHQWorkflow.override.txt" />
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow.override.txt" />
+    <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.override.txt" />
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.Staging.override.txt" />
     <Content Include="PythonSource\funscripttoolbox-extract-vad.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

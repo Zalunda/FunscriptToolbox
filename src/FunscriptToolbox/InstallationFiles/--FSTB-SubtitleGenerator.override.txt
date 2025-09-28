@@ -1,0 +1,83 @@
+{
+  "SharedObjects": [
+    {
+      "$id": "TranscriberToolPurfviewWhisper",
+      // Remove '//' on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with '\' doubled => '\\').
+      //"ApplicationFullPath": "[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe",
+	},
+    {
+      "$id": "AIEngineClaudeSonnet",
+      "$type": "AIEngineAPI",
+      "BaseAddress": "https://api.anthropic.com/v1",
+      "Model": "Claude-Sonnet-4",
+      "APIKeyName": "APIKeyAnthropic",
+      "TimeOut": "00:15:00",
+      "RequestBodyExtension": {
+        // custom parameters for anthropic
+      },
+      "UseStreaming": true
+    },
+  ],
+  "Workers": [
+    {
+      "TranscriptionId": "full-ai",
+      "Engine": {
+        "$ref": "AIEngineGemini"
+      }
+    },
+	{
+      "TranscriptionId": "full-ai-refined",
+      "Engine": {
+        "$ref": "AIEngineGemini"
+      }
+    },
+    {
+      "TranslationId": "full_local-api",
+      "Engine": {
+        "$ref": "AIEngineLocalAPI"
+      }
+    },
+    {
+      "TranscriptionId": "singlevad-ai",
+      "Engine": {
+        "$ref": "AIEngineGemini"
+      }
+    },
+    {
+      "TranscriptionId": "singlevad-ai-refined",
+      "Engine": {
+        "$ref": "AIEngineGemini"
+      }
+    },
+    {
+      "Id": "on-screen-texts",
+      "Engine": {
+        "$ref": "AIEngineGemini"
+      }
+    },
+    {
+      "Id": "visual-analysis",
+      "Engine": {
+        "$ref": "AIEngineGPT5ViaPoe"
+      }
+    },
+    {
+      "Id": "translated-texts_maverick",
+      "Engine": {
+        "$ref": "AIEngineGPT5ViaPoe"
+      }
+    },
+    {
+      "Id": "translated-texts_naturalist",
+      "Engine": {
+        "$ref": "AIEngineGPT5ViaPoe"
+      },
+    },
+    {
+      "Id": "arbitrer-final-choice",
+      "Engine": {
+        "$ref": "AIEngineGPT5ViaPoe"
+      }
+    },
+  ]
+}
