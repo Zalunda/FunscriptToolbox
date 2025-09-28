@@ -4,7 +4,7 @@
       "$id": "TranscriberToolPurfviewWhisper",
       // Remove '//' on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with '\' doubled => '\\').
       //"ApplicationFullPath": "[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe",
-	},
+    },
     {
       "$id": "AIEngineClaudeSonnet",
       "$type": "AIEngineAPI",
