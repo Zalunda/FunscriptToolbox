@@ -141,7 +141,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     });
                 }
 
-                foreach (var item in itemsForTraining.Take(r_options.NbItemsMaximumForTraining))
+                foreach (var item in itemsForTraining)
                 {
                     contentList.Add(new
                     {

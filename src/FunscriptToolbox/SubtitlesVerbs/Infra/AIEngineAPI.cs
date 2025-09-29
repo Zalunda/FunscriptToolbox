@@ -92,7 +92,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             string verbosePrefix)
         {
-            var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}]";
+            var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
             context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
             var response = client.PostAsync(
                 new Uri(client.BaseAddress, "chat/completions"),
@@ -155,7 +155,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             try
             {
-                var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}]";
+                var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
                 {

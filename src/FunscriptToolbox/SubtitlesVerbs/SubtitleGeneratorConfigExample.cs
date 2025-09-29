@@ -255,7 +255,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             UserPrompt = transcriberAudioSingleVADUserPrompt,
                             MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "VoiceText",
-                            BatchSize = 150,
+                            BatchSize = 100,
                             BatchSplitWindows = 5
                         }
                     },
@@ -372,7 +372,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
+                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,manual-input",
                         },
                         WaitForFinished = true
                     },
@@ -394,7 +394,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-text,voice-texts,speakers,visual-analysis,manual-input"
+                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -404,7 +404,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
-                            BatchSize = 300,
+                            BatchSize = 150,
                             BatchSplitWindows = 10
                         }
                     },
@@ -416,7 +416,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-text,voice-texts,speakers,visual-analysis,manual-input"
+                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -426,7 +426,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
-                            BatchSize = 300,
+                            BatchSize = 150,
                             BatchSplitWindows = 10
                         }
                     },
@@ -437,7 +437,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "timings"
                         },
-                        CandidatesSources = "translated-texts_maverick,translated-texts_naturalist,voice-texts,on-screen-text,mergedvad,full",
+                        CandidatesSources = "translated-texts_maverick,translated-texts_naturalist,voice-texts,on-screen-texts,mergedvad,full",
                         MetadataProduced = "CandidatesText",
 
                         WaitForFinished = true,
@@ -451,7 +451,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "arbitrer-choices,voice-texts,on-screen-text,visual-analysis,speakers,manual-input"
+                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,arbitrer-choices,manual-input"
                         },
                         Options = new AIOptions()
                         {

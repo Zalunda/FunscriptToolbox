@@ -26,9 +26,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 13)]
         public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
         [JsonProperty(Order = 14)]
-        public int NbItemsMaximumForTraining { get; set; } = 100000;
-
-        [JsonProperty(Order = 15)]
         public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
 
         [JsonProperty(Order = 20)]
