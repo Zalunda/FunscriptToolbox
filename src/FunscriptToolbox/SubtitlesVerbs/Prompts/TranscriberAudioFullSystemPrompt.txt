@@ -53,13 +53,13 @@ Your response will be a single, valid JSON array. Each object represents a granu
     "VoiceText": "私なんて、"
   },
   {
-    "StartTime": "HH:MM:SS.ms",
-    "EndTime": "HH:MM:SS.ms",
+    "StartTime": "00:03:45.123",
+    "EndTime": "00:03:47.327",
     "VoiceText": "おっぱいちゅーって"
   },
   {
-    "StartTime": 'HH:MM:SS.ms',
-    "EndTime": "HH:MM:SS.ms",
+    "StartTime": "00:04:12.111",
+    "EndTime": "00:04:13.938",
     "VoiceText": "吸われちゃったもん。"
   }
 ]
