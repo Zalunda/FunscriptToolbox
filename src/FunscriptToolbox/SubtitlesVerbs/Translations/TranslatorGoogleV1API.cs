@@ -41,10 +41,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return true;
         }
 
-        protected override void DoWork(SubtitleGeneratorContext context)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Translation translation)
         {
             var transcription = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId && f.IsFinished);
-            var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == this.TranslationId);
 
             var missingTranscriptions = transcription.Items
                 .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))

@@ -39,6 +39,62 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             }
         }
 
+        protected override void DoWork(SubtitleGeneratorContext context)
+        {
+            var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == this.TranslationId);
+            var importedTranslation = TryImportMetadatasSrt(context, translation);
+
+            if (importedTranslation == null)
+            {
+                DoWorkInternal(context, translation);
+            }
+            else
+            {
+                translation = importedTranslation;
+            }
+        }
+
+        private Translation TryImportMetadatasSrt(
+            SubtitleGeneratorContext context,
+            Translation translation)
+        {
+            var virtualSubtitleFile = context.WIP.LoadVirtualSubtitleFile(
+                $".Worker.{this.TranslationId}.import.srt");
+            if (virtualSubtitleFile == null)
+            {
+                return null;
+            }
+            else
+            {
+                RenameOldTranslation(context, translation);
+
+                var importedTranslation = new Translation(
+                    this.TranslationId,
+                    this.GetMetadataProduced(),
+                    context.Config.SourceLanguage,
+                    true,
+                    ReadMetadataSubtitles(virtualSubtitleFile.Subtitles).
+                        Select(f => new TranslatedItem(f.StartTime, f.EndTime, f.Metadata)));
+                context.WIP.Translations.Add(importedTranslation);
+                context.WIP.Save();
+
+                return importedTranslation;
+            }
+        }
+
+        private static void RenameOldTranslation(SubtitleGeneratorContext context, Translation translation)
+        {
+            int i = 2;
+            string newId = $"{translation.Id}-OLD";
+            while (context.WIP.Translations.Any(t => t.Id == newId))
+            {
+                newId = $"{translation.Id}-OLD{i++}";
+            }
+            translation.ChangeId(newId);
+        }
+
+        protected abstract void DoWorkInternal(SubtitleGeneratorContext context, Translation translation);
+
         protected override void AfterWork(SubtitleGeneratorContext context, bool wasAlreadyFinished)
         {
             var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == GetId());

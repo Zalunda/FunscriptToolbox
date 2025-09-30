@@ -33,9 +33,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return true;
         }
 
-        protected override void DoWork(SubtitleGeneratorContext context)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Translation translation)
         {
-            var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == this.TranslationId);
             var requestGenerator = this.Metadatas
                 .Aggregate(context, translation)
                 .CreateRequestGenerator(translation, this.Options, translationLanguage: this.TargetLanguage);

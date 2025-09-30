@@ -52,9 +52,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return base.NeedsToRun(context, out reason);
         }
 
-        protected override void DoWork(SubtitleGeneratorContext context)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var sourceTranscription = context.WIP.Transcriptions.First(t => t.Id == this.SourceId);
             _metadataProduced = sourceTranscription.MetadataAlwaysProduced;
 

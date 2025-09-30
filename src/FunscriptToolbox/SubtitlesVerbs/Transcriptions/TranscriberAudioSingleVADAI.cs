@@ -48,9 +48,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private static Regex r_leadingTrailingRegex = new Regex(@"^(\.\.(?<Leading>\d+|\?)\.\.)?(?<VoiceText>.*?)(\.\.(?<Trailing>\d+|\?)\.\.)?$", RegexOptions.Compiled);
 
-        protected override void DoWork(SubtitleGeneratorContext context)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var processStartTime = DateTime.Now;
 
             var requestGenerator = this.Metadatas

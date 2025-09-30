@@ -36,7 +36,61 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        // DoWork
+        protected override void DoWork(SubtitleGeneratorContext context)
+        {
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+            var importedTranscription = TryImportMetadatasSrt(context, transcription);
+
+            if (importedTranscription == null)
+            {
+                DoWorkInternal(context, transcription);
+            }
+            else
+            {
+                transcription = importedTranscription;
+            }
+        }
+
+        protected abstract void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription);
+
+        private Transcription TryImportMetadatasSrt(
+            SubtitleGeneratorContext context,
+            Transcription transcription)
+        {
+            var virtualSubtitleFile = context.WIP.LoadVirtualSubtitleFile(
+                $".Worker.{this.TranscriptionId}.import.srt");
+            if (virtualSubtitleFile == null)
+            {
+                return null;
+            }
+            else
+            {
+                RenameOldTranscription(context, transcription);
+
+                var importedTranscription = new Transcription(
+                    this.TranscriptionId,
+                    this.GetMetadataProduced(),
+                    context.Config.SourceLanguage,
+                    true,
+                    ReadMetadataSubtitles(virtualSubtitleFile.Subtitles).
+                        Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
+                context.WIP.Transcriptions.Add(importedTranscription);
+                context.WIP.Save();
+
+                return importedTranscription;
+            }
+        }
+
+        private static void RenameOldTranscription(SubtitleGeneratorContext context, Transcription transcription)
+        {
+            int i = 2;
+            string newId = $"{transcription.Id}-OLD";
+            while (context.WIP.Transcriptions.Any(t => t.Id == newId))
+            {
+                newId = $"{transcription.Id}-OLD{i++}";
+            }
+            transcription.ChangeId(newId);
+        }
 
         protected override void AfterWork(SubtitleGeneratorContext context, bool wasAlreadyFinished)
         {

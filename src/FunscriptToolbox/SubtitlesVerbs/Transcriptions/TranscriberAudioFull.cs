@@ -25,9 +25,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWork(SubtitleGeneratorContext context)
-        {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        { 
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                      context,
                      transcription,

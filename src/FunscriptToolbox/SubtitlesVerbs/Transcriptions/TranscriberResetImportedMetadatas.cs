@@ -39,9 +39,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWork(SubtitleGeneratorContext context)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == this.TranscriptionId);
             var transcriptionToBeUpdated = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == this.TranscriptionIdToBeUpdated && f.IsFinished);
             transcriptionToBeUpdated.MarkAsNotFinished();
 
