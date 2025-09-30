@@ -15,11 +15,13 @@
     {
       "Id": "full-ai",
       "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "full-ai-refined",
       // [OPTION] Enable to get a second pass on the audio that should improve the timings (i.e. start and end) of the subtitles, and add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
-      "Enabled": false
+      "Enabled": false,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "full",
@@ -84,12 +86,14 @@
     // Use timings, manual-input, voice-texts and AI generated metadatas to AI Translation & Arbitration
     {
       "Id": "translated-texts_maverick",
-      "Enabled": true
+      "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "translated-texts_naturalist",
-      "Enabled": true
+      "Enabled": true,
       // [OPTION] Set to false if you want to save some API costs and trust that maverick will always be acceptable (most of the time, it is).
+      "ExportMetadataSrt": false
     },
     {
       "Id": "arbitrer-choices",

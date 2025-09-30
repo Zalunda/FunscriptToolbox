@@ -125,13 +125,13 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;$id&quot;: &quot;TranscriberToolPurfviewWhisper&quot;,
         ///      // Remove &apos;//&apos; on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with &apos;\&apos; doubled =&gt; &apos;\\&apos;).
         ///      //&quot;ApplicationFullPath&quot;: &quot;[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe&quot;,
-        ///	},
+        ///    },
         ///    {
         ///      &quot;$id&quot;: &quot;AIEngineClaudeSonnet&quot;,
         ///      &quot;$type&quot;: &quot;AIEngineAPI&quot;,
         ///      &quot;BaseAddress&quot;: &quot;https://api.anthropic.com/v1&quot;,
         ///      &quot;Model&quot;: &quot;Claude-Sonnet-4&quot;,
-        ///     [rest of string was truncated]&quot;;.
+        ///  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_override {
             get {
@@ -339,7 +339,8 @@ namespace FunscriptToolbox.Properties {
         ///-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
         ///-- of the Software, and to permit persons to whom the Software is furnished to do
         ///-- so, subject to the following conditions:
-        ///--        /// [rest of string was truncated]&quot;;.
+        ///--
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string json_lua {
             get {
@@ -470,6 +471,21 @@ namespace FunscriptToolbox.Properties {
         internal static string TranscriberAudioSingleVADUserPrompt {
             get {
                 return ResourceManager.GetString("TranscriberAudioSingleVADUserPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # AUDIO-TEXT ALIGNMENT AND ANNOTATION MANDATE (version 2025-09-07)
+        ///
+        ///### Role
+        ///You are a Precision Audio-Text Alignment and Annotation Engine. Your function is to process a batch of audio clips and a corresponding text string, precisely locate the audio of the text within the clip, and generate a new string that annotates the leading, trailing, and internal pauses.
+        ///
+        ///### Mission
+        ///Given an array of `AudioClip` and an associated `OriginalVoiceText`, your mission is to produce a single JSON arrqay of result object [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt {
+            get {
+                return ResourceManager.GetString("TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt", resourceCulture);
             }
         }
         

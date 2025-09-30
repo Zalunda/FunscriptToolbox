@@ -15,12 +15,14 @@
     {
       "Id": "full-ai",
       "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "full-ai-refined",
       // [OPTION] Enable to get a second pass on that should improve the timings (i.e. start and end) of the subtitles, and add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
       // Note: It's less useful for this workflow since the start and end should be adjusted manually and another transcription will be done that override the cadence markers.
-      "Enabled": false
+      "Enabled": false,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "full",
@@ -44,19 +46,21 @@
     },
     {
       "Id": "singlevad-ai",
-      "Enabled": true
+      "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "singlevad-ai-refined",
-      // [OPTION] Enable to get a second pass on that should add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
-      // Note: Enable only if you prefer creating 'full sentence' subtitles but want the cadence. Not useful if you already split those sentence in parts.
-      "Enabled": false
+      // Note: this is not the same refininement as full. In this case, the AI will validate that the transcription by looking at the initial transcription and the full-ai transcription.
+      // [OPTION] Disable if you want to reduce the API cost.
+      "Enabled": enable,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "voice-texts",
       "Enabled": true,
-      // [OPTION] Change to "singlevad-ai-refined" if you enabled it above
-      "SourceId": "singlevad-ai"
+      // [OPTION] Change to "singlevad-ai" if you disabled 'refined' above
+      "SourceId": "singlevad-ai-refined"
     },    
     // -----------------------------
     // Use timings, manual-input and voice-texts to mergedvad, speaker, on-screen-texts, visual-analysis
@@ -95,12 +99,14 @@
     // Use timings, manual-input, voice-texts and AI generated metadatas to AI Translation & Arbitration
     {
       "Id": "translated-texts_maverick",
-      "Enabled": true
+      "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "Id": "translated-texts_naturalist",
-      "Enabled": true
+      "Enabled": true,
       // [OPTION] Set to false if you want to save some API costs and trust that maverick will always be acceptable (most of the time, it is).
+      "ExportMetadataSrt": false
     },
     {
       "Id": "arbitrer-choices",

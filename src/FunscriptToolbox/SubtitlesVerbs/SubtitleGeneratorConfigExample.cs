@@ -97,6 +97,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var transcriberAudioPrecisionSegmentRefinerSystemPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerSystemPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerSystemPrompt);
             var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects("transcriberAudioPrecisionSegmentRefinerUserPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerUserPrompt);
 
+            var transcriberAudioTranscriptionArbitrationRefinementSystemPrompt = AddPromptToSharedObjects("TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt", Resources.TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt);
+
             var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects("TranscriberOnScreenTextSystemPrompt", Resources.TranscriberOnScreenTextSystemPrompt);
 
             var transcriberVisualAnalystSystemPrompt = AddPromptToSharedObjects("TranscriberVisualAnalystSystemPrompt", Resources.TranscriberVisualAnalystSystemPrompt);
@@ -264,30 +266,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "singlevad-ai-refined",
                         SourceAudioId = "audio",
                         Engine = aiEngineGemini,
-                        ExpandStart = TimeSpan.FromSeconds(1.0),
-                        ExpandEnd = TimeSpan.FromSeconds(1.0),
-                        UpdateTimingsBeforeSaving = false,
-                        AddSpeechCadenceBeforeSaving = true,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "singlevad-ai",
-                            Sources = "singlevad-ai",
+                            Sources = "singlevad-ai,full-ai,speakers,manual-input",
                             MergeRules = new Dictionary<string, string>
                             {
-                                { "VoiceText", "OriginalVoiceText" }
+                                { "singlevad-ai,VoiceText", "singlevad-VoiceText" },
+                                { "full-ai,VoiceText", "full-VoiceText" }
                             }
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = transcriberAudioPrecisionSegmentRefinerSystemPrompt,
-                            UserPrompt = transcriberAudioPrecisionSegmentRefinerUserPrompt,
-                            MetadataNeeded = "OriginalVoiceText",
+                            SystemPrompt = transcriberAudioTranscriptionArbitrationRefinementSystemPrompt,
+                            MetadataNeeded = "singlevad-VoiceText",
                             MetadataAlwaysProduced = "VoiceText",
                             BatchSize = 50,
                             BatchSplitWindows = 0,
                             NbContextItems = 0,
                             NbItemsMinimumReceivedToContinue = 30,
-                            FieldsToInclude = NodeFields.StartTime
+                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
                     new TranscriberClone()

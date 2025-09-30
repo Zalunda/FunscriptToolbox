@@ -314,6 +314,7 @@
     <Content Include="SubtitlesVerbs\Prompts\Example.wipconfig.txt" />
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADSystemPrompt.txt" />
