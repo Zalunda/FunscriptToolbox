@@ -41,9 +41,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
 
-        protected override void DoWork(SubtitleGeneratorContext context)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var processStartTime = DateTime.Now;
 
             var aggregation = this.Metadatas.Aggregate(context);
@@ -61,17 +60,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var nbUpdate = 1;
             void UpdateAndSave(SpeakerCorrectionWorkItem workItem)
             {
-                if (workItem.FinalSpeaker != null)
+                if (workItem.FinalSpeaker == null)
+                    throw new Exception("BUG");
+
+                var oldTranscribedItem = transcription.Items.FirstOrDefault(f => f.StartTime == workItem.StartTime);
+                if (oldTranscribedItem != null)
+                {
+                    oldTranscribedItem.Metadata[this.MetadataProduced] = workItem.FinalSpeaker;
+                }
+                else
                 {
                     transcription.Items.Add(
                         new TranscribedItem(
                             workItem.StartTime,
                             workItem.EndTime,
                             MetadataCollection.CreateSimple(this.MetadataProduced, workItem.FinalSpeaker)));
-                }
-                if (nbUpdate++ % 10 == 0)
-                {
-                    context.WIP.Save();
+                    if (nbUpdate++ % 10 == 0)
+                    {
+                        context.WIP.Save();
+                    }
                 }
             }
             void Undo(SpeakerCorrectionWorkItem workItem)
@@ -90,7 +97,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var nbItemsToDoBefore = itemsToDo.Length;
             var workItems = CreateWorkItem(allItems, itemsToDo.Union(itemsAlreadyDone).ToArray(), UpdateAndSave).ToArray();
 
-            if (itemsToDo.Length > 0 && this.WarnIfNoPotentialSpeakersProvided && !workItems.Any(f => f.PotentialSpeakers.Count > 0))
+            if (workItems.Length > 0 && this.WarnIfNoPotentialSpeakersProvided && !workItems.Any(f => f.PotentialSpeakers.Count > 0))
             {
                 // No potential speakers instruction was given, warn the user and quit
                 context.WriteError($"No '{this.MetadataPotentialSpeakers}' provided in referenced metadatas.");
@@ -166,7 +173,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     // If finalSpeaker is already defined in referenced metadata, we recopy it and save it
                     var finalSpeaker = item.Metadata.Get(this.MetadataProduced);
-                    if (finalSpeaker != null && workItem.FinalSpeaker == null)
+                    if (finalSpeaker != null)
                     {
                         workItem.FinalSpeaker = finalSpeaker.Trim();
                         updateAndSave(workItem);
