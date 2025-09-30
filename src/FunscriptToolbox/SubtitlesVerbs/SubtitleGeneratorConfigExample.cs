@@ -208,8 +208,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
 
-                            BatchSize = 30,
+                            BatchSize = 20,
                             NbItemsMinimumReceivedToContinue = 10,
+                            NbContextItems = 10,
                             FieldsToInclude = NodeFields.StartTime
                         }
                     },

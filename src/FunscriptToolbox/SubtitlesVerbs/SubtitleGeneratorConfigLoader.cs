@@ -433,7 +433,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return Regex.Replace(
                 originalJson,
                 @"=_{3,}(?<text>.*?)_{3,}=",
-                match => "\n" + STARTLONGSTRING + "\n\n" + match.Groups["text"].Value.Trim().Replace(@"\n", "\n").Replace(@"\r", "\r") + "\n\n" + ENDLONGSTRING);
+                match => {
+                    // Extract the captured text. This is the content of the JSON string.
+                    string capturedText = match.Groups["text"].Value;
+
+                    // To properly deserialize the string content, we must wrap it in quotes
+                    // to make it a valid JSON string literal.
+                    string jsonStringLiteral = "\"" + capturedText + "\"";
+
+                    // Use Newtonsoft.Json to deserialize the string.
+                    // This correctly handles all JSON escape sequences like \", \n, \r, \\, \t, etc.
+                    string decodedText = JsonConvert.DeserializeObject<string>(jsonStringLiteral);
+
+                    // Construct the final replacement string.
+                    return "\n" + STARTLONGSTRING + "\n\n" + decodedText.Trim() + "\n\n" + ENDLONGSTRING;
+                });
         }
 
         private static string ReplaceLongStringFromHybridToJson(string originalText)
