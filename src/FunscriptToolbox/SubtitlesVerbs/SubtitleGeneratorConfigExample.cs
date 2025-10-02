@@ -347,7 +347,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-texts,voice-texts,speakers,manual-input"
+                            Sources = "on-screen-texts,voice-texts,speakers,manual-input",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "Justification", null }
+                            }
                         },
                         Options = new AIOptions()
                         {
@@ -393,7 +397,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
+                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "Justification", null }
+                            }
                         },
                         Options = new AIOptions()
                         {
@@ -415,7 +423,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
+                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "Justification", null }
+                            }
                         },
                         Options = new AIOptions()
                         {
@@ -450,7 +462,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,arbitrer-choices,manual-input"
+                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,arbitrer-choices,manual-input",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "Justification", null }
+                            }
                         },
                         Options = new AIOptions()
                         {
