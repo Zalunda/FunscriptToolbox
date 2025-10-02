@@ -270,7 +270,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "singlevad-ai",
-                            Sources = "singlevad-ai,full-ai,speakers,manual-input",
+                            Sources = "singlevad-ai,full-ai,manual-input",
                             MergeRules = new Dictionary<string, string>
                             {
                                 { "singlevad-ai,VoiceText", "singlevad-VoiceText" },
@@ -355,7 +355,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             UserPrompt = transcriberVisualAnalystUserPrompt,
                             TextAfterAnalysis = " --reasoning_effort medium",
                             MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "ParticipantsPoses",
+                            MetadataAlwaysProduced = "TranslationAnalysis",
                             MetadataForTraining = "VisualTraining",
 
                             BatchSize = 30,
