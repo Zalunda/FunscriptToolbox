@@ -192,6 +192,7 @@
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractor.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIResponse.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIException.cs" />
     <Compile Include="SubtitlesVerbs\Infra\Cost.cs" />
     <Compile Include="SubtitlesVerbs\Infra\MetadataAggregation.cs" />
     <Compile Include="SubtitlesVerbs\Infra\MetadataAggregator.cs" />

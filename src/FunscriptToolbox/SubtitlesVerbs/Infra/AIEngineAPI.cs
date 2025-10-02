@@ -39,50 +39,75 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 21)]
         public bool PauseBeforeSavingResponse { get; set; } = false;
 
-
         public override AIResponse Execute(
             SubtitleGeneratorContext context,
             AIRequest request)
         {
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
-            client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
-            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
-            client.BaseAddress = new Uri(this.BaseAddress.EndsWith("/") ? this.BaseAddress : this.BaseAddress + "/");
-            client.Timeout = this.TimeOut;
-
-            if (this.APIKeyName != null)
+            try
             {
-                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json; charset=UTF-8");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+                client.BaseAddress = new Uri(this.BaseAddress.EndsWith("/") ? this.BaseAddress : this.BaseAddress + "/");
+                client.Timeout = this.TimeOut;
+
+                if (this.APIKeyName != null)
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
+                }
+
+                var lastTimeSaved = DateTime.Now;
+
+                dynamic requestBody = new ExpandoObject();
+                if (this.Model != null)
+                {
+                    requestBody.model = this.Model;
+                }
+                if (UseStreaming)
+                {
+                    requestBody.stream = true;
+                }
+                requestBody = Merge(requestBody, RequestBodyExtension);
+                requestBody.messages = request.Messages;
+
+                var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
+
+                var verbosePrefix = request.GetVerbosePrefix();
+                context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
+
+                PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
+
+                var response = UseStreaming
+                    ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix)
+                    : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix);
+
+                return response;
+
             }
-
-            var lastTimeSaved = DateTime.Now;
-
-            dynamic requestBody = new ExpandoObject();
-            if (this.Model != null)
+            catch (AggregateException ex)
             {
-                requestBody.model = this.Model;
+                var sb = new StringBuilder();
+                sb.AppendLine($"Error while communicating with the API (aggregate): {ex.Message}");
+                foreach (var innerException in ex.InnerExceptions)
+                {
+                    sb.AppendLine($"    InnerException: {innerException.Message}");
+                }
+                context.WriteLog(ex.ToString());
+                throw new AIEngineAPIException(sb.ToString(), ex);
             }
-            if (UseStreaming)
+            catch (HttpRequestException ex)
             {
-                requestBody.stream = true;
+                var sb = new StringBuilder();
+                sb.AppendLine($"Error while communicating with the API (http): {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    sb.AppendLine($"    InnerException: {ex.InnerException.Message}");
+                }
+                context.WriteLog(ex.ToString());
+                throw new AIEngineAPIException(sb.ToString(), ex);
             }
-            requestBody = Merge(requestBody, RequestBodyExtension);
-            requestBody.messages = request.Messages;
-
-            var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
-
-            var verbosePrefix = request.GetVerbosePrefix();
-            context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, request.ProcessStartTime);
-            context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
-
-            PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
-
-            var response = UseStreaming
-                ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix)
-                : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix);
-
-            return response;
         }
 
         private AIResponse ProcessNormalResponse(

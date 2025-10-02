@@ -190,12 +190,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     r_context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(filepath)}':\n{ex.Message}");
                     throw;
                 }
-                catch (Exception ex) when (ex is AggregateException || ex is HttpRequestException)
-                {
-                    r_context.WriteError($"Error while communicating with the API: {ex.Message}");
-                    r_context.WriteLog(ex.ToString());
-                    throw new AIRequestException(ex, null, $"Error while communicating with the 'client.BaseAddress' API: {ex.Message}");
-                }
             }
         }
 
