@@ -53,7 +53,7 @@
       "Id": "singlevad-ai-refined",
       // Note: this is not the same refininement as full. In this case, the AI will validate that the transcription by looking at the initial transcription and the full-ai transcription.
       // [OPTION] Disable if you want to reduce the API cost.
-      "Enabled": enable,
+      "Enabled": true,
       "ExportMetadataSrt": false
     },
     {

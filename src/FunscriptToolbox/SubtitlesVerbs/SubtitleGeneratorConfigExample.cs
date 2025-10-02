@@ -95,7 +95,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var transcriberAudioSingleVADUserPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADUserPrompt", Resources.TranscriberAudioSingleVADUserPrompt);
 
             var transcriberAudioPrecisionSegmentRefinerSystemPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerSystemPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerSystemPrompt);
-            var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects("transcriberAudioPrecisionSegmentRefinerUserPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerUserPrompt);
+            var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerUserPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerUserPrompt);
 
             var transcriberAudioTranscriptionArbitrationRefinementSystemPrompt = AddPromptToSharedObjects("TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt", Resources.TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt);
 

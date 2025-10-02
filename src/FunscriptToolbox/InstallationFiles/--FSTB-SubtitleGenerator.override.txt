@@ -17,6 +17,66 @@
       },
       "UseStreaming": true
     },
+    {
+      "$id": "TranscriberAudioFullSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioFullSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioFullUserPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioSingleVADSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioSingleVADUserPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioPrecisionSegmentRefinerSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioPrecisionSegmentRefinerUserPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberOnScreenTextSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberVisualAnalystSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranscriberVisualAnalystUserPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "ArbitrerSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranslatorSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranslatorNaturalistUserPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "TranslatorMaverickUserPrompt",
+      "TextAfter": ""
+    }
   ],
   "Workers": [
     {

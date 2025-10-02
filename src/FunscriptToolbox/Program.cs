@@ -112,6 +112,8 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
+                    File.WriteAllText("--FSTB-SubtitleGeneratorExample-2.0.4-MINE.config", SubtitleGeneratorConfigExample.GetExample().Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"), Encoding.UTF8);
+                    //Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";
                     args = new[]
                     {
                         "subtitles.create",
@@ -119,8 +121,8 @@ namespace FunscriptToolbox
                         "--recursive",
                         "--skipupdate",
                         "--config", ".\\--FSTB-SubtitleGenerator.config",
-                        "*.vseq", 
-                        "*.mp4"
+                        "*SIVR-198*.vseq", 
+                        //"*3DSVR-0605-SLR*.mp4"
                     };
                     break;
 
