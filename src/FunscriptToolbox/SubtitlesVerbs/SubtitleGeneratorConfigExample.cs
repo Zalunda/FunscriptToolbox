@@ -413,6 +413,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
+                            MetadataInContextLimits = new Dictionary<string, int>
+                            {
+                                { "ParticipantsPoses", 10 },
+                                { "TranslationAnalysis", 10 },
+                                { "VoiceText", 10 }
+                            },
                             BatchSize = 150,
                             BatchSplitWindows = 10
                         }
@@ -439,6 +445,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
+                            MetadataInContextLimits = new Dictionary<string, int>
+                            {
+                                { "ParticipantsPoses", 10 },
+                                { "TranslationAnalysis", 10 },
+                                { "VoiceText", 10 }
+                            },
                             BatchSize = 150,
                             BatchSplitWindows = 10
                         }
@@ -478,12 +490,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
                             NbContextItems = 100,
+                            MetadataInContextLimits = new Dictionary<string, int>
+                            {
+                                { "ParticipantsPoses", 10 },
+                                { "TranslationAnalysis", 10 },
+                                { "VoiceText", 10 }
+                            },
                             BatchSize = 150,
                             BatchSplitWindows = 5
                         },
                         AutoMergeOn = "[!MERGED]",
-                        AutoDeleteOn = "[!UNNEEDED]",
-                        ExportMetadataSrt = true
+                        AutoDeleteOn = "[!UNNEEDED]"
                     },
                     new SubtitleOutputSimpleSrt()
                     {

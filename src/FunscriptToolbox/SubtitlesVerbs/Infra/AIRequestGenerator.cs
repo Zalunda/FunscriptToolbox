@@ -197,7 +197,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
-                IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null)
+                IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null, int? contextNumber = null)
                 {
                     var nodeContents = new List<dynamic>();
                     var sb = new StringBuilder();
@@ -214,7 +214,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
                     foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
                     {
-                        sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
+                        var limit = 100000;
+                        if (r_options.MetadataInContextLimits?.TryGetValue(metadata.Key, out var newLimit) == true)
+                        {
+                            limit = newLimit;
+                        }
+                        if (contextNumber == null || contextNumber <= limit)
+                        {
+                            sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
+                        }
                     }
                     if (binaryGenerator != null)
                     {
@@ -284,15 +292,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 text = $"{r_options.TextBeforeContextData}\n[\n"
                             });
 
-                            var firstContent = contentBefore.Dequeue();
-                            contentList.AddRange(
-                                CreateNodeContents(
-                                    firstContent,
-                                    overrides: AddOngoingMetadata(firstContent.Metadata, metadataOngoing)));
-                            metadataOngoing = null;
-
-                            contentList.AddRange(
-                                contentBefore.SelectMany(c => CreateNodeContents(c)));
+                            for (var index = 0; index < contentBefore.Count; index++)
+                            {
+                                var current = contentBefore.ElementAt(index);
+                                var contextNumber = contentBefore.Count - index;
+                                var overrides = (index == 0) ? AddOngoingMetadata(current.Metadata, metadataOngoing) : null;
+                                metadataOngoing = null;
+                                contentList.AddRange(
+                                    CreateNodeContents(
+                                        current, 
+                                        overrides: overrides,
+                                        contextNumber: contextNumber));
+                            }
                             contentList.Add(new
                             {
                                 type = "text",

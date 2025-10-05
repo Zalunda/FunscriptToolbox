@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -27,6 +28,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
         [JsonProperty(Order = 14)]
         public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        public Dictionary<string, int> MetadataInContextLimits { get; set; }
 
         [JsonProperty(Order = 20)]
         public string TextBeforeTrainingData { get; set; } = "Character Identification Reference:";
