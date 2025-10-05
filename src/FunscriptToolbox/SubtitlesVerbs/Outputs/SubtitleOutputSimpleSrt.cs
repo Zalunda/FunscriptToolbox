@@ -20,9 +20,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 11)]
         public string MetadataToUse { get; set; }
         [JsonProperty(Order = 12)]
-        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.FromSeconds(1.5);
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.Zero;
         [JsonProperty(Order = 13)]
-        public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.FromSeconds(0.5);
+        public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.Zero;
 
         [JsonProperty(Order = 14)]
         public string AddToFirstSubtitle = string.Empty;

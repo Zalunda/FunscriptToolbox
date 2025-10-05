@@ -490,6 +490,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         OutputId = "arbitrer-final-choice-srt",
                         WorkerId = "arbitrer-final-choice",
                         FileSuffix = ".arbitrer-final-choice.srt",
+                        MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
+                        ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
                         SubtitlesToInject = CreateSubtitlesToInject(),
                     },
                     new SubtitleOutputCostReport()
