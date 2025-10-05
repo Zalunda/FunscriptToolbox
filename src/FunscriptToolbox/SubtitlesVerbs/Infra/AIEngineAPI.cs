@@ -5,6 +5,7 @@ using System.Dynamic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -150,7 +151,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new AIRequestException(request, $"Empty response receive. Finish_reason: {finish_reason}");
             }
 
-            Console.WriteLine("\n" + assistantMessage + "\n\n");
+            Console.WriteLine("\n" + AddRealTime(context, assistantMessage) + "\n\n");
 
             PauseIfEnabled(this.PauseBeforeSavingResponse);
 
@@ -211,6 +212,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 int? totalTokens = null;
                 string finish_reason = null;
                 bool doneReceived = false;
+                var currentLineBuffer = new StringBuilder();
 
                 try
                 {
@@ -268,7 +270,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             }
 
                                             // Write to console as chunks arrive
-                                            Console.Write(contentChunk);
+                                            currentLineBuffer.Append(contentChunk);
+                                            if (contentChunk.Contains("\n"))
+                                            {
+                                                Console.Write(AddRealTime(context, currentLineBuffer.ToString()));
+                                                currentLineBuffer.Clear();
+                                            }
                                         }
                                         else if (chunk.choices[0].finish_reason != null)
                                         {
@@ -304,6 +311,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
                 }
+                Console.Write(AddRealTime(context, currentLineBuffer.ToString()));
                 Console.WriteLine();
 
                 string assistantMessage = fullContent.ToString();
@@ -341,6 +349,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 waitingTimer?.Dispose();
             }
+        }
+
+        private static Regex rs_timeRegex = new Regex(@"\""(?<Grab>(StartTime|EndTime)\"":\s*\""(?<Time>\d+:\d+:\d+\.\d+))\""", RegexOptions.Compiled);
+
+        private string AddRealTime(SubtitleGeneratorContext context, string assistantMessage)
+        {
+            return rs_timeRegex.Replace(
+                assistantMessage,
+                match =>
+                {
+                    var grab = match.Groups["Grab"].Value;
+                    try
+                    {
+                        var time = match.Groups["Time"].Value;
+                        var originalTime = TimeSpan.Parse(time);
+                        var (_, newTime) = context.WIP.TimelineMap.GetPathAndPosition(originalTime);
+                        return (newTime != originalTime)
+                            ? $"{grab} [{newTime:hh\\:mm\\:ss\\.fff}]\""
+                            : match.Groups["Grab"].Value;
+                    }
+                    catch (Exception)
+                    {
+                        return match.Groups["Grab"].Value;
+                    }
+                });
         }
 
         private void PauseIfEnabled(bool isEnabled, string content = null)

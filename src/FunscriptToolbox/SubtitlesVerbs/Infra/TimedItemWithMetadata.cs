@@ -28,11 +28,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
             }
             CreationTime = creationTime ?? DateTime.Now;
-         }
-
-        public void Merge(TimedItemWithMetadata other)
-        {
-            this.Metadata.Merge(other.Metadata);
         }
     }
 }

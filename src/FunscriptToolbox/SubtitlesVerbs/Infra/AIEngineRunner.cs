@@ -6,7 +6,6 @@ using System.Text;
 using FunscriptToolbox.Core.Infra;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
-using System.Net.Http;
 using System.Diagnostics;
 using System.Linq;
 using System.Globalization;
