@@ -246,6 +246,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "singlevad-ai",
                         SourceAudioId = "audio",
+                        FillGapSmallerThen = TimeSpan.FromSeconds(0.2),
                         Engine = aiEngineGemini,
                         Metadatas = new MetadataAggregator()
                         {
@@ -266,6 +267,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "singlevad-ai-refined",
                         SourceAudioId = "audio",
+                        FillGapSmallerThen = TimeSpan.FromSeconds(0.2),
                         Engine = aiEngineGemini,
                         Metadatas = new MetadataAggregator()
                         {

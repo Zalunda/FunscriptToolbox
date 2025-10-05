@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.IO;
@@ -14,10 +15,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 21)]
         public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
         [JsonProperty(Order = 22)]
+        public TimeSpan FillGapSmallerThen { get; set; } = TimeSpan.Zero;
+        [JsonProperty(Order = 23)]
         public bool UpdateTimingsBeforeSaving { get; set; } = false;
-        [JsonProperty(Order = 23)]
+        [JsonProperty(Order = 24)]
         public bool AddSpeechCadenceBeforeSaving { get; set; } = false;
-        [JsonProperty(Order = 23)]
+        [JsonProperty(Order = 25)]
         public bool KeepTemporaryFiles { get; set; } = false;
 
         [JsonProperty(Order = 30, Required = Required.Always)]
@@ -61,13 +64,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription);
 
             var fullPcmAudio = base.GetPcmAudio(context);
+            var (allItems, _, _, _) = requestGenerator.AnalyzeItemsState();
+            allItems = allItems.OrderBy(f => f.StartTime).ToArray();
 
             var binaryGenerator = new CachedBinaryGenerator("Audio", (timing, _) =>
             {
                 context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                 var tempWavFile = Path.GetTempFileName() + ".wav";
+
+                var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
+                var expandEndBy = (gapDuration < this.FillGapSmallerThen)
+                    ? TimeSpanExtensions.Max(gapDuration, this.ExpandEnd)
+                    : this.ExpandEnd;
                 context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
-                    fullPcmAudio.ExtractSnippet(timing.StartTime - this.ExpandStart, timing.EndTime + this.ExpandEnd), tempWavFile);
+                    fullPcmAudio.ExtractSnippet(
+                        timing.StartTime - this.ExpandStart, 
+                        timing.EndTime + expandEndBy), tempWavFile);
 
                 var audioBytes = File.ReadAllBytes(tempWavFile);
                 var base64Audio = Convert.ToBase64String(audioBytes);
