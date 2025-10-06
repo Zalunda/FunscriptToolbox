@@ -20,13 +20,16 @@ namespace FunscriptToolbox.MotionVectorsVerbs
         [Verb("installation", aliases: new[] { "inst" }, HelpText = "Installation of the OFSPlugin, creation of multiples 'use-case' folder.")]
         public class Options : OptionsBase
         {
-            [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', allow to search recursivly for matches", Default = false)]
-            public bool Recursive { get; set; }
+            [Option('o', "override", Required = false, HelpText = "Override files content, even if they exists", Default = false)]
+            public bool OverrideFileContent { get; set; }
         }
+
+        private readonly Options r_options;
 
         public VerbInstallation(Options options)
             : base(rs_log, options)
         {
+            r_options = options;
         }
 
         public int Execute()
@@ -91,7 +94,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 ? $"{baseFileName}.{scriptVersion.Groups["Version"].Value}{extension}" 
                 : $"{baseFileName}{extension}";
             var scriptFullPath = Path.Combine(folderName, finalFileName);
-            if (File.Exists(scriptFullPath))
+            if (!r_options.OverrideFileContent && File.Exists(scriptFullPath))
             {
                 WriteInfo($@"Skipping '{finalFileName}', it already exists.", ConsoleColor.DarkGray);
             }
