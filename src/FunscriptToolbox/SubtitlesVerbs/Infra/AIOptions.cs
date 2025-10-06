@@ -17,6 +17,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string MetadataAlwaysProduced { get; set; }
         [JsonProperty(Order = 6)]
         public string MetadataForTraining { get; set; }
+        [JsonProperty(Order = 7)]
+        public string PrivateMetadataNames { get; set; }
 
         [JsonProperty(Order = 10)]
         public int BatchSize { get; set; } = 100000;

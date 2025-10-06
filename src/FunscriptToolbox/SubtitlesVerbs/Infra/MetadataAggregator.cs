@@ -141,13 +141,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             foreach (var timing in timings)
             {
                 var metadata = new MetadataCollection();
-                foreach (var timedObjectWithMetadata in rawReferenceSources)
+                foreach (var rawReferenceSource in rawReferenceSources)
                 {
                     var nbMerges = 0;
-                    foreach (var item in timedObjectWithMetadata.GetItems().Where(item => item.StartTime < timing.EndTime && item.EndTime > timing.StartTime))
+                    foreach (var item in rawReferenceSource.GetItems().Where(item => item.StartTime < timing.EndTime && item.EndTime > timing.StartTime))
                     {
                         allItems.Remove(item);
-                        metadata.Merge(item.Metadata, mergeRules, timedObjectWithMetadata.Id);
+                        metadata.Merge(item.Metadata, mergeRules, rawReferenceSource.Id, rawReferenceSource.PrivateMetadataNames);
                         nbMerges++;
                     }
                     if (nbMerges >= 2)

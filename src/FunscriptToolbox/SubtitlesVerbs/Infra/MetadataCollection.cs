@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -25,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         // --- Generic Accessors ---
         public string Get(string key) { this.TryGetValue(key, out var v); return v; }
 
-        public void Merge(MetadataCollection other, Dictionary<string, string> mergeRules = null, string id = null)
+        public void Merge(MetadataCollection other, Dictionary<string, string> mergeRules = null, string id = null, string[] privateMetadataNames = null)
         {
             foreach (var kvp in other)
             {
@@ -33,7 +34,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var foundRuleGeneric = mergeRules?.TryGetValue(kvp.Key, out renamedKeyGeneric);
                 string renamedKeySpecific = null;
                 var foundRuleSpecific = mergeRules?.TryGetValue($"{id},{kvp.Key}", out renamedKeySpecific);
-                if (foundRuleGeneric == true)
+                if (privateMetadataNames?.Contains(kvp.Key) == true)
+                {
+                    // Ignore this metadata
+                }
+                else if (foundRuleGeneric == true)
                 {
                     if (renamedKeyGeneric != null)
                     {

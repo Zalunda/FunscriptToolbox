@@ -13,11 +13,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public Translation(
             string id,
             string metadataAlwaysProduced,
+            string[] privateMetadataNames,
             Language language,
             bool isFinished = false,
             IEnumerable<TranslatedItem> items = null,
             IEnumerable<Cost> costs = null)
-            : base(id, metadataAlwaysProduced, isFinished, items, costs)
+            : base(id, metadataAlwaysProduced, privateMetadataNames, isFinished, items, costs)
         {
             Language = language;
             IsFinished = isFinished;

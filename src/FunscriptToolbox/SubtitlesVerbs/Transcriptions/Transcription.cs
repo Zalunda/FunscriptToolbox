@@ -15,12 +15,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public Transcription(
             string id,
             string metadataAlwaysProduced,
+            string[] privateMetadataNames,
             Language language,
             bool isFinished = false,
             IEnumerable<TranscribedItem> items = null,
             IEnumerable<Cost> costs = null,
             object currentJobState = null)
-            : base(id, metadataAlwaysProduced, isFinished, items, costs)
+            : base(id, metadataAlwaysProduced, privateMetadataNames, isFinished, items, costs)
         {
             Language = language;
             CurrentJobState = currentJobState;

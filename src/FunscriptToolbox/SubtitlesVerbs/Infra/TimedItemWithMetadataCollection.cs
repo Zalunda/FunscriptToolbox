@@ -14,17 +14,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string MetadataAlwaysProduced { get; set; }
 
         [JsonProperty(Order = 3)]
+        public string[] PrivateMetadataNames { get; }
+
+        [JsonProperty(Order = 4)]
         public bool IsFinished { get; protected set; }
 
         public abstract IEnumerable<TimedItemWithMetadata> GetItems();
 
         protected TimedItemWithMetadataCollection(
-            string id, 
+            string id,
             string metadataAlwaysProduced,
+            string[] privateMetadataNames,
             bool isFinished)
         {
             this.Id = id;
             this.MetadataAlwaysProduced = metadataAlwaysProduced;
+            this.PrivateMetadataNames = privateMetadataNames ?? Array.Empty<string>();
             this.IsFinished = isFinished;
         }
 
@@ -54,10 +59,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public TimedItemWithMetadataCollection(
             string id,
             string metadataAlwaysProduced,
+            string[] privateMetadataNames,
             bool isFinished = false,
             IEnumerable<TItem> items = null,
             IEnumerable<Cost> costs = null)
-            : base(id, metadataAlwaysProduced, isFinished)
+            : base(id, metadataAlwaysProduced, privateMetadataNames, isFinished)
         {
             this.Items = new List<TItem>(items ?? Array.Empty<TItem>());
             this.Costs = new List<Cost>(costs ?? Array.Empty<Cost>());

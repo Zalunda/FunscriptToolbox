@@ -150,6 +150,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
+        protected static string[] GetPrivateMetadataNamesArray(string privateMetadataNames)
+        {
+            return (privateMetadataNames == null)
+                ? Array.Empty<string>()
+                : privateMetadataNames.Split(',').Select(f => f.Trim()).ToArray();
+        }
+
         protected static string AddNewLineIfMultilines(string value)
         {
             return value == null

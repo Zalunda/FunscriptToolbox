@@ -12,6 +12,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public string TranscriptionId { get; set; }
 
         [JsonProperty(Order = 6)]
+        public string PrivateMetadataNames { get; set; }
+
+        [JsonProperty(Order = 7)]
         public bool ExportMetadataSrt { get; set; } = false;
 
         protected override string GetId() => this.TranscriptionId;
@@ -31,7 +34,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var transcription = new Transcription(
                     this.TranscriptionId,
                     this.GetMetadataProduced(),
-                    context.Config.SourceLanguage);
+                    GetPrivateMetadataNamesArray(this.PrivateMetadataNames),
+                    context.Config.SourceLanguage) ;
                 context.WIP.Transcriptions.Add(transcription);
             }
         }
@@ -70,6 +74,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var importedTranscription = new Transcription(
                     this.TranscriptionId,
                     this.GetMetadataProduced(),
+                    GetPrivateMetadataNamesArray(this.PrivateMetadataNames),
                     context.Config.SourceLanguage,
                     true,
                     ReadMetadataSubtitles(virtualSubtitleFile.Subtitles).

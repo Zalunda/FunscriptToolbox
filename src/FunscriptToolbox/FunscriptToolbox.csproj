@@ -312,8 +312,8 @@
     <Content Include="PythonSource\funscripttoolbox-extract-vad.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="SubtitlesVerbs\Prompts\Example.wipconfig.txt" />
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerSystemPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerUserPrompt.txt" />
@@ -322,8 +322,9 @@
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberOnScreenTextSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystSystemPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SubtitleFinalizerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\SubtitleFinalizerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt" />

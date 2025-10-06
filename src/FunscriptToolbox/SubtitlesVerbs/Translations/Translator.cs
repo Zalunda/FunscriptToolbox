@@ -14,6 +14,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public Language TargetLanguage { get; set; } = Language.FromString("en");
 
         [JsonProperty(Order = 6)]
+        public string PrivateMetadataNames { get; set; }
+
+        [JsonProperty(Order = 7)]
         public bool ExportMetadataSrt { get; set; } = false;
 
         protected abstract string GetMetadataProduced();
@@ -34,6 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 var translation = new Translation(
                     this.TranslationId,
                     this.GetMetadataProduced(),
+                    GetPrivateMetadataNamesArray(this.PrivateMetadataNames),
                     this.TargetLanguage);
                 context.WIP.Translations.Add(translation);
             }
@@ -71,6 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 var importedTranslation = new Translation(
                     this.TranslationId,
                     this.GetMetadataProduced(),
+                    GetPrivateMetadataNamesArray(this.PrivateMetadataNames),
                     context.Config.SourceLanguage,
                     true,
                     ReadMetadataSubtitles(virtualSubtitleFile.Subtitles).

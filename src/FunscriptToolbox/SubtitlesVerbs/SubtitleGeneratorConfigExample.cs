@@ -1,5 +1,4 @@
-﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.Properties;
+﻿using FunscriptToolbox.Properties;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Outputs;
@@ -49,7 +48,28 @@ namespace FunscriptToolbox.SubtitlesVerbs
             jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5.GetType().Name, "AIEngineGPT5"));
             sharedObjects.Add(aiEngineGPT5);
 
-            var aiEngineGemini = new AIEngineAPI()
+            var aiEngineGPT5MiniViaPoe = new AIEngineAPI()
+            {
+                BaseAddress = "https://api.poe.com/v1",
+                Model = "GPT-5-mini",
+                APIKeyName = "APIKeyPoe"
+            };
+            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5MiniViaPoe.GetType().Name, "AIEngineGPT5MiniViaPoe"));
+            sharedObjects.Add(aiEngineGPT5MiniViaPoe);
+
+            var aiEngineGPT5Mini = new AIEngineAPI()
+            {
+                BaseAddress = "https://api.openai.com/v1",
+                Model = "gpt-5-mini",
+                APIKeyName = "APIKeyOpenAI",
+                RequestBodyExtension = Expando(
+                    ("service_tier", "flex")),
+                UseStreaming = false
+            };
+            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5Mini.GetType().Name, "AIEngineGPT5Mini"));
+            sharedObjects.Add(aiEngineGPT5Mini);
+
+            var aiEngineGeminiPro = new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                 Model = "gemini-2.5-pro",
@@ -67,8 +87,29 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     }))
             };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGemini.GetType().Name, "AIEngineGemini"));
-            sharedObjects.Add(aiEngineGemini);
+            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGeminiPro.GetType().Name, "AIEngineGeminiPro"));
+            sharedObjects.Add(aiEngineGeminiPro);
+
+            var aiEngineGeminiFlash = new AIEngineAPI()
+            {
+                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                Model = "gemini-2.5-pro-flash",
+                APIKeyName = "APIKeyGemini",
+                RequestBodyExtension = Expando(
+                    ("max_tokens", 64 * 1024),
+                    ("extra_body", new
+                    {
+                        google = new
+                        {
+                            thinking_config = new
+                            {
+                                include_thoughts = true
+                            }
+                        }
+                    }))
+            };
+            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGeminiFlash.GetType().Name, "AIEngineGeminiFlash"));
+            sharedObjects.Add(aiEngineGeminiFlash);
 
             var aiEngineLocalAPI = new AIEngineAPI
             {
@@ -145,7 +186,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai",
                         SourceAudioId = "audio",
-                        Engine = aiEngineGemini,
+                        Engine = aiEngineGeminiPro,
                         SystemPrompt = transcriberAudioFullSystemPrompt,
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
@@ -155,7 +196,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai-refined",
                         SourceAudioId = "audio",
-                        Engine = aiEngineGemini,
+                        PrivateMetadataNames = "Justification",
+                        Engine = aiEngineGeminiPro,
                         ExpandStart = TimeSpan.FromSeconds(1.0),
                         ExpandEnd = TimeSpan.FromSeconds(1.0),
                         UpdateTimingsBeforeSaving = true,
@@ -212,8 +254,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "TranslatedText",
 
                             BatchSize = 20,
-                            NbItemsMinimumReceivedToContinue = 10,
+                            BatchSplitWindows = 0,
                             NbContextItems = 10,
+                            NbItemsMinimumReceivedToContinue = 10,
                             FieldsToInclude = NodeFields.StartTime
                         }
                     },
@@ -250,7 +293,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "singlevad-ai",
                         SourceAudioId = "audio",
                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2),
-                        Engine = aiEngineGemini,
+                        Engine = aiEngineGeminiPro,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -262,16 +305,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             UserPrompt = transcriberAudioSingleVADUserPrompt,
                             MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText",
                             MetadataAlwaysProduced = "VoiceText",
+
                             BatchSize = 100,
-                            BatchSplitWindows = 5
+                            BatchSplitWindows = 5,
+                            NbContextItems = 100,
+                            NbItemsMinimumReceivedToContinue = 50,
+                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
                     new TranscriberAudioSingleVADAI()
                     {
                         TranscriptionId = "singlevad-ai-refined",
                         SourceAudioId = "audio",
+                        PrivateMetadataNames = "Justification",
                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2),
-                        Engine = aiEngineGemini,
+                        Engine = aiEngineGeminiPro,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "singlevad-ai",
@@ -287,9 +335,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             SystemPrompt = transcriberAudioTranscriptionArbitrationRefinementSystemPrompt,
                             MetadataNeeded = "singlevad-VoiceText",
                             MetadataAlwaysProduced = "VoiceText",
+
                             BatchSize = 50,
                             BatchSplitWindows = 0,
-                            NbContextItems = 0,
+                            NbContextItems = 100,
                             NbItemsMinimumReceivedToContinue = 30,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
@@ -330,7 +379,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "on-screen-texts",
                         FfmpegFilter = "crop=iw/2:ih:0:0",
-                        Engine = aiEngineGemini,
+                        Engine = aiEngineGeminiPro,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -341,6 +390,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             SystemPrompt = transcriberOnScreenTextSystemPrompt,
                             MetadataNeeded = "GrabOnScreenText",
                             MetadataAlwaysProduced = "OnScreenText",
+
+                            BatchSize = 30,
+                            BatchSplitWindows = 0,
+                            NbContextItems = 0,
+                            NbItemsMinimumReceivedToContinue = 20,
                             FieldsToInclude = NodeFields.StartTime
                         }
                     },
@@ -352,11 +406,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-texts,voice-texts,speakers,manual-input",
-                            MergeRules = new Dictionary<string, string>
-                            {
-                                { "Justification", null }
-                            }
+                            Sources = "on-screen-texts,voice-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -368,6 +418,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataForTraining = "VisualTraining",
 
                             BatchSize = 30,
+                            BatchSplitWindows = 0,
                             NbContextItems = 5,
                             NbItemsMinimumReceivedToContinue = 10,
                             FieldsToInclude = NodeFields.StartTime
@@ -402,11 +453,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input",
-                            MergeRules = new Dictionary<string, string>
-                            {
-                                { "Justification", null }
-                            }
+                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -416,14 +463,20 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
+
+                            BatchSize = 150,
+                            BatchSplitWindows = 10,
+                            NbContextItems = 10000,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
                                 { "TranslationAnalysis", 10 },
                                 { "VoiceText", 10 }
                             },
-                            BatchSize = 150,
-                            BatchSplitWindows = 10
+                            NbItemsMinimumReceivedToContinue = 50,
+                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
+                        }
+                    },
                     new TranslatorAI()
                     {
                         TranslationId = "finalized_maverick",
@@ -436,8 +489,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MergeRules = new Dictionary<string, string>()
                             {
                                 { "TranslatedText", "OriginalTranslatedText" }
-                        }
-                    },
+                            }
+                        },
                         Options = new AIOptions()
                         {
                             SystemPrompt = subtitleFinalizerSystemPrompt,
@@ -463,11 +516,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input",
-                            MergeRules = new Dictionary<string, string>
-                            {
-                                { "Justification", null }
-                            }
+                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -477,14 +526,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
+
+                            BatchSize = 150,
+                            BatchSplitWindows = 10,
+                            NbContextItems = 1000,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
                                 { "TranslationAnalysis", 10 },
                                 { "VoiceText", 10 }
                             },
-                            BatchSize = 150,
-                            BatchSplitWindows = 10
+                            NbItemsMinimumReceivedToContinue = 50,
+                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
                     new TranscriberAggregator
@@ -508,11 +561,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,arbitrer-choices,manual-input",
-                            MergeRules = new Dictionary<string, string>
-                            {
-                                { "Justification", null }
-                            }
+                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,arbitrer-choices,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -521,6 +570,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
+
+
+                            BatchSize = 150,
+                            BatchSplitWindows = 10,
                             NbContextItems = 100,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
@@ -528,8 +581,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { "TranslationAnalysis", 10 },
                                 { "VoiceText", 10 }
                             },
-                            BatchSize = 150,
-                            BatchSplitWindows = 5
+                            NbItemsMinimumReceivedToContinue = 50,
+                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         },
                         AutoMergeOn = "[!MERGED]",
                         AutoDeleteOn = "[!UNNEEDED]"
@@ -540,8 +593,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         WorkerId = "NEED-TO-BE-OVERRIDED", // Should be arbitrer-final-choice or finalized_maverick
                         FileSuffix = ".final-candidate.srt",
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
-                        ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
-                        SubtitlesToInject = CreateSubtitlesToInject(),
+                        ExpandSubtileDuration = TimeSpan.FromSeconds(0.5)
                     },
                     new SubtitleOutputCostReport()
                     {
@@ -577,44 +629,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return SubtitleGeneratorConfigLoader.ReplaceLongStringFromJsonToHybrid(
                 SubtitleGeneratorConfigLoader.OverridesIdInJObject(JObject.FromObject(config, SubtitleGeneratorConfigLoader.rs_serializer), jtokenIdOverrides)
                 .ToString());
-        }
-
-        private static SubtitleToInject[] CreateSubtitlesToInject()
-        {
-            return new[] {
-                new SubtitleToInject()
-                {
-                    Origin = SubtitleToInjectOrigin.Start,
-                    OffsetTime = TimeSpan.FromSeconds(0),
-                    Duration = TimeSpan.FromSeconds(5),
-                    Lines = new []
-                    {
-                        "Created by ???, using the FunscriptToolbox and SubtitleEdit."
-                    }
-                },
-                new SubtitleToInject()
-                {
-                    Origin = SubtitleToInjectOrigin.Start,
-                    OffsetTime = TimeSpan.FromSeconds(5),
-                    Duration = TimeSpan.FromSeconds(2.5),
-                    Lines = new []
-                    {
-                        "The initial transcription was generated with Gemini-2.5-pro,",
-                        "and the translation was provided by the multiple AI models.",
-                    }
-                },
-                new SubtitleToInject()
-                {
-                    Origin = SubtitleToInjectOrigin.Start,
-                    OffsetTime = TimeSpan.FromSeconds(7.5),
-                    Duration = TimeSpan.FromSeconds(2.5),
-                    Lines = new []
-                    {
-                        "Both the transcription and translation underwent manual review",
-                        "and adjustment to improve their accuracy and quality."
-                    }
-                }
-            };
         }
 
         static ExpandoObject Expando(params (string key, object value)[] items)
