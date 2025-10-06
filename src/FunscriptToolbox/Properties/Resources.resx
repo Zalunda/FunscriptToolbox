@@ -124,9 +124,6 @@
   <data name="ArbitrerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
-  <data name="Example_wipconfig" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\Example.wipconfig.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
-  </data>
   <data name="FSTB-PrepareScriptForRelease_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-PrepareScriptForRelease.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
@@ -150,6 +147,12 @@
   </data>
   <data name="server_connection_lua" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\server_connection.lua;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="SubtitleFinalizerSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\SubtitleFinalizerSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="SubtitleFinalizerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\SubtitleFinalizerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="TranscriberAudioFullSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>

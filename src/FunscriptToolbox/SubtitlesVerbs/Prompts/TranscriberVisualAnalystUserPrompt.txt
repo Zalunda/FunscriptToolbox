@@ -1,4 +1,4 @@
-# URGENT: HIGH-STAKES ACCURACY AUDIT (VALIDATION 2025-09-05)
+﻿# URGENT: HIGH-STAKES ACCURACY AUDIT (VALIDATION 2025-09-05)
 
 **Attention MTAS:** This entire batch of nodes is subject to a mandatory, zero-tolerance accuracy audit. Your output will be programmatically validated against the visual evidence.
 
@@ -9,6 +9,7 @@ An analysis is given on the wrong node (i.e. describing image from StartTime 00:
 Missing nodes in response (i.e received 30 nodes returned 1).
 The inclusion of ANY object, action, environmental detail, or participant description that cannot be unequivocally verified by the pixels in the **current node's image**.
 Hallucinated man's reaction.
+Not using character's name in the description when they are identified with visual training.
 ParticipantPoses is incomplete (for example, hands on nipples is specified but nothing is said about her mouth sucking is dick).
 ParticipantPoses doesn't include important sexual action when it make sense (blowjob, handjob, cowgirl, etc).
 Missing ParticipantPoses or TranslationAnalysis field on a node.

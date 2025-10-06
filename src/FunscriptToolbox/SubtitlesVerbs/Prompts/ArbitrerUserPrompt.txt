@@ -1,4 +1,4 @@
-# ATTENTION: FULL-SPECTRUM QA AUDIT INITIATED (SPEC 2025-09-09)
+﻿# ATTENTION: FULL-SPECTRUM QA AUDIT INITIATED (SPEC 2025-09-09)
 
 **To the Subtitle Editor:** This batch is undergoing a full-spectrum Quality Assurance audit. Your output will be validated by an automated linter for strict adherence to protocol. Zero deviations are permitted.
 

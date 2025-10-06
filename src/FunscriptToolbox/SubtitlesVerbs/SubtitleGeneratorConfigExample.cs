@@ -110,6 +110,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var translatorNaturalistUserPrompt = AddPromptToSharedObjects("TranslatorNaturalistUserPrompt", Resources.TranslatorNaturalistUserPrompt);
             var translatorMaverickUserPrompt = AddPromptToSharedObjects("TranslatorMaverickUserPrompt", Resources.TranslatorMaverickUserPrompt);
 
+            var subtitleFinalizerSystemPrompt = AddPromptToSharedObjects("SubtitleFinalizerSystemPrompt", Resources.SubtitleFinalizerSystemPrompt);
+            var subtitleFinalizerUserPrompt = AddPromptToSharedObjects("SubtitleFinalizerUserPrompt", Resources.SubtitleFinalizerUserPrompt);
+
             var config = new SubtitleGeneratorConfig()
             {
                 SharedObjects = sharedObjects.ToArray(),
@@ -421,7 +424,36 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             },
                             BatchSize = 150,
                             BatchSplitWindows = 10
+                    new TranslatorAI()
+                    {
+                        TranslationId = "finalized_maverick",
+                        TargetLanguage = Language.FromString("en"),
+                        Engine = aiEngineGeminiPro,
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "timings",
+                            Sources = "translated-texts_maverick,speakers,manual-input",
+                            MergeRules = new Dictionary<string, string>()
+                            {
+                                { "TranslatedText", "OriginalTranslatedText" }
                         }
+                    },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = subtitleFinalizerSystemPrompt,
+                            UserPrompt = subtitleFinalizerUserPrompt,
+
+                            MetadataNeeded = "OriginalTranslatedText",
+                            MetadataAlwaysProduced = "TranslatedText",
+
+                            BatchSize = 300,
+                            BatchSplitWindows = 10,
+                            NbContextItems = 100,
+                            NbItemsMinimumReceivedToContinue = 50,
+                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
+                        },
+                        AutoMergeOn = "[!MERGED]",
+                        AutoDeleteOn = "[!UNNEEDED]"
                     },
                     new TranslatorAI()
                     {
@@ -504,9 +536,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new SubtitleOutputSimpleSrt()
                     {
-                        OutputId = "arbitrer-final-choice-srt",
-                        WorkerId = "arbitrer-final-choice",
-                        FileSuffix = ".arbitrer-final-choice.srt",
+                        OutputId = "final-candidate-srt",
+                        WorkerId = "NEED-TO-BE-OVERRIDED", // Should be arbitrer-final-choice or finalized_maverick
+                        FileSuffix = ".final-candidate.srt",
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
                         SubtitlesToInject = CreateSubtitlesToInject(),

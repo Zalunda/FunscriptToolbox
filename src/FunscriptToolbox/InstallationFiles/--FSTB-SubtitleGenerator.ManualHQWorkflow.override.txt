@@ -103,22 +103,31 @@
       "ExportMetadataSrt": false
     },
     {
-      "Id": "translated-texts_naturalist",
+      "Id": "finalized_maverick",
       "Enabled": true,
-      // [OPTION] Set to false if you want to save some API costs and trust that maverick will always be acceptable (most of the time, it is).
+      "ExportMetadataSrt": false
+    },
+    {
+      "Id": "translated-texts_naturalist",
+      "Enabled": false,
+      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
       "ExportMetadataSrt": false
     },
     {
       "Id": "arbitrer-choices",
-      "Enabled": true
+      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
+      "Enabled": false
     },
     {
       "Id": "arbitrer-final-choice",
-      "Enabled": true
+      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
+      "Enabled": false
     },	
     {
-      "Id": "arbitrer-final-choice-srt",
-      "Enabled": true
+      "Id": "final-candidate-srt",
+      "Enabled": true,
+      // [OPTION] Set to "arbitrer-final-choice" if you want to go with multiples translation and an arbiter.
+      "WorkerId": "finalized_maverick"
     },
     {
       "Id": "costs",

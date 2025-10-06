@@ -15,6 +15,7 @@
     {
       "TranscriptionId": "full-whisper",
       "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "TranscriptionId": "full",
@@ -23,12 +24,14 @@
     },
     {
       "TranslationId": "full_google",
-      "Enabled": true
+      "Enabled": true,
+      "ExportMetadataSrt": false
     },
     {
       "TranslationId": "full_local-api",
       "$type": "TranslatorAI",
-      "Enabled": false
+      "Enabled": false,
+      "ExportMetadataSrt": false
 	},
     {
 	  "OutputId": "preliminary-srt",

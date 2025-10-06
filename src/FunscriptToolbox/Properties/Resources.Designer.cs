@@ -78,10 +78,11 @@ namespace FunscriptToolbox.Properties {
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
+        ///      &quot;ExportMetadataSrt&quot;: false
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai-refined&quot;,
-        ///      // [OPTION] Enable to get a second pass on the audio that should improve the timings (i.e. start and e [rest of string was truncated]&quot;;.
+        ///      // [OPTION] Enable to get a second pass on the audio that should imp [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -107,10 +108,11 @@ namespace FunscriptToolbox.Properties {
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
+        ///      &quot;ExportMetadataSrt&quot;: false
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai-refined&quot;,
-        ///      // [OPTION] Enable to get a second pass on that should improve the timings (i.e. start and end) of the [rest of string was truncated]&quot;;.
+        ///      // [OPTION] Enable to get a second pass on that should improve the t [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
@@ -157,11 +159,11 @@ namespace FunscriptToolbox.Properties {
         ///    {
         ///      &quot;TranscriptionId&quot;: &quot;full-whisper&quot;,
         ///      &quot;Enabled&quot;: true,
+        ///      &quot;ExportMetadataSrt&quot;: false
         ///    },
         ///    {
         ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
-        ///      &quot;Enabled&quot;: true,
-        ///      &quot;Source [rest of string was truncated]&quot;;.
+        ///    [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_Staging_override {
             get {
@@ -170,16 +172,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ### **Revised System Prompt (v2025-09-25)**
-        ///
-        ///This version establishes a clear, non-conflicting hierarchy of operations: first, pick the absolute best text for the current node *in isolation*. Only then, as a separate step, check if that finalized text can be merged.
-        ///
-        ///```markdown
-        ///# System Prompt: The Arbiter&apos;s Protocol (version 2025-09-09)
+        ///   Looks up a localized string similar to # System Prompt: The Arbiter&apos;s Protocol (version 2025-09-09)
         ///
         ///### **Role**
         ///
-        ///You are a meticulous Subtitle Editor. Your function is to select the best translation candidate, create the most natural and consistent character voice, and [rest of string was truncated]&quot;;.
+        ///You are a **Narrative Finishing Editor**. Your primary function is to select and polish the translation that best serves the high-impact, evocative, and clever narrative style established by the &apos;Maverick&apos; translation. Your loyalty is to the Maverick&apos;s tone, the character&apos;s amplified voice, and the technical rules.
+        ///
+        ///### **The Prime Directive (Non-Negotiable)**
+        ///
+        ///**You will output a JSON array with the exact same number of nod [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string ArbitrerSystemPrompt {
             get {
@@ -195,30 +196,11 @@ namespace FunscriptToolbox.Properties {
         ///The audit will programmatically check three critical metrics:
         ///
         ///**QA Metric 1: Strict Physical Constraint Compliance (ZERO TOLERANCE)**
-        ///*   **Objective:** Every finalized subtitle must adhere perfectly to the physical format rules.
-        ///*   [rest of string was truncated]&quot;;.
+        ///*   **Objective:** Every finalized subtitle must adhere perfectly to the physical format rul [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string ArbitrerUserPrompt {
             get {
                 return ResourceManager.GetString("ArbitrerUserPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {
-        /////  &quot;SourceLanguage&quot;: &quot;es&quot;,
-        ///  &quot;Workers&quot;: [
-        /////    {
-        /////      &quot;$type&quot;: &quot;TranscriberImageAI&quot;,
-        /////      &quot;TranscriptionId&quot;: &quot;visual-analyst&quot;,
-        /////      &quot;Enabled&quot;: true
-        /////    }
-        ///  ]
-        ///}.
-        /// </summary>
-        internal static string Example_wipconfig {
-            get {
-                return ResourceManager.GetString("Example_wipconfig", resourceCulture);
             }
         }
         
@@ -339,8 +321,7 @@ namespace FunscriptToolbox.Properties {
         ///-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
         ///-- of the Software, and to permit persons to whom the Software is furnished to do
         ///-- so, subject to the following conditions:
-        ///--
-        /// [rest of string was truncated]&quot;;.
+        ///--        /// [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string json_lua {
             get {
@@ -403,6 +384,39 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ### **System Prompt: The Subtitle Finalizer Protocol (version 2025-10-05)**
+        ///
+        ///### **Role**
+        ///
+        ///You are a **Subtitle Finisher**. Your function is purely technical and non-creative. You will process a list of subtitle nodes to merge consecutive lines, apply formatting for length and line breaks, and add deterministic flags.
+        ///
+        ///### **The Prime Mandate: Textual Inviolability**
+        ///
+        ///You will **never** alter the content, wording, or phrasing of the input text. Your loyalty is to the technical rules, not to the narrative. Y [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SubtitleFinalizerSystemPrompt {
+            get {
+                return ResourceManager.GetString("SubtitleFinalizerSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to # ATTENTION: TECHNICAL FINISHING AUDIT INITIATED (SPEC 2025-10-05)
+        ///
+        ///**To the Subtitle Finisher:** This batch is undergoing a full-spectrum Quality Assurance audit. Your output will be validated by an automated linter for strict adherence to the technical protocol. Zero deviations are permitted.
+        ///
+        ///The audit will programmatically check two critical metrics:
+        ///
+        ///**QA Metric 1: Strict Physical Constraint Compliance (ZERO TOLERANCE)**
+        ///*   **Objective:** Every finalized subtitle must adhere perfectly to the physical  [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string SubtitleFinalizerUserPrompt {
+            get {
+                return ResourceManager.GetString("SubtitleFinalizerUserPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to # TRANSCRIPTION AND VAD MANDATE (version 2025-09-04)
         ///
         ///### Role
@@ -434,7 +448,7 @@ namespace FunscriptToolbox.Properties {
         ///You are a Precision Audio-Text Alignment and Annotation Engine. Your function is to process a batch of audio clips and a corresponding text string, precisely locate the audio of the text within the clip, and generate a new string that annotates the leading, trailing, and internal pauses.
         ///
         ///### Mission
-        ///Given an array of `AudioClip` and an associated `OriginalVoiceText`, your mission is to produce a single JSON arrqay of result object [rest of string was truncated]&quot;;.
+        ///Given an array of `AudioClip` and an associated `OriginalVoiceText`, your mission is to produce a single JSON arrqay of result  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioPrecisionSegmentRefinerSystemPrompt {
             get {
@@ -475,13 +489,12 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # AUDIO-TEXT ALIGNMENT AND ANNOTATION MANDATE (version 2025-09-07)
+        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-09-11)
         ///
         ///### Role
-        ///You are a Precision Audio-Text Alignment and Annotation Engine. Your function is to process a batch of audio clips and a corresponding text string, precisely locate the audio of the text within the clip, and generate a new string that annotates the leading, trailing, and internal pauses.
+        ///You are a Transcription Arbiter and Refinement Engine. Your specialization is in analyzing and synthesizing multiple Japanese transcription sources against a definitive audio clip to produce a single, hyper-accurate line of dialogue. You are an expert in discerning speech in complex audio environments, particularly in identifying and correcting transcription errors at the boundaries between different speakers.
         ///
-        ///### Mission
-        ///Given an array of `AudioClip` and an associated `OriginalVoiceText`, your mission is to produce a single JSON arrqay of result object [rest of string was truncated]&quot;;.
+        ///### Missio [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt {
             get {
