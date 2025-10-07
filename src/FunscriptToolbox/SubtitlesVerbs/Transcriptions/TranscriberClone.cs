@@ -61,19 +61,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var sourceItems = sourceTranscription.GetItems();
             var aggregatedMetadata = new MetadataAggregator()
-                {
-                    TimingsSource = this.SourceId,
-                    Sources = this.Metadatas == null ? this.SourceId : this.Metadatas.Sources + $",{this.SourceId}"
-                }
+            {
+                TimingsSource = this.SourceId,
+                Sources = this.Metadatas == null ? this.SourceId : this.Metadatas.Sources + $",{this.SourceId}"
+            }
                 .Aggregate(context, sourceTranscription);
 
             transcription.Items.AddRange(
                 aggregatedMetadata.ReferenceTimingsWithMetadata.Select(item =>
-                    new TranscribedItem(
-                    item.StartTime,
-                    item.EndTime,
-                    item.Metadata
-                )));
+                {
+                    var filteredMetadata = new MetadataCollection();
+                    filteredMetadata.Merge(item.Metadata, privateMetadataNames: transcription.PrivateMetadataNames);
+                    return new TranscribedItem(
+                        item.StartTime,
+                        item.EndTime,
+                        filteredMetadata);
+                }));
             transcription.CurrentJobState = new JobState { SourceIdUsed = this.SourceId };
             transcription.MetadataAlwaysProduced = _metadataProduced;
             transcription.MarkAsFinished();

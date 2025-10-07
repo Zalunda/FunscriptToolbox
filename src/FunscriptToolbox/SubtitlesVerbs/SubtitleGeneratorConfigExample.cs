@@ -18,25 +18,27 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var jtokenIdOverrides = new List<SubtitleGeneratorConfigLoader.JTokenIdOverride>();
             var sharedObjects = new List<object>();
 
-            var transcriberToolPurfviewWhisper = new TranscriberToolAudioPurfviewWhisper
+            T AddSharedObject<T>(string name, T obj) where T : class
+            {
+                jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(obj.GetType().Name, name));
+                sharedObjects.Add(obj);
+                return obj;
+            }
+
+            AIPrompt AddPromptToSharedObjects(string name, string value)
+            {
+                var prompt = new AIPrompt(SubtitleGeneratorConfigLoader.CreateLongString(value));
+                return AddSharedObject(name, prompt);
+            }
+
+            var transcriberToolPurfviewWhisper = AddSharedObject("TranscriberToolPurfviewWhisper", new TranscriberToolAudioPurfviewWhisper
             {
                 ApplicationFullPath = @"[TOREPLACE-WITH-PathToPurfview]\Purfview-Whisper-Faster\faster-whisper-xxl.exe",
                 Model = "Large-V2",
                 ForceSplitOnComma = false
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(transcriberToolPurfviewWhisper.GetType().Name, "TranscriberToolPurfviewWhisper"));
-            sharedObjects.Add(transcriberToolPurfviewWhisper);
+            });
 
-            var aiEngineGPT5ViaPoe = new AIEngineAPI()
-            {
-                BaseAddress = "https://api.poe.com/v1",
-                Model = "GPT-5",
-                APIKeyName = "APIKeyPoe"
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5ViaPoe.GetType().Name, "AIEngineGPT5ViaPoe"));
-            sharedObjects.Add(aiEngineGPT5ViaPoe);
-
-            var aiEngineGPT5 = new AIEngineAPI()
+            var aiEngineGPT5 = AddSharedObject("AIEngineGPT5", new AIEngineAPI()
             {
                 BaseAddress = "https://api.openai.com/v1",
                 Model = "gpt-5",
@@ -44,20 +46,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 RequestBodyExtension = Expando(
                     ("service_tier", "flex")),
                 UseStreaming = false
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5.GetType().Name, "AIEngineGPT5"));
-            sharedObjects.Add(aiEngineGPT5);
-
-            var aiEngineGPT5MiniViaPoe = new AIEngineAPI()
+            });
+            var aiEngineGPT5ViaPoe = AddSharedObject("AIEngineGPT5ViaPoe", new AIEngineAPI()
             {
                 BaseAddress = "https://api.poe.com/v1",
-                Model = "GPT-5-mini",
+                Model = "GPT-5",
                 APIKeyName = "APIKeyPoe"
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5MiniViaPoe.GetType().Name, "AIEngineGPT5MiniViaPoe"));
-            sharedObjects.Add(aiEngineGPT5MiniViaPoe);
-
-            var aiEngineGPT5Mini = new AIEngineAPI()
+            });
+            var aiEngineGPT5Mini = AddSharedObject("AIEngineGPT5Mini", new AIEngineAPI()
             {
                 BaseAddress = "https://api.openai.com/v1",
                 Model = "gpt-5-mini",
@@ -65,11 +61,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 RequestBodyExtension = Expando(
                     ("service_tier", "flex")),
                 UseStreaming = false
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGPT5Mini.GetType().Name, "AIEngineGPT5Mini"));
-            sharedObjects.Add(aiEngineGPT5Mini);
+            });
+            var aiEngineGPT5MiniViaPoe = AddSharedObject("AIEngineGPT5MiniViaPoe", new AIEngineAPI()
+            {
+                BaseAddress = "https://api.poe.com/v1",
+                Model = "GPT-5-mini",
+                APIKeyName = "APIKeyPoe"
+            });
 
-            var aiEngineGeminiPro = new AIEngineAPI()
+            var aiEngineGeminiPro = AddSharedObject("AIEngineGeminiPro", new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                 Model = "gemini-2.5-pro",
@@ -86,11 +86,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
                     }))
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGeminiPro.GetType().Name, "AIEngineGeminiPro"));
-            sharedObjects.Add(aiEngineGeminiPro);
-
-            var aiEngineGeminiFlash = new AIEngineAPI()
+            });
+            var aiEngineGeminiFlash = AddSharedObject("AIEngineGeminiFlash", new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                 Model = "gemini-2.5-pro-flash",
@@ -107,27 +104,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
                     }))
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineGeminiFlash.GetType().Name, "AIEngineGeminiFlash"));
-            sharedObjects.Add(aiEngineGeminiFlash);
+            });
 
-            var aiEngineLocalAPI = new AIEngineAPI
+            var aiEngineLocalAPI = AddSharedObject("AIEngineLocalAPI", new AIEngineAPI
             {
                 BaseAddress = "http://localhost:10000/v1",
                 Model = "mistralai/mistral-small-3.2",
                 ValidateModelNameInResponse = true,
                 UseStreaming = true
-            };
-            jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(aiEngineLocalAPI.GetType().Name, "AIEngineLocalAPI"));
-            sharedObjects.Add(aiEngineLocalAPI);
-
-            AIPrompt AddPromptToSharedObjects(string name, string value)
-            {
-                var prompt = new AIPrompt(SubtitleGeneratorConfigLoader.CreateLongString(value));
-                jtokenIdOverrides.Add(new SubtitleGeneratorConfigLoader.JTokenIdOverride(prompt.GetType().Name, name));
-                sharedObjects.Add(prompt);
-                return prompt;
-            }
+            });
 
             var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects("TranscriberAudioFullSystemPrompt", Resources.TranscriberAudioFullSystemPrompt);
             var transcriberAudioFullUserPrompt = AddPromptToSharedObjects("TranscriberAudioFullUserPrompt", Resources.TranscriberAudioFullUserPrompt);
@@ -401,6 +386,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberImageAI()
                     {
                         TranscriptionId = "visual-analysis",
+                        PrivateMetadataNames = "VoiceText",
                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=10:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
                         Engine = aiEngineGPT5ViaPoe,
                         Metadatas = new MetadataAggregator()

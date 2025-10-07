@@ -197,29 +197,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var contentExtraContext = new List<dynamic>();
             foreach (var item in allItems)
             {
+                bool ShouldBeIncluded(string metadataName, int? contextNumber)
+                {
+                    if (contextNumber == null)
+                    { 
+                        return true;
+                    }
+                    return (r_options.MetadataInContextLimits?.TryGetValue(metadataName, out var limit) == true)
+                        ? (contextNumber <= limit)
+                        : true;
+                }
                 IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null, int? contextNumber = null)
                 {
                     var nodeContents = new List<dynamic>();
                     var sb = new StringBuilder();
                     sb.AppendLine("  {");
-                    sb.AppendLine($"    \"StartTime\": \"{item.StartTime:hh\\:mm\\:ss\\.fff}\",");
-                    if ((r_options.FieldsToInclude & NodeFields.EndTime) != 0)
+                    if (ShouldBeIncluded("StartTime", contextNumber))
+                    {
+                        sb.AppendLine($"    \"StartTime\": \"{item.StartTime:hh\\:mm\\:ss\\.fff}\",");
+                    }
+                    if (ShouldBeIncluded("EndTime", contextNumber) && (r_options.FieldsToInclude & NodeFields.EndTime) != 0)
                     {
                         sb.AppendLine($"    \"EndTime\": \"{item.EndTime:hh\\:mm\\:ss\\.fff}\",");
                     }
-                    if ((r_options.FieldsToInclude & NodeFields.Duration) != 0)
+                    if (ShouldBeIncluded("Duration", contextNumber) && (r_options.FieldsToInclude & NodeFields.Duration) != 0)
                     {
                         sb.AppendLine($"    \"Duration\": \"{item.Duration:hh\\:mm\\:ss\\.fff}\",");
                     }
                     var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
                     foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
                     {
-                        var limit = 100000;
-                        if (r_options.MetadataInContextLimits?.TryGetValue(metadata.Key, out var newLimit) == true)
-                        {
-                            limit = newLimit;
-                        }
-                        if (contextNumber == null || contextNumber <= limit)
+                        if (ShouldBeIncluded(metadata.Key, contextNumber))
                         {
                             sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
                         }
