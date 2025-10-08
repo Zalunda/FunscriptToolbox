@@ -1,6 +1,7 @@
 ﻿using FunscriptToolbox.Core;
 using Newtonsoft.Json;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
@@ -25,6 +26,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.Zero;
 
         [JsonProperty(Order = 14)]
+        public bool SaveFullFileToo = false;
+
+        [JsonProperty(Order = 14)]
         public string AddToFirstSubtitle = string.Empty;
 
         [JsonProperty(Order = 20)]
@@ -40,7 +44,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         protected override bool IsFinished(SubtitleGeneratorContext context)
         {
-            return context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) != null;
+            if (context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) == null)
+                return false;
+            return (this.SaveFullFileToo && context.WIP.TimelineMap.Segments.Length > 1)
+                ? File.Exists(Path.Combine(context.WIP.BaseFilePath + this.FileSuffix))
+                : true;
         }
 
         protected override void DoWork(
@@ -74,6 +82,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
                 // Apply minimum duration and expansion
                 virtualSubtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+
+                if (this.SaveFullFileToo && context.WIP.TimelineMap.Segments.Length > 1)
+                {
+                    var newFullFile = new SubtitleFile();
+                    newFullFile.Subtitles.AddRange(
+                        container.GetItems().Select(item => 
+                            new Subtitle(item.StartTime,
+                                item.EndTime,
+                                item.Metadata.Get(this.MetadataToUse ?? container.MetadataAlwaysProduced ?? string.Empty) + (addToNextSubtitle ?? string.Empty))));
+                    VirtualSubtitleFile.InjectSubtitleInFile(newFullFile, this.SubtitlesToInject, TimeSpan.Zero);
+                    newFullFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+                    newFullFile.SaveSrt(
+                        Path.Combine(
+                            context.WIP.BaseFilePath + this.FileSuffix));
+
+                }
             }
 
             virtualSubtitleFile.Save(

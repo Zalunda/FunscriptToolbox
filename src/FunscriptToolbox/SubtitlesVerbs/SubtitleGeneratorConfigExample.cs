@@ -579,7 +579,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         WorkerId = "NEED-TO-BE-OVERRIDED", // Should be arbitrer-final-choice or finalized_maverick
                         FileSuffix = ".final-candidate.srt",
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
-                        ExpandSubtileDuration = TimeSpan.FromSeconds(0.5)
+                        ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
+                        SaveFullFileToo = true
+                    },
+                    new SubtitleOutputAsig()
+                    {
+                        OutputId = "asig",
+                        SourceAudioId = "audio",
+                        FileSuffix = ".asig",
+                        SaveFullFileToo = true
                     },
                     new SubtitleOutputCostReport()
                     {

@@ -71,7 +71,7 @@ public class VirtualSubtitleFile : SubtitleFile
         subtitlesToInject ??= Array.Empty<SubtitleToInject>();
 
         // Handle subtitles that are NOT injected into every file.
-        InjectSubtitleInFile(this, subtitlesToInject.Where(s => !s.InjectInAllFiles));
+        InjectSubtitleInFile(this, subtitlesToInject.Where(s => !s.InjectInAllFiles), r_timelineMap.Duration);
 
         var index = 1;
         foreach (var segment in r_timelineMap.Segments)
@@ -90,14 +90,14 @@ public class VirtualSubtitleFile : SubtitleFile
             index++;
 
             // Handle subtitles that ARE injected into every file.
-            InjectSubtitleInFile(currentSubtitleFile, subtitlesToInject.Where(s => s.InjectInAllFiles));
+            InjectSubtitleInFile(currentSubtitleFile, subtitlesToInject.Where(s => s.InjectInAllFiles), r_timelineMap.Duration);
 
             softDeleteAction?.Invoke(srtFullPath);
             currentSubtitleFile.SaveSrt();
         }
     }
 
-    private void InjectSubtitleInFile(SubtitleFile file, IEnumerable<SubtitleToInject> subtitlesToInject)
+    public static void InjectSubtitleInFile(SubtitleFile file, IEnumerable<SubtitleToInject> subtitlesToInject, TimeSpan offset)
     {
         var firstSubtitleTime = file.Subtitles.FirstOrDefault()?.StartTime ?? TimeSpan.Zero;
         var lastSubtitleTime = file.Subtitles.LastOrDefault()?.EndTime ?? TimeSpan.MaxValue;
@@ -113,8 +113,8 @@ public class VirtualSubtitleFile : SubtitleFile
             else if (injection.Origin == SubtitleToInjectOrigin.End)
             {
                 file.Subtitles.Add(new Subtitle(
-                    TimeSpanExtensions.Max(lastSubtitleTime, r_timelineMap.Duration + injection.OffsetTime),
-                    TimeSpanExtensions.Max(lastSubtitleTime, r_timelineMap.Duration + injection.OffsetTime + injection.Duration),
+                    TimeSpanExtensions.Max(lastSubtitleTime, offset + injection.OffsetTime),
+                    TimeSpanExtensions.Max(lastSubtitleTime, offset + injection.OffsetTime + injection.Duration),
                     injection.Lines));
             }
         }

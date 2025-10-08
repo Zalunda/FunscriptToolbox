@@ -15,7 +15,6 @@ namespace AudioSynchronization
                 ExtractSamples(filename, nbSamplesPerSeconds).ToArray());
         }
 
-
         private static IEnumerable<ushort> ExtractSamples(string filename, int nbSamplesPerSeconds)
         {
             var tempFile = Path.GetTempFileName() + ".raw";

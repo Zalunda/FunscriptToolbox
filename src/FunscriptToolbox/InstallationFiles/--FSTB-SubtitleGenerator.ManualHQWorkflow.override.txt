@@ -130,6 +130,10 @@
       "WorkerId": "finalized_maverick"
     },
     {
+      "Id": "asig",
+      "Enabled": true      
+    },
+    {
       "Id": "costs",
       "Enabled": true
     },
