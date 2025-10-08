@@ -39,6 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         static SubtitleGeneratorConfigLoader()
         {
             rs_serializer.Converters.Add(new StringEnumConverter());
+            rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
         }
         // This pattern looks for two letters inside square brackets, e.g., "[ja]".
         private static readonly Regex s_languageInFolderNameRegex = new Regex(@"\[(?<name>[a-zA-Z]{2})\]", RegexOptions.Compiled);
