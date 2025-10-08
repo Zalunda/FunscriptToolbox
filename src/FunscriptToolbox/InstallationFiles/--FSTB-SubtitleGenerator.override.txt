@@ -86,13 +86,13 @@
     {
       "TranscriptionId": "full-ai",
       "Engine": {
-        "$ref": "AIEngineGemini"
+        "$ref": "AIEngineGeminiPro"
       }
     },
 	{
       "TranscriptionId": "full-ai-refined",
       "Engine": {
-        "$ref": "AIEngineGemini"
+        "$ref": "AIEngineGeminiPro"
       }
     },
     {
@@ -104,19 +104,19 @@
     {
       "TranscriptionId": "singlevad-ai",
       "Engine": {
-        "$ref": "AIEngineGemini"
+        "$ref": "AIEngineGeminiPro"
       }
     },
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        "$ref": "AIEngineGemini"
+        "$ref": "AIEngineGeminiPro"
       }
     },
     {
       "Id": "on-screen-texts",
       "Engine": {
-        "$ref": "AIEngineGemini"
+        "$ref": "AIEngineGeminiPro"
       }
     },
     {

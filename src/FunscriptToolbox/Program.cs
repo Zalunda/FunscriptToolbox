@@ -112,6 +112,7 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
+                    // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";
                     args = new[]
                     {
                         "subtitles.create",
@@ -135,6 +136,15 @@ namespace FunscriptToolbox
                             .Replace("//\"ApplicationFullPath\"", "\"ApplicationFullPath\"")
                             .Replace("[TOREPLACE-WITH-PathToPurfview]", "D:\\\\OthersPrograms\\\\SubtitleEditor\\\\Whisper"),
                         Encoding.UTF8);
+                    File.WriteAllText(
+                        @"FSTB-CreateSubtitles2025\Staging\testStaging.vseq",
+                        "unfound.mp4");
+                    File.WriteAllText(
+                        @"FSTB-CreateSubtitles2025\ManualHQWorkflow\testManualHQWorkflow.vseq",
+                        "unfound.mp4");
+                    File.WriteAllText(
+                        @"FSTB-CreateSubtitles2025\AutomaticHQWorkflow\testAutomaticHQWorkflow.vseq",
+                        "unfound.mp4");
                     Environment.CurrentDirectory = "FSTB-CreateSubtitles2025";
                     args = new[]
                     {
