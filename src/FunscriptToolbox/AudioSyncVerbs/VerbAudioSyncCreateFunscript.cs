@@ -59,6 +59,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             var inputFiles = r_options
                 .Inputs
                 .SelectMany(file => HandleStarAndRecusivity(file)
+                .OrderBy(f => f)
                 .Select((mainFilename) => LoadAudioSignatureWithExtras($"I-{index++:D2}", mainFilename)))
                 .ToArray();
             if (inputFiles.Length == 0)
@@ -70,6 +71,7 @@ namespace FunscriptToolbox.AudioSyncVerbs
             var outputFiles = r_options
                 .Outputs
                 .SelectMany(file => HandleStarAndRecusivity(file)
+                .OrderBy(f => f)
                 .Select((mainFilename) => LoadAudioSignature($"O-{index++:D2}", mainFilename)))
                 .ToArray();
             if (outputFiles.Length == 0)
