@@ -270,11 +270,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             }
 
                                             // Write to console as chunks arrive
-                                            currentLineBuffer.Append(contentChunk);
-                                            if (contentChunk.Contains("\n"))
+                                            var indexOfLastNewLine = contentChunk.LastIndexOf('\n');
+                                            if (indexOfLastNewLine >= 0)
                                             {
+                                                currentLineBuffer.Append(contentChunk.Substring(0, indexOfLastNewLine + 1));
                                                 Console.Write(AddRealTime(context, currentLineBuffer.ToString()));
                                                 currentLineBuffer.Clear();
+                                                currentLineBuffer.Append(contentChunk.Substring(indexOfLastNewLine + 1));
+                                            }
+                                            else
+                                            {
+                                                currentLineBuffer.Append(contentChunk);
                                             }
                                         }
                                         else if (chunk.choices[0].finish_reason != null)
@@ -367,7 +373,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         var (_, newTime) = context.WIP.TimelineMap.GetPathAndPosition(originalTime);
                         return (newTime != originalTime)
                             ? $"{grab} [{newTime:hh\\:mm\\:ss\\.fff}]\""
-                            : match.Groups["Grab"].Value;
+                            : match.Groups["Grab"].Value + "\"";
                     }
                     catch (Exception)
                     {

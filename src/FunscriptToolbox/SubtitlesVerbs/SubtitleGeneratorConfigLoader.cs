@@ -61,7 +61,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 // We'll define a local version of HandleJsonException for simplicity.
                 try
                 {
-                    return JObject.Parse(adjustedContent);
+                    // Use JsonLoadSettings to enable line number tracking.
+                    var settings = new JsonLoadSettings
+                    {
+                        LineInfoHandling = LineInfoHandling.Load
+                    };
+
+                    // Use a JsonTextReader to apply the settings.
+                    using (var reader = new JsonTextReader(new StringReader(adjustedContent)))
+                    {
+                        return JObject.Load(reader, settings);
+                    }
                 }
                 catch (JsonException ex)
                 {
@@ -288,6 +298,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 if (!(userWorkerToken is JObject userWorker)) continue;
 
+                var originalUserWorkerText = userWorker.ToString();
                 JObject baseWorkerToUpdate = FindMatchingWorker(baseWorkers, userWorker);
 
                 if (baseWorkerToUpdate != null)
@@ -297,7 +308,20 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
                 else
                 {
-                    // No match found. This is a new worker the user wants to add.
+                    // No match found. This is a new worker the user wants to add. It need to have a type.
+                    var newWorkerType = userWorker["$type"]?.ToString();
+                    if (string.IsNullOrEmpty(newWorkerType))
+                    {
+                        if (userWorker is IJsonLineInfo lineInfo && lineInfo.HasLineInfo())
+                        {
+                            throw new JsonException($"A new worker is missing the required '$type' property. The worker object starts on line {lineInfo.LineNumber}, position {lineInfo.LinePosition}:\n{originalUserWorkerText}");
+                        }
+                        else
+                        {
+                            // Fallback exception if line info isn't available for some reason.
+                            throw new JsonException($"A new worker is missing the required '$type' property:\n{originalUserWorkerText}");
+                        }
+                    }
                     newWorkersToPlace.Add(userWorker);
                 }
             }

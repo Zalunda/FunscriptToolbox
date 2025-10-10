@@ -169,7 +169,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 null,
                 messages,
                 this.MetadataProduced,
-                $"{timing.StartTime} to {timing.EndTime}");
+                $"{timing.StartTime} to {timing.EndTime} out of {context.WIP.TimelineMap.Duration}");
         }
 
         private void HandleResponse(

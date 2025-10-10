@@ -30,6 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
         [JsonProperty(Order = 14)]
         public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        [JsonProperty(Order = 15)]
         public Dictionary<string, int> MetadataInContextLimits { get; set; }
 
         [JsonProperty(Order = 20)]
