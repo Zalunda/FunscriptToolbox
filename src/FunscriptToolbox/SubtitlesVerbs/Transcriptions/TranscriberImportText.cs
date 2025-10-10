@@ -1,7 +1,5 @@
-﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.Infra;
+﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
-using System.IO;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -21,11 +19,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
-            if (!File.Exists(fullpath))
+            var subtitleFile = context.WIP.LoadVirtualSubtitleFile(this.FileSuffix);
+            if (subtitleFile == null)
             {
-                reason = $"File '{Path.GetFileName(fullpath)}' does not exists yet.";
-                context.AddUserTodo($"Create file '{Path.GetFileName(fullpath)}'.");
+                reason = $"File(s) '{this.FileSuffix}' does not exists yet.";
+                context.AddUserTodo($"Create file '{this.FileSuffix}'.");
                 return false;
             }
 
@@ -35,14 +33,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var fullpath = context.WIP.BaseFilePath + this.FileSuffix;
-            var subtitleFile = SubtitleFile.FromSrtFile(fullpath);
-            transcription.Items.Clear();
-            transcription.Items.AddRange(
-                subtitleFile.Subtitles
-                    .Select(subtitle => new TranscribedItem(subtitle.StartTime, subtitle.EndTime, MetadataCollection.CreateSimple(this.MetadataProduced, subtitle.Text))));
-            transcription.MarkAsFinished();
+            var subtitleFile = context.WIP.LoadVirtualSubtitleFile(this.FileSuffix);
 
+            transcription.Items.Clear();
+            if (subtitleFile != null)
+            {
+                transcription.Items.AddRange(
+                    subtitleFile.Subtitles
+                    .Select(subtitle => new TranscribedItem(subtitle.StartTime, subtitle.EndTime, MetadataCollection.CreateSimple(this.MetadataProduced, subtitle.Text))));
+            }
+            transcription.MarkAsFinished();
             context.WIP.Save();
         }
     }
