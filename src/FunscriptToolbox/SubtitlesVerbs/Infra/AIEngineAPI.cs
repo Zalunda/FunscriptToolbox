@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.Core.Infra;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -151,7 +152,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new AIRequestException(request, $"Empty response receive. Finish_reason: {finish_reason}");
             }
 
-            Console.WriteLine("\n" + AddRealTime(context, assistantMessage) + "\n\n");
+            Console.WriteLine("\n" + AddRealTime(context, request.StartOffset, assistantMessage) + "\n\n");
 
             PauseIfEnabled(this.PauseBeforeSavingResponse);
 
@@ -274,7 +275,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             if (indexOfLastNewLine >= 0)
                                             {
                                                 currentLineBuffer.Append(contentChunk.Substring(0, indexOfLastNewLine + 1));
-                                                Console.Write(AddRealTime(context, currentLineBuffer.ToString()));
+                                                Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                                                 currentLineBuffer.Clear();
                                                 currentLineBuffer.Append(contentChunk.Substring(indexOfLastNewLine + 1));
                                             }
@@ -317,7 +318,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
                 }
-                Console.Write(AddRealTime(context, currentLineBuffer.ToString()));
+                Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                 Console.WriteLine();
 
                 string assistantMessage = fullContent.ToString();
@@ -357,9 +358,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
-        private static Regex rs_timeRegex = new Regex(@"\""(?<Grab>(StartTime|EndTime)\"":\s*\""(?<Time>\d+:\d+:\d+\.\d+))\""", RegexOptions.Compiled);
+        private static Regex rs_timeRegex = new Regex(@"\""(?<Grab>(StartTime|EndTime)\"":\s*\""(?<Time>[^\""]*))\""", RegexOptions.Compiled);
 
-        private string AddRealTime(SubtitleGeneratorContext context, string assistantMessage)
+        private string AddRealTime(SubtitleGeneratorContext context, TimeSpan startOffset, string assistantMessage)
         {
             return rs_timeRegex.Replace(
                 assistantMessage,
@@ -369,7 +370,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     try
                     {
                         var time = match.Groups["Time"].Value;
-                        var originalTime = TimeSpan.Parse(time);
+                        var originalTime = startOffset + TimeSpanExtensions.FlexibleTimeSpanParse(time);
                         var (_, newTime) = context.WIP.TimelineMap.GetPathAndPosition(originalTime);
                         return (newTime != originalTime)
                             ? $"{grab} [{newTime:hh\\:mm\\:ss\\.fff}]\""
@@ -377,7 +378,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                     catch (Exception)
                     {
-                        return match.Groups["Grab"].Value;
+                        return match.Value;
                     }
                 });
         }

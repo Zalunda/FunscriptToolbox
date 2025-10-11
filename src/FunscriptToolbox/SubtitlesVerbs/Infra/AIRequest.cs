@@ -13,6 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public List<dynamic> Messages { get; }
         public string MetadataAlwaysProduced { get; }
         public string UpdateMessage { get; }
+        public TimeSpan StartOffset { get; }
 
         public string FullPrompt { get; }
 
@@ -23,7 +24,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             TimedItemWithMetadata[] ItemsIncluded,
             List<dynamic> messages,
             string metadataAlwaysProduced,
-            string updateMessage)
+            string updateMessage,
+            TimeSpan? startOffset = null)
         {
             this.ProcessStartTime = processStartTime;
             this.Number = requestNumber;
@@ -32,6 +34,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             this.Messages = messages;
             this.MetadataAlwaysProduced = metadataAlwaysProduced;
             this.UpdateMessage = updateMessage;
+            this.StartOffset = startOffset ?? TimeSpan.Zero;
 
             var fullpromptBuilder = new StringBuilder();
             if (messages != null)

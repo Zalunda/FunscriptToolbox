@@ -8,7 +8,6 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Linq;
-using System.Globalization;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -85,26 +84,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
 
             return json;
-        }
-
-        public static TimeSpan FlexibleTimeSpanParse(string text)
-        {
-            // Defines the expected formats, from most specific to least specific.
-            string[] formats = {
-                    @"h\:m\:s\.fff",
-                    @"h\:m\:s",
-                    @"m\:s\.fff",
-                    @"m\:s",
-                    @"s\.fff",
-                    @"s"
-            };
-
-            if (TimeSpan.TryParseExact(text, formats, CultureInfo.InvariantCulture, out TimeSpan result))
-            {
-                return result;
-            }
-
-            throw new FormatException($"The input string '{text}' was not in a correct format for a TimeSpan.");
         }
     }
 
@@ -270,11 +249,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     var seg = (JObject)segment;
 
                     // Extract and remove known fields
-                    var startTime = FlexibleTimeSpanParse((string)seg["StartTime"]);
+                    var startTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)seg["StartTime"]);
                     TimeSpan endTime;
                     if (seg.ContainsKey("EndTime"))
                     {
-                        endTime = FlexibleTimeSpanParse((string)seg["EndTime"]);
+                        endTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)seg["EndTime"]);
                     }
                     else
                     {

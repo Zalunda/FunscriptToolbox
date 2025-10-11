@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -169,7 +170,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 null,
                 messages,
                 this.MetadataProduced,
-                $"{timing.StartTime} to {timing.EndTime} out of {context.WIP.TimelineMap.Duration}");
+                $"{timing.StartTime} to {timing.EndTime} out of {context.WIP.TimelineMap.Duration}",
+                timing.StartTime);
         }
 
         private void HandleResponse(
@@ -184,8 +186,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 transcription.Items.Add(
                     new TranscribedItem(
-                        offset + AIEngineRunner.FlexibleTimeSpanParse((string)node.StartTime),
-                        offset + AIEngineRunner.FlexibleTimeSpanParse((string)node.EndTime), 
+                        offset + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime),
+                        offset + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime), 
                         MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
             }
         }

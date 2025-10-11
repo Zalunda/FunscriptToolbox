@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace FunscriptToolbox.Core.Infra
@@ -19,6 +20,26 @@ namespace FunscriptToolbox.Core.Infra
         public static TimeSpan Max(TimeSpan a, TimeSpan b)
         {
             return a > b ? a : b;
+        }
+
+        public static TimeSpan FlexibleTimeSpanParse(string text)
+        {
+            // Defines the expected formats, from most specific to least specific.
+            string[] formats = {
+                    @"h\:m\:s\.fff",
+                    @"h\:m\:s",
+                    @"m\:s\.fff",
+                    @"m\:s",
+                    @"s\.fff",
+                    @"s"
+            };
+
+            if (TimeSpan.TryParseExact(text, formats, CultureInfo.InvariantCulture, out TimeSpan result))
+            {
+                return result;
+            }
+
+            throw new FormatException($"The input string '{text}' was not in a correct format for a TimeSpan.");
         }
     }
 }
