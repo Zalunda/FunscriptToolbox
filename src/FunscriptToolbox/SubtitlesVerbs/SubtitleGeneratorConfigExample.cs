@@ -573,10 +573,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         AutoMergeOn = "[!MERGED]",
                         AutoDeleteOn = "[!UNNEEDED]"
                     },
+                    new TranscriberClone()
+                    {
+                        TranscriptionId = "final-ai-subtitles",
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick or arbitrer-final-choice
+                    },
                     new SubtitleOutputSimpleSrt()
                     {
                         OutputId = "final-candidate-srt",
-                        WorkerId = "NEED-TO-BE-OVERRIDED", // Should be arbitrer-final-choice or finalized_maverick
+                        WorkerId = "final-ai-subtitles",
                         FileSuffix = ".final-candidate.srt",
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
@@ -611,11 +616,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".learning.srt",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "arbitrer-final-choice",
+                            TimingsSource = "final-ai-subtitles",
                             Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
                         },
-                        TextSources = "final-user-edited,arbitrer-final-choice",
-                        SkipWhenTextSourcesAreIdentical = "final-user-edited,arbitrer-final-choice"
+                        TextSources = "final-user-edited,final-ai-subtitles"
                     }
                 }
             };
