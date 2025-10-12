@@ -321,9 +321,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataNeeded = "singlevad-VoiceText",
                             MetadataAlwaysProduced = "VoiceText",
 
-                            BatchSize = 50,
+                            BatchSize = 100,
                             BatchSplitWindows = 0,
-                            NbContextItems = 100,
+                            NbContextItems = 50,
                             NbItemsMinimumReceivedToContinue = 30,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }

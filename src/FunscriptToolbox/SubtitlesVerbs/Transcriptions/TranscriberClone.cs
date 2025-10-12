@@ -25,10 +25,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            var sourceTranscription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished);
-            if (sourceTranscription == null || !sourceTranscription.IsFinished)
+            var source = (TimedItemWithMetadataCollection) context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished)
+                ?? context.WIP.Translations.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished);
+            if (source == null || !source.IsFinished)
             {
-                reason = $"Source transcription '{this.SourceId}' has not been completed yet.";
+                reason = $"Source '{this.SourceId}' has not been completed yet.";
                 return false;
             }
 
@@ -54,18 +55,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var sourceTranscription = context.WIP.Transcriptions.First(t => t.Id == this.SourceId);
-            _metadataProduced = sourceTranscription.MetadataAlwaysProduced;
+            var source = (TimedItemWithMetadataCollection)context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished)
+                ?? context.WIP.Translations.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished);
+            _metadataProduced = source.MetadataAlwaysProduced;
 
             transcription.Items.Clear();
 
-            var sourceItems = sourceTranscription.GetItems();
+            var sourceItems = source.GetItems();
             var aggregatedMetadata = new MetadataAggregator()
             {
                 TimingsSource = this.SourceId,
                 Sources = this.Metadatas == null ? this.SourceId : this.Metadatas.Sources + $",{this.SourceId}"
             }
-                .Aggregate(context, sourceTranscription);
+                .Aggregate(context, source);
 
             transcription.Items.AddRange(
                 aggregatedMetadata.ReferenceTimingsWithMetadata.Select(item =>
