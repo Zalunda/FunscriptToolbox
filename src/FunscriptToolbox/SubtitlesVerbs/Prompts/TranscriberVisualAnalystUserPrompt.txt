@@ -12,7 +12,7 @@ Hallucinated man's reaction.
 Not using character's name in the description when they are identified with visual training.
 ParticipantPoses is incomplete (for example, hands on nipples is specified but nothing is said about her mouth sucking is dick).
 ParticipantPoses doesn't include important sexual action when it make sense (blowjob, handjob, cowgirl, etc).
-Missing ParticipantPoses or TranslationAnalysis field on a node.
+Missing ParticipantPoses or TranslationAnalysis-Visual field on a node.
 Missing OngoingEnvironment when environment changes.
 Missing OngoingAppearance when appearance changes (ex. girl goes from shirt => bra => topless or skirt => panties => bottomless or fully naked, man goes from shirt => torso exposed or pants => underwear => bottomless or fully naked).
 

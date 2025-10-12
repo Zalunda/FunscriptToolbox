@@ -316,6 +316,7 @@
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerSystemPrompt.txt" />

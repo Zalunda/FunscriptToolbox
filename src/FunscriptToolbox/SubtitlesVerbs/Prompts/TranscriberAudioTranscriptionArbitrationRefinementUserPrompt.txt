@@ -1,0 +1,9 @@
+﻿### URGENT: HIGH-STAKES ANALYSIS AUDIT
+
+**The Single Metric for Success:** Your ability to provide a `TranslationAnalysis-Audio` that accurately explains the significance of non-standard speech patterns. A word-perfect transcription that fails to explain crucial delivery nuance is considered a **mission failure**.
+
+**Definition of a Critical Analysis Failure:**
+*   **Contextual Negligence:** Failing to add a `TranslationAnalysis-Audio` field for any segment where the delivery is clearly non-standard (e.g., contains hesitation, musing, a singsong tone, heavy sighing, crying, etc.).
+*   **Superficial Analysis:** Providing a `TranslationAnalysis-Audio` that merely states the obvious (e.g., "Speaker hesitates") without explaining the *implication* for translation (e.g., "This hesitation suggests genuine uncertainty, not just a search for words. A translator should aim for phrasing that conveys doubt.").
+
+**Audit Consequence:** Any Critical Analysis Failure will result in the disqualification of the entire batch.

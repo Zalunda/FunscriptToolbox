@@ -35,7 +35,7 @@ If synchronization is successful, you must construct a new string, `VoiceText` (
     *   **Cut-off End:** If the `SpeechEndTime` coincides with the end of the `AudioClip` AND the audio of the last word sounds audibly incomplete, the trailing marker **MUST** be the special value `..?..`.
 
 3.  **Internal Pause Markers (As Needed):**
-    *   Analyze the cadence *within* the `OriginalVoiceText`. If a pause between words exceeds **300ms**, insert an internal pause marker `..<N>..` at that location, following the same rounding rules.
+    *   Analyze the cadence *within* the `OriginalVoiceText`. If a pause between words exceeds **300ms**, insert an internal pause marker `[pause:short]` or, if more then 1 seconds, `[pause:long]` at that location.
 
 4.  **Final Construction:**
     *   The final `VoiceText` is the concatenation of all parts: `[Leading Pause]` + `[OriginalVoiceText with Internal Pauses]` + `[Trailing Pause]`.
@@ -54,7 +54,7 @@ Your response will be a single, valid JSON array of objects. Each object corresp
   {
     "StartTime": "00:01:02.810",
     "OriginalVoiceText": "この私の生つばたらたらの蛇舌でね。",
-    "VoiceText": "..8..この私の..8..生つばたらたらの..6..蛇舌でね。..15.."
+    "VoiceText": "..8..この私の[pause:long]生つばたらたらの[pause:short]蛇舌でね。..15.."
   },
   // **Cut-off Start Example:**
   {

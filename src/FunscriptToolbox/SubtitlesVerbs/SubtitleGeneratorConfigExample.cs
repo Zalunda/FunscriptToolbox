@@ -400,7 +400,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             UserPrompt = transcriberVisualAnalystUserPrompt,
                             TextAfterAnalysis = " --reasoning_effort medium",
                             MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "TranslationAnalysis",
+                            MetadataAlwaysProduced = "TranslationAnalysis-Visual",
                             MetadataForTraining = "VisualTraining",
 
                             BatchSize = 30,
@@ -456,7 +456,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
-                                { "TranslationAnalysis", 10 },
+                                { "TranslationAnalysis-Audio", 10 },
+                                { "TranslationAnalysis-Visual", 10 },
                                 { "VoiceText", 10 }
                             },
                             NbItemsMinimumReceivedToContinue = 50,
@@ -519,7 +520,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
-                                { "TranslationAnalysis", 10 },
+                                { "TranslationAnalysis-Audio", 10 },
+                                { "TranslationAnalysis-Visual", 10 },
                                 { "VoiceText", 10 }
                             },
                             NbItemsMinimumReceivedToContinue = 50,
@@ -564,7 +566,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
-                                { "TranslationAnalysis", 10 },
+                                { "TranslationAnalysis-Audio", 10 },
+                                { "TranslationAnalysis-Visual", 10 },
                                 { "VoiceText", 10 }
                             },
                             NbItemsMinimumReceivedToContinue = 50,

@@ -27,7 +27,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 51;
+            int test = 50;
 
             switch (test)
             {
@@ -113,6 +113,7 @@ namespace FunscriptToolbox
 
                 case 50:
                     // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";
+                    var prefix = "SAVR-681*";
                     args = new[]
                     {
                         "subtitles.create",
@@ -120,8 +121,8 @@ namespace FunscriptToolbox
                         "--recursive",
                         "--skipupdate",
                         "--config", ".\\--FSTB-SubtitleGenerator.config",
-                        "*.vseq", 
-                        //"*3DSVR-0605-SLR*.mp4"
+                        $"{prefix}.vseq",
+                        $"{prefix}.mp4"
                     };
                     break;
 
