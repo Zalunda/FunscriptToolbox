@@ -387,12 +387,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "visual-analysis",
                         PrivateMetadataNames = "VoiceText",
-                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=10:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
                         Engine = aiEngineGPT5ViaPoe,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-texts,voice-texts,speakers,manual-input"
+                            Sources = "on-screen-texts,voice-texts,speakers,manual-input",
+                            MergeRules = new Dictionary<string, string>
+                            {
+                                { "TranslationAnalysis-Audio", null }
+                            }
+
                         },
                         Options = new AIOptions()
                         {
