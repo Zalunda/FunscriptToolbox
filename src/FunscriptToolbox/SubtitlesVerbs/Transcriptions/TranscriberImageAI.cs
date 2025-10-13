@@ -69,7 +69,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 }
                             };
                         if (KeepTemporaryFiles)
-                            context.CreateVerboseBinaryFile($"{transcription.Id}_{middleTime:hhmmssfff}.jpg", image, processStartTime);
+                            context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);
                         return data;
                     });
 
