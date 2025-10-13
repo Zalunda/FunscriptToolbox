@@ -71,56 +71,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     : rule;
                 var regex = new Regex($"^{pattern}$");
 
-                var foundTranscriber = false;
                 foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
                         .Where(t => regex.IsMatch(t.TranscriptionId)))
                 {
                     var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
-
                     if (transcriber.Enabled && transcription?.IsFinished != true)
                     {
                         reasons.Add($"Transcription '{transcriber.TranscriptionId}' is not done yet.");
                     }
-                    if (transcription?.IsFinished == true)
-                    {
-                        metadataProviders.Add(transcription); 
-                        foundTranscriber = true;
-                    }
-                }
-                if (!foundTranscriber)
-                {
-                    var transcription = context.WIP.Transcriptions.FirstOrDefault(t => regex.IsMatch(t.Id));
-                    if (transcription?.IsFinished == true)
-                    {
-                        metadataProviders.Add(transcription);
-                    }
                 }
 
-                var foundTranslator = false;
+                metadataProviders.AddRange(context.WIP.Transcriptions.Where(t => regex.IsMatch(t.Id)));
+
                 foreach (var translator in context.Config.Workers.OfType<Translator>()
                         .Where(t => regex.IsMatch(t.TranslationId)))
                 {
                     var translation = context.WIP.Translations
                         .FirstOrDefault(t => regex.IsMatch(t.Id));
-
                     if (translator.Enabled && translation?.IsFinished != true)
                     {
                         reasons.Add($"Translation '{translator.TranslationId}' is not done yet.");
                     }
-                    if (translation?.IsFinished == true)
-                    {
-                        metadataProviders.Add(translation);
-                        foundTranslator = true;
-                    }
                 }
-                if (!foundTranslator)
-                {
-                    var translation = context.WIP.Translations.FirstOrDefault(t => regex.IsMatch(t.Id));
-                    if (translation?.IsFinished == true)
-                    {
-                        metadataProviders.Add(translation);
-                    }
-                }
+
+                metadataProviders.AddRange(context.WIP.Translations.Where(t => regex.IsMatch(t.Id)));
             }
 
             return (
