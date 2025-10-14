@@ -102,7 +102,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                             if (text == null) continue;
 
                             // Action A: Always build the text portion of the subtitle
-                            sb.AppendLine($"[{textSource.Container.Id}] {text}");
+                            sb.AppendLine((textSources.Length > 1)
+                                    ? $"[{textSource.Container.Id}] {text}"
+                                    : text);
 
                             // Action B: If this source is targeted, collect its value for the skip-check
                             if (sourcesToCompareIds?.Contains(textSource.Container.Id) == true)
