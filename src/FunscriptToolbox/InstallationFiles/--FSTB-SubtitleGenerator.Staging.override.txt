@@ -10,6 +10,10 @@
       "AudioExtractionId": "audio-clean-waveform",
       "Enabled": true,
     },
+    {
+      "Id": "asig",
+      "Enabled": true     
+    },
     // -----------------------------
     // Transcription with Whisper with a basic google translation
     {
@@ -29,12 +33,11 @@
     },
     {
       "TranslationId": "full_local-api",
-      "$type": "TranslatorAI",
       "Enabled": false,
       "ExportMetadataSrt": false
-	},
+    },
     {
-	  "OutputId": "preliminary-srt",
+      "OutputId": "preliminary-srt",
       "Enabled": true,
       "FileSuffix": ".srt",
       "WorkerId": "full_google"

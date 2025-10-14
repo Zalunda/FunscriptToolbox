@@ -10,6 +10,10 @@
       "Id": "audio-clean-waveform",
       "Enabled": true,
     },
+    {
+      "Id": "asig",
+      "Enabled": true     
+    },
     // -----------------------------
     // Creating initial manual-input source 
     {
@@ -48,13 +52,13 @@
     {
       "Id": "voice-texts",
       "Enabled": true,
-      "SourceId": "full-ai"
+      "SourceId": "full"
     },    
     // -----------------------------
     // Use timings, manual-input and voice-texts to mergedvad, speaker, on-screen-texts, visual-analysis
     {
       "Id": "mergedvad",
-      "Enabled": true
+      "Enabled": false
     },
     {
       "Id": "speakers",
@@ -111,18 +115,32 @@
       "Enabled": false
     },	
     {
-      "Id": "final-candidate-srt",
+      "TranscriptionId": "final-ai-texts",
       "Enabled": true,
       // [OPTION] Set to "arbitrer-final-choice" if you want to go with multiples translation and an arbiter.
-      "WorkerId": "finalized_maverick"
+      "SourceId": "finalized_maverick"
     },
     {
-      "Id": "asig",
-      "Enabled": true      
+      "Id": "final-ai-srt",
+      "Enabled": true
+    },
+    {
+      "Id": "final-ai-debug-srt",
+      "Enabled": true
     },
     {
       "Id": "costs",
       "Enabled": true
+    },
+    {
+      "TranscriptionId": "final-user-texts",
+      // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit).
+      "Enabled": false
+    },
+    {
+      "OutputId": "learning-srt",
+      // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit) and output a subtitle that, maybe, could be used to help an AI learn your preference.
+      "Enabled": false
     },
   ]
 }

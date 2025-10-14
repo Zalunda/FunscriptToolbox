@@ -124,6 +124,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerUserPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerUserPrompt);
 
             var transcriberAudioTranscriptionArbitrationRefinementSystemPrompt = AddPromptToSharedObjects("TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt", Resources.TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt);
+            var transcriberAudioTranscriptionArbitrationRefinementUserPrompt = AddPromptToSharedObjects("TranscriberAudioTranscriptionArbitrationRefinementUserPrompt", Resources.TranscriberAudioTranscriptionArbitrationRefinementUserPrompt);
 
             var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects("TranscriberOnScreenTextSystemPrompt", Resources.TranscriberOnScreenTextSystemPrompt);
 
@@ -156,6 +157,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SourceAudioId = "audio",
                         SaveAsFileSuffixe = ".wav",
                         FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>  
+                    },
+                    new SubtitleOutputAsig()
+                    {
+                        OutputId = "asig",
+                        SourceAudioId = "audio",
+                        FileSuffix = ".asig",
+                        SaveFullFileToo = true
                     },
 
                     //---------------------------------------------------
@@ -318,6 +326,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Options = new AIOptions()
                         {
                             SystemPrompt = transcriberAudioTranscriptionArbitrationRefinementSystemPrompt,
+                            UserPrompt = transcriberAudioTranscriptionArbitrationRefinementUserPrompt,
                             MetadataNeeded = "singlevad-VoiceText",
                             MetadataAlwaysProduced = "VoiceText",
 
@@ -440,7 +449,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "translated-texts_maverick",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGPT5ViaPoe,
+                        Engine = aiEngineGeminiPro,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -583,24 +592,29 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberClone()
                     {
-                        TranscriptionId = "final-ai-subtitles",
+                        TranscriptionId = "final-ai-texts",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick or arbitrer-final-choice
                     },
                     new SubtitleOutputSimpleSrt()
                     {
-                        OutputId = "final-candidate-srt",
-                        WorkerId = "final-ai-subtitles",
-                        FileSuffix = ".final-candidate.srt",
+                        OutputId = "final-ai-srt",
+                        WorkerId = "final-ai-texts",
+                        FileSuffix = ".final-ai.srt",
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
                         SaveFullFileToo = true
                     },
-                    new SubtitleOutputAsig()
+                    new SubtitleOutputComplexSrt()
                     {
-                        OutputId = "asig",
-                        SourceAudioId = "audio",
-                        FileSuffix = ".asig",
-                        SaveFullFileToo = true
+                        OutputId = "final-ai-debug-srt",
+                        FileSuffix = ".final-ai-debug.srt",
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "timings",
+                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,manual-input",
+                        },
+                        TextSources = "final-ai-texts",
+                        WaitForFinished = true
                     },
                     new SubtitleOutputCostReport()
                     {
@@ -614,8 +628,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // Potential 'Learning' workflow
                     new TranscriberImportText
                     {
-                        TranscriptionId = "final-user-edited",
-                        FileSuffix = ".final.srt",
+                        TranscriptionId = "final-user-texts",
+                        FileSuffix = ".final-user.srt",
                         MetadataProduced = "FinalText"
                     },
                     new SubtitleOutputComplexSrt()
@@ -627,7 +641,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             TimingsSource = "final-ai-subtitles",
                             Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
                         },
-                        TextSources = "final-user-edited,final-ai-subtitles"
+                        TextSources = "final-user-texts,final-ai-texts"
                     }
                 }
             };

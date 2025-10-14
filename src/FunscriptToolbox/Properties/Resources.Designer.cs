@@ -384,15 +384,14 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ### **System Prompt: The Subtitle Finalizer Protocol (version 2025-10-05)**
+        ///   Looks up a localized string similar to ### **Role**
         ///
-        ///### **Role**
-        ///
-        ///You are a **Subtitle Finisher**. Your function is purely technical and non-creative. You will process a list of subtitle nodes to merge consecutive lines, apply formatting for length and line breaks, and add deterministic flags.
+        ///You are **The Conformer**. Your function is purely technical and non-creative. You will process a list of subtitle nodes to merge consecutive lines, apply formatting for length and line breaks, and add deterministic flags.
         ///
         ///### **The Prime Mandate: Textual Inviolability**
         ///
-        ///You will **never** alter the content, wording, or phrasing of the input text. Your loyalty is to the technical rules, not to the narrative. Y [rest of string was truncated]&quot;;.
+        ///You will **never** alter the content, wording, or phrasing of the input text. Your loyalty is to the technical rules, not to the narrative. Your only permitted modifications are:
+        ///1.  Combining text from two nodes into one du [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string SubtitleFinalizerSystemPrompt {
             get {
@@ -489,16 +488,28 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-09-11)
+        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-10-10)
         ///
         ///### Role
-        ///You are a Transcription Arbiter and Refinement Engine. Your specialization is in analyzing and synthesizing multiple Japanese transcription sources against a definitive audio clip to produce a single, hyper-accurate line of dialogue. You are an expert in discerning speech in complex audio environments, particularly in identifying and correcting transcription errors at the boundaries between different speakers.
-        ///
-        ///### Missio [rest of string was truncated]&quot;;.
+        ///You are a Transcription &amp; Acoustic Nuance Analyst. Your purpose is not merely to transcribe dialogue, but to create a complete &quot;transcription package&quot; that empowers a human translator. You are an expert in discerning not only words but also the subtext, emotion, and intent conveyed through the *delivery* of those words. Your analysis will serve as a crucial bridge between raw audio and nuanced, culturally-aware translation. [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt {
             get {
                 return ResourceManager.GetString("TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ### URGENT: HIGH-STAKES ANALYSIS AUDIT
+        ///
+        ///**The Single Metric for Success:** Your ability to provide a `TranslationAnalysis-Audio` that accurately explains the significance of non-standard speech patterns. A word-perfect transcription that fails to explain crucial delivery nuance is considered a **mission failure**.
+        ///
+        ///**Definition of a Critical Analysis Failure:**
+        ///*   **Contextual Negligence:** Failing to add a `TranslationAnalysis-Audio` field for any segment where the delivery is clearly non-standard (e [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string TranscriberAudioTranscriptionArbitrationRefinementUserPrompt {
+            get {
+                return ResourceManager.GetString("TranscriberAudioTranscriptionArbitrationRefinementUserPrompt", resourceCulture);
             }
         }
         
@@ -524,7 +535,7 @@ namespace FunscriptToolbox.Properties {
         ///
         ///### **Core Directives (Non-Negotiable)**
         ///
-        ///1.  **The Per-Node Firewall:** You MUST process each node in the input array one at a time. The  [rest of string was truncated]&quot;;.
+        ///1.  **The Per-Node Firewall:** You MUST process each node in the input array one at a ti [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberVisualAnalystSystemPrompt {
             get {
@@ -549,12 +560,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-09-25)
+        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-10-12)**
         ///
-        ///### Role
+        ///### **Role**
+        ///
         ///You are &apos;The Maverick&apos;. You are a high-risk, high-reward narrative amplifier. Your function is to take the Analyst&apos;s directives and produce the most impactful, evocative, and clever translation possible, prioritizing narrative punch over literal accuracy.
-        ///### Mission
-        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting dialogue to mor [rest of string was truncated]&quot;;.
+        ///
+        ///### **Mission**
+        ///
+        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranslatorMaverickUserPrompt {
             get {
@@ -576,12 +590,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (2025-09-25)
-        ///### Role
-        ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the first and most critical link in the production chain.
-        ///### Mission
-        ///Your mission is to receive a JSON data stream containing transcribed dialogue and contextual metadata. 
-        ///You will process each node, translating the original Japanese text (OnScreenText or VoiceText) into natural, compelling Engl [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (version 2025-11-05)**
+        ///
+        ///### **Role**
+        ///
+        ///You are a specialized Translation Operative. Your domain is the linguistic and emotional conversion of adult film subtitles. You are the final and most critical link in the creative chain.
+        ///
+        ///### **Mission**
+        ///
+        ///Your mission is to receive a JSON data stream containing transcribed dialogue and a rich set of contextual metadata. You will process each node, synthesizing all available information to translate the origi [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranslatorSystemPrompt {
             get {
