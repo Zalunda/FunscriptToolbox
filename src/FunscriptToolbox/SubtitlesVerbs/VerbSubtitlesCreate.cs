@@ -117,6 +117,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     file, 
                     r_options.Recursive, 
                     WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
+                .Where(file => !file.EndsWith(".FAST.mp4", StringComparison.OrdinalIgnoreCase))
                 .Distinct()
                 .OrderBy(f => f)))
             {
