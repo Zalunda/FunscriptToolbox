@@ -157,18 +157,40 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         private static IEnumerable<TranscribedWord> SplitEvenly(ITiming timing, string text)
         {
-            text = text.Length == 0 
-                ? " " 
+            text = text.Length == 0
+                ? " "
                 : text;
-            var nbBlocks = Math.Min(text.Length, 15);
-            var nbCharactersPerBlock = text.Length / nbBlocks;
-            var timePerBlock = TimeSpan.FromMilliseconds(timing.Duration.TotalMilliseconds / nbBlocks);
+
+            // Determine the number of blocks. It's the smaller of the text length or the max of 15.
+            int nbBlocks = Math.Min(text.Length, 15);
+
+            // Calculate the time duration for each block. This part remains the same.
+            var timePerBlock = new TimeSpan(timing.Duration.Ticks / nbBlocks);
             var currentStartTime = timing.StartTime;
-            var currentIndexInString = 0;
-            for (int i = 0; i < nbBlocks; i++, currentIndexInString += nbCharactersPerBlock)
+
+            // Calculate the base number of characters in each block.
+            int baseSize = text.Length / nbBlocks;
+
+            // Calculate how many blocks will get an extra character.
+            int remainder = text.Length % nbBlocks;
+
+            // Keep track of our current position in the string.
+            int currentIndex = 0;
+
+            for (int i = 0; i < nbBlocks; i++)
             {
-                yield return new TranscribedWord(currentStartTime, currentStartTime + timePerBlock, text.Substring(currentIndexInString, nbCharactersPerBlock));
+                // The first 'remainder' blocks get one extra character to distribute them evenly.
+                int blockSize = baseSize + (i < remainder ? 1 : 0);
+
+                // Get the substring for the current block.
+                string blockText = text.Substring(currentIndex, blockSize);
+
+                // Create the new TranscribedWord.
+                yield return new TranscribedWord(currentStartTime, currentStartTime + timePerBlock, blockText);
+
+                // Move the start time and index forward for the next iteration.
                 currentStartTime += timePerBlock;
+                currentIndex += blockSize;
             }
         }
 
