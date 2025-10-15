@@ -638,7 +638,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".learning.srt",
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "final-ai-subtitles",
+                            TimingsSource = "final-ai-texts",
                             Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
                         },
                         TextSources = "final-user-texts,final-ai-texts"
