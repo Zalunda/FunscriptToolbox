@@ -89,6 +89,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
     public class AIEngineRunner<T> : AIEngineRunner where T: TimedItemWithMetadata
     {
+        private static readonly Regex rs_lookLikeItsJson = new Regex(@".*\s*\{.*\"".*\:.*\}\s*,", RegexOptions.Multiline | RegexOptions.Compiled);
+
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
         private readonly TimedItemWithMetadataCollection<T> r_workingOnContainer;
@@ -152,20 +154,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
                 catch (AIRequestException ex)
                 {
-                    var filepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
-                    string body;
-                    if (ex.ResponseBodyPartiallyFixed == null)
+                    var todoFilepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
+                    var errorFilePath = todoFilepath.Replace("TODO_", "TODO_E_");
+                    if (ex.ResponseBodyPartiallyFixed == null || !rs_lookLikeItsJson.IsMatch(ex.ResponseBodyPartiallyFixed))
                     {
-                        filepath = filepath.Replace("TODO_", "TODO_E_");
-                        body = $"--- Original Prompt ------------------------------\n\n{ex.Request?.FullPrompt}";
+                        r_context.SoftDelete(errorFilePath);
+                        File.WriteAllText(
+                            errorFilePath,
+                            $"{ex.Message}\n\n{ex.ResponseBody}", 
+                            Encoding.UTF8);
                     }
                     else
                     {
-                        body = ex.ResponseBodyPartiallyFixed;
+                        r_context.SoftDelete(todoFilepath);
+                        File.WriteAllText(
+                            todoFilepath,
+                            $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}",
+                            Encoding.UTF8);
+                        r_context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(todoFilepath)}':\n{ex.Message}");
                     }
-                    r_context.SoftDelete(filepath);
-                    File.WriteAllText(filepath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{body}", Encoding.UTF8);
-                    r_context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(filepath)}':\n{ex.Message}");
                     throw;
                 }
             }
@@ -207,6 +214,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         r_context.WriteInfo($"Error while parsing file '{filename}':{ex.Message}");
                         r_context.AddUserTodo($"Manually fix the following error in file '{filename}':\n{ex.Message}");
                     }
+                }
+                else if (Regex.IsMatch(
+                    filename,
+                    $"^" + Regex.Escape($"{Path.GetFileName(r_context.WIP.BaseFilePath)}.TODO_E_{r_workingOnContainer.Id}") + $"{patternSuffix}$",
+                    RegexOptions.IgnoreCase))
+                {
+                    // Soft delete old error file.
+                    r_context.SoftDelete(fullpath);
                 }
             }
 
@@ -293,7 +308,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 // For any other exception, wrap it with the context of the fixed JSON.
                 // This is crucial for debugging parsing failures.
-                throw new AIRequestException(ex, request, ex.Message + $"\n{GetSegmentInformation(currentSegment)}", fixedJson ?? responseReceived);
+                throw new AIRequestException(ex, request, ex.Message + $"\n{GetSegmentInformation(currentSegment)}", responseReceived, fixedJson);
             }
         }
     }

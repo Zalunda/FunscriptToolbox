@@ -128,7 +128,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (!response.IsSuccessStatusCode)
             {
-                throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                throw new AIRequestException(
+                    request, 
+                    $"Error: {response.StatusCode} - {response.ReasonPhrase}");
             }
 
             string responseAsJson = response.Content.ReadAsStringAsync().Result;
@@ -138,7 +140,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
             {
-                throw new AIRequestException(request, $"Invalid model name in response:\n" +
+                throw new AIRequestException(
+                    request, 
+                    $"Invalid model name in response:\n" +
                     $"   [API response] {responseBody.model}\n" +
                     $"   [config]   {this.Model}");
             }
@@ -149,7 +153,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessage, request.ProcessStartTime);
             if (assistantMessage == null)
             {
-                throw new AIRequestException(request, $"Empty response receive. Finish_reason: {finish_reason}");
+                throw new AIRequestException(
+                    request, 
+                    $"Empty response receive. Finish_reason: {finish_reason}");
             }
 
             Console.WriteLine("\n" + AddRealTime(context, request.StartOffset, assistantMessage) + "\n\n");
@@ -201,7 +207,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new AIRequestException(request, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                    throw new AIRequestException(
+                        request, 
+                        $"Error: {response.StatusCode} - {response.ReasonPhrase}");
                 }
 
                 var chunksReceived = new StringBuilder();
@@ -327,14 +335,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new AIRequestException(request, $"Invalid model name in response:\n" +
+                    throw new AIRequestException(
+                        request, 
+                        $"Invalid model name in response:\n" +
                         $"   [API response] {modelName}\n" +
                         $"   [config]   {this.Model}");
                 }
 
                 if (string.IsNullOrEmpty(assistantMessage))
                 {
-                    throw new AIRequestException(request, $"Empty response received. Finish_reason: {finish_reason}");
+                    throw new AIRequestException(
+                        request, 
+                        $"Empty response received. Finish_reason: {finish_reason}");
                 }
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
@@ -370,8 +382,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     try
                     {
                         var time = match.Groups["Time"].Value;
-                        var originalTime = startOffset + TimeSpanExtensions.FlexibleTimeSpanParse(time);
-                        var (_, newTime) = context.WIP.TimelineMap.GetPathAndPosition(originalTime);
+                        var originalTime = TimeSpanExtensions.FlexibleTimeSpanParse(time);
+                        var adjustedTime = startOffset + TimeSpanExtensions.FlexibleTimeSpanParse(time);
+                        var (_, newTime) = context.WIP.TimelineMap.GetPathAndPosition(adjustedTime);
                         return (newTime != originalTime)
                             ? $"{grab} [{newTime:hh\\:mm\\:ss\\.fff}]\""
                             : match.Groups["Grab"].Value + "\"";

@@ -106,6 +106,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime),
                     binaryGenerator);
                 var response = this.Engine.Execute(context, request);
+                if (response.AssistantMessage == null)
+                {
+                    throw new Exception($"'{this.GetType().Name}' does not support AIEngine type '{this.Engine.GetType().Name}'.");
+                }
                 HandleResponse(transcription, response, chunkStartTime);
                 nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? chunkStartTime;
 

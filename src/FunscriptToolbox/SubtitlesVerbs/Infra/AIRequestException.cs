@@ -15,14 +15,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             ResponseBodyPartiallyFixed = responseBodyPartiallyFixed;
         }
 
-        public AIRequestException(Exception ex, AIRequest request, string message = null, string responseBodyPartiallyFixed = null)
-            : base(message ?? ex.Message, ex)
+        public AIRequestException(Exception ex, AIRequest request, string message, string responseBody, string responseBodyPartiallyFixed)
+            : base(message, ex)
         {
             Request = request;
+            ResponseBody = responseBody;
             ResponseBodyPartiallyFixed = responseBodyPartiallyFixed;
         }
 
         public AIRequest Request { get; }
+        public string ResponseBody { get; }
         public string ResponseBodyPartiallyFixed { get; }
     }
 }

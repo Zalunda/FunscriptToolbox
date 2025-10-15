@@ -28,5 +28,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             this.StartTime = newStartTime;
             this.EndTime = newEndTime;
         }
+
+        public override string ToString()
+        {
+            return $"{this.StartTime},{this.EndTime},{this.Text}";
+        }
     }
 }
