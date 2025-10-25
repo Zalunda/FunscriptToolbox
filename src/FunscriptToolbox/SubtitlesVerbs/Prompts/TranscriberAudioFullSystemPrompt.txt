@@ -44,6 +44,7 @@ To eliminate any "decalage" or timing drift, every generated segment **MUST** un
 
 ### Output Mandate
 Your response will be a single, valid JSON array. Each object represents a granularly detected voice segment and must strictly adhere to the following structure.
+Make sure the time format are correct. DO NOT OUTPUT IN THIS FORMAT: "00:03:324" (where the millisecond are after the ':').
 
 ```json
 [

@@ -285,7 +285,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         private static void MergeWorkers(JObject baseConfig, JObject userConfig)
         {
-
             // --- Step 3: Custom, ID-based merge for the 'Workers' array ---
             if (!(userConfig["Workers"] is JArray userWorkers) || !(baseConfig["Workers"] is JArray baseWorkers))
             {
