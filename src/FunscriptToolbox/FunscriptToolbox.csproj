@@ -235,6 +235,7 @@
     <Compile Include="SubtitlesVerbs\Infra\AIRequest.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngine.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
+    <Compile Include="SubtitlesVerbs\VerbSubtitlesStoryVideo.cs" />
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSimpleSrt.cs" />

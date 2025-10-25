@@ -27,7 +27,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 50;
+            int test = 53;
 
             switch (test)
             {
@@ -173,6 +173,18 @@ namespace FunscriptToolbox
                         funscript.Save($"Test.{scale}.{minSpeed}.{maxSpeed}.funscript");
                     }
                     return 0;
+
+                case 53:
+                    args = new[]
+                    {
+                        "subtitles.storyvideo",
+                        //"--video", @"InstallationTest\DSVR-1721-A.mp4",
+                        //"--subtitles", @"InstallationTest\DSVR-1721-A.srt"
+                        "--video", @"InstallationTest\frame_counter_5994fps.mp4",
+                        "--subtitles", @"InstallationTest\frame_counter_5994fps.srt"
+                    };
+                    break;
+
             }
 #endif
             try
@@ -193,6 +205,7 @@ namespace FunscriptToolbox
                     VerbAudioSyncVerifyFunscript.Options,
 
                     VerbSubtitlesCreate.Options,
+                    // VerbSubtitlesStoryVideo.Options, Not ready yet
 
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
@@ -205,6 +218,7 @@ namespace FunscriptToolbox
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
 
                           (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
+                          // (VerbSubtitlesStoryVideo.Options options) => new VerbSubtitlesStoryVideo(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),
