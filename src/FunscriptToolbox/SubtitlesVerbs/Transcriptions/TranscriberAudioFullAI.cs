@@ -110,7 +110,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     throw new Exception($"'{this.GetType().Name}' does not support AIEngine type '{this.Engine.GetType().Name}'.");
                 }
-                HandleResponse(transcription, response, chunkStartTime);
+                HandleResponse(transcription, response, chunkStartTime, chunkEndTime);
                 nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? chunkStartTime;
 
                 var startOfBufferZone = chunkEndTime - TimeSpan.FromSeconds(10);
@@ -181,17 +181,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private void HandleResponse(
             Transcription transcription,
             AIResponse response,
-            TimeSpan offset,
+            TimeSpan chunkStartTime,
+            TimeSpan chunkEndTime,
             string prefix = "")
         {
             foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
+                                    response.Request,
                                     response.AssistantMessage,
                                     tryToFixEnd: false)))
             {
+                var startTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime);
+                var endTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime);
+                if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
+                {
+                    throw new Exception($"Received node with endtime {endTime} when audio chunk had a duration of only {chunkEndTime}.");
+                }
+
                 transcription.Items.Add(
                     new TranscribedItem(
-                        offset + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime),
-                        offset + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime), 
+                        startTime,
+                        endTime, 
                         MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
             }
         }
