@@ -38,9 +38,13 @@ public class VirtualSubtitleFile : SubtitleFile
                     var startTimeInMerged = segment.Offset + sub.StartTime;
                     var endTimeInMerged = segment.Offset + sub.EndTime;
 
-                    if ((startTimeInMerged > segment.Offset) && (startTimeInMerged < maxEndTimeForThisPart))
+                    if (startTimeInMerged >= segment.Offset)
                     {
-                        virtualFile.Subtitles.Add(new Subtitle(startTimeInMerged, endTimeInMerged, sub.Text));
+                        virtualFile.Subtitles.Add(
+                            new Subtitle(
+                                startTimeInMerged, 
+                                TimeSpanExtensions.Min(endTimeInMerged, maxEndTimeForThisPart),
+                                sub.Text));
                     }
                 }
             }
