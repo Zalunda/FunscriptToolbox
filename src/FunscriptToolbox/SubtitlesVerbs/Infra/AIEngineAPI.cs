@@ -147,6 +147,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     $"   [config]   {this.Model}");
             }
 
+            if (responseBody?.error != null)
+            {
+                var errorType = responseBody.error.type;
+                var message = responseBody.error.message;
+                throw new AIRequestException(request, $"type={errorType}, message={message}");
+            }
+
             string assistantMessage = responseBody.choices[0]?.message?.content;
             string finish_reason = responseBody.choices[0]?.finish_reason;
             Console.WriteLine($"\n\nFinish_reason: {finish_reason}");
@@ -254,6 +261,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                         modelName = chunk.model;
                                     }
 
+                                    if (chunk?.error != null)
+                                    {
+                                        var errorType = chunk.error.type;
+                                        var message = chunk.error.message;
+                                        throw new AIRequestException(request, $"type={errorType}, message={message}", fullContent.ToString());
+                                    }
+
                                     // Extract content delta
                                     if (chunk?.choices.Count > 0)
                                     {
@@ -314,18 +328,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             }
                         }
                     }
+
+                    if (!doneReceived)
+                    {
+                        fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
+                    }
                 }
                 catch (Exception ex)
                 {
                     fullContent.AppendLine();
-                    fullContent.AppendLine($"An exception occured while receiving the AI response: {ex.Message}");
+                    fullContent.AppendLine();
+                    fullContent.AppendLine($"==> An exception occured while receiving the AI response: {ex.Message}");
                     context.WriteLog(ex.ToString());
                 }
 
-                if (!doneReceived)
-                {
-                    fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
-                }
                 Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                 Console.WriteLine();
 

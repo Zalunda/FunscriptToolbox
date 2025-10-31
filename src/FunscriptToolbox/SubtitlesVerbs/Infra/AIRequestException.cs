@@ -8,10 +8,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         { 
         }
 
-        public AIRequestException(AIRequest request, string message, string responseBodyPartiallyFixed = null)
+        public AIRequestException(AIRequest request, string message, string responseBody = null, string responseBodyPartiallyFixed = null)
             : base(message)
         {
             Request = request;
+            ResponseBody = responseBody;
             ResponseBodyPartiallyFixed = responseBodyPartiallyFixed;
         }
 

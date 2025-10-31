@@ -13,8 +13,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class AIEngineRunner
     {
-        public static string TryToFixReceivedJson(string json, bool tryToFixEnd = true)
+        private static readonly Regex rs_lookLikeItsJson = new Regex(@".*\s*\{.*"".*\:.*\}\s*", RegexOptions.Singleline | RegexOptions.Compiled);
+
+        public static string TryToFixReceivedJson(
+            AIRequest request,
+            string json, 
+            bool tryToFixEnd = true)
         {
+            var jsonOriginal = json;
+
             // Remove thinking text
             json = Regex.Replace(json, @"\<think\>.*\<\/think\>", string.Empty, RegexOptions.Multiline);
             json = Regex.Replace(json, @"^\s*>.*$", string.Empty, RegexOptions.Multiline);
@@ -83,14 +90,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             // Add ',' between braces
             json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
 
+            if (!rs_lookLikeItsJson.IsMatch(json))
+            {
+                throw new AIRequestException(
+                    request, 
+                    "The answer received from the AI doesn't look like JSON:",
+                    jsonOriginal);
+            }
+
             return json;
         }
     }
 
     public class AIEngineRunner<T> : AIEngineRunner where T: TimedItemWithMetadata
     {
-        private static readonly Regex rs_lookLikeItsJson = new Regex(@".*\s*\{.*\"".*\:.*\}\s*,", RegexOptions.Multiline | RegexOptions.Compiled);
-
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
         private readonly TimedItemWithMetadataCollection<T> r_workingOnContainer;
@@ -156,7 +169,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     var todoFilepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
                     var errorFilePath = todoFilepath.Replace("TODO_", "TODO_E_");
-                    if (ex.ResponseBodyPartiallyFixed == null || !rs_lookLikeItsJson.IsMatch(ex.ResponseBodyPartiallyFixed))
+                    if (ex.ResponseBodyPartiallyFixed == null)
                     {
                         r_context.SoftDelete(errorFilePath);
                         File.WriteAllText(
@@ -246,7 +259,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             try
             {
                 // Step 1: Get the cleaned-up JSON string from your fixing logic.
-                fixedJson = TryToFixReceivedJson(responseReceived);
+                fixedJson = TryToFixReceivedJson(request, responseReceived);
 
                 // Step 2: Parse the cleaned string using a reader to preserve line info.
                 JArray responseArray;
@@ -303,6 +316,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                 }
                 return itemsAdded;
+            }
+            catch (AIRequestException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
