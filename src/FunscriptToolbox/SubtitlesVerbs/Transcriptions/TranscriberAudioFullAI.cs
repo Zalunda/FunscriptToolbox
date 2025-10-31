@@ -194,7 +194,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var endTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime);
                 if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
                 {
-                    throw new Exception($"Received node with endtime {endTime} when audio chunk had a duration of only {chunkEndTime}.");
+                    throw new Exception($"Received node with endtime {(string)node.EndTime} when audio chunk end is {chunkEndTime}.");
                 }
 
                 transcription.Items.Add(
