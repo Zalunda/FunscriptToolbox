@@ -16,9 +16,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string MetadataAlwaysProduced { get; set; }
         [JsonProperty(Order = 6)]
-        public string MetadataForTraining { get; set; }
-        [JsonProperty(Order = 7)]
         public string PrivateMetadataNames { get; set; }
+        [JsonProperty(Order = 7)]
+        public BinaryDataExtractor[] BinaryDataExtractors { get; set; }
 
         [JsonProperty(Order = 10)]
         public int BatchSize { get; set; } = 100000;
@@ -33,10 +33,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 15)]
         public Dictionary<string, int> MetadataInContextLimits { get; set; }
 
-        [JsonProperty(Order = 20)]
-        public string TextBeforeTrainingData { get; set; } = "Character Identification Reference:";
-        [JsonProperty(Order = 21)]
-        public string TextAfterTrainingData { get; set; } = "--------------------------------------------------";
         [JsonProperty(Order = 22)]
         public string TextBeforeContextData { get; set; } = "Context from preceding nodes:";
         [JsonProperty(Order = 23)]

@@ -193,7 +193,12 @@
     <Compile Include="SubtitlesVerbs\Infra\AIRequestGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIResponse.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIException.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorExtended.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataType.cs" />
     <Compile Include="SubtitlesVerbs\Infra\Cost.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractor.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorAudio.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorImage.cs" />
     <Compile Include="SubtitlesVerbs\Infra\MetadataAggregation.cs" />
     <Compile Include="SubtitlesVerbs\Infra\MetadataAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\Language.cs" />
@@ -209,7 +214,7 @@
     <Compile Include="SubtitlesVerbs\Infra\VirtualSubtitleFile.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
-    <Compile Include="SubtitlesVerbs\Infra\CachedBinaryGenerator.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorCachedCollection.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputAsig.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigLoader.cs" />
@@ -223,8 +228,7 @@
     <Compile Include="SubtitlesVerbs\Infra\TimingOverlap.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudio.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioFullAI.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAudioSingleVADAI.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImageAI.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAI.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberInteractifSetSpeaker.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudioExternal.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberNotReadyException.cs" />

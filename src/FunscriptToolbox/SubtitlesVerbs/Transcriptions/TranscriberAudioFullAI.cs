@@ -54,32 +54,40 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var fullPcmAudio = base.GetPcmAudio(context);
 
-            var binaryGenerator = new CachedBinaryGenerator("Audio", (timing, _) =>
-            {
-                context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
-                var tempWavFile = Path.GetTempFileName() + ".wav";
-                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
-                    fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime), tempWavFile);
-
-                var audioBytes = File.ReadAllBytes(tempWavFile);
-                var base64Audio = Convert.ToBase64String(audioBytes);
-                File.Delete(tempWavFile);
-                var data = new[]
-                    {
-                        new
+            var binaryDataExtractors = new BinaryDataExtractorCachedCollection(
+                new[] {
+                    new BinaryDataExtractorExtended {
+                        OutputFieldName = "Audio",
+                        DataType = BinaryDataType.Audio,
+                        TrainingContentLists = null,
+                        GetData = (timing, _) =>
                         {
-                            type = "input_audio",
-                            input_audio = new
-                            {
-                                data = base64Audio,
-                                format = "wav"
-                            }
-                        }
-                    };
-                if (this.KeepTemporaryFiles)
-                    context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hhmmssfff}.wav", audioBytes, processStartTime);
-                return data;
-            });
+                            context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
+                            var tempWavFile = Path.GetTempFileName() + ".wav";
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
+                                fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime), tempWavFile);
+
+                            var audioBytes = File.ReadAllBytes(tempWavFile);
+                            var base64Audio = Convert.ToBase64String(audioBytes);
+                            File.Delete(tempWavFile);
+                            var data = new[]
+                                {
+                                    new
+                                    {
+                                        type = "input_audio",
+                                        input_audio = new
+                                        {
+                                            data = base64Audio,
+                                            format = "wav"
+                                        }
+                                    }
+                                };
+                            if (this.KeepTemporaryFiles)
+                                context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav", audioBytes, processStartTime);
+                            return data;
+                        } 
+                    } 
+                });
 
             var jobState = transcription.CurrentJobState as JobState;
             if (jobState == null)
@@ -104,7 +112,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     new Timing(
                         chunkStartTime,
                         chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime),
-                    binaryGenerator);
+                    binaryDataExtractors);
                 var response = this.Engine.Execute(context, request);
                 if (response.AssistantMessage == null)
                 {
@@ -137,7 +145,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             DateTime processStartTime,
             int requestNumber,
             ITiming timing,
-            CachedBinaryGenerator binaryGenerator)
+            BinaryDataExtractorCachedCollection binaryDataExtractors)
         {
             var messages = new List<dynamic>();
             var contentList = new List<dynamic>();
@@ -159,7 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 });
             }
 
-            contentList.AddRange(binaryGenerator.GetBinaryContent(timing));
+            contentList.AddRange(binaryDataExtractors.GetNamedContentListForTiming(timing).First().Value);
 
             messages.Add(new
             {

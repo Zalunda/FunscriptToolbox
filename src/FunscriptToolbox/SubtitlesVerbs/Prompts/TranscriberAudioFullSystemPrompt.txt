@@ -44,23 +44,23 @@ To eliminate any "decalage" or timing drift, every generated segment **MUST** un
 
 ### Output Mandate
 Your response will be a single, valid JSON array. Each object represents a granularly detected voice segment and must strictly adhere to the following structure.
-Make sure the time format are correct. DO NOT OUTPUT IN THIS FORMAT: "00:03:324" (where the millisecond are after the ':').
+The time format need to be "<hour>:<minutes>:<seconds>.<milliseconds>". It's allowed to use shortened format if the value is low enough. For example, "13.345", but "60.234" should be "1:00.234".
 
 ```json
 [
   {
-    "StartTime": "00:03:26.324",
-    "EndTime": "00:03:28.845",
+    "StartTime": "03:26.324",
+    "EndTime": "03:28.845",
     "VoiceText": "私なんて、"
   },
   {
-    "StartTime": "00:03:45.123",
-    "EndTime": "00:03:47.327",
+    "StartTime": "03:45.123",
+    "EndTime": "03:47.327",
     "VoiceText": "おっぱいちゅーって"
   },
   {
-    "StartTime": "00:04:12.111",
-    "EndTime": "00:04:13.938",
+    "StartTime": "04:12.111",
+    "EndTime": "04:13.938",
     "VoiceText": "吸われちゃったもん。"
   }
 ]

@@ -15,7 +15,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly string r_userPrompt;
         private readonly string[] r_metadataNeededRules;
         private readonly string[] r_metadataProducedRule;
-        private readonly string[] r_metadataForTrainingRules;
         private readonly AIOptions r_options;
 
         private readonly DateTime r_processStartTime;
@@ -36,7 +35,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_userPrompt = options.UserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
             r_metadataNeededRules = options.MetadataNeeded?.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataProducedRule = options.MetadataAlwaysProduced?.Split(',').Select(f => f.Trim()).ToArray();
-            r_metadataForTrainingRules = options.MetadataForTraining?.Split(',').Select(f => f.Trim()).ToArray();
 
             r_options = options;
             r_processStartTime = DateTime.Now;
@@ -57,11 +55,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 var item = new TimedItemWithMetadataTagged(referenceTiming, workingOnItem?.Metadata);
                 allItems.Add(item);
-
-                if (IsRulesRespected(r_metadataForTrainingRules, referenceTiming.Metadata))
-                {
-                    itemsForTraining.Add(item);
-                }
 
                 var isItemNeeded = r_metadataNeededRules == null ? true : IsRulesRespected(r_metadataNeededRules, referenceTiming.Metadata);
                 var isItemAlreadyDone = (workingOnItem != null && IsRulesRespected(r_metadataProducedRule, workingOnItem.Metadata))
@@ -91,7 +84,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             int requestNumber,
             AIResponse lastResponseReceived,
-            CachedBinaryGenerator binaryGenerator = null)
+            BinaryDataExtractorCachedCollection binaryDataExtractors = null)
         {
             // If no assistant message => Chatbot => assume all items were processed
             var assumeAllItemsFinishedBefore = (lastResponseReceived?.AssistantMessage == null)
@@ -130,38 +123,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 });
             }
 
-            if (itemsForTraining.Length > 0)
-            {
-                if (r_options.TextBeforeTrainingData != null)
-                {
-                    contentList.Add(new
-                    {
-                        type = "text",
-                        text = r_options.TextBeforeTrainingData + "\n"
-                    });
-                }
-
-                foreach (var item in itemsForTraining)
-                {
-                    contentList.Add(new
-                    {
-                        type = "text",
-                        text = item.Metadata.Get(r_metadataForTrainingRules.First()) + "\n"
-                    });
-                    if (binaryGenerator != null)
-                    {
-                        contentList.AddRange(binaryGenerator.GetBinaryContent(item));
-                    }
-                }
-                if (r_options.TextAfterTrainingData != null)
-                {
-                    contentList.Add(new
-                    {
-                        type = "text",
-                        text = r_options.TextAfterTrainingData + "\n"
-                    });
-                }
-            }
+            contentList.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<dynamic>());
 
             var optimalBatchSize = r_options.BatchSize;
             if (itemsToDo.Length > optimalBatchSize && r_options.BatchSplitWindows > 0)
@@ -207,7 +169,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         ? (contextNumber <= limit)
                         : true;
                 }
-                IEnumerable<dynamic> CreateNodeContents(TimedItemWithMetadata item, CachedBinaryGenerator binaryGenerator = null, MetadataCollection overrides = null, int? contextNumber = null)
+                IEnumerable<dynamic> CreateNodeContents(
+                    TimedItemWithMetadata item, 
+                    BinaryDataExtractorCachedCollection binaryDataExtractors = null, 
+                    MetadataCollection overrides = null, 
+                    int? contextNumber = null)
                 {
                     var nodeContents = new List<dynamic>();
                     var sb = new StringBuilder();
@@ -232,20 +198,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
                         }
                     }
-                    if (binaryGenerator != null)
+                    if (binaryDataExtractors != null)
                     {
-                        var (data, type) = binaryGenerator.GetBinaryContentWithType(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff"));
-
-                        sb.Append($"    \"{type}\": ");
-                        nodeContents.Add(new
+                        foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForTiming(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
                         {
-                            type = "text",
-                            text = sb.ToString()
-                        });
-                        sb.Clear();
-
-                        nodeContents.AddRange(data);
-                        sb.AppendLine();
+                            sb.Append($"    \"{binaryItem.Key}\": ");
+                            nodeContents.Add(new
+                            {
+                                type = "text",
+                                text = sb.ToString()
+                            });
+                            sb.Clear();
+                            nodeContents.AddRange(binaryItem.Value);
+                            sb.AppendLine();
+                        }
                     }
                     sb.AppendLine("  },");
                     nodeContents.Add(new
@@ -350,7 +316,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                         contentList.AddRange(CreateNodeContents(
                             item,
-                            binaryGenerator,
+                            binaryDataExtractors,
                             metadataForThisItem));
                         itemsInBatch.Add(item);
 

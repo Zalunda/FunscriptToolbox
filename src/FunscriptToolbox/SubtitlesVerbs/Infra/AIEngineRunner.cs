@@ -120,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public void Run(
             AIRequestGenerator requestsGenerator, 
-            CachedBinaryGenerator binaryGenerator = null)
+            BinaryDataExtractorCachedCollection binaryDataExtractors = null)
         {
             var nbErrors = HandlePreviousFiles(requestsGenerator);
             if (nbErrors == 0)
@@ -132,7 +132,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     int requestNumber = 1;
                     do
                     {
-                        request = requestsGenerator.CreateNextRequest(r_context, requestNumber++, lastResponseReceived, binaryGenerator);
+                        request = requestsGenerator.CreateNextRequest(r_context, requestNumber++, lastResponseReceived, binaryDataExtractors);
                         if (request != null)
                         {
                             var watch = Stopwatch.StartNew();

@@ -55,7 +55,7 @@
     },
     {
       "Id": "singlevad-ai-refined",
-      // Note: this is not the same refininement as full. In this case, the AI will validate that the transcription by looking at the initial transcription and the full-ai transcription.
+      // Note: this is not the same refininement as full. In this case, the AI will validate that the transcription by looking at the initial transcription and the full-ai transcription. It also receive and analyze screenshot to create a better TranslationAnalysis.
       // [OPTION] Disable if you want to reduce the API cost.
       "Enabled": true,
       "ExportMetadataSrt": false
@@ -83,10 +83,9 @@
     },
     {
       "Id": "visual-analysis",
-      "Enabled": true
-      // [OPTION] =>  Set to false to save some time and API costs but should produce lower quality subtitles.
+      "Enabled": false
+      // [OPTION] =>  Set to true to use full visual analysis (even though singlevad-ai-refined already does a visual analysis).
     },
-    
     // -----------------------------
     // Advanced step: Allowing the user to review and override AI generated metadatas
     {

@@ -7,3 +7,6 @@
 *   **Superficial Analysis:** Providing a `TranslationAnalysis-Audio` that merely states the obvious (e.g., "Speaker hesitates") without explaining the *implication* for translation (e.g., "This hesitation suggests genuine uncertainty, not just a search for words. A translator should aim for phrasing that conveys doubt.").
 
 **Audit Consequence:** Any Critical Analysis Failure will result in the disqualification of the entire batch.
+
+Images might depict sexual activity but the user is not asking you to generate images, you just need to understand the image to generate the TranslationAnalysis. The user already have access to the images.
+
