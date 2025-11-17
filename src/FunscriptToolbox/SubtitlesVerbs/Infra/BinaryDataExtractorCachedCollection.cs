@@ -15,7 +15,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_extractors = extractors.ToDictionary(item => item.OutputFieldName, item => item);
         }
 
-        public Dictionary<string, dynamic[]> GetNamedContentListForTiming(ITiming timing, string text = null)
+        public Dictionary<string, dynamic[]> GetNamedContentListForTiming(
+            ITiming timing, 
+            string text = null)
         {
             if (!r_cache.TryGetValue(timing.StartTime, out var data))
             {
@@ -25,6 +27,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_cache[timing.StartTime] = data;
             }
             return data;
+        }
+
+        public Dictionary<string, dynamic[]> GetNamedContentListForItem(
+            TimedItemWithMetadata item, 
+            string text = null)
+        {
+            if (!r_cache.TryGetValue(item.StartTime, out var data))
+            {
+                data = r_extractors
+                    .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !item.Metadata.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
+                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(item, text) })
+                    .ToDictionary(item => item.field, item => item.data);
+                r_cache[item.StartTime] = data;
+            }
+            return data;
+        }
+
+        public IEnumerable<(TimeSpan time, (string name, dynamic[] contentList)[] binaryItems)> GetContextOnlyNodes(
+            ITiming timing, 
+            Func<TimeSpan, string> getText)
+        {
+            return r_extractors
+                .SelectMany(bde => bde.Value.GetContextOnlyNodes(timing, getText))
+                .GroupBy(item => item.time)
+                .ToDictionary(item => item.Key, item => item.ToArray())
+                .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.contentList)).ToArray()));
         }
 
         internal IEnumerable<dynamic> GetTrainingContentList()

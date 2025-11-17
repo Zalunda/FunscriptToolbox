@@ -39,7 +39,7 @@ namespace FunscriptToolbox.Core.Infra
                 return result;
             }
 
-             throw new FormatException($"The input string '{text}' was not in a correct format for a TimeSpan.");
+            throw new FormatException($"The input string '{text}' was not in a correct format for a TimeSpan.");
         }
     }
 }

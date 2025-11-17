@@ -30,6 +30,7 @@ You will process each node (`Node N`) through a strict, sequential process.
     2.  **Sentence Continuity:** The text from `Node N+1` is a direct, grammatical continuation of the text in `Node N`.
     3.  **Temporal Proximity:** The time gap between the `EndTime` of `Node N` and the `StartTime` of `Node N+1` is under 1000ms.
     4.  **Duration Compliance:** The total combined duration (from `Node N`'s `StartTime` to `Node N+1`'s `EndTime`) is under **6 seconds**.
+    5.  **Physical Compliance**: The resulting text would fit into **2 lines of 50 characters**.
 
 #### **Merge Check 2: Different-Speaker Dialogue (Second Priority)**
 

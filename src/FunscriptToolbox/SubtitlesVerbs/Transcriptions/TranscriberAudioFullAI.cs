@@ -58,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 new[] {
                     new BinaryDataExtractorExtended {
                         OutputFieldName = "Audio",
-                        DataType = BinaryDataType.Audio,
+                        Extractor = new BinaryDataExtractorAudio(),
                         TrainingContentLists = null,
                         GetData = (timing, _) =>
                         {
@@ -129,7 +129,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 else
                 {
                     transcription.Items.Remove(transcription.Items.Last());
-                    nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? startOfBufferZone;
+                    var lastEndTime = transcription.Items.LastOrDefault()?.EndTime ?? startOfBufferZone;
+                    nextStartTime = lastEndTime > startOfBufferZone ? lastEndTime : startOfBufferZone;
                 }
 
                 jobState.NextStartTime = nextStartTime;

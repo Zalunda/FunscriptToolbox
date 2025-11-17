@@ -157,89 +157,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var metadataOngoing = new MetadataCollection();
             var contentBefore = new Queue<TimedItemWithMetadata>();
             var contentExtraContext = new List<dynamic>();
+            var previousEndTime = TimeSpan.Zero;
             foreach (var item in allItems)
             {
-                bool ShouldBeIncluded(string metadataName, int? contextNumber)
-                {
-                    if (contextNumber == null)
-                    { 
-                        return true;
-                    }
-                    return (r_options.MetadataInContextLimits?.TryGetValue(metadataName, out var limit) == true)
-                        ? (contextNumber <= limit)
-                        : true;
-                }
-                IEnumerable<dynamic> CreateNodeContents(
-                    TimedItemWithMetadata item, 
-                    BinaryDataExtractorCachedCollection binaryDataExtractors = null, 
-                    MetadataCollection overrides = null, 
-                    int? contextNumber = null)
-                {
-                    var nodeContents = new List<dynamic>();
-                    var sb = new StringBuilder();
-                    sb.AppendLine("  {");
-                    if (ShouldBeIncluded("StartTime", contextNumber))
-                    {
-                        sb.AppendLine($"    \"StartTime\": \"{item.StartTime:hh\\:mm\\:ss\\.fff}\",");
-                    }
-                    if (ShouldBeIncluded("EndTime", contextNumber) && (r_options.FieldsToInclude & NodeFields.EndTime) != 0)
-                    {
-                        sb.AppendLine($"    \"EndTime\": \"{item.EndTime:hh\\:mm\\:ss\\.fff}\",");
-                    }
-                    if (ShouldBeIncluded("Duration", contextNumber) && (r_options.FieldsToInclude & NodeFields.Duration) != 0)
-                    {
-                        sb.AppendLine($"    \"Duration\": \"{item.Duration:hh\\:mm\\:ss\\.fff}\",");
-                    }
-                    var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
-                    foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
-                    {
-                        if (ShouldBeIncluded(metadata.Key, contextNumber))
-                        {
-                            sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
-                        }
-                    }
-                    if (binaryDataExtractors != null)
-                    {
-                        foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForTiming(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
-                        {
-                            sb.Append($"    \"{binaryItem.Key}\": ");
-                            nodeContents.Add(new
-                            {
-                                type = "text",
-                                text = sb.ToString()
-                            });
-                            sb.Clear();
-                            nodeContents.AddRange(binaryItem.Value);
-                            sb.AppendLine();
-                        }
-                    }
-                    sb.AppendLine("  },");
-                    nodeContents.Add(new
-                    {
-                        type = "text",
-                        text = sb.ToString()
-                    });
-                    sb.Clear();
-
-                    return nodeContents;
-                }
-                static MetadataCollection AddOngoingMetadata(MetadataCollection metadataForItem, MetadataCollection metadataOngoing)
-                {
-                    if (metadataOngoing == null)
-                        return metadataForItem;
-
-                    foreach (var key in metadataOngoing.Keys.ToArray())
-                    {
-                        if (!key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase))
-                        {
-                            metadataOngoing.Remove(key);
-                        }
-                    }
-
-                    metadataOngoing.Merge(metadataForItem);
-                    return metadataOngoing;
-                }
-
                 if (waitingForFirstToDo)
                 {
                     if (!itemsToDo.Contains(item))
@@ -274,7 +194,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 metadataOngoing = null;
                                 contentList.AddRange(
                                     CreateNodeContents(
-                                        current, 
+                                        current,
                                         overrides: overrides,
                                         contextNumber: contextNumber));
                             }
@@ -305,28 +225,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         contentList.AddRange(contentExtraContext);
                         contentExtraContext.Clear();
+                        contentList.AddRange(
+                            CreateContextOnlyNodeContents(binaryDataExtractors, new Timing(previousEndTime, item.StartTime)));
 
                         var metadataForThisItem = item.Metadata;
-
                         if (metadataOngoing != null)
                         {
                             metadataForThisItem = AddOngoingMetadata(item.Metadata, metadataOngoing);
                             metadataOngoing = null;
                         }
 
-                        contentList.AddRange(CreateNodeContents(
-                            item,
-                            binaryDataExtractors,
-                            metadataForThisItem));
+                        contentList.AddRange(
+                            CreateNodeContents(
+                                item,
+                                binaryDataExtractors,
+                                metadataForThisItem));
                         itemsInBatch.Add(item);
-
-                        if (itemsInBatch.Count >= optimalBatchSize)
-                        {
-                            break;
-                        }
                     }
                 }
+
+                previousEndTime = item.EndTime;
+
+                if (itemsInBatch.Count >= optimalBatchSize)
+                {
+                    break;
+                }
             }
+            // Not sure if this is a good idea.
+            // contentList.AddRange(
+            //    CreateContextOnlyNodeContents(binaryDataExtractors, new Timing(previousEndTime, TimeSpan.Zero)));
             contentList.Add(new
             {
                 type = "text",
@@ -357,6 +284,131 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_options.MetadataAlwaysProduced,
                 $"Items {itemsAlreadyDone.Length + 1} to {itemsAlreadyDone.Length + itemsInBatch.Count} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
         }
+
+        private static MetadataCollection AddOngoingMetadata(MetadataCollection metadataForItem, MetadataCollection metadataOngoing)
+        {
+            if (metadataOngoing == null)
+                return metadataForItem;
+
+            foreach (var key in metadataOngoing.Keys.ToArray())
+            {
+                if (!key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase))
+                {
+                    metadataOngoing.Remove(key);
+                }
+            }
+
+            metadataOngoing.Merge(metadataForItem);
+            return metadataOngoing;
+        }
+
+        private IEnumerable<dynamic> CreateNodeContents(
+            TimedItemWithMetadata item,
+            BinaryDataExtractorCachedCollection binaryDataExtractors = null,
+            MetadataCollection overrides = null,
+            int? contextNumber = null)
+        {
+            bool ShouldBeIncluded(string metadataName, int? contextNumber)
+            {
+                if (contextNumber == null)
+                {
+                    return true;
+                }
+                return (r_options.MetadataInContextLimits?.TryGetValue(metadataName, out var limit) == true)
+                    ? (contextNumber <= limit)
+                    : true;
+            }
+
+            var nodeContents = new List<dynamic>();
+            var sb = new StringBuilder();
+            sb.AppendLine("  {");
+            if (ShouldBeIncluded("StartTime", contextNumber))
+            {
+                sb.AppendLine($"    \"StartTime\": \"{item.StartTime:hh\\:mm\\:ss\\.fff}\",");
+            }
+            if (ShouldBeIncluded("EndTime", contextNumber) && (r_options.FieldsToInclude & NodeFields.EndTime) != 0)
+            {
+                sb.AppendLine($"    \"EndTime\": \"{item.EndTime:hh\\:mm\\:ss\\.fff}\",");
+            }
+            if (ShouldBeIncluded("Duration", contextNumber) && (r_options.FieldsToInclude & NodeFields.Duration) != 0)
+            {
+                sb.AppendLine($"    \"Duration\": \"{item.Duration:hh\\:mm\\:ss\\.fff}\",");
+            }
+            var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
+            foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
+            {
+                if (ShouldBeIncluded(metadata.Key, contextNumber))
+                {
+                    sb.AppendLine($"    {JsonConvert.ToString(metadata.Key)}: {JsonConvert.ToString(metadata.Value)},");
+                }
+            }
+            if (binaryDataExtractors != null)
+            {
+                foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForItem(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
+                {
+                    sb.Append($"    \"{binaryItem.Key}\": ");
+                    nodeContents.Add(new
+                    {
+                        type = "text",
+                        text = sb.ToString()
+                    });
+                    sb.Clear();
+                    nodeContents.AddRange(binaryItem.Value);
+                    sb.AppendLine();
+                }
+            }
+            sb.AppendLine("  },");
+            nodeContents.Add(new
+            {
+                type = "text",
+                text = sb.ToString()
+            });
+            sb.Clear();
+
+            return nodeContents;
+        }
+
+
+        private static IEnumerable<dynamic> CreateContextOnlyNodeContents(
+            BinaryDataExtractorCachedCollection extractors,
+            ITiming timing)
+        {
+            if (extractors == null)
+            {
+                yield break;
+            }
+
+            foreach (var node in extractors
+                .GetContextOnlyNodes(timing, (t) => t.ToString(@"hh\:mm\:ss\.fff"))
+                .OrderBy(n => n.time))
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("  {");
+                sb.AppendLine($"    \"StartTime FOR CONTEXT ONLY\": \"{node.time:hh\\:mm\\:ss\\.fff}\",");
+                foreach (var binaryItem in node.binaryItems)
+                {
+                    sb.Append($"    \"{binaryItem.name}\": ");
+                    yield return new
+                    {
+                        type = "text",
+                        text = sb.ToString()
+                    };
+                    sb.Clear();
+                    foreach (var cl in binaryItem.contentList)
+                    {
+                        yield return cl;
+                    }
+                    sb.AppendLine();
+                }
+                sb.AppendLine("  },");
+                yield return new
+                {
+                    type = "text",
+                    text = sb.ToString()
+                };
+            }
+        }
+
 
         internal AIRequest CreateEmptyRequest()
         {

@@ -339,7 +339,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Engine = aiEngineGeminiPro,
                         Metadatas = new MetadataAggregator()
                         {
-                            TimingsSource = "singlevad-ai",
+                            TimingsSource = "timings",
                             Sources = "singlevad-ai,full-ai,speakers,manual-input",
                             MergeRules = new Dictionary<string, string>
                             {
@@ -364,7 +364,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     new BinaryDataExtractorImage
                                     {
                                         MetadataForTraining = "VisualTraining",
-                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5"
+                                        MetadataForSkipping = "SKipVisual",
+                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+                                        AddContextNodes = true,
+                                        ContextShortGap = TimeSpan.FromSeconds(5),
+                                        ContextLongGap = TimeSpan.FromSeconds(30)
                                     }
                                 },
 
@@ -379,8 +383,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { "full-VoiceText", 0 },
                                 { "singlevad-VoiceText", 0 },
                                 { "Justification", 0 },
-                            },
-
+                            }
                         }
                     },
                     new TranscriberClone()
@@ -506,7 +509,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
 
-                            BatchSize = 150,
+                            BatchSize = 100,
                             BatchSplitWindows = 10,
                             NbContextItems = 10000,
                             MetadataInContextLimits = new Dictionary<string, int>
@@ -614,7 +617,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             MetadataNeeded = "CandidatesText",
                             MetadataAlwaysProduced = "FinalText",
-
 
                             BatchSize = 150,
                             BatchSplitWindows = 10,
