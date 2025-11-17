@@ -8,7 +8,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public abstract BinaryDataType DataType { get; }
 
-        [JsonProperty(Order = 1)]
+        [JsonProperty(Order = 1, Required = Required.Always)]
         public string OutputFieldName { get; set; }
 
         [JsonProperty(Order = 2)]

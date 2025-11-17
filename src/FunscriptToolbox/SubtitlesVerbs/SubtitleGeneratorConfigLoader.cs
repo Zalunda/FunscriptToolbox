@@ -184,98 +184,215 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
+        // Internal class to define the rules for merging arrays.
+        private class ArrayMergeRule
+        {
+            public string[] Path { get; }
+            public string[] Keys { get; }
+            public string FallbackIdentifierKey { get; }
+            public Action<JArray, List<JObject>, ArrayMergeRule> NewItemHandler { get; }
+            public string[] RequiredPropertiesForNewItems { get; }
+
+            public ArrayMergeRule(
+                string[] path,
+                string[] keys,
+                string fallbackIdentifierKey = null,
+                Action<JArray, List<JObject>, ArrayMergeRule> newItemHandler = null,
+                string[] requiredPropertiesForNewItems = null)
+            {
+                Path = path;
+                Keys = keys;
+                FallbackIdentifierKey = fallbackIdentifierKey;
+                RequiredPropertiesForNewItems = requiredPropertiesForNewItems ?? new string[0];
+                // Default behavior for new items is to simply append them.
+                NewItemHandler = newItemHandler ?? ((baseArray, newItems, rule) =>
+                {
+                    // Before adding, perform the generic validation for required properties.
+                    ValidateNewItems(newItems, rule);
+                    foreach (var item in newItems) baseArray.Add(item);
+                });
+            }
+        }
+
+        // Centralized configuration for all custom array merging logic.
+        private static readonly List<ArrayMergeRule> s_arrayMergeRules = new List<ArrayMergeRule>
+        {
+            new ArrayMergeRule(
+                path: new [] { "SharedObjects" },
+                keys: new [] { "$id" },
+                newItemHandler: HandleNewItemInsertions,
+                requiredPropertiesForNewItems: new[] { "$type" }
+            ),
+            new ArrayMergeRule(
+                path: new [] { "Workers" },
+                keys: new [] { "AudioExtractionId", "TranscriptionId", "TranslationId", "OutputId" },
+                fallbackIdentifierKey: "Id",
+                newItemHandler: HandleNewItemInsertions,
+                requiredPropertiesForNewItems: new[] { "$type" }
+            ),
+            new ArrayMergeRule(
+                path: new [] { "*", "BinaryDataExtractors" },
+                keys: new [] { "OutputFieldName" },
+                newItemHandler: HandleNewItemInsertions,
+                requiredPropertiesForNewItems: new[] { "$type" }
+            )
+        };
         /// <summary>
-        /// Merges a user override configuration into a base configuration, with special handling for arrays
-        /// to support older versions of Newtonsoft.Json.
+        /// The public entry point for merging configurations. It starts the recursive merge process.
         /// </summary>
         /// <param name="baseConfig">The base configuration JObject to merge into.</param>
         /// <param name="userConfig">The user override JObject.</param>
         private static void MergeConfigs(JObject baseConfig, JObject userConfig)
         {
-            // --- Step 1: Merge all non-worker properties ---
-            // We clone the user config and remove 'Workers' and 'SharedObjects' so the default merge
-            // doesn't corrupt our arrays with its index-based logic.
-            var userConfigWithoutArrays = (JObject)userConfig.DeepClone();
-            userConfigWithoutArrays.Remove("Workers");
-            userConfigWithoutArrays.Remove("SharedObjects");
-            baseConfig.Merge(userConfigWithoutArrays, new JsonMergeSettings
-            {
-                PropertyNameComparison = StringComparison.OrdinalIgnoreCase
-            });
-
-            // --- Step 2: Custom, ID-based merge for 'SharedObjects' ---
-            MergeSharedObjects(baseConfig, userConfig);
-            MergeWorkers(baseConfig, userConfig);
+            // Start the recursive merge at the root of the JSON structure (with an empty path).
+            MergeConfigs(baseConfig, userConfig, new List<string>());
         }
 
         /// <summary>
-        /// Performs a custom merge operation for the 'SharedObjects' array,
-        /// matching objects by their '$id' property.
+        /// Recursively merges a user override configuration into a base configuration, tracking the
+        /// current path to apply rule-based array merges at any depth.
         /// </summary>
-        private static void MergeSharedObjects(JObject baseConfig, JObject userConfig)
+        /// <param name="baseConfig">The base JObject for the current level.</param>
+        /// <param name="userConfig">The override JObject for the current level.</param>
+        /// <param name="currentPath">The path from the root to the current level.</param>
+        private static void MergeConfigs(JObject baseConfig, JObject userConfig, List<string> currentPath)
         {
-            if (!(userConfig["SharedObjects"] is JArray userSharedObjects) || !userSharedObjects.HasValues)
+            foreach (var userProp in userConfig.Properties())
             {
-                return; // Nothing to merge if the user config has no SharedObjects.
-            }
+                var baseProp = baseConfig.Property(userProp.Name, StringComparison.OrdinalIgnoreCase);
+                var newPath = new List<string>(currentPath) { userProp.Name };
 
-            // Ensure the base config has a SharedObjects array to merge into.
-            if (!(baseConfig["SharedObjects"] is JArray baseSharedObjects))
-            {
-                // If the base doesn't have the array, we can just copy the user's array over.
-                baseConfig["SharedObjects"] = userSharedObjects.DeepClone();
-                return;
-            }
+                // Find a rule that matches the full path to this property.
+                var matchingRule = s_arrayMergeRules.FirstOrDefault(r => IsPathMatch(r.Path, newPath));
 
-            var newObjectsToAdd = new List<JObject>();
-
-            foreach (var userObjectToken in userSharedObjects)
-            {
-                if (!(userObjectToken is JObject userObject)) continue;
-
-                JObject baseObjectToUpdate = FindMatchingSharedObject(baseSharedObjects, userObject);
-
-                if (baseObjectToUpdate != null)
+                if (baseProp != null && userProp.Value is JArray userArray && baseProp.Value is JArray baseArray && matchingRule != null)
                 {
-                    // Found a match, so merge the user's changes into the existing object.
-                    baseObjectToUpdate.Merge(userObject);
+                    // --- Custom Array Merge ---
+                    // A rule was found for this array, so merge its items based on the rule's keys.
+                    MergeArraysByKey(baseArray, userArray, matchingRule, newPath);
+                }
+                else if (baseProp != null && userProp.Value is JObject userObject && baseProp.Value is JObject baseObject)
+                {
+                    // --- Recursive Object Merge ---
+                    // This property is an object, so we continue the merge recursively, passing the updated path.
+                    MergeConfigs(baseObject, userObject, newPath);
                 }
                 else
                 {
-                    // No match found. This is a new object to be added to the array.
-                    newObjectsToAdd.Add(userObject);
+                    // --- Simple Value Merge ---
+                    // This is a simple value (string, int, etc.) or a property new to the base config.
+                    // We can add or replace it directly.
+                    if (baseProp != null)
+                    {
+                        baseProp.Value = userProp.Value;
+                    }
+                    else
+                    {
+                        baseConfig.Add(userProp);
+                    }
                 }
-            }
-
-            // Add any completely new objects to the end of the base array.
-            foreach (var newObject in newObjectsToAdd)
-            {
-                baseSharedObjects.Add(newObject);
             }
         }
 
         /// <summary>
-        /// Finds a shared object in the base list that matches a shared object from the user's override file
-        /// based on the '$id' property.
+        /// Checks if an actual JSON path matches a rule's path, supporting wildcards.
+        /// The match is performed from the end of the path backwards.
         /// </summary>
-        private static JObject FindMatchingSharedObject(JArray baseSharedObjects, JObject userObject)
+        /// <param name="rulePath">The path defined in the rule (e.g., ["*", "BinaryDataExtractors"]).</param>
+        /// <param name="actualPath">The full path to the property being checked (e.g., ["Workers", "Options", "BinaryDataExtractors"]).</param>
+        /// <returns>True if the path matches the rule.</returns>
+        private static bool IsPathMatch(string[] rulePath, List<string> actualPath)
         {
-            var userId = userObject["$id"]?.ToString();
-
-            // An ID is required to match an object for merging.
-            if (string.IsNullOrEmpty(userId))
+            // The actual path must be at least as long as the rule's path.
+            if (actualPath.Count < rulePath.Length)
             {
-                return null;
+                return false;
             }
 
-            foreach (var baseObjectToken in baseSharedObjects)
+            int ruleIndex = rulePath.Length - 1;
+            int actualIndex = actualPath.Count - 1;
+
+            // Compare backwards from the end of both paths.
+            while (ruleIndex >= 0)
             {
-                if (baseObjectToken is JObject baseObject)
+                if (rulePath[ruleIndex] != "*" && !string.Equals(rulePath[ruleIndex], actualPath[actualIndex], StringComparison.OrdinalIgnoreCase))
                 {
-                    var baseId = baseObject["$id"]?.ToString();
-                    if (string.Equals(userId, baseId, StringComparison.OrdinalIgnoreCase))
+                    return false; // Segments don't match, and it's not a wildcard.
+                }
+
+                ruleIndex--;
+                actualIndex--;
+            }
+
+            return true; // All segments of the rule path were matched.
+        }
+
+
+        /// <summary>
+        /// Performs a generic, key-based merge of two JArrays based on a provided merge rule.
+        /// </summary>
+        /// <param name="baseArray">The base array to merge into.</param>
+        /// <param name="userArray">The override array.</param>
+        /// <param name="rule">The rule defining how to match items.</param>
+        /// <param name="arrayPath">The path to this array, to be passed for recursive merges.</param>
+        private static void MergeArraysByKey(JArray baseArray, JArray userArray, ArrayMergeRule rule, List<string> arrayPath)
+        {
+            var newItems = new List<JObject>();
+
+            foreach (var userItemToken in userArray)
+            {
+                if (!(userItemToken is JObject userItem)) continue; // Skip non-object items.
+
+                JObject baseItemToUpdate = FindMatchingItem(baseArray, userItem, rule);
+
+                if (baseItemToUpdate != null)
+                {
+                    // Found a matching item in the base array. Recursively merge its properties.
+                    // This is crucial for handling nested rules, like BinaryDataExtractors inside a Worker.
+                    MergeConfigs(baseItemToUpdate, userItem, arrayPath);
+                }
+                else
+                {
+                    // This is a new item that doesn't exist in the base array.
+                    newItems.Add(userItem);
+                }
+            }
+
+            // Use the rule's specified handler to add the new items to the base array.
+            rule.NewItemHandler(baseArray, newItems, rule);
+        }
+        /// <summary>
+        /// Finds an item in a base array that matches a user-provided item, based on the keys defined in a rule.
+        /// </summary>
+        private static JObject FindMatchingItem(JArray baseArray, JObject userItem, ArrayMergeRule rule)
+        {
+            // If a FallbackIdentifierKey is defined (like "Id" for Workers), get its value.
+            var fallbackIdValue = !string.IsNullOrEmpty(rule.FallbackIdentifierKey)
+                ? userItem[rule.FallbackIdentifierKey]?.ToString()
+                : null;
+
+            // The fallback key from a user item (e.g., "Id") should not be part of the final config,
+            // so we remove it after getting its value.
+            if (fallbackIdValue != null)
+            {
+                userItem.Remove(rule.FallbackIdentifierKey);
+            }
+
+            foreach (var baseItemToken in baseArray)
+            {
+                if (!(baseItemToken is JObject baseItem)) continue;
+
+                var baseItemId = GetItemId(baseItem, rule);
+                if (baseItemId == null) continue;
+
+                // Check each key defined in the rule to see if we have a match.
+                foreach (var key in rule.Keys)
+                {
+                    // Use the fallback ID if the specific key (e.g., "AudioExtractionId") is missing from the user item.
+                    var userValue = userItem[key]?.ToString() ?? fallbackIdValue;
+                    if (userValue != null && string.Equals(userValue, baseItemId, StringComparison.OrdinalIgnoreCase))
                     {
-                        return baseObject; // Found the matching object.
+                        return baseItem; // Found a match.
                     }
                 }
             }
@@ -283,158 +400,132 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return null; // No match found.
         }
 
-        private static void MergeWorkers(JObject baseConfig, JObject userConfig)
+        /// <summary>
+        /// Gets the unique identifier of an item within an array according to the merge rule.
+        /// It checks each key specified in the rule and returns the first value it finds.
+        /// </summary>
+        private static string GetItemId(JObject item, ArrayMergeRule rule)
         {
-            // --- Step 3: Custom, ID-based merge for the 'Workers' array ---
-            if (!(userConfig["Workers"] is JArray userWorkers) || !(baseConfig["Workers"] is JArray baseWorkers))
+            foreach (var key in rule.Keys)
             {
-                return; // Nothing to do if one of the configs is missing the Workers array.
-            }
-
-            var newWorkersToPlace = new List<JObject>();
-
-            foreach (var userWorkerToken in userWorkers)
-            {
-                if (!(userWorkerToken is JObject userWorker)) continue;
-
-                var originalUserWorkerText = userWorker.ToString();
-                JObject baseWorkerToUpdate = FindMatchingWorker(baseWorkers, userWorker);
-
-                if (baseWorkerToUpdate != null)
+                var id = item[key]?.ToString();
+                if (!string.IsNullOrEmpty(id))
                 {
-                    // We found a match, so merge the user's changes into the existing worker.
-                    baseWorkerToUpdate.Merge(userWorker);
-                }
-                else
-                {
-                    // No match found. This is a new worker the user wants to add. It need to have a type.
-                    var newWorkerType = userWorker["$type"]?.ToString();
-                    if (string.IsNullOrEmpty(newWorkerType))
-                    {
-                        if (userWorker is IJsonLineInfo lineInfo && lineInfo.HasLineInfo())
-                        {
-                            throw new JsonException($"A new worker is missing the required '$type' property. The worker object starts on line {lineInfo.LineNumber}, position {lineInfo.LinePosition}:\n{originalUserWorkerText}");
-                        }
-                        else
-                        {
-                            // Fallback exception if line info isn't available for some reason.
-                            throw new JsonException($"A new worker is missing the required '$type' property:\n{originalUserWorkerText}");
-                        }
-                    }
-                    newWorkersToPlace.Add(userWorker);
+                    return id;
                 }
             }
-
-            // --- Step 4: Place the new workers into the array ---
-            InsertNewWorkers(baseWorkers, newWorkersToPlace);
+            // Check the fallback key as a last resort (primarily for base items).
+            if (!string.IsNullOrEmpty(rule.FallbackIdentifierKey))
+            {
+                return item[rule.FallbackIdentifierKey]?.ToString();
+            }
+            return null;
         }
 
         /// <summary>
-        /// Finds a worker in the base list that matches a worker from the user's override file.
+        /// Validates that new items being added to an array contain all required properties as defined by a rule.
         /// </summary>
-        private static JObject FindMatchingWorker(JArray baseWorkers, JObject userWorker)
+        private static void ValidateNewItems(List<JObject> newItems, ArrayMergeRule rule)
         {
-            var userId = userWorker["Id"]?.ToString();
-            userWorker.Remove("Id");
-            var userWorkerAudioExtractionId = userWorker["AudioExtractionId"]?.ToString() ?? userId;
-            var userWorkerTranscriptionId = userWorker["TranscriptionId"]?.ToString() ?? userId;
-            var userWorkerTranslationId = userWorker["TranslationId"]?.ToString() ?? userId;
-            var userWorkerOutputId = userWorker["OutputId"]?.ToString() ?? userId;
+            if (rule.RequiredPropertiesForNewItems.Length == 0) return;
 
-            foreach (var baseWorkerToken in baseWorkers)
+            foreach (var newItem in newItems)
             {
-                if (!(baseWorkerToken is JObject baseWorker)) continue;
-
-                var baseWorkerAudioExtractionId = baseWorker["AudioExtractionId"]?.ToString();
-                var baseWorkerTranscriptionId = baseWorker["TranscriptionId"]?.ToString();
-                var baseWorkerTranslationId = baseWorker["TranslationId"]?.ToString();
-                var baseWorkerOutputId = baseWorker["OutputId"]?.ToString();
-
-                if (userWorkerAudioExtractionId != null
-                    && userWorkerAudioExtractionId == baseWorkerAudioExtractionId)
+                foreach (var requiredProp in rule.RequiredPropertiesForNewItems)
                 {
-                    return baseWorker;
-                }
-                if (userWorkerTranscriptionId != null
-                    && userWorkerTranscriptionId == baseWorkerTranscriptionId)
-                {
-                    return baseWorker;
-                }
-                if (userWorkerTranslationId != null
-                    && userWorkerTranslationId == baseWorkerTranslationId)
-                {
-                    return baseWorker;
-                }
-                if (userWorkerOutputId != null
-                    && userWorkerOutputId == baseWorkerOutputId)
-                {
-                    return baseWorker;
+                    if (newItem[requiredProp] == null)
+                    {
+                        string errorContext = newItem.ToString(Formatting.None);
+                        if (newItem is IJsonLineInfo lineInfo && lineInfo.HasLineInfo())
+                        {
+                            throw new JsonException($"A new item is missing the required '{requiredProp}' property. The item starts on line {lineInfo.LineNumber}:\n{errorContext}");
+                        }
+                        throw new JsonException($"A new item is missing the required '{requiredProp}' property:\n{errorContext}");
+                    }
                 }
             }
-
-            return null; // No match found
         }
 
         /// <summary>
-        /// Inserts new workers into the base worker list according to the '$insertAt' meta-property.
-        /// This method processes insertions from highest index to lowest to ensure that insertions
-        /// do not affect the position of subsequent insertion targets.
+        /// A generic method to insert new items into a base array. It supports insertion relative to existing
+        /// items using '$insertBefore' and '$insertAfter' meta-properties.
         /// </summary>
-        private static void InsertNewWorkers(JArray baseWorkers, List<JObject> newWorkers)
+        private static void HandleNewItemInsertions(JArray baseArray, List<JObject> newItems, ArrayMergeRule rule)
         {
-            // --- Step 1: Group new workers by their target index and separate those to be appended ---
-            var insertionsByOriginalIndex = new Dictionary<int, List<JObject>>();
-            var workersToAppend = new List<JObject>();
+            // 1. First, validate all new items to ensure they meet the rule's requirements.
+            ValidateNewItems(newItems, rule);
 
-            foreach (var newWorker in newWorkers)
+            var itemsToAppend = new List<JObject>();
+            // A list of items to insert, paired with their target ID and whether to insert before or after.
+            var pendingInsertions = new List<(JObject item, string targetId, bool insertAfter)>();
+
+            foreach (var newItem in newItems)
             {
-                // Remove the meta-property so it doesn't pollute the final config.
-                var insertAtToken = newWorker.GetValue("$insertAt", StringComparison.OrdinalIgnoreCase);
-                newWorker.Remove("$insertAt");
+                var insertBefore = newItem.GetValue("$insertBefore", StringComparison.OrdinalIgnoreCase);
+                var insertAfter = newItem.GetValue("$insertAfter", StringComparison.OrdinalIgnoreCase);
 
-                if (insertAtToken != null && int.TryParse(insertAtToken.ToString(), out int index))
+                newItem.Remove("$insertBefore");
+                newItem.Remove("$insertAfter");
+
+                if (insertBefore != null)
                 {
-                    if (!insertionsByOriginalIndex.ContainsKey(index))
-                    {
-                        insertionsByOriginalIndex[index] = new List<JObject>();
-                    }
-                    // The order of workers in the user's file for the same index is preserved.
-                    insertionsByOriginalIndex[index].Add(newWorker);
+                    pendingInsertions.Add((newItem, insertBefore.ToString(), false));
+                }
+                else if (insertAfter != null)
+                {
+                    pendingInsertions.Add((newItem, insertAfter.ToString(), true));
                 }
                 else
                 {
-                    // If '$insertAt' is missing or invalid, queue it for appending at the end.
-                    workersToAppend.Add(newWorker);
+                    itemsToAppend.Add(newItem);
                 }
             }
 
-            // --- Step 2: Process the grouped insertions from HIGHEST index to LOWEST ---
-            // This is the crucial step that solves the shifting index problem.
-            var sortedIndices = insertionsByOriginalIndex.Keys.OrderByDescending(k => k);
-
-            foreach (var index in sortedIndices)
+            if (pendingInsertions.Count == 0)
             {
-                // Clamp the target index to be a valid insertion point (0 to Count).
-                int insertionPoint = index;
-                if (insertionPoint < 0) insertionPoint = 0;
-                if (insertionPoint > baseWorkers.Count) insertionPoint = baseWorkers.Count;
+                itemsToAppend.ForEach(i => baseArray.Add(i));
+                return;
+            }
 
-                // Get the list of workers to insert at this original index.
-                var workersForThisIndex = insertionsByOriginalIndex[index];
+            // 2. Iterate backwards through the base array to handle insertions without shifting indices incorrectly.
+            for (int i = baseArray.Count - 1; i >= 0; i--)
+            {
+                if (!(baseArray[i] is JObject baseItem)) continue;
 
-                // We insert them in reverse order so they end up in the correct final order.
-                // E.g., to insert [A, B] at index 3, we first insert B at 3, then A at 3.
-                // The final result is [..., item_2, A, B, item_3, ...].
-                for (int i = workersForThisIndex.Count - 1; i >= 0; i--)
+                var baseItemId = GetItemId(baseItem, rule);
+                if (baseItemId == null) continue;
+
+                // Find all items that should be inserted relative to the current baseItem.
+                var insertionsForThisItem = pendingInsertions.Where(p => string.Equals(p.targetId, baseItemId, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (insertionsForThisItem.Count == 0) continue;
+
+                // To preserve the order from the override file, we process the found items in reverse.
+                for (int j = insertionsForThisItem.Count - 1; j >= 0; j--)
                 {
-                    baseWorkers.Insert(insertionPoint, workersForThisIndex[i]);
+                    var pending = insertionsForThisItem[j];
+                    if (pending.insertAfter)
+                    {
+                        baseArray.Insert(i + 1, pending.item);
+                    }
+                    else // insertBefore
+                    {
+                        baseArray.Insert(i, pending.item);
+                    }
+                    // Remove the processed item so it doesn't get appended later.
+                    pendingInsertions.Remove(pending);
                 }
             }
 
-            // --- Step 3: Append any remaining workers ---
-            foreach (var worker in workersToAppend)
+            // 3. Any remaining pending insertions had a targetId that was not found. Append them.
+            foreach (var remaining in pendingInsertions)
             {
-                baseWorkers.Add(worker);
+                itemsToAppend.Add(remaining.item);
+            }
+
+            // 4. Append all remaining items to the end of the array.
+            foreach (var item in itemsToAppend)
+            {
+                baseArray.Add(item);
             }
         }
 

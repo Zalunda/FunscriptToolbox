@@ -12,7 +12,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public BinaryDataExtractorCachedCollection(params BinaryDataExtractorExtended[] extractors)
         {
             r_cache = new Dictionary<TimeSpan, Dictionary<string, dynamic[]>>();
-            r_extractors = extractors.ToDictionary(item => item.OutputFieldName, item => item);
+            r_extractors = extractors.ToDictionary(item => item.Extractor.OutputFieldName, item => item);
         }
 
         public Dictionary<string, dynamic[]> GetNamedContentListForTiming(

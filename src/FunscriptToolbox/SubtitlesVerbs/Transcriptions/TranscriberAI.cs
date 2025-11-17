@@ -187,7 +187,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     return new BinaryDataExtractorExtended
                     {
-                        OutputFieldName = extractor.OutputFieldName ?? $"{extractor.DataType}",
                         Extractor = extractor,
                         TrainingContentLists = contentList.ToArray(),
                         GetData = getDataFunc

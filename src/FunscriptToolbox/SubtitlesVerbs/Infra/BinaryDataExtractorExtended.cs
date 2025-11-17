@@ -5,7 +5,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class BinaryDataExtractorExtended
     {
-        public string OutputFieldName { get; set; }
         public BinaryDataExtractor Extractor { get; set; }
         public dynamic[] TrainingContentLists { get; set; }
         public Func<ITiming, string, dynamic[]> GetData { get; set; }
@@ -14,7 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             (TimeSpan, string, dynamic[]) CreateContextNode(TimeSpan time)
             {
-                return (time, this.OutputFieldName, this.GetData(new Timing(time, time), getText(time)));
+                return (time, this.Extractor.OutputFieldName, this.GetData(new Timing(time, time), getText(time)));
             }
 
             if (!this.Extractor.AddContextNodes)

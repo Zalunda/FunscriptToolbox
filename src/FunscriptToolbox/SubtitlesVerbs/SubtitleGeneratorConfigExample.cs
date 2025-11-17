@@ -214,6 +214,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     new BinaryDataExtractorAudio
                                     {
                                         SourceAudioId = "audio",
+                                        OutputFieldName = "Audio",
                                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2)
                                     }
                                 },
@@ -309,6 +310,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     new BinaryDataExtractorAudio
                                     {
                                         SourceAudioId = "audio",
+                                        OutputFieldName = "Audio",
                                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2)
                                     }
                                 },
@@ -357,12 +359,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 {
                                     new BinaryDataExtractorAudio
                                     {
-                                        MetadataForTraining = "AudioTraining",
+                                        OutputFieldName = "Audio",
                                         SourceAudioId = "audio",
+                                        MetadataForTraining = "AudioTraining",
                                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2)
                                     },
                                     new BinaryDataExtractorImage
                                     {
+                                        OutputFieldName = "Screenshot",
                                         MetadataForTraining = "VisualTraining",
                                         MetadataForSkipping = "SKipVisual",
                                         FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
@@ -423,6 +427,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BinaryDataExtractors = new [] {
                                 new BinaryDataExtractorImage
                                 {
+                                    OutputFieldName = "ScreenCapture",
                                     FfmpegFilter = "crop=iw/2:ih:0:0"
                                 }
                             },
@@ -458,6 +463,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BinaryDataExtractors = new [] { 
                                 new BinaryDataExtractorImage
                                 {
+                                    OutputFieldName = "Screenshot",
                                     MetadataForTraining = "VisualTraining",
                                     FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5"                                    
                                 }

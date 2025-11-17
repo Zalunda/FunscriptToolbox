@@ -57,8 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var binaryDataExtractors = new BinaryDataExtractorCachedCollection(
                 new[] {
                     new BinaryDataExtractorExtended {
-                        OutputFieldName = "Audio",
-                        Extractor = new BinaryDataExtractorAudio(),
+                        Extractor = new BinaryDataExtractorAudio() { OutputFieldName = "Audio" },
                         TrainingContentLists = null,
                         GetData = (timing, _) =>
                         {

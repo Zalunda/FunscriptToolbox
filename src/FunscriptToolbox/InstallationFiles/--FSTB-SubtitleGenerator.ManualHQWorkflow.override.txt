@@ -58,7 +58,18 @@
       // Note: this is not the same refininement as full. In this case, the AI will validate that the transcription by looking at the initial transcription and the full-ai transcription. It also receive and analyze screenshot to create a better TranslationAnalysis.
       // [OPTION] Disable if you want to reduce the API cost.
       "Enabled": true,
-      "ExportMetadataSrt": false
+      "ExportMetadataSrt": false,
+      "Options": {
+        "BinaryDataExtractors": [
+          {
+            "OutputFieldName": "Screenshot",
+            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap to have less nodes added. Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
+            "AddContextNodes": true,
+            "ContextShortGap": "00:00:05",
+            "ContextLongGap": "00:00:30"
+          }
+        ]
+      }
     },
     {
       "Id": "voice-texts",
