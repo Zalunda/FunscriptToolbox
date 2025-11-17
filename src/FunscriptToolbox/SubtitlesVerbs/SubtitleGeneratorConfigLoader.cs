@@ -225,7 +225,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             ),
             new ArrayMergeRule(
                 path: new [] { "Workers" },
-                keys: new [] { "AudioExtractionId", "TranscriptionId", "TranslationId", "OutputId" },
+                keys: new [] { "AudioExtractionId", "TranslationId", "TranscriptionId", "OutputId" }, // TranslationId must be before TranscriptionId because of TranslatorGoogleV1API
                 fallbackIdentifierKey: "Id",
                 newItemHandler: HandleNewItemInsertions,
                 requiredPropertiesForNewItems: new[] { "$type" }

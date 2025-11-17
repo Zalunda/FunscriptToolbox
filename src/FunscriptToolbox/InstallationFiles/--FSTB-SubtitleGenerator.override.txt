@@ -81,15 +81,6 @@
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
     },
     {
-      "$id": "TranslatorMaverickFinalizerSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranslatorMaverickFinalizerUserPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
-    },
-    {
       "$id": "ArbitrerSystemPrompt",
       // [Option] Remove the // of the line similar to this one
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
