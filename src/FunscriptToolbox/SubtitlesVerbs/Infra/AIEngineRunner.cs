@@ -289,7 +289,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         if (startTimeItem == null)
                         {
                             var closestTimeItem = timings.OrderBy(i => Math.Abs((i.StartTime - startTime).TotalMilliseconds)).FirstOrDefault();
-                            throw new Exception($"EndTime not received and StartTime '{startTime:hh\\:mm\\:ss\\.fff}' cannot be matched to an existing item (closest time found:{closestTimeItem?.StartTime ?? TimeSpan.Zero:hh\\:mm\\:ss\\.fff}). {GetSegmentInformation(segment)}");
+                            if (closestTimeItem != null && Math.Abs((closestTimeItem.StartTime - startTime).TotalMilliseconds) < 50)
+                            {
+                                startTimeItem = closestTimeItem;
+                            }
+                            else
+                            {
+                                throw new Exception($"EndTime not received and StartTime '{startTime:hh\\:mm\\:ss\\.fff}' cannot be matched to an existing item (closest time found:{closestTimeItem?.StartTime ?? TimeSpan.Zero:hh\\:mm\\:ss\\.fff}). {GetSegmentInformation(segment)}");
+                            }
                         }
                         endTime = startTimeItem.EndTime;
                     }
