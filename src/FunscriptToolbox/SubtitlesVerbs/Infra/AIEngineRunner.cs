@@ -86,7 +86,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             // Add ',' between fields
-            json = Regex.Replace(json, @"(""([^""]*)"": ""[^""]*""(?!\s*,))", "$1,");
+            json = Regex.Replace(json, @"(""(?:\\.|[^""])*"": ""(?:\\.|[^""])*""(?!\s*,))", "$1,");
             // Add ',' between braces
             json = Regex.Replace(json, @"(})(\s*{)", "$1,$2");
 
