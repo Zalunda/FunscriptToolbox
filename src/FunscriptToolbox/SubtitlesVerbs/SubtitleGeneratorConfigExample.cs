@@ -72,7 +72,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var aiEngineGeminiPro = AddSharedObject("AIEngineGeminiPro", new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                Model = "gemini-2.5-pro",
+                Model = "gemini-3-pro-preview",
                 APIKeyName = "APIKeyGemini",
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
@@ -337,7 +337,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "singlevad-ai-refined",
-                        PrivateMetadataNames = "Justification",
                         Engine = aiEngineGeminiPro,
                         Metadatas = new MetadataAggregator()
                         {
@@ -359,7 +358,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 {
                                     new BinaryDataExtractorAudio
                                     {
-                                        OutputFieldName = "Audio",
+                                        OutputFieldName = "AudioClip",
                                         SourceAudioId = "audio",
                                         MetadataForTraining = "AudioTraining",
                                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2)
@@ -368,8 +367,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     {
                                         OutputFieldName = "Screenshot",
                                         MetadataForTraining = "VisualTraining",
-                                        MetadataForSkipping = "SKipVisual",
-                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+                                        MetadataForSkipping = "SkipVisual",
+                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
                                         AddContextNodes = true,
                                         ContextShortGap = TimeSpan.FromSeconds(5),
                                         ContextLongGap = TimeSpan.FromSeconds(30)
@@ -385,8 +384,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 { "TranslationAnalysis-Audio", 20 },
                                 { "full-VoiceText", 0 },
-                                { "singlevad-VoiceText", 0 },
-                                { "Justification", 0 },
+                                { "singlevad-VoiceText", 0 }
                             }
                         }
                     },
@@ -551,10 +549,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataNeeded = "OriginalTranslatedText",
                             MetadataAlwaysProduced = "TranslatedText",
 
-                            BatchSize = 300,
+                            BatchSize = 200,
                             BatchSplitWindows = 10,
                             NbContextItems = 100,
-                            NbItemsMinimumReceivedToContinue = 50,
+                            NbItemsMinimumReceivedToContinue = 100,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         },
                         AutoMergeOn = "[!MERGED]",

@@ -225,8 +225,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         contentList.AddRange(contentExtraContext);
                         contentExtraContext.Clear();
-                        contentList.AddRange(
-                            CreateContextOnlyNodeContents(binaryDataExtractors, new Timing(previousEndTime, item.StartTime)));
 
                         var metadataForThisItem = item.Metadata;
                         if (metadataOngoing != null)
@@ -235,6 +233,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             metadataOngoing = null;
                         }
 
+                        contentList.AddRange(
+                            CreateContextOnlyNodeContents(
+                                binaryDataExtractors,                                 
+                                new Timing(previousEndTime, item.StartTime),
+                                item.Metadata));
                         contentList.AddRange(
                             CreateNodeContents(
                                 item,
@@ -371,7 +374,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         private static IEnumerable<dynamic> CreateContextOnlyNodeContents(
             BinaryDataExtractorCachedCollection extractors,
-            ITiming timing)
+            ITiming timing,
+            MetadataCollection metadatas)
         {
             if (extractors == null)
             {
@@ -379,7 +383,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             foreach (var node in extractors
-                .GetContextOnlyNodes(timing, (t) => t.ToString(@"hh\:mm\:ss\.fff"))
+                .GetContextOnlyNodes(timing, metadatas, (t) => t.ToString(@"hh\:mm\:ss\.fff"))
                 .OrderBy(n => n.time))
             {
                 var sb = new StringBuilder();

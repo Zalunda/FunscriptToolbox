@@ -64,11 +64,16 @@
           {
             "OutputFieldName": "Screenshot",
             // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap to have less nodes added. Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
+            "Enabled": true,
             "AddContextNodes": true,
             "ContextShortGap": "00:00:05",
             "ContextLongGap": "00:00:30"
           }
-        ]
+        ],
+        // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
+        "BatchSize": 10,
+        "NbContextItems": 300,
+        "NbItemsMinimumReceivedToContinue": 5,
       }
     },
     {

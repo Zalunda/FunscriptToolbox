@@ -12,7 +12,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public BinaryDataExtractorCachedCollection(params BinaryDataExtractorExtended[] extractors)
         {
             r_cache = new Dictionary<TimeSpan, Dictionary<string, dynamic[]>>();
-            r_extractors = extractors.ToDictionary(item => item.Extractor.OutputFieldName, item => item);
+            r_extractors = extractors
+                .Where(extractor => extractor.Extractor.Enabled)
+                .ToDictionary(item => item.Extractor.OutputFieldName, item => item);
         }
 
         public Dictionary<string, dynamic[]> GetNamedContentListForTiming(
@@ -46,9 +48,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public IEnumerable<(TimeSpan time, (string name, dynamic[] contentList)[] binaryItems)> GetContextOnlyNodes(
             ITiming timing, 
+            MetadataCollection metadatas,
             Func<TimeSpan, string> getText)
         {
             return r_extractors
+                .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !metadatas.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
                 .SelectMany(bde => bde.Value.GetContextOnlyNodes(timing, getText))
                 .GroupBy(item => item.time)
                 .ToDictionary(item => item.Key, item => item.ToArray())

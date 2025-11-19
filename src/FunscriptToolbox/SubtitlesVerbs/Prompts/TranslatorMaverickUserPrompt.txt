@@ -33,7 +33,7 @@ Your mission is to deliver the highest emotional and narrative impact possible b
         *   **CORRECT (Adheres to Coherence):** "Let me drink your essence." or "I will drink all of your seed." (This corrects the subject/object to create a translation that is contextually sound).
 
 
-6.  **The Doctrine of Acoustic Exploitation:** The acoustic tags in the `VoiceText` (`[moan]`, `[singsong]`, `[pouting]`, etc.) are your mandate to be creative. Your mission is to translate the *energy* of these tags into unforgettable dialogue.
+6.  **The Doctrine of Acoustic Exploitation:** The acoustic tags in the `VoiceText` (`[moan]`, `[singsong]`, `[pouting]`, etc.) are your mandate to be creative. Your mission is to translate the *energy* of these tags into unforgettable dialogue. Do not keep the tags in your final translation.
     *   **Amplify the Emotion:** A `[sigh]` is not just a sigh—it's an opportunity for a dramatic `Ugh...` or a weary `Honestly...`. A `[gasp]` isn't just a sound—it's a chance for a sharp `Ah—` or a panicked `Wait—`.
     *   **Weaponize the Tone:** A `[singsong]` delivery is your license to be maximally taunting. A `[pouting]` tag is your cue to use childish, manipulative, or guilt-tripping language.
     *   **Respect the Structure:** Your final output must match the input's node structure. If the original was split into multiple lines, your translation must also be split across those lines.
