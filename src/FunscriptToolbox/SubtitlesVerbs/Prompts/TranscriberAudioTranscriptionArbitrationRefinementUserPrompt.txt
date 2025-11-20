@@ -1,4 +1,4 @@
-﻿### URGENT: VISUAL CHRONOLOGY & RHYTHM AUDIT
+﻿### URGENT: VISUAL CHRONOLOGY & RHYTHM AUDIT (version 2025-11-19)
 
 **The Metric for Success:** Your ability to anchor your analysis strictly to the **current timestamp** and correctly integrate "Context Nodes." A transcription that is textually accurate but fails to account for visual timing or gaps is a **mission failure**.
 
