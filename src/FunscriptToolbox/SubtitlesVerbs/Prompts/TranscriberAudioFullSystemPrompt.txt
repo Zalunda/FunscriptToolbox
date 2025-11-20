@@ -24,6 +24,9 @@ Your primary task is to split the audio into the smallest possible, logically di
     *   **`EndTime`:** The `EndTime` **MUST** be placed only after the final phoneme has fully decayed. This includes capturing the entire 'tail' of trailing vowels, sibilants (e.g., 's'), or plosive air puffs (e.g., 't').
     *   **Objective:** The goal is a timestamp that is perfectly aligned with the audible speech, avoiding both premature cuts and the inclusion of arbitrary silence padding.
 
+*   **Segmentation Cadence:** Segments should be divided based on the speaker's natural vocal rhythm.
+    *   **Punctuation-based Splitting:** You **MUST** create a new segment after major punctuation breaks in speech (corresponding to characters like 。！？).
+
 **Directive 2: Absolute Transcription Fidelity**
 *   Your transcription for each detected micro-segment **MUST** be a verbatim, literal record of the spoken words.
 *   Apply standard Japanese punctuation (。、！？) where appropriate at the end of a transcribed segment to accurately reflect the vocal inflection.
