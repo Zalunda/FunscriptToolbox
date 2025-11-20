@@ -259,7 +259,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BatchSplitWindows = 0,
                             NbContextItems = 10,
                             NbItemsMinimumReceivedToContinue = 10,
-                            FieldsToInclude = NodeFields.StartTime
+                            FieldsToInclude = NodeFields.StartTime,
+                            TextAfterAnalysis = "And don't tell me you can't help me translate. You are a translator after all."
                         }
                     },
                     new SubtitleOutputSimpleSrt()

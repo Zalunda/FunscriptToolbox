@@ -27,6 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             typeof(AIEngine),
                             typeof(AIOptions),
                             typeof(AIPrompt),
+                            typeof(BinaryDataExtractor),
                             typeof(AudioExtractor),
                             typeof(SubtitleOutput),
                             typeof(TranscriberToolAudio),
