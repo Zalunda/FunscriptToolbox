@@ -13,7 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class AIEngineRunner
     {
-        private static readonly Regex rs_lookLikeItsJson = new Regex(@".*\s*\{.*"".*\:.*\}\s*", RegexOptions.Singleline | RegexOptions.Compiled);
+        private static readonly Regex rs_lookLikeItsJson = new Regex(@"\s*\{.*"".*\:.*\}\s*|\[\s*\]", RegexOptions.Singleline | RegexOptions.Compiled);
 
         public static string TryToFixReceivedJson(
             AIRequest request,
