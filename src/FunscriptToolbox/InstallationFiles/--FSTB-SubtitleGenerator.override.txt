@@ -90,13 +90,13 @@
     {
       "TranscriptionId": "full-ai",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
 	{
       "TranscriptionId": "full-ai-refined",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
@@ -108,19 +108,19 @@
     {
       "TranscriptionId": "singlevad-ai",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
       "Id": "on-screen-texts",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
@@ -132,13 +132,13 @@
     {
       "Id": "translated-texts_maverick",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
       "Id": "finalized_maverick",
       "Engine": {
-        "$ref": "AIEngineGeminiPro"
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
@@ -160,29 +160,10 @@
           "Origin": "Start",
           "InjectInAllFiles": true,
           "OffsetTime": "00:00:00",
-          "Duration": "00:00:05",
+          "Duration": "00:00:10",
           "Lines": [
-            "Created by ???, using the FunscriptToolbox and SubtitleEdit."
-          ]
-        },
-        {
-          "Origin": "Start",
-          "InjectInAllFiles": true,
-          "OffsetTime": "00:00:05",
-          "Duration": "00:00:02.5000000",
-          "Lines": [
-            "The initial transcription was generated with Gemini-2.5-pro,",
-            "and the translation was provided by the multiple AI models."
-          ]
-        },
-        {
-          "Origin": "Start",
-          "InjectInAllFiles": true,
-          "OffsetTime": "00:00:07.5000000",
-          "Duration": "00:00:02.5000000",
-          "Lines": [
-            "Both the transcription and translation underwent manual review",
-            "and adjustment to improve their accuracy and quality."
+            "Created by ???, using the FunscriptToolbox and SubtitleEdit.",
+            "Using AI with manual review to improve accuracy and quality."
           ]
         }
       ]

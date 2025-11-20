@@ -69,7 +69,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 APIKeyName = "APIKeyPoe"
             });
 
-            var aiEngineGeminiPro = AddSharedObject("AIEngineGeminiPro", new AIEngineAPI()
+            var aiEngineGeminiPro25 = AddSharedObject("AIEngineGeminiPro2.5", new AIEngineAPI()
+            {
+                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                Model = "gemini-2.5-pro",
+                APIKeyName = "APIKeyGemini",
+                RequestBodyExtension = Expando(
+                    ("max_tokens", 64 * 1024),
+                    ("extra_body", new
+                    {
+                        google = new
+                        {
+                            thinking_config = new
+                            {
+                                include_thoughts = true
+                            }
+                        }
+                    }))
+            });
+            var aiEngineGeminiPro30 = AddSharedObject("AIEngineGeminiPro3.0", new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                 Model = "gemini-3-pro-preview",
@@ -179,7 +197,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai",
                         SourceAudioId = "audio",
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro25,
                         SystemPrompt = transcriberAudioFullSystemPrompt,
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
@@ -189,7 +207,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai-refined",
                         PrivateMetadataNames = "Justification",
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro25,
                         ExpandStart = TimeSpan.FromSeconds(1.0),
                         ExpandEnd = TimeSpan.FromSeconds(1.0),
                         UpdateTimingsBeforeSaving = true,
@@ -294,7 +312,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "singlevad-ai",
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro30,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -338,7 +356,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "singlevad-ai-refined",
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro30,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -414,7 +432,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "on-screen-texts",
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro30,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -501,7 +519,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "translated-texts_maverick",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro30,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -534,7 +552,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "finalized_maverick",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGeminiPro,
+                        Engine = aiEngineGeminiPro30,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
