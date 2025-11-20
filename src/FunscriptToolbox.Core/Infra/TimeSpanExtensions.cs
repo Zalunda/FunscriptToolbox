@@ -27,10 +27,16 @@ namespace FunscriptToolbox.Core.Infra
             // Defines the expected formats, from most specific to least specific.
             string[] formats = {
                     @"h\:m\:s\.fff",
+                    @"h\:m\:s\.ff",
+                    @"h\:m\:s\.f",
                     @"h\:m\:s",
                     @"m\:s\.fff",
+                    @"m\:s\.ff",
+                    @"m\:s\.f",
                     @"m\:s",
                     @"s\.fff",
+                    @"s\.ff",
+                    @"s\.f",
                     @"s"
             };
 
