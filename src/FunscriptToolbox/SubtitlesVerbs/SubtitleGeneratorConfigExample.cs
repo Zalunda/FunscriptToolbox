@@ -376,12 +376,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 },
 
                             BatchSize = 30,
-                            BatchSplitWindows = 0,
+                            BatchSplitWindows = 2,
                             NbContextItems = 300,
-                            NbItemsMinimumReceivedToContinue = 20,
+                            NbItemsMinimumReceivedToContinue = 8,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
+                                { "StartTime", 50 },
+                                { "EndTime", 50 },
                                 { "TranslationAnalysis-Audio", 20 },
                                 { "full-VoiceText", 0 },
                                 { "singlevad-VoiceText", 0 }
@@ -516,6 +518,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BatchSize = 100,
                             BatchSplitWindows = 10,
                             NbContextItems = 10000,
+                            NbItemsMinimumReceivedToContinue = 50,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
@@ -523,7 +526,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { "TranslationAnalysis-Visual", 10 },
                                 { "VoiceText", 10 }
                             },
-                            NbItemsMinimumReceivedToContinue = 50,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },

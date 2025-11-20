@@ -63,7 +63,7 @@
         "BinaryDataExtractors": [
           {
             "OutputFieldName": "Screenshot",
-            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap to have less nodes added. Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
+            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added. Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
             "Enabled": true,
             "AddContextNodes": true,
             "ContextShortGap": "00:00:05",
@@ -71,9 +71,10 @@
           }
         ],
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
-        "BatchSize": 10,
+        "BatchSize": 30,
+        "BatchSplitWindows": 2,
         "NbContextItems": 300,
-        "NbItemsMinimumReceivedToContinue": 5,
+        "NbItemsMinimumReceivedToContinue": 8,
       }
     },
     {
@@ -119,12 +120,24 @@
     {
       "Id": "translated-texts_maverick",
       "Enabled": true,
-      "ExportMetadataSrt": false
+      "ExportMetadataSrt": false,
+      "Options": {
+        "BatchSize": 100,
+        "BatchSplitWindows": 10,
+        "NbContextItems": 10000,
+        "NbItemsMinimumReceivedToContinue": 50,
+      }
     },
     {
       "Id": "finalized_maverick",
       "Enabled": true,
-      "ExportMetadataSrt": false
+      "ExportMetadataSrt": false,
+      "Options": {
+        "BatchSize": 200,
+        "BatchSplitWindows": 10,
+        "NbContextItems": 100,
+        "NbItemsMinimumReceivedToContinue": 100,
+      }
     },
     {
       "Id": "translated-texts_naturalist",
