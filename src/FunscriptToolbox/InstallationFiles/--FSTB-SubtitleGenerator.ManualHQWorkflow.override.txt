@@ -71,10 +71,10 @@
           }
         ],
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
-        "BatchSize": 30,
+        "BatchSize": 10,
         "BatchSplitWindows": 2,
         "NbContextItems": 300,
-        "NbItemsMinimumReceivedToContinue": 8,
+        "NbItemsMinimumReceivedToContinue": 5,
       }
     },
     {

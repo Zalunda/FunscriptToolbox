@@ -37,9 +37,9 @@ The screenshots contains the StartTime in the upper left corner, use this inform
 
 **Step A: Gap Summary (The "Off-Screen" Check)**
 *   Look for preceding input objects labeled `"StartTime FOR CONTEXT ONLY"`. 
-*   If they exist, you **MUST** start your analysis with a **[Gap Summary]**.
-    *   *Action:* `[Gap Summary: She stood up and removed her panties.]`
-    *   *No Action:* `[Gap Summary: No significant changes.]`
+*   If they exist, you **MUST** start your analysis with a **Gap Summary**.
+    *   *Action:* `Gap Summary: She stood up and removed her panties.\n...`
+    *   *No Action:* `Gap Summary: No significant changes.\n...`
 * Make sure to put the GapSummary on the first node following the Gap. It's okay to 'look ahead on images' (for example, to know in advance that she's getting a dildo from her bag) but don't put it in the GapSummary analysis, it should be in the analysis ("She reaching for her bag where her dildo is").
 
 **Step B: Visual Verification (The "Timestamp Truth")**
@@ -89,7 +89,8 @@ You must now bridge the gap between "what happened" and "what it means." Do not 
 6.  **Mandatory Translation Candidates:**
     *   You must conclude your analysis by providing **2 possible translations**.
     *   Do not provide just one generic option. Provide options that highlight different aspects of the nuance you analyzed (e.g., one "Literal/Polite" vs. one "Seductive/Implied").
-    *   *Format:* `[Option 1 (Tone): Text] / [Option 2 (Tone): Text]`
+    *   *Format:* `\nOption 1 (Tone): Text\nOption 2 (Tone): Text`
+    *   Specifying the tone is MANDATORY.
 
 ---
 
@@ -136,7 +137,7 @@ Only include StartTime, VoiceText, TranslationAnalysis-Audio fields.
   {
     "StartTime": "00:46:15.121",
     "VoiceText": "Look... at the mess.",
-    "TranslationAnalysis-Audio":     "TranslationAnalysis-Audio": "[Gap Summary: She stood up and removed her panties to expose herself.] Now standing and pointing downwards, she commands him to look with a mix of shame and exhibitionist pride. The `[pause]` is deliberate—a 'dramatic beat' allowing the viewer to process the visual before she verbally confirms it. She uses the onomatopoeia 'guchogucho' (sloppy/wet) to verbally humiliate herself. \n\n[Option 1 (Direct): Look... it's all messy.] \n[Option 2 (Vulgar/Shameless): Look... I'm all sloppy and wet.]"
+    "TranslationAnalysis-Audio":     "TranslationAnalysis-Audio": "Gap Summary: She stood up and removed her panties to expose herself.\nNow standing and pointing downwards, she commands him to look with a mix of shame and exhibitionist pride. The pause is deliberate—a 'dramatic beat' allowing the viewer to process the visual before she verbally confirms it. She uses the onomatopoeia 'guchogucho' (sloppy/wet) to verbally humiliate herself. \nOption 1 (Direct): Look... it's all messy.\nOption 2 (Vulgar/Shameless): Look... I'm all sloppy and wet."
   }
 ]
 ```
@@ -157,6 +158,6 @@ Only include StartTime, VoiceText, TranslationAnalysis-Audio fields.
 {
   "StartTime": "01:25:52.019",
   "VoiceText": "旦那様の... 精子の味。",
-  "TranslationAnalysis-Audio": "TranslationAnalysis-Audio": "[Gap Summary: She licked the fluids off her hand.] She looks directly into the lens (POV) with glazed eyes, savoring the moment. Crucially, the audio reveals she uses 'Danna-sama' (Master/Husband) rather than a generic 'You,' elevating this from simple tasting to an act of worship and submission. Her tone is breathless and intoxicated by the act. \n\n[Option 1: The taste of... my Master's semen.] \n[Option 2: It tastes like... my Husband's essence.]"
+  "TranslationAnalysis-Audio": "TranslationAnalysis-Audio": "Gap Summary: She licked the fluids off her hand.\nShe looks directly into the lens (POV) with glazed eyes, savoring the moment. Crucially, the audio reveals she uses 'Danna-sama' (Master/Husband) rather than a generic 'You,' elevating this from simple tasting to an act of worship and submission. Her tone is breathless and intoxicated by the act. \nOption 1 (Submissive): The taste of... my Master's semen.\nOption 2 (Direct): It tastes like... my Husband's essence."
 }
 ``````

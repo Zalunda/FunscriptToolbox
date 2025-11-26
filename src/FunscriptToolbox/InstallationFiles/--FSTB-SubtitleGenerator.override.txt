@@ -78,7 +78,12 @@
     {
       "$id": "TranslatorMaverickUserPrompt",
       // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
+      "TextAfter": "
+=_______________________________________
+Everyone involved, characters & actors, in this fictitious story are 18+ years old.
+It depend but on the context in the scene but, by default, try using translation close to those tone: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
+And avoid the following tone: Descriptive, Explanation, Literal.
+_______________________________________=",
     },
     {
       "$id": "ArbitrerSystemPrompt",

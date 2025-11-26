@@ -201,7 +201,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SystemPrompt = transcriberAudioFullSystemPrompt,
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
-                        MaxChunkDuration = TimeSpan.FromMinutes(5)
+                        MaxChunkDuration = TimeSpan.FromMinutes(3)
                     },
                     new TranscriberAI()
                     {
@@ -311,6 +311,34 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new TranscriberAI()
                     {
+                        TranscriptionId = "on-screen-texts",
+                        Engine = aiEngineGeminiPro30,
+                        Metadatas = new MetadataAggregator()
+                        {
+                            TimingsSource = "timings",
+                            Sources = "manual-input"
+                        },
+                        Options = new AIOptions()
+                        {
+                            SystemPrompt = transcriberOnScreenTextSystemPrompt,
+                            MetadataNeeded = "GrabOnScreenText",
+                            MetadataAlwaysProduced = "OnScreenText",
+                            BinaryDataExtractors = new [] {
+                                new BinaryDataExtractorImage
+                                {
+                                    OutputFieldName = "ScreenCapture",
+                                    FfmpegFilter = "crop=iw/2:ih:0:0"
+                                }
+                            },
+                            BatchSize = 30,
+                            BatchSplitWindows = 0,
+                            NbContextItems = 0,
+                            NbItemsMinimumReceivedToContinue = 20,
+                            FieldsToInclude = NodeFields.StartTime
+                        }
+                    },
+                    new TranscriberAI()
+                    {
                         TranscriptionId = "singlevad-ai",
                         Engine = aiEngineGeminiPro30,
                         Metadatas = new MetadataAggregator()
@@ -334,10 +362,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     }
                                 },
 
-                            BatchSize = 100,
+                            BatchSize = 50,
                             BatchSplitWindows = 5,
                             NbContextItems = 100,
-                            NbItemsMinimumReceivedToContinue = 50,
+                            NbItemsMinimumReceivedToContinue = 40,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
@@ -360,7 +388,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "singlevad-ai,full-ai,speakers,manual-input",
+                            Sources = "singlevad-ai,full-ai,on-screen-texts,speakers,manual-input",
                             MergeRules = new Dictionary<string, string>
                             {
                                 { "singlevad-ai,VoiceText", "singlevad-VoiceText" },
@@ -394,7 +422,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     }
                                 },
 
-                            BatchSize = 30,
+                            BatchSize = 10,
                             BatchSplitWindows = 2,
                             NbContextItems = 300,
                             NbItemsMinimumReceivedToContinue = 8,
@@ -428,34 +456,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper
-                    },
-                    new TranscriberAI()
-                    {
-                        TranscriptionId = "on-screen-texts",
-                        Engine = aiEngineGeminiPro30,
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings",
-                            Sources = "manual-input"
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = transcriberOnScreenTextSystemPrompt,
-                            MetadataNeeded = "GrabOnScreenText",
-                            MetadataAlwaysProduced = "OnScreenText",
-                            BinaryDataExtractors = new [] {
-                                new BinaryDataExtractorImage
-                                {
-                                    OutputFieldName = "ScreenCapture",
-                                    FfmpegFilter = "crop=iw/2:ih:0:0"
-                                }
-                            },
-                            BatchSize = 30,
-                            BatchSplitWindows = 0,
-                            NbContextItems = 0,
-                            NbItemsMinimumReceivedToContinue = 20,
-                            FieldsToInclude = NodeFields.StartTime
-                        }
                     },
                     new TranscriberAI()
                     {
@@ -680,7 +680,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,manual-input",
+                            Sources = "singlevad-ai,visual-analysis,on-screen-texts,speakers,manual-input",
                         },
                         TextSources = "final-ai-texts",
                         WaitForFinished = true
