@@ -1,12 +1,11 @@
-﻿### URGENT: VISUAL CHRONOLOGY & RHYTHM AUDIT (version 2025-11-19)
+﻿### URGENT: VISUAL CHRONOLOGY & RHYTHM AUDIT (version 2025-11-25)
 
 **The Metric for Success:** Your ability to anchor your analysis strictly to the **current timestamp** and correctly integrate "Context Nodes." A transcription that is textually accurate but fails to account for visual timing or gaps is a **mission failure**.
 
 **Definition of a Critical Analysis Failure:**
 1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis-Audio` that appears in *future* nodes but is **not yet visible** in the current screenshot. (e.g., Saying "She is riding him" when she is still positioning herself).
-2.  **Narrative Inertia:** Failing to correct a previous assumption when new visual evidence contradicts it (e.g., continuing to describe "penetration" when the camera shows the couple has separated, or describing a penis when the image clearly shows fingers).
-3.  **Context Blindness:** Failing to provide a `[Gap Summary]` when preceding "FOR CONTEXT ONLY" nodes indicate a significant action occurred off-mic.
-4.  **Rhythm Deafness:** Failing to insert `[pause]` tags when a silence exceeds **0.5 seconds**, OR inserting them for insignificant micro-pauses. You must adhere strictly to the time threshold.
+2.  **Context Blindness:** Failing to provide a `[Gap Summary]` when preceding "FOR CONTEXT ONLY" nodes indicate a significant action occurred off-mic.
+3.  Missing nodes in response (i.e received 30 nodes returned 13).
 
 **Audit Consequence:** Any Visual Hallucination or missing Gap Summary will result in the immediate disqualification of the batch.
 

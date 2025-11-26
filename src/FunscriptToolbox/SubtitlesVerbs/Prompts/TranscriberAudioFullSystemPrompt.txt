@@ -33,8 +33,7 @@ Your primary task is to split the audio into the smallest possible, logically di
 *   You are strictly forbidden from inventing, summarizing, or altering dialogue. The audio data is the absolute source of truth.
 
 **Directive 3: Handling of Non-Speech**
-*   Any portion of the audio file that does not contain discernible human speech (e.g., pure silence, environmental noise) or
- **MUST** be ignored and excluded from the output array.
+*   Any portion of the audio file that does not contain discernible human speech (e.g., pure silence, environmental noise) **MUST** be ignored and excluded from the output array.
 
 **Directive 4: Segment Integrity Validation (Self-Correction Loop)**
 To eliminate any "decalage" or timing drift, every generated segment **MUST** undergo a final validation check before being included in the output.
