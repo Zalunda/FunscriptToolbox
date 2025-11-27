@@ -91,20 +91,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     timing.EndTime + expandEndBy), tempWavFile);
 
                             var audioBytes = File.ReadAllBytes(tempWavFile);
-                            var base64Audio = Convert.ToBase64String(audioBytes);
-                            File.Delete(tempWavFile);
                             var data = new[]
-                                {
-                                            new
-                                            {
-                                                type = "input_audio",
-                                                input_audio = new
-                                                {
-                                                    data = base64Audio,
-                                                    format = "wav"
-                                                }
-                                            }
-                                        };
+                            {
+                                new BinaryDataContainer(
+                                    $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
+                                    BinaryDataType.Audio,
+                                    audioBytes)
+                            };
+                            File.Delete(tempWavFile);
+
                             if (extractor.KeepTemporaryFiles)
                                 context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav", audioBytes, processStartTime);
                             return data;
@@ -124,15 +119,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
                             var data = new[]
                                 {
-                                                    new
-                                                    {
-                                                        type = "image_url",
-                                                        image_url = new
-                                                        {
-                                                            url = $"data:image/jpeg;base64,{Convert.ToBase64String(image)}"
-                                                        }
-                                                    }
-                                                };
+                                    new BinaryDataContainer(
+                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
+                                        BinaryDataType.Image,
+                                        image)
+                                };
                             if (extractor.KeepTemporaryFiles)
                                 context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);
                             return data;

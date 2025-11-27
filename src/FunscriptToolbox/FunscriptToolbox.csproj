@@ -187,12 +187,16 @@
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtraction.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromPcm.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromVideo.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineCollection.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineErrorType.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineRunner.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIOptions.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractor.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIResponse.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIException.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\APIFormat.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\BinaryDataContainer.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorExtended.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataType.cs" />
     <Compile Include="SubtitlesVerbs\Infra\Cost.cs" />

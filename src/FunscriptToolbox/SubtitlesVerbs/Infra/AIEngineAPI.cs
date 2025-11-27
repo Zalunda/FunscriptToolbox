@@ -33,6 +33,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 15, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject RequestBodyExtension { get; set; }
 
+        public APIFormat APIFormat { get; set; } = APIFormat.OpenAI;
+
         [JsonProperty(Order = 17)]
         public bool UseStreaming { get; set; } = true;
 
@@ -40,6 +42,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public bool PauseBeforeSendingRequest { get; set; } = false;
         [JsonProperty(Order = 21)]
         public bool PauseBeforeSavingResponse { get; set; } = false;
+
+        [JsonIgnore]
+        public string EngineIdentifier => $"{BaseAddress}|{APIKeyName}";
 
         public override AIResponse Execute(
             SubtitleGeneratorContext context,
@@ -71,12 +76,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     requestBody.stream = true;
                 }
                 requestBody = Merge(requestBody, RequestBodyExtension);
-                requestBody.messages = request.Messages;
+                requestBody.messages = BinaryDataContainer.ReplacePlaceholdersWithAPICompatibleNodes(
+                    request.Messages, 
+                    this.APIFormat);
 
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
                 var verbosePrefix = request.GetVerbosePrefix();
-                context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", request.FullPrompt, request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", $"Base Adress: {this.BaseAddress}\nModel: {this.Model}\n\n" + request.FullPrompt, request.ProcessStartTime);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
                 PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
@@ -86,29 +93,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix);
 
                 return response;
-
             }
             catch (AggregateException ex)
             {
-                var sb = new StringBuilder();
-                sb.AppendLine($"Error while communicating with the API (aggregate): {ex.Message}");
-                foreach (var innerException in ex.InnerExceptions)
-                {
-                    sb.AppendLine($"    InnerException: {innerException.Message}");
-                }
                 context.WriteLog(ex.ToString());
-                throw new AIEngineAPIException(sb.ToString(), ex);
+                throw AIEngineAPIException.FromAggregateException(ex, this.EngineIdentifier);
             }
             catch (HttpRequestException ex)
             {
-                var sb = new StringBuilder();
-                sb.AppendLine($"Error while communicating with the API (http): {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    sb.AppendLine($"    InnerException: {ex.InnerException.Message}");
-                }
                 context.WriteLog(ex.ToString());
-                throw new AIEngineAPIException(sb.ToString(), ex);
+                throw AIEngineAPIException.FromHttpRequestException(ex, this.EngineIdentifier);
             }
         }
 
@@ -128,9 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (!response.IsSuccessStatusCode)
             {
-                throw new AIRequestException(
-                    request, 
-                    $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                throw AIEngineAPIException.FromHttpStatusCode(response, this.EngineIdentifier);
             }
 
             string responseAsJson = response.Content.ReadAsStringAsync().Result;
@@ -141,17 +133,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
             {
                 throw new AIRequestException(
-                    request, 
+                    request,
                     $"Invalid model name in response:\n" +
                     $"   [API response] {responseBody.model}\n" +
                     $"   [config]   {this.Model}");
             }
 
-            if (responseBody?.error != null)
+            if (responseBody.error != null)
             {
-                var errorType = responseBody.error.type;
-                var message = responseBody.error.message;
-                throw new AIRequestException(request, $"type={errorType}, message={message}");
+                throw AIEngineAPIException.FromErrorInResponseBody(responseBody.error, this.EngineIdentifier);
             }
 
             string assistantMessage = responseBody.choices[0]?.message?.content;
@@ -161,7 +151,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (assistantMessage == null)
             {
                 throw new AIRequestException(
-                    request, 
+                    request,
                     $"Empty response receive. Finish_reason: {finish_reason}");
             }
 
@@ -214,9 +204,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new AIRequestException(
-                        request, 
-                        $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                    throw AIEngineAPIException.FromHttpStatusCode(response, this.EngineIdentifier);
                 }
 
                 var chunksReceived = new StringBuilder();
@@ -263,9 +251,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                                     if (chunk?.error != null)
                                     {
-                                        var errorType = chunk.error.type;
-                                        var message = chunk.error.message;
-                                        throw new AIRequestException(request, $"type={errorType}, message={message}", fullContent.ToString());
+                                        throw AIEngineAPIException.FromErrorInResponseBody(chunk.error, this.EngineIdentifier);
                                     }
 
                                     // Extract content delta
@@ -334,6 +320,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
                     }
                 }
+                catch (AIEngineAPIException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     fullContent.AppendLine();
@@ -352,7 +342,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new AIRequestException(
-                        request, 
+                        request,
                         $"Invalid model name in response:\n" +
                         $"   [API response] {modelName}\n" +
                         $"   [config]   {this.Model}");
@@ -361,12 +351,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (string.IsNullOrEmpty(assistantMessage))
                 {
                     throw new AIRequestException(
-                        request, 
+                        request,
                         $"Empty response received. Finish_reason: {finish_reason}");
                 }
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
-                
+
                 return new AIResponse(
                     request,
                     assistantMessage,

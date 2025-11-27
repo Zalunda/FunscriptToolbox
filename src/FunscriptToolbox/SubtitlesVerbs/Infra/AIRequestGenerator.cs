@@ -293,11 +293,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (metadataOngoing == null)
                 return metadataForItem;
 
-            foreach (var key in metadataOngoing.Keys.ToArray())
+            foreach (var kvp in metadataOngoing.ToArray())
             {
-                if (!key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase))
+                if (!kvp.Key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase) 
+                    || string.IsNullOrWhiteSpace(kvp.Value))
                 {
-                    metadataOngoing.Remove(key);
+                    metadataOngoing.Remove(kvp.Key);
                 }
             }
 

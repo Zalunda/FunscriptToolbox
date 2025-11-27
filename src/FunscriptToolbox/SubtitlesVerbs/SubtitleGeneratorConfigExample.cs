@@ -38,42 +38,42 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 ForceSplitOnComma = false
             });
 
-            var aiEngineGPT5 = AddSharedObject("AIEngineGPT5", new AIEngineAPI()
+            var aiEngineGPT5OnOpenAI = AddSharedObject("AIEngineGPT5OnOpenAI", new AIEngineAPI()
             {
                 BaseAddress = "https://api.openai.com/v1",
                 Model = "gpt-5",
                 APIKeyName = "APIKeyOpenAI",
+                APIFormat = APIFormat.OpenAI,
                 RequestBodyExtension = Expando(
                     ("service_tier", "flex")),
                 UseStreaming = false
             });
-            var aiEngineGPT5ViaPoe = AddSharedObject("AIEngineGPT5ViaPoe", new AIEngineAPI()
+            var aiEngineGPT5OnPoe = AddSharedObject("AIEngineGPT5OnPoe", new AIEngineAPI()
             {
                 BaseAddress = "https://api.poe.com/v1",
                 Model = "GPT-5",
-                APIKeyName = "APIKeyPoe"
+                APIKeyName = "APIKeyPoe",
+                APIFormat = APIFormat.Poe
             });
-            var aiEngineGPT5Mini = AddSharedObject("AIEngineGPT5Mini", new AIEngineAPI()
+            var aiEngineGPT5 = AddSharedObject("AIEngineGPT5", new AIEngineCollection()
             {
-                BaseAddress = "https://api.openai.com/v1",
-                Model = "gpt-5-mini",
-                APIKeyName = "APIKeyOpenAI",
-                RequestBodyExtension = Expando(
-                    ("service_tier", "flex")),
-                UseStreaming = false
-            });
-            var aiEngineGPT5MiniViaPoe = AddSharedObject("AIEngineGPT5MiniViaPoe", new AIEngineAPI()
-            {
-                BaseAddress = "https://api.poe.com/v1",
-                Model = "GPT-5-mini",
-                APIKeyName = "APIKeyPoe"
+                Engines = new List<AIEngineAPI>
+                {
+                    aiEngineGPT5OnPoe,
+                    aiEngineGPT5OnOpenAI
+                },
+                SkipOnQuotasUsed = true,
+                SkipOnServiceUnavailable = true,
+                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
+                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
             });
 
-            var aiEngineGeminiPro25 = AddSharedObject("AIEngineGeminiPro2.5", new AIEngineAPI()
+            var aiEngineGeminiPro25OnGoogle = AddSharedObject("AIEngineGeminiPro2.5OnGoogle", new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                 Model = "gemini-2.5-pro",
                 APIKeyName = "APIKeyGemini",
+                APIFormat = APIFormat.OpenAI,
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
                     ("extra_body", new
@@ -87,11 +87,38 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     }))
             });
-            var aiEngineGeminiPro30 = AddSharedObject("AIEngineGeminiPro3.0", new AIEngineAPI()
+            var aiEngineGeminiPro25OnPoe = AddSharedObject("AIEngineGeminiPro2.5OnPoe", new AIEngineAPI()
+            {
+                BaseAddress = "https://api.poe.com/v1",
+                Model = "gemini-2.5-pro",
+                APIKeyName = "APIKeyPoe",
+                APIFormat = APIFormat.Poe,
+                RequestBodyExtension = Expando(
+                    ("max_tokens", 64 * 1024),
+                    ("extra_body", new
+                    {
+                        thinking_budget = 2048
+                    }))
+            });
+            var aiEngineGeminiPro25 = AddSharedObject("AIEngineGeminiPro2.5", new AIEngineCollection()
+            {
+                Engines = new List<AIEngineAPI>
+                {
+                    aiEngineGeminiPro25OnPoe,
+                    aiEngineGeminiPro25OnGoogle
+                },
+                SkipOnQuotasUsed = true,
+                SkipOnServiceUnavailable = true,
+                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
+                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
+            });
+
+            var aiEngineGeminiPro30OnGoogle = AddSharedObject("AIEngineGeminiPro3.0OnGoogle", new AIEngineAPI()
             {
                 BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
                 Model = "gemini-3-pro-preview",
                 APIKeyName = "APIKeyGemini",
+                APIFormat = APIFormat.OpenAI,
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
                     ("extra_body", new
@@ -105,29 +132,37 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     }))
             });
-            var aiEngineGeminiFlash = AddSharedObject("AIEngineGeminiFlash", new AIEngineAPI()
+            var aiEngineGeminiPro30OnPoe = AddSharedObject("AIEngineGeminiPro3.0OnPoe", new AIEngineAPI()
             {
-                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
-                Model = "gemini-2.5-pro-flash",
-                APIKeyName = "APIKeyGemini",
+                BaseAddress = "https://api.poe.com/v1",
+                Model = "gemini-3-pro",
+                APIKeyName = "APIKeyPoe",
+                APIFormat = APIFormat.Poe,
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
                     ("extra_body", new
-                    {
-                        google = new
-                        {
-                            thinking_config = new
-                            {
-                                include_thoughts = true
-                            }
-                        }
+                    { 
+                        thinking_budget = 4096
                     }))
+            });
+            var aiEngineGeminiPro30 = AddSharedObject("AIEngineGeminiPro3.0", new AIEngineCollection()
+            {
+                Engines = new List<AIEngineAPI>
+                {
+                    aiEngineGeminiPro30OnPoe,
+                    aiEngineGeminiPro30OnGoogle
+                },
+                SkipOnQuotasUsed = true,
+                SkipOnServiceUnavailable = true,
+                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
+                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
             });
 
             var aiEngineLocalAPI = AddSharedObject("AIEngineLocalAPI", new AIEngineAPI
             {
                 BaseAddress = "http://localhost:10000/v1",
                 Model = "mistralai/mistral-small-3.2",
+                APIFormat = APIFormat.OpenAI,
                 ValidateModelNameInResponse = true,
                 UseStreaming = true
             });
@@ -207,7 +242,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai-refined",
                         PrivateMetadataNames = "Justification",
-                        Engine = aiEngineGeminiPro25,
+                        Engine = aiEngineGeminiPro30,
                         ExpandStart = TimeSpan.FromSeconds(1.0),
                         ExpandEnd = TimeSpan.FromSeconds(1.0),
                         UpdateTimingsBeforeSaving = true,
@@ -461,7 +496,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "visual-analysis",
                         PrivateMetadataNames = "VoiceText",
-                        Engine = aiEngineGPT5ViaPoe,
+                        Engine = aiEngineGPT5,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -583,7 +618,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "translated-texts_naturalist",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGPT5ViaPoe,
+                        Engine = aiEngineGPT5,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -629,7 +664,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "arbitrer-final-choice",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGPT5ViaPoe,
+                        Engine = aiEngineGPT5,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",

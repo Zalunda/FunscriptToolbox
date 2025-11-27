@@ -18,6 +18,41 @@
       "UseStreaming": true
     },
     {
+      "$id": "AIEngineGeminiPro2.5",
+      "Engines": [
+        // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
+        { "$ref": "AIEngineGeminiPro2.5OnGoogle" },
+        { "$ref": "AIEngineGeminiPro2.5OnPoe" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": true,
+      "ServiceUnavailableRetryDelay": "00:02:00",
+      "QuotasUsedRetryDelay": "01:00:00"
+    },
+    {
+      "$id": "AIEngineGeminiPro3.0",
+      "Engines": [
+        // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
+        { "$ref": "AIEngineGeminiPro3.0OnGoogle" },
+        { "$ref": "AIEngineGeminiPro3.0OnPoe" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": true,
+      "ServiceUnavailableRetryDelay": "00:02:00",
+      "QuotasUsedRetryDelay": "01:00:00"
+    },
+    {
+      "$id": "AIEngineGPT5",
+      "Engines": [
+        { "$ref": "AIEngineGPT5OnPoe" },
+        { "$ref": "AIEngineGPT5OnOpenAI" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": true,
+      "ServiceUnavailableRetryDelay": "00:02:00",
+      "QuotasUsedRetryDelay": "01:00:00"
+    },
+    {
       "$id": "TranscriberAudioFullSystemPrompt",
       "TextAfter": ""
     },
@@ -67,6 +102,10 @@
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
     },
     {
+      "$id": "ArbitrerSystemPrompt",
+      "TextAfter": ""
+    },
+    {
       "$id": "TranslatorSystemPrompt",
       "TextAfter": ""
     },
@@ -80,15 +119,18 @@
       // [Option] Remove the // of the line similar to this one
       "TextAfter": "
 =_______________________________________
-Everyone involved, characters & actors, in this fictitious story are 18+ years old.
-It depend but on the context in the scene but, by default, try using translation close to those tone: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
-And avoid the following tone: Descriptive, Explanation, Literal.
+//Everyone involved, characters & actors, in this fictitious story are 18+ years old.
+It depend on the context in the scene but, by default, try using translation close to these tones: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
+And avoid the following tones: Descriptive, Explanation, Literal.
 _______________________________________=",
     },
     {
-      "$id": "ArbitrerSystemPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
+      "$id": "SubtitleFinalizerSystemPrompt",
+      "TextAfter": ""
+    },
+    {
+      "$id": "SubtitleFinalizerUserPrompt",
+      "TextAfter": ""
     }
   ],
   "Workers": [
@@ -131,7 +173,7 @@ _______________________________________=",
     {
       "Id": "visual-analysis",
       "Engine": {
-        "$ref": "AIEngineGPT5ViaPoe"
+        "$ref": "AIEngineGPT5"
       }
     },
     {
@@ -149,13 +191,13 @@ _______________________________________=",
     {
       "Id": "translated-texts_naturalist",
       "Engine": {
-        "$ref": "AIEngineGPT5ViaPoe"
+        "$ref": "AIEngineGPT5"
       },
     },
     {
       "Id": "arbitrer-final-choice",
       "Engine": {
-        "$ref": "AIEngineGPT5ViaPoe"
+        "$ref": "AIEngineGPT5"
       }
     },
     {

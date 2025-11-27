@@ -67,20 +67,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime), tempWavFile);
 
                             var audioBytes = File.ReadAllBytes(tempWavFile);
-                            var base64Audio = Convert.ToBase64String(audioBytes);
-                            File.Delete(tempWavFile);
                             var data = new[]
-                                {
-                                    new
-                                    {
-                                        type = "input_audio",
-                                        input_audio = new
-                                        {
-                                            data = base64Audio,
-                                            format = "wav"
-                                        }
-                                    }
-                                };
+                            {
+                                new BinaryDataContainer(
+                                    $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
+                                    BinaryDataType.Audio,
+                                    audioBytes)
+                            };
+                            File.Delete(tempWavFile);
+
                             if (this.KeepTemporaryFiles)
                                 context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav", audioBytes, processStartTime);
                             return data;

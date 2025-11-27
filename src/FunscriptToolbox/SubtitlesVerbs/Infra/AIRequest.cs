@@ -50,7 +50,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         // Handle multimodal content
                         foreach (var item in message.content)
                         {
-                            if (item?.type == "text")
+                            if (item is BinaryDataContainer container)
+                            {
+                                fullpromptBuilder.Append($"[{container.DataType} data]");
+                            }
+                            else if (item?.type == "text")
                             {
                                 fullpromptBuilder.Append(item.text ?? item.content);
                             }
