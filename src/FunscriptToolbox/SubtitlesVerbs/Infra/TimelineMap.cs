@@ -1,7 +1,6 @@
 ﻿using FunscriptToolbox.Core.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -31,18 +30,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public IEnumerable<string> GetFullPaths(string parentPath) => this.Segments.Select(segment => Path.Combine(parentPath, segment.Filename));
 
-        public (string filename, TimeSpan newPosition) GetPathAndPosition(TimeSpan position)
+        public (int index, string filename, TimeSpan newPosition) GetPathAndPosition(TimeSpan position)
         {
+            var index = 1;
             foreach (var segment in this.Segments)
             {
                 if (position > segment.Offset && position < segment.Offset + segment.Duration)
                 {
-                    return (segment.Filename, position - segment.Offset);
+                    return (index, segment.Filename, position - segment.Offset);
                 }
+                index++;
             }
 
             var lastSegment = this.Segments.Last();
-            return (lastSegment.Filename, position - lastSegment.Offset);
+            return (index, lastSegment.Filename, position - lastSegment.Offset);
         }
     }
 }

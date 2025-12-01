@@ -111,7 +111,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         {
                             var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
-                            var (filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
+                            var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
                             var image = context.FfmpegHelper.TakeScreenshotAsBytes(
                                 Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
                                 middleTimeInRightFile,

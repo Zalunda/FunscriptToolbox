@@ -390,9 +390,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         var time = match.Groups["Time"].Value;
                         var originalTime = TimeSpanExtensions.FlexibleTimeSpanParse(time);
                         var adjustedTime = startOffset + TimeSpanExtensions.FlexibleTimeSpanParse(time);
-                        var (_, newTime) = context.WIP.TimelineMap.GetPathAndPosition(adjustedTime);
+                        var (index, _, newTime) = context.WIP.TimelineMap.GetPathAndPosition(adjustedTime);
                         return (newTime != originalTime)
-                            ? $"{grab} [{newTime:hh\\:mm\\:ss\\.fff}]\""
+                            ? $"{grab} [{index}, {newTime:hh\\:mm\\:ss\\.fff}]\""
                             : match.Groups["Grab"].Value + "\"";
                     }
                     catch (Exception)

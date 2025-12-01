@@ -131,7 +131,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var isFinished = Test.SpeakerCorrection(
                 workItems,
                 time => { 
-                    var (filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
+                    var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
                     var fullpath = Path.Combine(context.WIP.ParentPath, filename);
                     return (File.Exists(fullpath + ".FAST.mp4") ? fullpath + ".FAST.mp4" : fullpath, adjustedTime); 
                 },
