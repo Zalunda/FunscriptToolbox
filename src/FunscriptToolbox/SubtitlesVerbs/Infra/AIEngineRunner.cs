@@ -32,53 +32,55 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 json = json.Substring(indexOfFirstBracket);
             }
 
-            var indexOfLastBracket = json.LastIndexOf(']');
-            if (indexOfLastBracket < 0 && tryToFixEnd)
+            // Try to find and remove partial json object
+            var bracesCounter = 0;
+            var lastClosingBraceIndex = -1;
+            var index = 0;
+            while (index < json.Length)
             {
-                // Try to find and remove partial json object
-                var bracesCounter = 0;
-                var lastIndex = -1;
-                var index = 0;
-                while (index < json.Length)
+                // Skip string so that { or } inside the string don't messup bracesCounter
+                if (json[index] == '"')
                 {
-                    // Skip string so that { or } inside the string don't messup bracesCounter
-                    if (json[index] == '"')
+                    index++;
+                    while (index < json.Length && json[index] != '"')
                     {
-                        index++;
-                        while (index < json.Length && json[index] != '"')
+                        if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
                         {
-                            if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
-                            {
-                                index += 2;
-                            }
-                            else
-                            {
-                                index++;
-                            }
+                            index += 2;
                         }
-                        index++; // skip closing "
+                        else
+                        {
+                            index++;
+                        }
                     }
-                    else
+                    index++; // skip closing "
+                }
+                else
+                {
+                    var c = json[index++];
+                    var diff = (c == '{')
+                        ? 1
+                        : (c == '}')
+                        ? -1
+                        : 0;
+                    bracesCounter += diff;
+                    if (diff != 0 && bracesCounter == 0)
                     {
-                        var c = json[index++];
-                        var diff = (c == '{')
-                            ? 1
-                            : (c == '}')
-                            ? -1
-                            : 0;
-                        bracesCounter += diff;
-                        if (diff != 0 && bracesCounter == 0)
-                        {
-                            lastIndex = index;
-                        }
+                        lastClosingBraceIndex = index;
                     }
                 }
+            }
 
-                if (lastIndex >= 0)
-                {
-                    json = json.Substring(0, lastIndex);
-                    json += "]";
-                }
+            if (tryToFixEnd && bracesCounter != 0 && lastClosingBraceIndex >= 0)
+            {
+                json = json.Substring(0, lastClosingBraceIndex);
+                json += "]";
+            }
+
+            var indexOfLastBracket = json.LastIndexOf(']');
+            if (tryToFixEnd && indexOfLastBracket < 0)
+            {
+                json += "]";
             }
             else
             {
