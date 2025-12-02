@@ -191,8 +191,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             if (name == null)
                 return null;
-            var index = name.IndexOf('(');
-            return (index < 0 ? name : name.Substring(0, index)).Trim();
+            return name.Trim();
         }
     }
 }
