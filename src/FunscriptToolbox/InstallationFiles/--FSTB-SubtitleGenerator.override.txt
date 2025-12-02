@@ -6,18 +6,6 @@
       //"ApplicationFullPath": "[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe",
     },
     {
-      "$id": "AIEngineClaudeSonnet",
-      "$type": "AIEngineAPI",
-      "BaseAddress": "https://api.anthropic.com/v1",
-      "Model": "Claude-Sonnet-4",
-      "APIKeyName": "APIKeyAnthropic",
-      "TimeOut": "00:15:00",
-      "RequestBodyExtension": {
-        // custom parameters for anthropic
-      },
-      "UseStreaming": true
-    },
-    {
       "$id": "AIEngineGeminiPro2.5",
       "Engines": [
         // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
@@ -46,6 +34,16 @@
       "Engines": [
         { "$ref": "AIEngineGPT5OnPoe" },
         { "$ref": "AIEngineGPT5OnOpenAI" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": true,
+      "ServiceUnavailableRetryDelay": "00:02:00",
+      "QuotasUsedRetryDelay": "01:00:00"
+    },
+    {
+      "$id": "AIEngineGrok4",
+      "Engines": [
+        { "$ref": "AIEngineGrok4OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": true,
@@ -123,14 +121,6 @@
 It depend on the context in the scene but, by default, try using translation close to these tones: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
 And avoid the following tones: Descriptive, Explanation, Literal.
 _______________________________________=",
-    },
-    {
-      "$id": "SubtitleFinalizerSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "SubtitleFinalizerUserPrompt",
-      "TextAfter": ""
     }
   ],
   "Workers": [

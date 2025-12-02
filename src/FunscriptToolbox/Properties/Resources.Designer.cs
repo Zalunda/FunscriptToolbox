@@ -73,6 +73,10 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
+        ///    {
+        ///      &quot;Id&quot;: &quot;asig&quot;,
+        ///      &quot;Enabled&quot;: true     
+        ///    },
         ///    // -----------------------------
         ///    // Creating initial manual-input source 
         ///    {
@@ -82,7 +86,7 @@ namespace FunscriptToolbox.Properties {
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai-refined&quot;,
-        ///      // [OPTION] Enable to get a second pass on the audio that should imp [rest of string was truncated]&quot;;.
+        ///      // [ [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -103,6 +107,10 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
+        ///    {
+        ///      &quot;Id&quot;: &quot;asig&quot;,
+        ///      &quot;Enabled&quot;: true     
+        ///    },
         ///    // -----------------------------
         ///    // Creating initial manual-input source 
         ///    {
@@ -112,7 +120,7 @@ namespace FunscriptToolbox.Properties {
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai-refined&quot;,
-        ///      // [OPTION] Enable to get a second pass on that should improve the t [rest of string was truncated]&quot;;.
+        ///      // [ [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
@@ -128,12 +136,12 @@ namespace FunscriptToolbox.Properties {
         ///      // Remove &apos;//&apos; on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with &apos;\&apos; doubled =&gt; &apos;\\&apos;).
         ///      //&quot;ApplicationFullPath&quot;: &quot;[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe&quot;,
         ///    },
-        ///    {
-        ///      &quot;$id&quot;: &quot;AIEngineClaudeSonnet&quot;,
-        ///      &quot;$type&quot;: &quot;AIEngineAPI&quot;,
-        ///      &quot;BaseAddress&quot;: &quot;https://api.anthropic.com/v1&quot;,
-        ///      &quot;Model&quot;: &quot;Claude-Sonnet-4&quot;,
-        ///  [rest of string was truncated]&quot;;.
+        /////    {
+        /////      &quot;$id&quot;: &quot;AIEngineClaudeSonnet&quot;,
+        /////      &quot;$type&quot;: &quot;AIEngineAPI&quot;,
+        /////      &quot;BaseAddress&quot;: &quot;https://api.anthropic.com/v1&quot;,
+        /////      &quot;APIFormat&quot;: {
+        /////   [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_override {
             get {
@@ -154,16 +162,16 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;AudioExtractionId&quot;: &quot;audio-clean-waveform&quot;,
         ///      &quot;Enabled&quot;: true,
         ///    },
+        ///    {
+        ///      &quot;Id&quot;: &quot;asig&quot;,
+        ///      &quot;Enabled&quot;: true     
+        ///    },
         ///    // -----------------------------
         ///    // Transcription with Whisper with a basic google translation
         ///    {
         ///      &quot;TranscriptionId&quot;: &quot;full-whisper&quot;,
         ///      &quot;Enabled&quot;: true,
-        ///      &quot;ExportMetadataSrt&quot;: false
-        ///    },
-        ///    {
-        ///      &quot;TranscriptionId&quot;: &quot;full&quot;,
-        ///    [rest of string was truncated]&quot;;.
+        ///      &quot;ExportMetadataS [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_Staging_override {
             get {
@@ -384,39 +392,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ### **Role**
-        ///
-        ///You are **The Conformer**. Your function is purely technical and non-creative. You will process a list of subtitle nodes to merge consecutive lines, apply formatting for length and line breaks, and add deterministic flags.
-        ///
-        ///### **The Prime Mandate: Textual Inviolability**
-        ///
-        ///You will **never** alter the content, wording, or phrasing of the input text. Your loyalty is to the technical rules, not to the narrative. Your only permitted modifications are:
-        ///1.  Combining text from two nodes into one du [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string SubtitleFinalizerSystemPrompt {
-            get {
-                return ResourceManager.GetString("SubtitleFinalizerSystemPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to # ATTENTION: TECHNICAL FINISHING AUDIT INITIATED (SPEC 2025-10-05)
-        ///
-        ///**To the Subtitle Finisher:** This batch is undergoing a full-spectrum Quality Assurance audit. Your output will be validated by an automated linter for strict adherence to the technical protocol. Zero deviations are permitted.
-        ///
-        ///The audit will programmatically check two critical metrics:
-        ///
-        ///**QA Metric 1: Strict Physical Constraint Compliance (ZERO TOLERANCE)**
-        ///*   **Objective:** Every finalized subtitle must adhere perfectly to the physical  [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string SubtitleFinalizerUserPrompt {
-            get {
-                return ResourceManager.GetString("SubtitleFinalizerUserPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to # TRANSCRIPTION AND VAD MANDATE (version 2025-09-04)
+        ///   Looks up a localized string similar to # TRANSCRIPTION AND VAD MANDATE (version 2025-11-20)
         ///
         ///### Role
         ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, micro-segmenting Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of Japanese adult media, capable of deconstructing human speech into its smallest coherent, timed components.
@@ -465,11 +441,12 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSCRIPTION MANDATE (version 2025-08-20)
+        ///   Looks up a localized string similar to # TRANSCRIPTION MANDATE (version 2025-11-26)
         ///### Role
         ///You are an advanced audio intelligence engine specializing in Japanese transcription. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct *what* is said with the highest possible fidelity. You are an expert in the vocabulary and cadence of Japanese adult media, understanding that this includes both explicit scenes and mundane, plot-building dialogue.
+        ///
         ///### Mission
-        ///F [rest of string was truncated]&quot;;.
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioSingleVADSystemPrompt {
             get {
@@ -478,8 +455,12 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The audio should be in [TranscriptionLanguage].
-        ///.
+        ///   Looks up a localized string similar to ### URGENT: AUDIO FIDELITY &amp; SEQUENCE INTEGRITY AUDIT (version 2025-11-26)
+        ///
+        ///**The Metric for Success:** Your ability to produce a **strict 1:1 mapping** between input audio chunks and output JSON objects. A transcription that is textually accurate but fails to return a JSON object for every single input timestamp is a **mission failure**.
+        ///
+        ///**Definition of a Critical Transcription Failure:**
+        ///1.  **Sequence Collapse (The &quot;Dropped Frame&quot;):** Returning fewer JSON objects than the number of input audio chun [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioSingleVADUserPrompt {
             get {
@@ -488,10 +469,16 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-10-10)
+        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-11-25)
         ///
         ///### Role
-        ///You are a Transcription &amp; Acoustic Nuance Analyst. Your purpose is not merely to transcribe dialogue, but to create a complete &quot;transcription package&quot; that empowers a human translator. You are an expert in discerning not only words but also the subtext, emotion, and intent conveyed through the *delivery* of those words. Your analysis will serve as a crucial bridge between raw audio and nuanced, culturally-aware translation. [rest of string was truncated]&quot;;.
+        ///You are a Transcription &amp; Acoustic Nuance Analyst. Your mission is to produce a hyper-accurate transcription (`VoiceText`) augmented with a critical contextual analysis (`TranslationAnalysis-Audio`). You serve as the eyes and ears for a human translator.
+        ///
+        ///### Input Protocol
+        ///You will receive a JSON array of objects.
+        ///1.  `StartTime`/`EndTime`: Timing of the segment.
+        ///2.  `AudioClip`: The **Absolute Ground Truth**.
+        ///3.  `s [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt {
             get {
@@ -500,12 +487,12 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ### URGENT: HIGH-STAKES ANALYSIS AUDIT
+        ///   Looks up a localized string similar to ### URGENT: VISUAL CHRONOLOGY &amp; RHYTHM AUDIT (version 2025-11-25)
         ///
-        ///**The Single Metric for Success:** Your ability to provide a `TranslationAnalysis-Audio` that accurately explains the significance of non-standard speech patterns. A word-perfect transcription that fails to explain crucial delivery nuance is considered a **mission failure**.
+        ///**The Metric for Success:** Your ability to anchor your analysis strictly to the **current timestamp** and correctly integrate &quot;Context Nodes.&quot; A transcription that is textually accurate but fails to account for visual timing or gaps is a **mission failure**.
         ///
         ///**Definition of a Critical Analysis Failure:**
-        ///*   **Contextual Negligence:** Failing to add a `TranslationAnalysis-Audio` field for any segment where the delivery is clearly non-standard (e [rest of string was truncated]&quot;;.
+        ///1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis-Audio` that appears in *fu [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioTranscriptionArbitrationRefinementUserPrompt {
             get {
@@ -560,15 +547,15 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-10-12)**
+        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-11-25)**
         ///
         ///### **Role**
         ///
-        ///You are &apos;The Maverick&apos;. You are a high-risk, high-reward narrative amplifier. Your function is to take the Analyst&apos;s directives and produce the most impactful, evocative, and clever translation possible, prioritizing narrative punch over literal accuracy.
+        ///You are &apos;The Maverick&apos;. You are a linguistic craftsman who builds potent, evocative dialogue upon a foundation of structural rhythm. Your function is to fuse the energy of the original Japanese with the full creative and emotional depth of the target language.
         ///
         ///### **Mission**
         ///
-        ///Your mission is to maximize the narrative impact for an audience that does not understand the source language. You will achieve this by re-interpreting  [rest of string was truncated]&quot;;.
+        ///Your mission is to deliver the highest emotional and narrative impact possible by re-interpreting dialogue *within* a rhythmically mirrored structu [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranslatorMaverickUserPrompt {
             get {
@@ -590,7 +577,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (version 2025-11-05)**
+        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (version 2025-11-25)**
         ///
         ///### **Role**
         ///

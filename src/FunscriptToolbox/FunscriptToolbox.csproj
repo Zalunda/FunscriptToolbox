@@ -248,6 +248,7 @@
     <Compile Include="SubtitlesVerbs\Infra\AIRequestException.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequest.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngine.cs" />
+    <Compile Include="SubtitlesVerbs\Translations\TranslatorSubtitleConformer.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
     <Compile Include="SubtitlesVerbs\VerbSubtitlesStoryVideo.cs" />
     <Compile Include="VerbContext.cs" />
@@ -339,9 +340,7 @@
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberOnScreenTextSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\SubtitleFinalizerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\SubtitleFinalizerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt" />

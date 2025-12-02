@@ -86,7 +86,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 includeThoughts = true
                             },
                             mediaResolution = "MEDIA_RESOLUTION_LOW"
-                            }
+                        }
                     }))
             });
             var aiEngineGeminiPro25OnPoe = AddSharedObject("AIEngineGeminiPro2.5OnPoe", new AIEngineAPIPoe()
@@ -95,11 +95,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 Model = "gemini-2.5-pro",
                 APIKeyName = "APIKeyPoe",
                 RequestBodyExtension = Expando(
-                    ("max_tokens", 64 * 1024),
-                    ("extra_body", new
-                    {
-                        thinking_budget = 2048
-                    }))
+                        ("max_tokens", 64 * 1024),
+                        ("extra_body", new
+                        {
+                            thinking_budget = 2048
+                        }))
             });
             var aiEngineGeminiPro25 = AddSharedObject("AIEngineGeminiPro2.5", new AIEngineCollection()
             {
@@ -135,11 +135,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 Model = "gemini-3-pro",
                 APIKeyName = "APIKeyPoe",
                 RequestBodyExtension = Expando(
-                    ("max_tokens", 64 * 1024),
-                    ("extra_body", new
-                    { 
-                        thinking_budget = 4096
-                    }))
+                        ("max_tokens", 64 * 1024),
+                        ("extra_body", new
+                        {
+                            thinking_budget = 4096
+                        }))
             });
             var aiEngineGeminiPro30 = AddSharedObject("AIEngineGeminiPro3.0", new AIEngineCollection()
             {
@@ -204,9 +204,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var translatorSystemPrompt = AddPromptToSharedObjects("TranslatorSystemPrompt", Resources.TranslatorSystemPrompt);
             var translatorNaturalistUserPrompt = AddPromptToSharedObjects("TranslatorNaturalistUserPrompt", Resources.TranslatorNaturalistUserPrompt);
             var translatorMaverickUserPrompt = AddPromptToSharedObjects("TranslatorMaverickUserPrompt", Resources.TranslatorMaverickUserPrompt);
-
-            var subtitleFinalizerSystemPrompt = AddPromptToSharedObjects("SubtitleFinalizerSystemPrompt", Resources.SubtitleFinalizerSystemPrompt);
-            var subtitleFinalizerUserPrompt = AddPromptToSharedObjects("SubtitleFinalizerUserPrompt", Resources.SubtitleFinalizerUserPrompt);
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -412,9 +409,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                     }
                                 },
 
-                            BatchSize = 50,
+                            BatchSize = 100,
                             BatchSplitWindows = 5,
-                            NbContextItems = 100,
+                            NbContextItems = 10,
                             NbItemsMinimumReceivedToContinue = 40,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
@@ -449,7 +446,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = transcriberAudioTranscriptionArbitrationRefinementSystemPrompt,
                             UserPrompt = transcriberAudioTranscriptionArbitrationRefinementUserPrompt,
-                            MetadataNeeded = "singlevad-VoiceText",
+                            MetadataNeeded = "singlevad-VoiceText,!SkipRefined",
                             MetadataAlwaysProduced = "VoiceText",
                             BinaryDataExtractors = new BinaryDataExtractor[]
                                 {
@@ -458,23 +455,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                         OutputFieldName = "AudioClip",
                                         SourceAudioId = "audio",
                                         MetadataForTraining = "AudioTraining",
+                                        MetadataForSkipping = "SkipAudioClip",
                                         FillGapSmallerThen = TimeSpan.FromSeconds(0.2)
                                     },
                                     new BinaryDataExtractorImage
                                     {
                                         OutputFieldName = "Screenshot",
                                         MetadataForTraining = "VisualTraining",
-                                        MetadataForSkipping = "SkipVisual",
-                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+                                        MetadataForSkipping = "SkipScreenshot",
+                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=2048:h=2048,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
                                         AddContextNodes = true,
                                         ContextShortGap = TimeSpan.FromSeconds(5),
                                         ContextLongGap = TimeSpan.FromSeconds(30)
                                     }
                                 },
 
-                            BatchSize = 10,
+                            BatchSize = 16,
                             BatchSplitWindows = 2,
-                            NbContextItems = 300,
+                            NbContextItems = 100,
                             NbItemsMinimumReceivedToContinue = 8,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime,
                             MetadataInContextLimits = new Dictionary<string, int>
@@ -598,11 +596,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
-                    new TranslatorAI()
+                    new TranslatorSubtitleConformer()
                     {
                         TranslationId = "finalized_maverick",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGeminiPro30,
+                        MetadataSpeaker = "Speaker",
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -614,20 +612,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = subtitleFinalizerSystemPrompt,
-                            UserPrompt = subtitleFinalizerUserPrompt,
-
                             MetadataNeeded = "OriginalTranslatedText",
                             MetadataAlwaysProduced = "TranslatedText",
-
-                            BatchSize = 200,
-                            BatchSplitWindows = 10,
-                            NbContextItems = 100,
-                            NbItemsMinimumReceivedToContinue = 100,
-                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
-                        },
-                        AutoMergeOn = "[!MERGED]",
-                        AutoDeleteOn = "[!UNNEEDED]"
+                        }
                     },
                     new TranslatorAI()
                     {
@@ -730,7 +717,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "singlevad-ai,visual-analysis,on-screen-texts,speakers,manual-input",
+                            Sources = "singlevad-ai,voice-texts,visual-analysis,on-screen-texts,speakers,manual-input",
                         },
                         TextSources = "final-ai-texts",
                         WaitForFinished = true
