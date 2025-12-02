@@ -6,18 +6,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class BinaryDataExtractorCachedCollection
     {
-        private Dictionary<TimeSpan, Dictionary<string, dynamic[]>> r_cache;
+        private Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>> r_cache;
         private readonly Dictionary<string, BinaryDataExtractorExtended> r_extractors;
 
         public BinaryDataExtractorCachedCollection(params BinaryDataExtractorExtended[] extractors)
         {
-            r_cache = new Dictionary<TimeSpan, Dictionary<string, dynamic[]>>();
+            r_cache = new Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>>();
             r_extractors = extractors
                 .Where(extractor => extractor.Extractor.Enabled)
                 .ToDictionary(item => item.Extractor.OutputFieldName, item => item);
         }
 
-        public Dictionary<string, dynamic[]> GetNamedContentListForTiming(
+        public Dictionary<string, AIRequestPart[]> GetNamedContentListForTiming(
             ITiming timing, 
             string text = null)
         {
@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return data;
         }
 
-        public Dictionary<string, dynamic[]> GetNamedContentListForItem(
+        public Dictionary<string, AIRequestPart[]> GetNamedContentListForItem(
             TimedItemWithMetadata item, 
             string text = null)
         {
@@ -46,7 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return data;
         }
 
-        public IEnumerable<(TimeSpan time, (string name, dynamic[] contentList)[] binaryItems)> GetContextOnlyNodes(
+        public IEnumerable<(TimeSpan time, (string name, AIRequestPart[] contentList)[] binaryItems)> GetContextOnlyNodes(
             ITiming timing, 
             MetadataCollection metadatas,
             Func<TimeSpan, string> getText)
@@ -59,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.contentList)).ToArray()));
         }
 
-        internal IEnumerable<dynamic> GetTrainingContentList()
+        internal IEnumerable<AIRequestPart> GetTrainingContentList()
         {
             return r_extractors.SelectMany(x => x.Value.TrainingContentLists);
         }

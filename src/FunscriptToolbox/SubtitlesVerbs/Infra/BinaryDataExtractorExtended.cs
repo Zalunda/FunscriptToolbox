@@ -6,19 +6,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     public class BinaryDataExtractorExtended
     {
         public BinaryDataExtractor Extractor { get; set; }
-        public dynamic[] TrainingContentLists { get; set; }
-        public Func<ITiming, string, dynamic[]> GetData { get; set; }
+        public AIRequestPart[] TrainingContentLists { get; set; }
+        public Func<ITiming, string, AIRequestPart[]> GetData { get; set; }
 
-        public (TimeSpan time, string name, dynamic[] contentList)[] GetContextOnlyNodes(ITiming gap, Func<TimeSpan, string> getText)
+        public (TimeSpan time, string name, AIRequestPart[] contentList)[] GetContextOnlyNodes(ITiming gap, Func<TimeSpan, string> getText)
         {
-            (TimeSpan, string, dynamic[]) CreateContextNode(TimeSpan time)
+            (TimeSpan, string, AIRequestPart[]) CreateContextNode(TimeSpan time)
             {
                 return (time, this.Extractor.OutputFieldName, this.GetData(new Timing(time, time), getText(time)));
             }
 
             if (!this.Extractor.AddContextNodes)
             {
-                return Array.Empty<(TimeSpan, string, dynamic[])>();
+                return Array.Empty<(TimeSpan, string, AIRequestPart[])>();
             }
 
             var shortGapConfig = this.Extractor.ContextShortGap == TimeSpan.Zero 
@@ -33,7 +33,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (gap.Duration > shortGapConfig)
             {
-                var contextNodes = new List<(TimeSpan, string, dynamic[])>();
+                var contextNodes = new List<(TimeSpan, string, AIRequestPart[])>();
                 if (gap.Duration <= shortGapConfig + shortGapConfig + shortGapConfig)
                 {
                     var middleTime = gap.StartTime + TimeSpan.FromMilliseconds(gap.Duration.TotalMilliseconds / 2);
@@ -65,7 +65,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             else
             {
-                return Array.Empty<(TimeSpan, string, dynamic[])>();
+                return Array.Empty<(TimeSpan, string, AIRequestPart[])>();
             }
         }
     }

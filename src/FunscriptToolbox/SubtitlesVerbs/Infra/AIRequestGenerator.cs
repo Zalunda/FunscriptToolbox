@@ -103,27 +103,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 return null;
             }
 
-            var contentList = new List<dynamic>();
-            var messages = new List<dynamic>();
+            var systemParts = new AIRequestPartCollection();
+            var userParts = new AIRequestPartCollection();
             if (r_systemPrompt != null)
             {
-                messages.Add(new
-                {
-                    role = "system",
-                    content = r_systemPrompt
-                });
+                systemParts.AddText(r_systemPrompt);
             }
 
             if (r_userPrompt != null)
             {
-                contentList.Add(new
-                {
-                    type = "text",
-                    text = r_userPrompt
-                });
+                userParts.AddText(r_userPrompt);
             }
 
-            contentList.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<dynamic>());
+            userParts.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<AIRequestPart>());
 
             var optimalBatchSize = r_options.BatchSize;
             if (itemsToDo.Length > optimalBatchSize && r_options.BatchSplitWindows > 0)
@@ -156,7 +148,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var itemsInBatch = new List<TimedItemWithMetadata>();
             var metadataOngoing = new MetadataCollection();
             var contentBefore = new Queue<TimedItemWithMetadata>();
-            var contentExtraContext = new List<dynamic>();
             var previousEndTime = TimeSpan.Zero;
             foreach (var item in allItems)
             {
@@ -180,11 +171,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         waitingForFirstToDo = false;
                         if (contentBefore.Count > 0)
                         {
-                            contentList.Add(new
-                            {
-                                type = "text",
-                                text = $"{r_options.TextBeforeContextData}\n[\n"
-                            });
+                            userParts.AddText($"{r_options.TextBeforeContextData}\n[\n");
 
                             for (var index = 0; index < contentBefore.Count; index++)
                             {
@@ -192,30 +179,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 var contextNumber = contentBefore.Count - index;
                                 var overrides = (index == 0) ? AddOngoingMetadata(current.Metadata, metadataOngoing) : null;
                                 metadataOngoing = null;
-                                contentList.AddRange(
+                                userParts.AddRange(
                                     CreateNodeContents(
                                         current,
                                         overrides: overrides,
                                         contextNumber: contextNumber));
                             }
-                            contentList.Add(new
-                            {
-                                type = "text",
-                                text = "]\n"
-                            });
-
-                            contentList.Add(new
-                            {
-                                type = "text",
-                                text = r_options.TextAfterContextData + "\n"
-                            });
+                            userParts.AddText($"]\n{r_options.TextAfterContextData}\n");
                         }
 
-                        contentList.Add(new
-                        {
-                            type = "text",
-                            text = r_options.TextBeforeAnalysis + "\n\n[\n"
-                        });
+                        userParts.AddText(r_options.TextBeforeAnalysis + "\n\n[\n");
                     }
                 }
 
@@ -223,9 +196,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     if (itemsToDo.Contains(item))
                     {
-                        contentList.AddRange(contentExtraContext);
-                        contentExtraContext.Clear();
-
                         var metadataForThisItem = item.Metadata;
                         if (metadataOngoing != null)
                         {
@@ -233,12 +203,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             metadataOngoing = null;
                         }
 
-                        contentList.AddRange(
+                        userParts.AddRange(
                             CreateContextOnlyNodeContents(
                                 binaryDataExtractors,                                 
                                 new Timing(previousEndTime, item.StartTime),
                                 item.Metadata));
-                        contentList.AddRange(
+                        userParts.AddRange(
                             CreateNodeContents(
                                 item,
                                 binaryDataExtractors,
@@ -254,36 +224,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     break;
                 }
             }
-            // Not sure if this is a good idea.
-            // contentList.AddRange(
-            //    CreateContextOnlyNodeContents(binaryDataExtractors, new Timing(previousEndTime, TimeSpan.Zero)));
-            contentList.Add(new
-            {
-                type = "text",
-                text = "]\n"
-            });
+            userParts.AddText("]\n");
 
             if (r_options.TextAfterAnalysis != null)
             {
-                contentList.Add(new
-                {
-                    type = "text",
-                    text = r_options.TextAfterAnalysis
-                });
+                userParts.AddText(r_options.TextAfterAnalysis);
             }
-
-            messages.Add(new
-            {
-                role = "user",
-                content = contentList.ToArray()
-            });
 
             return new AIRequest(
                 r_processStartTime,
                 requestNumber,
                 r_workingOnContainer.Id,
                 itemsInBatch.ToArray(),
-                messages,
+                systemParts,
+                userParts,
                 r_options.MetadataAlwaysProduced,
                 $"Items {itemsAlreadyDone.Length + 1} to {itemsAlreadyDone.Length + itemsInBatch.Count} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
         }
@@ -306,7 +260,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return metadataOngoing;
         }
 
-        private IEnumerable<dynamic> CreateNodeContents(
+        private IEnumerable<AIRequestPart> CreateNodeContents(
             TimedItemWithMetadata item,
             BinaryDataExtractorCachedCollection binaryDataExtractors = null,
             MetadataCollection overrides = null,
@@ -323,7 +277,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     : true;
             }
 
-            var nodeContents = new List<dynamic>();
+            var parts = new AIRequestPartCollection();
             var sb = new StringBuilder();
             sb.AppendLine("  {");
             if (ShouldBeIncluded("StartTime", contextNumber))
@@ -338,7 +292,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 sb.AppendLine($"    \"Duration\": \"{item.Duration:hh\\:mm\\:ss\\.fff}\",");
             }
-            var fullMetadata = new MetadataCollection(overrides ?? item.Metadata);
             foreach (var metadata in new MetadataCollection(overrides ?? item.Metadata))
             {
                 if (ShouldBeIncluded(metadata.Key, contextNumber))
@@ -351,29 +304,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForItem(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
                 {
                     sb.Append($"    \"{binaryItem.Key}\": ");
-                    nodeContents.Add(new
-                    {
-                        type = "text",
-                        text = sb.ToString()
-                    });
+                    parts.AddText(sb.ToString());
                     sb.Clear();
-                    nodeContents.AddRange(binaryItem.Value);
+                    parts.AddRange(binaryItem.Value);
                     sb.AppendLine();
                 }
             }
             sb.AppendLine("  },");
-            nodeContents.Add(new
-            {
-                type = "text",
-                text = sb.ToString()
-            });
+            parts.AddText(sb.ToString());
             sb.Clear();
 
-            return nodeContents;
+            return parts;
         }
 
 
-        private static IEnumerable<dynamic> CreateContextOnlyNodeContents(
+        private static IEnumerable<AIRequestPart> CreateContextOnlyNodeContents(
             BinaryDataExtractorCachedCollection extractors,
             ITiming timing,
             MetadataCollection metadatas)
@@ -393,11 +338,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var binaryItem in node.binaryItems)
                 {
                     sb.Append($"    \"{binaryItem.name}\": ");
-                    yield return new
-                    {
-                        type = "text",
-                        text = sb.ToString()
-                    };
+                    yield return new AIRequestPartText(sb.ToString());
                     sb.Clear();
                     foreach (var cl in binaryItem.contentList)
                     {
@@ -406,11 +347,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     sb.AppendLine();
                 }
                 sb.AppendLine("  },");
-                yield return new
-                {
-                    type = "text",
-                    text = sb.ToString()
-                };
+                yield return new AIRequestPartText(sb.ToString());
             }
         }
 
@@ -421,6 +358,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_processStartTime,
                 1, 
                 r_workingOnContainer.Id,
+                null,
                 null,
                 null,
                 r_options.MetadataAlwaysProduced,

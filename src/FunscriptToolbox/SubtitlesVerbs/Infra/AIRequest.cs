@@ -10,7 +10,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int Number { get; }
         public string TaskId { get; }
         public TimedItemWithMetadata[] ItemsIncluded { get; }
-        public List<dynamic> Messages { get; }
+        public AIRequestPart[] SystemParts { get; }
+        public AIRequestPart[] UserParts { get; }
         public string MetadataAlwaysProduced { get; }
         public string UpdateMessage { get; }
         public TimeSpan StartOffset { get; }
@@ -22,7 +23,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             int requestNumber,
             string taskId,
             TimedItemWithMetadata[] ItemsIncluded,
-            List<dynamic> messages,
+            List<AIRequestPart> systemParts,
+            List<AIRequestPart> userParts,
             string metadataAlwaysProduced,
             string updateMessage,
             TimeSpan? startOffset = null)
@@ -31,46 +33,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             this.Number = requestNumber;
             this.TaskId = taskId;
             this.ItemsIncluded = ItemsIncluded;
-            this.Messages = messages;
+            this.SystemParts = systemParts?.ToArray() ?? Array.Empty<AIRequestPart>();
+            this.UserParts = userParts?.ToArray() ?? Array.Empty<AIRequestPart>();
             this.MetadataAlwaysProduced = metadataAlwaysProduced;
             this.UpdateMessage = updateMessage;
             this.StartOffset = startOffset ?? TimeSpan.Zero;
 
             var fullpromptBuilder = new StringBuilder();
-            if (messages != null)
+            fullpromptBuilder.AppendLine("******* System ********************************");
+            foreach (var item in this.SystemParts)
             {
-                foreach (var message in messages)
-                {
-                    if (message.content is string)
-                    {
-                        fullpromptBuilder.AppendLine(message.content);
-                    }
-                    else if (message.content is Array)
-                    {
-                        // Handle multimodal content
-                        foreach (var item in message.content)
-                        {
-                            if (item is BinaryDataContainer container)
-                            {
-                                fullpromptBuilder.Append($"[{container.DataType} data]");
-                            }
-                            else if (item?.type == "text")
-                            {
-                                fullpromptBuilder.Append(item.text ?? item.content);
-                            }
-                            else if (item?.type == "input_audio")
-                            {
-                                fullpromptBuilder.Append("[Audio data]");
-                            }
-                            else if (item?.type == "image_url")
-                            {
-                                fullpromptBuilder.Append("[Image data]");
-                            }
-                        }
-                    }
-                    fullpromptBuilder.AppendLine();
-                    fullpromptBuilder.AppendLine(new string('=', 40));
-                }
+                fullpromptBuilder.Append(item.ForSimplifiedFullPrompt());
+            }
+            fullpromptBuilder.AppendLine("\n\n******* User **********************************");
+            foreach (var item in this.UserParts)
+            {
+                fullpromptBuilder.Append(item.ForSimplifiedFullPrompt());
             }
             FullPrompt = fullpromptBuilder.ToString();
         }

@@ -2,7 +2,6 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -69,9 +68,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var audioBytes = File.ReadAllBytes(tempWavFile);
                             var data = new[]
                             {
-                                new BinaryDataContainer(
+                                new AIRequestPartAudio(
                                     $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                    BinaryDataType.Audio,
                                     audioBytes)
                             };
                             File.Delete(tempWavFile);
@@ -142,40 +140,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             ITiming timing,
             BinaryDataExtractorCachedCollection binaryDataExtractors)
         {
-            var messages = new List<dynamic>();
-            var contentList = new List<dynamic>();
+            var systemParts = new AIRequestPartCollection();
+            var userParts = new AIRequestPartCollection();
             if (this.SystemPrompt != null)
             {
-                messages.Add(new
-                {
-                    role = "system",
-                    content = this.SystemPrompt.GetFinalText(context.Config.SourceLanguage)
-                });
+                systemParts.AddText(this.SystemPrompt.GetFinalText(context.Config.SourceLanguage));
             }
 
             if (this.UserPrompt != null)
             {
-                contentList.Add(new
-                {
-                    type = "text",
-                    text = this.UserPrompt.GetFinalText(context.Config.SourceLanguage)
-                });
+                userParts.AddText(this.UserPrompt.GetFinalText(context.Config.SourceLanguage));
             }
 
-            contentList.AddRange(binaryDataExtractors.GetNamedContentListForTiming(timing).First().Value);
-
-            messages.Add(new
-            {
-                role = "user",
-                content = contentList.ToArray()
-            });
+            userParts.AddRange(binaryDataExtractors.GetNamedContentListForTiming(timing).First().Value);
 
             return new AIRequest(
                 processStartTime,
                 requestNumber,
                 this.SourceAudioId,
                 null,
-                messages,
+                systemParts,
+                userParts,
                 this.MetadataProduced,
                 $"{timing.StartTime} to {timing.EndTime} out of {context.WIP.TimelineMap.Duration}",
                 timing.StartTime);

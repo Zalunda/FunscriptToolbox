@@ -37,23 +37,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 Model = "Large-V2",
                 ForceSplitOnComma = false
             });
-
-            var aiEngineGPT5OnOpenAI = AddSharedObject("AIEngineGPT5OnOpenAI", new AIEngineAPI()
+            var aiEngineGPT5OnOpenAI = AddSharedObject("AIEngineGPT5OnOpenAI", new AIEngineAPIOpenAICompatible()
             {
                 BaseAddress = "https://api.openai.com/v1",
                 Model = "gpt-5",
                 APIKeyName = "APIKeyOpenAI",
-                APIFormat = APIFormat.OpenAI,
+                UseStreaming = false,
                 RequestBodyExtension = Expando(
-                    ("service_tier", "flex")),
-                UseStreaming = false
+                    ("service_tier", "flex"))
             });
-            var aiEngineGPT5OnPoe = AddSharedObject("AIEngineGPT5OnPoe", new AIEngineAPI()
+            var aiEngineGPT5OnPoe = AddSharedObject("AIEngineGPT5OnPoe", new AIEngineAPIPoe()
             {
                 BaseAddress = "https://api.poe.com/v1",
                 Model = "GPT-5",
                 APIKeyName = "APIKeyPoe",
-                APIFormat = APIFormat.Poe
+                RequestBodyExtension = Expando(
+                        ("extra_body", new
+                        {
+                            reasoning_effort = "medium"
+                        }))
             });
             var aiEngineGPT5 = AddSharedObject("AIEngineGPT5", new AIEngineCollection()
             {
@@ -68,31 +70,30 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
             });
 
-            var aiEngineGeminiPro25OnGoogle = AddSharedObject("AIEngineGeminiPro2.5OnGoogle", new AIEngineAPI()
+            var aiEngineGeminiPro25OnGoogle = AddSharedObject("AIEngineGeminiPro2.5OnGoogle", new AIEngineAPIGoogle()
             {
-                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                BaseAddress = "https://generativelanguage.googleapis.com/v1beta",
                 Model = "gemini-2.5-pro",
                 APIKeyName = "APIKeyGemini",
-                APIFormat = APIFormat.OpenAI,
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
                     ("extra_body", new
                     {
-                        google = new
+                        generation_config = new
                         {
-                            thinking_config = new
+                            thinkingConfig = new
                             {
-                                include_thoughts = true
+                                includeThoughts = true
+                            },
+                            mediaResolution = "MEDIA_RESOLUTION_LOW"
                             }
-                        }
                     }))
             });
-            var aiEngineGeminiPro25OnPoe = AddSharedObject("AIEngineGeminiPro2.5OnPoe", new AIEngineAPI()
+            var aiEngineGeminiPro25OnPoe = AddSharedObject("AIEngineGeminiPro2.5OnPoe", new AIEngineAPIPoe()
             {
                 BaseAddress = "https://api.poe.com/v1",
                 Model = "gemini-2.5-pro",
                 APIKeyName = "APIKeyPoe",
-                APIFormat = APIFormat.Poe,
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
                     ("extra_body", new
@@ -113,31 +114,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
             });
 
-            var aiEngineGeminiPro30OnGoogle = AddSharedObject("AIEngineGeminiPro3.0OnGoogle", new AIEngineAPI()
+            var aiEngineGeminiPro30OnGoogle = AddSharedObject("AIEngineGeminiPro3.0OnGoogle", new AIEngineAPIGoogle()
             {
-                BaseAddress = "https://generativelanguage.googleapis.com/v1beta/openai/",
+                BaseAddress = "https://generativelanguage.googleapis.com/v1beta",
                 Model = "gemini-3-pro-preview",
                 APIKeyName = "APIKeyGemini",
-                APIFormat = APIFormat.OpenAI,
                 RequestBodyExtension = Expando(
-                    ("max_tokens", 64 * 1024),
-                    ("extra_body", new
+                    ("generation_config", new
                     {
-                        google = new
+                        thinkingConfig = new
                         {
-                            thinking_config = new
-                            {
-                                include_thoughts = true
-                            }
-                        }
+                            includeThoughts = true
+                        },
+                        mediaResolution = "MEDIA_RESOLUTION_LOW"
                     }))
             });
-            var aiEngineGeminiPro30OnPoe = AddSharedObject("AIEngineGeminiPro3.0OnPoe", new AIEngineAPI()
+            var aiEngineGeminiPro30OnPoe = AddSharedObject("AIEngineGeminiPro3.0OnPoe", new AIEngineAPIPoe()
             {
                 BaseAddress = "https://api.poe.com/v1",
                 Model = "gemini-3-pro",
                 APIKeyName = "APIKeyPoe",
-                APIFormat = APIFormat.Poe,
                 RequestBodyExtension = Expando(
                     ("max_tokens", 64 * 1024),
                     ("extra_body", new
@@ -158,11 +154,30 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
             });
 
-            var aiEngineLocalAPI = AddSharedObject("AIEngineLocalAPI", new AIEngineAPI
+            var aiEngineGrok4OnPoe = AddSharedObject("AIEngineGrok4OnPoe", new AIEngineAPIPoe()
+            {
+                BaseAddress = "https://api.poe.com/v1",
+                Model = "grok-4",
+                APIKeyName = "APIKeyPoe",
+                RequestBodyExtension = Expando(
+                        ("max_tokens", 64 * 1024))
+            });
+            var aiEngineGrok4 = AddSharedObject("AIEngineGrok4", new AIEngineCollection()
+            {
+                Engines = new List<AIEngineAPI>
+                {
+                    aiEngineGrok4OnPoe
+                },
+                SkipOnQuotasUsed = true,
+                SkipOnServiceUnavailable = true,
+                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
+                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
+            });
+
+            var aiEngineLocalAPI = AddSharedObject("AIEngineLocalAPI", new AIEngineAPIOpenAICompatible
             {
                 BaseAddress = "http://localhost:10000/v1",
                 Model = "mistralai/mistral-small-3.2",
-                APIFormat = APIFormat.OpenAI,
                 ValidateModelNameInResponse = true,
                 UseStreaming = true
             });

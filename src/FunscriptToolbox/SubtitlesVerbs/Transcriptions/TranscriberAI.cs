@@ -2,7 +2,6 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -71,7 +70,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var binaryDataGenerator = new BinaryDataExtractorCachedCollection(
                 this.Options.BinaryDataExtractors.Select(extractor =>
                 {
-                    Func<ITiming, string, dynamic[]> getDataFunc;
+                    Func<ITiming, string, AIRequestPart[]> getDataFunc;
 
                     if (extractor is BinaryDataExtractorAudio extractorAudio)
                     {
@@ -93,9 +92,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var audioBytes = File.ReadAllBytes(tempWavFile);
                             var data = new[]
                             {
-                                new BinaryDataContainer(
+                                new AIRequestPartAudio(
                                     $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                    BinaryDataType.Audio,
                                     audioBytes)
                             };
                             File.Delete(tempWavFile);
@@ -119,9 +117,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
                             var data = new[]
                                 {
-                                    new BinaryDataContainer(
+                                    new AIRequestPartImage(
                                         $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
-                                        BinaryDataType.Image,
                                         image)
                                 };
                             if (extractor.KeepTemporaryFiles)
@@ -134,16 +131,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         throw new NotImplementedException();
                     }
 
-                    var contentList = new List<dynamic>();
+                    var parts = new AIRequestPartCollection();
                     if (extractor.MetadataForTraining != null)
                     {
                         if (extractor.TextBeforeTrainingData != null)
                         {
-                            contentList.Add(new
-                            {
-                                type = "text",
-                                text = extractor.TextBeforeTrainingData + "\n"
-                            });
+                            parts.AddText(extractor.TextBeforeTrainingData + "\n");
                         }
 
                         var nbTrainingItems = 0;
@@ -151,35 +144,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         {
                             if (item.Metadata.TryGetValue(extractor.MetadataForTraining, out var text))
                             {
-                                contentList.Add(new
-                                {
-                                    type = "text",
-                                    text = $"{text}\n"
-                                });
-                                contentList.AddRange(getDataFunc(item, null));
+                                parts.AddText($"{text}\n");
+                                parts.AddRange(getDataFunc(item, null));
                                 nbTrainingItems++;
                             }
                         }
 
                         if (extractor.TextAfterTrainingData != null)
                         {
-                            contentList.Add(new
-                            {
-                                type = "text",
-                                text = "\n" + extractor.TextAfterTrainingData + "\n"
-                            });
+                            parts.AddText("\n" + extractor.TextAfterTrainingData + "\n");
                         }
 
                         if (nbTrainingItems == 0)
                         {
-                            contentList.Clear();
+                            parts.Clear();
                         }
                     }
 
                     return new BinaryDataExtractorExtended
                     {
                         Extractor = extractor,
-                        TrainingContentLists = contentList.ToArray(),
+                        TrainingContentLists = parts.ToArray(),
                         GetData = getDataFunc
                     };
                 }).ToArray());
