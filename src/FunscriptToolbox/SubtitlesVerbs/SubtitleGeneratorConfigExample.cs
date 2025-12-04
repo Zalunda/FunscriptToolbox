@@ -463,7 +463,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                         OutputFieldName = "Screenshot",
                                         MetadataForTraining = "VisualTraining",
                                         MetadataForSkipping = "SkipScreenshot",
-                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=2048:h=2048,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+                                        FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=2048:h=2048,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=20:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
                                         AddContextNodes = true,
                                         ContextShortGap = TimeSpan.FromSeconds(5),
                                         ContextLongGap = TimeSpan.FromSeconds(30)
