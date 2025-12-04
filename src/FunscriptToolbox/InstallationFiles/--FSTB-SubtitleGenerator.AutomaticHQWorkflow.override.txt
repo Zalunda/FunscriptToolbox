@@ -19,7 +19,7 @@
     {
       "Id": "full-ai",
       "Enabled": true,
-      "MaxChunkDuration": "00:03:00",
+      "MaxChunkDuration": "00:05:00",
       "ExportMetadataSrt": false
     },
     {

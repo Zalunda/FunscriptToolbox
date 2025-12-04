@@ -248,7 +248,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SystemPrompt = transcriberAudioFullSystemPrompt,
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
-                        MaxChunkDuration = TimeSpan.FromMinutes(3)
+                        MaxChunkDuration = TimeSpan.FromMinutes(5)
                     },
                     new TranscriberAI()
                     {
