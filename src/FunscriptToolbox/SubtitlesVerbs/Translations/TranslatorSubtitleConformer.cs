@@ -37,26 +37,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public bool AddReviewIfTooLong { get; set; } = true;
 
         [JsonProperty(Order = 40)]
-        public string[] SplitPatterns { get; set; } = new[]
+        public SplitPattern[] SplitPatterns { get; set; } = new[]
             {
-                @"([,.?!。、！？-]*)" + CutCharacter,
-                CutCharacter + @"\b(and|but|or)\b",
-                CutCharacter + @"\s"
+                new SplitPattern(CutWhere.After, @"([,.?!。、！:？-]+)"),
+                new SplitPattern(CutWhere.Before, @"\b(and|but|or)\b"),
+                new SplitPattern(CutWhere.Before, @"\s")
             };
 
-        private const string CutCharacter = "✂️";
         private const string FLAG_MISSING = "[!MISSING]";
         private const string FLAG_REVIEW = "[!REVIEW]";
-        private readonly (bool isSplitBefore, Regex regex)[] r_splitRegexes;
-
-        public TranslatorSubtitleConformer()
-        {
-            r_splitRegexes = this.SplitPatterns.Select(pattern => pattern.StartsWith(CutCharacter)
-                        ? (true, new Regex(pattern.Substring(1), RegexOptions.Compiled))
-                        : (false, new Regex(pattern.Substring(0, pattern.Length - 1), RegexOptions.Compiled)))
-                .ToArray();
-        }
-
+        
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
         protected override bool IsPrerequisitesMet(
@@ -81,14 +71,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             var (_, itemsToDo, _, _) = requestGenerator.AnalyzeItemsState();
 
             translation.Items.Clear();
-            translation.Items.AddRange(Conform(itemsToDo)
+            translation.Items.AddRange(Conform(context, itemsToDo)
                 .Where(f => f != null)
                 .Where(f => !this.RemoveMissing || f.Metadata.Get(this.Options.MetadataAlwaysProduced) != FLAG_MISSING));
             translation.MarkAsFinished();
             context.WIP.Save();
         }
 
-        public TranslatedItem[] Conform(IList<TimedItemWithMetadata> nodes)
+        public TranslatedItem[] Conform(SubtitleGeneratorContext context, IList<TimedItemWithMetadata> nodes)
         {
             if (nodes == null || nodes.Count == 0) return Array.Empty<TranslatedItem>();
 
@@ -107,32 +97,81 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 })
                 .ToArray();
 
-            // 2. Sequential Merge Pass (note: we use both the original nodes (to have acces to Speaker) and the new nodes.
+            // 2. Global Merge Optimization Pass
+            // We identify all valid merges first, sort them by priority, and apply them if the nodes are still available.
+            var candidates = new List<(int Index, bool IsSameSpeaker, string Text)>();
+
             for (int i = 0; i < nodes.Count - 1; i++)
             {
+                // Basic validation: ensure source nodes are valid and not flagged as missing
                 if (newNodes[i] == null
                     || newNodes[i + 1] == null
                     || newNodes[i].Metadata.Get(this.Options.MetadataAlwaysProduced) == FLAG_MISSING
-                    || newNodes[i + 1].Metadata.Get(this.Options.MetadataAlwaysProduced) == FLAG_MISSING) 
+                    || newNodes[i + 1].Metadata.Get(this.Options.MetadataAlwaysProduced) == FLAG_MISSING)
                     continue;
 
                 var current = nodes[i];
                 var next = nodes[i + 1];
-                var mergedText = MergeSameSpeaker(current, next) ?? MergeDialogue(current, next);
-                if (mergedText != null)
+
+                // Attempt to generate merge text
+                // We check SameSpeaker first; if valid, we don't check Dialogue for this specific pair
+                var sameSpeakerText = MergeSameSpeaker(current, next);
+                if (sameSpeakerText != null)
                 {
-                    newNodes[i].Metadata[this.Options.MetadataAlwaysProduced] = mergedText;
-                    newNodes[i].EndTime = newNodes[i + 1].EndTime;
-                    newNodes[i + 1] = null;
+                    candidates.Add((i, true, sameSpeakerText));
+                    continue;
+                }
+
+                var dialogueText = MergeDialogue(current, next);
+                if (dialogueText != null)
+                {
+                    candidates.Add((i, false, dialogueText));
                 }
             }
 
+            // Priorities:
+            // 1. Same Speaker (True > False)
+            // 2. Shortest Length (Ascending)
+            var sortedCandidates = candidates
+                .OrderByDescending(c => c.IsSameSpeaker)
+                .ThenBy(c => c.Text.Length)
+                .ToList();
+
+            var nbMergesDone = 0;
+
+            foreach (var candidate in sortedCandidates)
+            {
+                // Check if the merge is still valid.
+                // The first node might have been merged with the previous node, so we check that it's still not null.
+                // The second node might have 'absorbed' the "3rd" node in a merge so we check that it doesn't contains "\n".
+                if (newNodes[candidate.Index] != null 
+                    && !newNodes[candidate.Index + 1].Metadata.Get(this.Options.MetadataAlwaysProduced).Contains("\n"))
+                {
+                    // Apply the merge
+                    newNodes[candidate.Index].Metadata[this.Options.MetadataAlwaysProduced] = candidate.Text;
+                    newNodes[candidate.Index].EndTime = newNodes[candidate.Index + 1].EndTime;
+
+                    // Consume the second node
+                    newNodes[candidate.Index + 1] = null;
+
+                    nbMergesDone++;
+                }
+            }
+
+            context.WriteInfo($"Nb merges done: {nbMergesDone}");
+
             // 3. Final Conformity Pass
+            var nbContraintsResolved = 0;
             foreach (var node in newNodes)
             {
                 if (node == null) continue;
-                ApplyPhysicalConstraints(node);
+                if (ApplyPhysicalConstraints(node))
+                {
+                    nbContraintsResolved++;
+                }
+
             }
+            context.WriteInfo($"Nb physical constraints resolved: {nbContraintsResolved}");
 
             return newNodes;
         }
@@ -175,14 +214,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return $"- {text1}\n- {text2}";
         }
 
-        private void ApplyPhysicalConstraints(TimedItemWithMetadata node)
+        private bool ApplyPhysicalConstraints(TimedItemWithMetadata node)
         {
             var text = node.Metadata.Get(this.Options.MetadataAlwaysProduced);
 
-            if (text.Length <= this.MaxLineLength) return;
+            if (text.Length <= this.MaxLineLength) return false;
 
             // If already contains newline, assume it was formatted by merge or previous pass
-            if (text.Contains("\n")) return;
+            if (text.Contains("\n")) return false;
 
             var splitText = InsertOptimalLineBreak(text);
             if (this.AddReviewIfTooLong && text.Length > this.MaxLineLength * 2 && !splitText.Contains(FLAG_REVIEW))
@@ -190,11 +229,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 splitText += FLAG_REVIEW;
             }
             node.Metadata[this.Options.MetadataAlwaysProduced] = splitText;
-
-            Console.WriteLine(text);
-            Console.WriteLine(splitText);
-            Console.WriteLine(new string('=', this.MaxLineLength));
-            var m = 0;
+            return true;
         }
 
         private string InsertOptimalLineBreak(string text)
@@ -211,9 +246,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 minIndex = x;
             }
 
-            foreach (var item in r_splitRegexes)
+            foreach (var splitPattern in this.SplitPatterns)
             {
-                var bestSplitIndex = FindBestSplitIndex(text, item.regex, minIndex, maxIndex, item.isSplitBefore);
+                var bestSplitIndex = FindBestSplitIndex(text, splitPattern, minIndex, maxIndex);
                 if (bestSplitIndex != null)
                 {
                     return CleanSplit(text, bestSplitIndex.Value);
@@ -226,9 +261,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         /// <summary>
         /// Finds the regex match within the [min, max] window that is closest to the middle of the string.
         /// </summary>
-        private int? FindBestSplitIndex(string text, Regex regex, int minIndex, int maxIndex, bool isSplitBefore)
+        private int? FindBestSplitIndex(string text, SplitPattern splitPattern, int minIndex, int maxIndex)
         {
-            var matches = regex.Matches(text);
+            var matches = splitPattern.Regex.Matches(text);
             int idealMiddle = text.Length / 2;
             int? bestIdx = null;
             int bestDist = int.MaxValue;
@@ -236,7 +271,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             foreach (Match m in matches)
             {
                 // Calculate the potential split point based on strategy
-                int potentialSplitPoint = isSplitBefore ? m.Index : (m.Index + m.Length);
+                int potentialSplitPoint = splitPattern.CutWhere == CutWhere.Before ? m.Index : (m.Index + m.Length);
 
                 // Check if this point creates valid line lengths (is inside the window)
                 if (potentialSplitPoint >= minIndex && potentialSplitPoint <= maxIndex)
@@ -262,6 +297,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             string first = text.Substring(0, index).Trim();
             string second = text.Substring(index).Trim();
             return $"{first}\n{second}";
+        }
+
+        public enum CutWhere
+        {
+            Before,
+            After
+        }
+
+        public struct SplitPattern
+        {
+            public CutWhere CutWhere { get; set; }
+            public string Pattern { get; set; }
+            private Regex _regex;
+
+            [JsonIgnore]
+            public Regex Regex
+            {
+                get
+                {
+                    _regex = _regex ?? new Regex(this.Pattern, RegexOptions.Compiled);
+                    return _regex;
+                }
+            }
+
+            public SplitPattern(CutWhere cutWhere, string pattern)
+            {
+                this.CutWhere = cutWhere;
+                this.Pattern = pattern;
+                _regex = null;
+            }
         }
     }
 }

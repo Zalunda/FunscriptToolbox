@@ -111,9 +111,9 @@
       "RemoveMissing": false,
       "AddReviewIfTooLong": true,
       "SplitPatterns": [
-        "([,.?!。、！？-]*)✂️",
-        "✂️\\b(and|but|or)\\b",
-        "✂️\\s"
+        { "CutWhere": "After", "Pattern": "([,.?!。、！:？-]+)" },
+        { "CutWhere": "Before", "Pattern": "\\b(and|but|or)\\b" },
+        { "CutWhere": "Before", "Pattern": "\\s" }
       ]
     },
     {
