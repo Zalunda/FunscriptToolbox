@@ -12,6 +12,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberInteractifSetSpeaker : Transcriber
     {
+        private const string ToolName = "InteractifSetSpeaker";        
+
         [JsonProperty(Order = 10, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 11, Required = Required.Always)]
@@ -142,7 +144,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var (_, itemsToDoAfter, _, _) = requestGenerator.AnalyzeItemsState();
             transcription.Costs.Add(
                 new Cost(
-                    "InteractifSetSpeaker",
+                    transcription.Id,
+                    ToolName,
                     watch.Elapsed,
                     nbItemsToDoBefore - itemsToDoAfter.Length));
 

@@ -21,7 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public bool SkipOnServiceUnavailable { get; set; } = true;
 
         [JsonProperty(Order = 13)]
-        public TimeSpan ServiceUnavailableRetryDelay { get; set; } = TimeSpan.FromMinutes(5);
+        public TimeSpan ServiceUnavailableRetryDelay { get; set; } = TimeSpan.FromMinutes(2);
 
         [JsonProperty(Order = 14)]
         public TimeSpan QuotasUsedRetryDelay { get; set; } = TimeSpan.FromHours(1);

@@ -2,13 +2,13 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
-    public class AIRequestException : Exception
+    public class AIResponseException : Exception
     { 
-        public AIRequestException() 
+        public AIResponseException() 
         { 
         }
 
-        public AIRequestException(AIRequest request, string message, string responseBody = null, string responseBodyPartiallyFixed = null)
+        public AIResponseException(AIRequest request, string message, string responseBody = null, string responseBodyPartiallyFixed = null)
             : base(message)
         {
             Request = request;
@@ -16,7 +16,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             ResponseBodyPartiallyFixed = responseBodyPartiallyFixed;
         }
 
-        public AIRequestException(Exception ex, AIRequest request, string message, string responseBody, string responseBodyPartiallyFixed)
+        public AIResponseException(Exception ex, AIRequest request, string message, string responseBody, string responseBodyPartiallyFixed)
             : base(message, ex)
         {
             Request = request;

@@ -197,6 +197,8 @@
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractor.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestGenerator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestPartCollection.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIRequestSection.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIResponseSection.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIResponse.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIException.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorExtended.cs" />
@@ -245,7 +247,7 @@
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImportMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataCollectionAnalysis.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorPrivateConfig.cs" />
-    <Compile Include="SubtitlesVerbs\Infra\AIRequestException.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIResponseException.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequest.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngine.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorSubtitleConformer.cs" />

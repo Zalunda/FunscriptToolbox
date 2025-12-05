@@ -18,13 +18,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public Dictionary<string, AIRequestPart[]> GetNamedContentListForTiming(
+            AIRequestSection section,
             ITiming timing, 
             string text = null)
         {
             if (!r_cache.TryGetValue(timing.StartTime, out var data))
             {
                 data = r_extractors
-                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(timing, text) })
+                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(section, timing, text) })
                     .ToDictionary(item => item.field, item => item.data);
                 r_cache[timing.StartTime] = data;
             }
@@ -32,6 +33,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public Dictionary<string, AIRequestPart[]> GetNamedContentListForItem(
+            AIRequestSection section,
             TimedItemWithMetadata item, 
             string text = null)
         {
@@ -39,7 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 data = r_extractors
                     .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !item.Metadata.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
-                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(item, text) })
+                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(section, item, text) })
                     .ToDictionary(item => item.field, item => item.data);
                 r_cache[item.StartTime] = data;
             }
@@ -47,13 +49,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public IEnumerable<(TimeSpan time, (string name, AIRequestPart[] contentList)[] binaryItems)> GetContextOnlyNodes(
+            AIRequestSection section,
             ITiming timing, 
             MetadataCollection metadatas,
             Func<TimeSpan, string> getText)
         {
             return r_extractors
                 .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !metadatas.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
-                .SelectMany(bde => bde.Value.GetContextOnlyNodes(timing, getText))
+                .SelectMany(bde => bde.Value.GetContextOnlyNodes(section, timing, getText))
                 .GroupBy(item => item.time)
                 .ToDictionary(item => item.Key, item => item.ToArray())
                 .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.contentList)).ToArray()));

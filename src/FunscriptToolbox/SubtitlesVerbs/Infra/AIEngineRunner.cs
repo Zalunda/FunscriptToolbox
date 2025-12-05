@@ -94,7 +94,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (!rs_lookLikeItsJson.IsMatch(json))
             {
-                throw new AIRequestException(
+                throw new AIResponseException(
                     request, 
                     "The answer received from the AI doesn't look like JSON:",
                     jsonOriginal);
@@ -142,33 +142,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             watch.Stop();
 
                             lastResponseReceived = response;
+                            r_workingOnContainer.Costs.Add(response.Cost);
 
                             if (response.AssistantMessage != null)
                             {
-                                var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request);
-                                if (response.DraftOfCost != null)
-                                {
-                                    r_workingOnContainer.Costs.Add(new Cost(
-                                            response.DraftOfCost.TaskName,
-                                            watch.Elapsed,
-                                            itemsAdded.Count,
-                                            response.DraftOfCost.NbPromptCharacters,
-                                            response.DraftOfCost.NbCompletionCharacters,
-                                            response.DraftOfCost.NbTotalTokens,
-                                            response.DraftOfCost.NbCompletionTokens,
-                                            response.DraftOfCost.NbTotalTokens));
-                                }
-
-                                if (itemsAdded.Count > 0)
-                                {
-                                    r_context.WIP.Save();
-                                }
+                                var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request, response.Cost);
+                                r_context.WIP.Save();
                             }
                         }
                     } while (request != null);
                 }
-                catch (AIRequestException ex)
+                catch (AIResponseException ex)
                 {
+                    // ParseAssistantMessageAndAddItems might have added some of the items before throwing.
+                    r_context.WIP.Save();
+
                     var todoFilepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
                     var errorFilePath = todoFilepath.Replace("TODO_", "TODO_E_");
                     if (ex.ResponseBodyPartiallyFixed == null)
@@ -208,13 +196,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     $"^" + Regex.Escape($"{Path.GetFileName(r_context.WIP.BaseFilePath)}.TODO_{r_workingOnContainer.Id}") + $"{patternSuffix}$",
                     RegexOptions.IgnoreCase))
                 {
-                    var response = File.ReadAllText(fullpath);
+                    var assistantMessageFromFile = File.ReadAllText(fullpath);
                     r_context.SoftDelete(fullpath);
 
                     try
                     {
                         r_context.WriteInfo($"        Analysing existing file '{filename}'...");
-                        var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response, requestsGenerator.CreateEmptyRequest());
+                        var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), assistantMessageFromFile, requestsGenerator.CreateEmptyRequest());
                         r_context.WriteInfo($"        Finished:");
                         r_context.WriteInfo($"            Nb items added: {itemsAdded.Count}");
                         if (itemsAdded.Count > 0)
@@ -222,7 +210,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             r_context.WIP.Save();
                         }
                     }
-                    catch (AIRequestException ex)
+                    catch (AIResponseException ex)
                     {
                         nbErrors++;
                         File.WriteAllText(fullpath, $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}", Encoding.UTF8);
@@ -246,7 +234,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private List<T> ParseAssistantMessageAndAddItems(
             ITiming[] timings,
             string responseReceived,
-            AIRequest request)
+            AIRequest request,
+            Cost cost = null)
         {
             static string GetSegmentInformation(JToken segment)
             {
@@ -322,11 +311,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (!r_workingOnContainer.Items.Any(f => f.StartTime == startTime))
                     {
                         itemsAdded.Add(r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas));
+                        if (cost != null)
+                        {
+                            cost.NbItemsInResponse++;
+                        }
                     }
                 }
                 return itemsAdded;
             }
-            catch (AIRequestException)
+            catch (AIResponseException)
             {
                 throw;
             }
@@ -334,7 +327,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 // For any other exception, wrap it with the context of the fixed JSON.
                 // This is crucial for debugging parsing failures.
-                throw new AIRequestException(ex, request, ex.Message + $"\n{GetSegmentInformation(currentSegment)}", responseReceived, fixedJson);
+                throw new AIResponseException(ex, request, ex.Message + $"\n{GetSegmentInformation(currentSegment)}", responseReceived, fixedJson);
             }
         }
     }

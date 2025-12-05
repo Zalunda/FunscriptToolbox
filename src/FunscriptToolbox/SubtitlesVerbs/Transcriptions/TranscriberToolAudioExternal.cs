@@ -68,11 +68,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             audio.Offset + subtitle.EndTime,
                             MetadataCollection.CreateSimple(metadataProduced, subtitle.Text))));
                     transcription.Costs.Add(
-                        new Cost(
-                            ToolName,
-                            watch.Elapsed,
-                            1,
-                            itemsDuration: audio.Duration));
+                        new Cost(transcription.Id, ToolName, watch.Elapsed, 1));
 
                     context.SoftDelete(wavFilename);
                     if (this.OverrideFileSuffixe == null)

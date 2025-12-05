@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -121,6 +122,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             try
             {
+                var watch = Stopwatch.StartNew();
+
                 var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:streamGenerateContent?key={context.GetPrivateConfig(this.APIKeyName)}"))
@@ -148,6 +151,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var chunksReceived = new StringBuilder();
                 var fullContent = new StringBuilder();
                 var thoughtContent = new StringBuilder();
+                var extraContent = new StringBuilder();
                 var currentLineBuffer = new StringBuilder();
                 GoogleUsageMetadata googleUsageMetadata = null;
 
@@ -202,7 +206,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 var candidate = googleEvent.GetFinishReason();
                                 if (candidate != null)
                                 {
-                                    currentLineBuffer.AppendLine($"\n\nFinishReason: {candidate.FinishReason}\nFinishMessage: {candidate.FinishMessage}");
+                                    extraContent.AppendLine();
+                                    extraContent.AppendLine($"FinishReason: {candidate.FinishReason}");
+                                }
+
+                                if (googleEvent.PromptFeedback != null)
+                                {
+                                    extraContent.AppendLine();
+                                    extraContent.AppendLine($"BlockReason: {googleEvent.PromptFeedback.BlockReason}");
                                 }
 
                                 googleUsageMetadata = googleEvent.UsageMetadata ?? googleUsageMetadata;
@@ -210,46 +221,53 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                     }
                 }
-                catch (AIEngineAPIException)
-                {
-                    throw;
-                }
                 catch (Exception ex)
                 {
-                    fullContent.AppendLine();
-                    fullContent.AppendLine();
-                    fullContent.AppendLine($"==> An exception occured while receiving the AI response: {ex.Message}");
+                    extraContent.AppendLine();
+                    extraContent.AppendLine();
+                    extraContent.AppendLine($"==> An exception occured while receiving the AI response: {ex.Message}");
                     context.WriteLog(ex.ToString());
-                }
-
-                if (googleUsageMetadata != null)
-                {
-                    currentLineBuffer.AppendLine($"PromptTokenCount: {googleUsageMetadata.PromptTokenCount}");
-                    currentLineBuffer.AppendLine($"ThoughtsTokenCount: {googleUsageMetadata.ThoughtsTokenCount}");
-                    currentLineBuffer.AppendLine($"CandidatesTokenCount: {googleUsageMetadata.CandidatesTokenCount}");
                 }
 
                 Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                 Console.WriteLine();
 
-                string assistantMessage = fullContent.ToString();
+                if (googleUsageMetadata != null)
+                {
+                    extraContent.AppendLine($"InputTokensByModality:     {googleUsageMetadata.PromptTokenCount,7}, {GetInputCost(googleUsageMetadata.PromptTokenCount):C}");
+                    foreach (var item in googleUsageMetadata.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
+                    {
+                        extraContent.AppendLine($"   {item.Modality,10}: {item.TokenCount,7}");
+                    }
+                    var totalOutputTokens = googleUsageMetadata.ThoughtsTokenCount + googleUsageMetadata.CandidatesTokenCount;
+                    extraContent.AppendLine($"OutputTextTokensBySection: {totalOutputTokens,7}, {GetOutputCost(totalOutputTokens):C}");
+                    extraContent.AppendLine($"     Thoughts: {googleUsageMetadata.ThoughtsTokenCount,7}");
+                    extraContent.AppendLine($"   Candidates: {googleUsageMetadata.CandidatesTokenCount,7}");
+                }
+
+                Console.WriteLine(extraContent.ToString());
+
+                string assistantMessageExtended = fullContent.ToString() + extraContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
-                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, request.ProcessStartTime);
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
 
-                return new AIResponse(
+                return new AIResponse(request, assistantMessageExtended, Cost.Create(
+                    request.TaskId,
+                    this.EngineIdentifier,
                     request,
-                    assistantMessage,
-                    new Cost(
-                        $"{request.TaskId}: {this.BaseAddress},{this.Model}",
-                        TimeSpan.Zero,
-                        -1,
-                        request.FullPrompt.Length,
-                        assistantMessage.Length,
-                        googleUsageMetadata?.PromptTokenCount,
-                        googleUsageMetadata?.CandidatesTokenCount + googleUsageMetadata?.ThoughtsTokenCount,
-                        googleUsageMetadata?.TotalTokenCount));
+                    assistantMessageExtended,
+                    watch.Elapsed,
+                    request.ItemsIncluded?.Length ?? 1,
+                    0,
+                    this.EstimatedCostPerInputMillionTokens,
+                    this.EstimatedCostPerOutputMillionTokens,
+                    googleUsageMetadata?.PromptTokenCount,
+                    googleUsageMetadata?.ThoughtsTokenCount,
+                    googleUsageMetadata?.CandidatesTokenCount,
+                    (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
+                        .ToDictionary(item => item.Modality, item => item.TokenCount)));
             }
             finally
             {
@@ -260,6 +278,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private class GoogleEvent
         {
             public GoogleCandidate[] Candidates { get; set; }
+            public GooglePromptFeedback PromptFeedback { get; set; }
             public GoogleUsageMetadata UsageMetadata { get; set; }
 
             public IEnumerable<GooglePart> GetParts()
@@ -285,9 +304,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private class GoogleUsageMetadata
         {
             public int PromptTokenCount { get; set; }
+            public GooglePromptTokensDetails[] PromptTokensDetails { get; set; }
+
             public int CandidatesTokenCount { get; set; }
-            public int TotalTokenCount { get; set; }
             public int ThoughtsTokenCount { get; set; }
+
+            // TODO something with this??
+            public int CachedContentTokenCount { get; set; } 
+            public GooglePromptTokensDetails[] CacheTokensDetails { get; set; }
+        }
+
+        public class GooglePromptFeedback
+        {
+            public string BlockReason { get; set; }
+        }
+
+        public class GooglePromptTokensDetails 
+        { 
+            public string Modality { get; set; }
+            public int TokenCount { get; set; }
         }
 
         private class GoogleCandidate

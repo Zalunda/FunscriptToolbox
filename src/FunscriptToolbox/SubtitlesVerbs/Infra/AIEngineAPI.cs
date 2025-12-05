@@ -9,6 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class AIEngineAPI : AIEngine
     {
+        [JsonIgnore]
         public abstract string ToolName { get; }
 
         [JsonProperty(Order = 10, Required = Required.Always)]
@@ -17,17 +18,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 11, Required = Required.Always)]
         public string Model { get; set; }
 
-        [JsonProperty(Order = 13)]
+        [JsonProperty(Order = 12)]
         public bool ValidateModelNameInResponse { get; set; } = false;
 
-        [JsonProperty(Order = 14)]
+        [JsonProperty(Order = 13)]
         public string APIKeyName { get; set; }
 
-        [JsonProperty(Order = 12, TypeNameHandling = TypeNameHandling.None)]
+        [JsonProperty(Order = 14, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject RequestBodyExtension { get; set; }
 
         [JsonProperty(Order = 15)]
         public TimeSpan TimeOut { get; set; } = TimeSpan.FromMinutes(15);
+
+        [JsonProperty(Order = 16)]
+        public double EstimatedCostPerInputMillionTokens { get; set; } = 0.0;
+
+        [JsonProperty(Order = 17)]
+        public double EstimatedCostPerOutputMillionTokens { get; set; } = 0.0;
+
+        public double GetInputCost(int nbTokens) => (double)nbTokens / 1_000_000 * EstimatedCostPerInputMillionTokens;
+        public double GetOutputCost(int nbTokens) => (double)nbTokens / 1_000_000 * EstimatedCostPerOutputMillionTokens;
 
         [JsonProperty(Order = 20)]
         public bool PauseBeforeSendingRequest { get; set; } = false;

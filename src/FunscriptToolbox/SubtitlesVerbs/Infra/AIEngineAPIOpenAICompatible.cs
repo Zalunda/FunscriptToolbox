@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -13,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         public override string ToolName { get; } = "OpenAI-API";
 
-        [JsonProperty(Order = 17)]
+        [JsonProperty(Order = 30)]
         public bool UseStreaming { get; set; } = true;
 
         public override AIResponse Execute(
@@ -145,6 +146,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             string verbosePrefix)
         {
+            var watch = Stopwatch.StartNew();
+
             var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
             context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
             var response = client.PostAsync(
@@ -164,7 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (ValidateModelNameInResponse && !string.Equals((string)responseBody.model, this.Model, StringComparison.OrdinalIgnoreCase))
             {
-                throw new AIRequestException(
+                throw new AIResponseException(
                     request,
                     $"Invalid model name in response:\n" +
                     $"   [API response] {responseBody.model}\n" +
@@ -176,34 +179,51 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw AIEngineAPIException.FromErrorInResponseBody(responseBody.error, this.EngineIdentifier);
             }
 
+            var sb = new StringBuilder();
             string assistantMessage = responseBody.choices[0]?.message?.content;
-            string finish_reason = responseBody.choices[0]?.finish_reason;
-            Console.WriteLine($"\n\nFinish_reason: {finish_reason}");
-            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessage, request.ProcessStartTime);
-            if (assistantMessage == null)
+            if (assistantMessage != null)
             {
-                throw new AIRequestException(
-                    request,
-                    $"Empty response receive. Finish_reason: {finish_reason}");
+                sb.AppendLine(assistantMessage);
+            }
+            string finish_reason = responseBody.choices[0]?.finish_reason;
+            if (finish_reason != null)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"FinishReason: {finish_reason}");
+            }
+            var promptTokens = (int?)responseBody?.usage?.prompt_tokens;
+            var completionTokens = (int?)responseBody?.usage?.completion_tokens;
+            if (promptTokens != null && completionTokens != null)
+            {
+                sb.AppendLine($"PromptTokens: {promptTokens}");
+                sb.AppendLine($"CompletionTokens: {completionTokens}");
             }
 
-            Console.WriteLine("\n" + AddRealTime(context, request.StartOffset, assistantMessage) + "\n\n");
+            var assistantMessageExtended = sb.ToString();
+            context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessageExtended, request.ProcessStartTime);
+            Console.WriteLine();
+            Console.WriteLine(AddRealTime(context, request.StartOffset, assistantMessageExtended));
+            Console.WriteLine();
+            Console.WriteLine();
 
             PauseIfEnabled(this.PauseBeforeSavingResponse);
 
-            // Let the request handle the response and store the api cost
             return new AIResponse(
                 request,
                 assistantMessage,
-                new Cost(
-                    $"{this.BaseAddress},{this.Model}",
-                    TimeSpan.Zero,
-                    -1,
-                    request.FullPrompt.Length,
-                    assistantMessage.Length,
-                    (int?)responseBody?.usage?.prompt_tokens,
-                    (int?)responseBody?.usage?.completion_tokens,
-                    (int?)responseBody?.usage?.total_tokens));
+                Cost.Create(
+                    request.TaskId,
+                    this.EngineIdentifier,
+                    request,
+                    assistantMessageExtended,
+                    watch.Elapsed,
+                    request.ItemsIncluded.Length,
+                    0,
+                    this.EstimatedCostPerInputMillionTokens,
+                    this.EstimatedCostPerOutputMillionTokens,
+                    promptTokens,
+                    0,
+                    completionTokens));
         }
 
         private AIResponse ProcessStreamingResponse(
@@ -214,6 +234,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string verbosePrefix)
         {
             Timer waitingTimer = null;
+            var watch = Stopwatch.StartNew();
 
             try
             {
@@ -242,13 +263,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var chunksReceived = new StringBuilder();
                 var fullContent = new StringBuilder();
                 var thoughtContent = new StringBuilder();
+                var extraContent = new StringBuilder();
                 string modelName = null;
                 int? promptTokens = null;
                 int? completionTokens = null;
-                int? totalTokens = null;
+                dynamic chunkError = null;
                 string finish_reason = null;
-                bool doneReceived = false;
-                var currentLineBuffer = new StringBuilder();
+                var currentLineBuffer = new StringBuilder();                
 
                 try
                 {
@@ -267,7 +288,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 var data = line.Substring(6);
                                 if (data == "[DONE]")
                                 {
-                                    doneReceived = true;
                                     break;
                                 }
 
@@ -283,7 +303,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                                     if (chunk?.error != null)
                                     {
-                                        throw AIEngineAPIException.FromErrorInResponseBody(chunk.error, this.EngineIdentifier);
+                                        break;
                                     }
 
                                     // Extract content delta
@@ -327,7 +347,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                         else if (chunk.choices[0].finish_reason != null)
                                         {
                                             finish_reason = chunk.choices[0].finish_reason.ToString();
-                                            Console.WriteLine($"Finish_reason: {finish_reason}");
                                         }
                                     }
 
@@ -336,7 +355,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                     {
                                         promptTokens = (int?)chunk.usage.prompt_tokens;
                                         completionTokens = (int?)chunk.usage.completion_tokens;
-                                        totalTokens = (int?)chunk.usage.total_tokens;
                                     }
                                 }
                                 catch (JsonException)
@@ -346,61 +364,68 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             }
                         }
                     }
-
-                    if (!doneReceived)
-                    {
-                        fullContent.Append($"DONE was not received in the response.  Finish_reason: {finish_reason}");
-                    }
-                }
-                catch (AIEngineAPIException)
-                {
-                    throw;
                 }
                 catch (Exception ex)
                 {
-                    fullContent.AppendLine();
-                    fullContent.AppendLine();
-                    fullContent.AppendLine($"==> An exception occured while receiving the AI response: {ex.Message}");
+                    extraContent.AppendLine();
+                    extraContent.AppendLine();
+                    extraContent.AppendLine($"==> An exception occured while receiving the AI response: {ex.Message}");
                     context.WriteLog(ex.ToString());
+                }
+
+                if (chunkError != null)
+                {
+                    throw AIEngineAPIException.FromErrorInResponseBody(chunkError, this.EngineIdentifier);
                 }
 
                 Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                 Console.WriteLine();
 
-                string assistantMessage = fullContent.ToString();
+                if (finish_reason != null)
+                {
+                    extraContent.AppendLine();
+                    extraContent.AppendLine($"FinishReason: {finish_reason}");
+
+                }
+                if (promptTokens != null && completionTokens != null)
+                {
+                    extraContent.AppendLine($"PromptTokens: {promptTokens}, {GetInputCost(promptTokens.Value):C}");
+                    extraContent.AppendLine($"CompletionsTokens: {completionTokens}, {GetOutputCost(completionTokens.Value):C}");
+                }
+
+                Console.WriteLine(extraContent.ToString());
+
+                string assistantMessageExtended = fullContent.ToString() + extraContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
-                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessage, request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, request.ProcessStartTime);
 
                 if (ValidateModelNameInResponse && modelName != null && !string.Equals(modelName, this.Model, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new AIRequestException(
+                    throw new AIResponseException(
                         request,
                         $"Invalid model name in response:\n" +
                         $"   [API response] {modelName}\n" +
                         $"   [config]   {this.Model}");
                 }
 
-                if (string.IsNullOrEmpty(assistantMessage))
-                {
-                    throw new AIRequestException(
-                        request,
-                        $"Empty response received. Finish_reason: {finish_reason}");
-                }
-
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
 
                 return new AIResponse(
                     request,
-                    assistantMessage,
-                    new Cost(
-                        $"{request.TaskId}: {this.BaseAddress},{this.Model}",
-                        TimeSpan.Zero,
-                        -1,
-                        request.FullPrompt.Length,
-                        assistantMessage.Length,
+                    assistantMessageExtended,
+                    Cost.Create(
+                        request.TaskId,
+                        this.EngineIdentifier,
+                        request,
+                        assistantMessageExtended,
+                        watch.Elapsed,
+                        request.ItemsIncluded?.Length ?? 1,
+                        0,
+                        this.EstimatedCostPerInputMillionTokens,
+                        this.EstimatedCostPerOutputMillionTokens,
                         promptTokens,
-                        completionTokens,
-                        totalTokens));
+                        0,
+                        completionTokens));
             }
             finally
             {

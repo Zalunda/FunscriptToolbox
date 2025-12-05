@@ -4,16 +4,16 @@
     {
         public AIRequest Request { get; }
         public string AssistantMessage { get; }
-        public Cost DraftOfCost { get; }
+        public Cost Cost { get; }
 
         public AIResponse(
-            AIRequest request,
-            string assistantMessage = null,
-            Cost draftOfCost = null) 
+            AIRequest request, 
+            string assistantMessage, 
+            Cost cost)
         {
             Request = request;
             AssistantMessage = assistantMessage;
-            DraftOfCost = draftOfCost;
+            Cost = cost;
         }
     }
 }

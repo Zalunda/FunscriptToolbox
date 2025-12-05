@@ -135,10 +135,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     transcription.Costs.Add(
                         new Cost(
+                            transcription.Id,
                             ToolName,
                             stopwatch.Elapsed,
-                            audios.Length,
-                            itemsDuration: totalDuration));
+                            audios.Length));
 
                     // Process transcription results for each temporary audio file
                     for (int i = 0; i < tempFiles.Count; i++)

@@ -7,13 +7,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         public BinaryDataExtractor Extractor { get; set; }
         public AIRequestPart[] TrainingContentLists { get; set; }
-        public Func<ITiming, string, AIRequestPart[]> GetData { get; set; }
+        public Func<AIRequestSection, ITiming, string, AIRequestPart[]> GetData { get; set; }
 
-        public (TimeSpan time, string name, AIRequestPart[] contentList)[] GetContextOnlyNodes(ITiming gap, Func<TimeSpan, string> getText)
+        public (TimeSpan time, string name, AIRequestPart[] contentList)[] GetContextOnlyNodes(AIRequestSection section, ITiming gap, Func<TimeSpan, string> getText)
         {
             (TimeSpan, string, AIRequestPart[]) CreateContextNode(TimeSpan time)
             {
-                return (time, this.Extractor.OutputFieldName, this.GetData(new Timing(time, time), getText(time)));
+                return (time, this.Extractor.OutputFieldName, this.GetData(section, new Timing(time, time), getText(time)));
             }
 
             if (!this.Extractor.AddContextNodes)

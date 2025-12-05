@@ -70,12 +70,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var binaryDataGenerator = new BinaryDataExtractorCachedCollection(
                 this.Options.BinaryDataExtractors.Select(extractor =>
                 {
-                    Func<ITiming, string, AIRequestPart[]> getDataFunc;
+                    Func<AIRequestSection, ITiming, string, AIRequestPart[]> getDataFunc;
 
                     if (extractor is BinaryDataExtractorAudio extractorAudio)
                     {
                         var fullPcmAudio = context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractorAudio.SourceAudioId && f.IsFinished)?.PcmAudio;
-                        getDataFunc = (timing, _) =>
+                        getDataFunc = (section, timing, _) =>
                         {
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                             var tempWavFile = Path.GetTempFileName() + ".wav";
@@ -84,17 +84,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var expandEndBy = (gapDuration < extractorAudio.FillGapSmallerThen)
                                 ? TimeSpanExtensions.Max(gapDuration, this.ExpandEnd)
                                 : this.ExpandEnd;
-                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
-                                fullPcmAudio.ExtractSnippet(
+                            var snippet = fullPcmAudio.ExtractSnippet(
                                     timing.StartTime - this.ExpandStart,
-                                    timing.EndTime + expandEndBy), tempWavFile);
+                                    timing.EndTime + expandEndBy);
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
 
                             var audioBytes = File.ReadAllBytes(tempWavFile);
                             var data = new[]
                             {
                                 new AIRequestPartAudio(
+                                    section,
                                     $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                    audioBytes)
+                                    audioBytes,
+                                    snippet.Duration)
                             };
                             File.Delete(tempWavFile);
 
@@ -105,7 +107,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                     else if (extractor is BinaryDataExtractorImage extractorImage)
                     {
-                        getDataFunc = (timing, text) =>
+                        getDataFunc = (section, timing, text) =>
                         {
                             var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
@@ -118,6 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var data = new[]
                                 {
                                     new AIRequestPartImage(
+                                        section,
                                         $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
                                         image)
                                 };
@@ -136,7 +139,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         if (extractor.TextBeforeTrainingData != null)
                         {
-                            parts.AddText(extractor.TextBeforeTrainingData + "\n");
+                            parts.AddText(AIRequestSection.Training, extractor.TextBeforeTrainingData + "\n");
                         }
 
                         var nbTrainingItems = 0;
@@ -144,15 +147,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         {
                             if (item.Metadata.TryGetValue(extractor.MetadataForTraining, out var text))
                             {
-                                parts.AddText($"{text}\n");
-                                parts.AddRange(getDataFunc(item, null));
+                                parts.AddText(AIRequestSection.Training, $"{text}\n");
+                                parts.AddRange(getDataFunc(AIRequestSection.Training, item, null));
                                 nbTrainingItems++;
                             }
                         }
 
                         if (extractor.TextAfterTrainingData != null)
                         {
-                            parts.AddText("\n" + extractor.TextAfterTrainingData + "\n");
+                            parts.AddText(AIRequestSection.Training, "\n" + extractor.TextAfterTrainingData + "\n");
                         }
 
                         if (nbTrainingItems == 0)

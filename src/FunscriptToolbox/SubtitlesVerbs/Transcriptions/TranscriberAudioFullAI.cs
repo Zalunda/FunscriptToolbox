@@ -29,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 31)]
         public AIPrompt SystemPrompt { get; set; }
 
-        [JsonProperty(Order = 2)]
+        [JsonProperty(Order = 32)]
         public AIPrompt UserPrompt { get; set; }
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
@@ -58,19 +58,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     new BinaryDataExtractorExtended {
                         Extractor = new BinaryDataExtractorAudio() { OutputFieldName = "Audio" },
                         TrainingContentLists = null,
-                        GetData = (timing, _) =>
+                        GetData = (section, timing, _) =>
                         {
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                             var tempWavFile = Path.GetTempFileName() + ".wav";
-                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
-                                fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime), tempWavFile);
+                            var snippet = fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime);
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
 
                             var audioBytes = File.ReadAllBytes(tempWavFile);
                             var data = new[]
                             {
                                 new AIRequestPartAudio(
+                                    section,
                                     $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                    audioBytes)
+                                    audioBytes,
+                                    snippet.Duration)
                             };
                             File.Delete(tempWavFile);
 
@@ -144,20 +146,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var userParts = new AIRequestPartCollection();
             if (this.SystemPrompt != null)
             {
-                systemParts.AddText(this.SystemPrompt.GetFinalText(context.Config.SourceLanguage));
+                systemParts.AddText(AIRequestSection.SystemPrompt, this.SystemPrompt.GetFinalText(context.Config.SourceLanguage));
             }
 
             if (this.UserPrompt != null)
             {
-                userParts.AddText(this.UserPrompt.GetFinalText(context.Config.SourceLanguage));
+                userParts.AddText(AIRequestSection.SystemValidation, this.UserPrompt.GetFinalText(context.Config.SourceLanguage));
             }
 
-            userParts.AddRange(binaryDataExtractors.GetNamedContentListForTiming(timing).First().Value);
+            userParts.AddRange(binaryDataExtractors.GetNamedContentListForTiming(AIRequestSection.PrimaryNodes, timing).First().Value);
 
             return new AIRequest(
                 processStartTime,
                 requestNumber,
-                this.SourceAudioId,
+                this.TranscriptionId,
                 null,
                 systemParts,
                 userParts,
@@ -173,6 +175,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TimeSpan chunkEndTime,
             string prefix = "")
         {
+            transcription.Costs.Add(response.Cost);
             foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
                                     response.Request,
                                     response.AssistantMessage,
@@ -190,6 +193,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         startTime,
                         endTime, 
                         MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
+                response.Cost.NbItemsInResponse++;
             }
         }
     }

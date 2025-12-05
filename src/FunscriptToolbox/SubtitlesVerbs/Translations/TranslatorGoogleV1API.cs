@@ -90,7 +90,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             watch.Stop();
             translation.Costs.Add(
-                new Cost(ToolName, watch.Elapsed, missingTranscriptions.Length));
+                new Cost(transcription.Id, ToolName, watch.Elapsed, missingTranscriptions.Length));
 
             translation.MarkAsFinished();
             context.WIP.Save();

@@ -107,12 +107,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var userParts = new AIRequestPartCollection();
             if (r_systemPrompt != null)
             {
-                systemParts.AddText(r_systemPrompt);
+                systemParts.AddText(AIRequestSection.SystemPrompt, r_systemPrompt);
             }
 
             if (r_userPrompt != null)
             {
-                userParts.AddText(r_userPrompt);
+                userParts.AddText(AIRequestSection.SystemValidation, r_userPrompt);
             }
 
             userParts.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<AIRequestPart>());
@@ -171,7 +171,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         waitingForFirstToDo = false;
                         if (contentBefore.Count > 0)
                         {
-                            userParts.AddText($"{r_options.TextBeforeContextData}\n[\n");
+                            userParts.AddText(AIRequestSection.ContextNodes, $"{r_options.TextBeforeContextData}\n[\n");
 
                             for (var index = 0; index < contentBefore.Count; index++)
                             {
@@ -181,14 +181,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 metadataOngoing = null;
                                 userParts.AddRange(
                                     CreateNodeContents(
+                                        AIRequestSection.ContextNodes,
                                         current,
                                         overrides: overrides,
                                         contextNumber: contextNumber));
                             }
-                            userParts.AddText($"]\n{r_options.TextAfterContextData}\n");
+                            userParts.AddText(AIRequestSection.ContextNodes, $"]\n{r_options.TextAfterContextData}\n");
                         }
 
-                        userParts.AddText(r_options.TextBeforeAnalysis + "\n\n[\n");
+                        userParts.AddText(AIRequestSection.ContextNodes, r_options.TextBeforeAnalysis + "\n\n[\n");
                     }
                 }
 
@@ -205,11 +206,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                         userParts.AddRange(
                             CreateContextOnlyNodeContents(
+                                AIRequestSection.ContextNodes,
                                 binaryDataExtractors,                                 
                                 new Timing(previousEndTime, item.StartTime),
                                 item.Metadata));
                         userParts.AddRange(
                             CreateNodeContents(
+                                AIRequestSection.PrimaryNodes,
                                 item,
                                 binaryDataExtractors,
                                 metadataForThisItem));
@@ -224,11 +227,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     break;
                 }
             }
-            userParts.AddText("]\n");
+            userParts.AddText(AIRequestSection.PrimaryNodes, "]\n");
 
             if (r_options.TextAfterAnalysis != null)
             {
-                userParts.AddText(r_options.TextAfterAnalysis);
+                userParts.AddText(AIRequestSection.PrimaryNodes, r_options.TextAfterAnalysis);
             }
 
             return new AIRequest(
@@ -261,6 +264,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         private IEnumerable<AIRequestPart> CreateNodeContents(
+            AIRequestSection section,
             TimedItemWithMetadata item,
             BinaryDataExtractorCachedCollection binaryDataExtractors = null,
             MetadataCollection overrides = null,
@@ -301,17 +305,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             if (binaryDataExtractors != null)
             {
-                foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForItem(item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
+                foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForItem(section, item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
                 {
                     sb.Append($"    \"{binaryItem.Key}\": ");
-                    parts.AddText(sb.ToString());
+                    parts.AddText(section, sb.ToString());
                     sb.Clear();
                     parts.AddRange(binaryItem.Value);
                     sb.AppendLine();
                 }
             }
             sb.AppendLine("  },");
-            parts.AddText(sb.ToString());
+            parts.AddText(section, sb.ToString());
             sb.Clear();
 
             return parts;
@@ -319,6 +323,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
 
         private static IEnumerable<AIRequestPart> CreateContextOnlyNodeContents(
+            AIRequestSection section,
             BinaryDataExtractorCachedCollection extractors,
             ITiming timing,
             MetadataCollection metadatas)
@@ -329,7 +334,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             foreach (var node in extractors
-                .GetContextOnlyNodes(timing, metadatas, (t) => t.ToString(@"hh\:mm\:ss\.fff"))
+                .GetContextOnlyNodes(section, timing, metadatas, (t) => t.ToString(@"hh\:mm\:ss\.fff"))
                 .OrderBy(n => n.time))
             {
                 var sb = new StringBuilder();
@@ -338,7 +343,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var binaryItem in node.binaryItems)
                 {
                     sb.Append($"    \"{binaryItem.name}\": ");
-                    yield return new AIRequestPartText(sb.ToString());
+                    yield return new AIRequestPartText(section, sb.ToString());
                     sb.Clear();
                     foreach (var cl in binaryItem.contentList)
                     {
@@ -347,7 +352,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     sb.AppendLine();
                 }
                 sb.AppendLine("  },");
-                yield return new AIRequestPartText(sb.ToString());
+                yield return new AIRequestPartText(section, sb.ToString());
             }
         }
 
