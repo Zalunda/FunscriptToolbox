@@ -37,150 +37,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 Model = "Large-V2",
                 ForceSplitOnComma = false
             });
-            var aiEngineGPT5OnOpenAI = AddSharedObject("AIEngineGPT5OnOpenAI", new AIEngineAPIOpenAICompatible()
-            {
-                BaseAddress = "https://api.openai.com/v1",
-                Model = "gpt-5",
-                APIKeyName = "APIKeyOpenAI",
-                UseStreaming = false,
-                RequestBodyExtension = Expando(
-                    ("service_tier", "flex"))
-            });
-            var aiEngineGPT5OnPoe = AddSharedObject("AIEngineGPT5OnPoe", new AIEngineAPIPoe()
-            {
-                BaseAddress = "https://api.poe.com/v1",
-                Model = "GPT-5",
-                APIKeyName = "APIKeyPoe",
-                RequestBodyExtension = Expando(
-                        ("extra_body", new
-                        {
-                            reasoning_effort = "medium"
-                        }))
-            });
-            var aiEngineGPT5 = AddSharedObject("AIEngineGPT5", new AIEngineCollection()
-            {
-                Engines = new List<AIEngineAPI>
-                {
-                    aiEngineGPT5OnPoe,
-                    aiEngineGPT5OnOpenAI
-                },
-                SkipOnQuotasUsed = true,
-                SkipOnServiceUnavailable = true,
-                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
-                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
-            });
 
-            var aiEngineGeminiPro25OnGoogle = AddSharedObject("AIEngineGeminiPro2.5OnGoogle", new AIEngineAPIGoogle()
-            {
-                BaseAddress = "https://generativelanguage.googleapis.com/v1beta",
-                Model = "gemini-2.5-pro",
-                APIKeyName = "APIKeyGemini",
-                RequestBodyExtension = Expando(
-                    ("max_tokens", 64 * 1024),
-                    ("extra_body", new
-                    {
-                        generation_config = new
-                        {
-                            thinkingConfig = new
-                            {
-                                includeThoughts = true
-                            },
-                            mediaResolution = "MEDIA_RESOLUTION_LOW"
-                        }
-                    }))
-            });
-            var aiEngineGeminiPro25OnPoe = AddSharedObject("AIEngineGeminiPro2.5OnPoe", new AIEngineAPIPoe()
-            {
-                BaseAddress = "https://api.poe.com/v1",
-                Model = "gemini-2.5-pro",
-                APIKeyName = "APIKeyPoe",
-                RequestBodyExtension = Expando(
-                        ("max_tokens", 64 * 1024),
-                        ("extra_body", new
-                        {
-                            thinking_budget = 2048
-                        }))
-            });
-            var aiEngineGeminiPro25 = AddSharedObject("AIEngineGeminiPro2.5", new AIEngineCollection()
-            {
-                Engines = new List<AIEngineAPI>
-                {
-                    aiEngineGeminiPro25OnPoe,
-                    aiEngineGeminiPro25OnGoogle
-                },
-                SkipOnQuotasUsed = true,
-                SkipOnServiceUnavailable = true,
-                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
-                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
-            });
-
-            var aiEngineGeminiPro30OnGoogle = AddSharedObject("AIEngineGeminiPro3.0OnGoogle", new AIEngineAPIGoogle()
-            {
-                BaseAddress = "https://generativelanguage.googleapis.com/v1beta",
-                Model = "gemini-3-pro-preview",
-                APIKeyName = "APIKeyGemini",
-                RequestBodyExtension = Expando(
-                    ("generation_config", new
-                    {
-                        thinkingConfig = new
-                        {
-                            includeThoughts = true
-                        },
-                        mediaResolution = "MEDIA_RESOLUTION_LOW"
-                    }))
-            });
-            var aiEngineGeminiPro30OnPoe = AddSharedObject("AIEngineGeminiPro3.0OnPoe", new AIEngineAPIPoe()
-            {
-                BaseAddress = "https://api.poe.com/v1",
-                Model = "gemini-3-pro",
-                APIKeyName = "APIKeyPoe",
-                RequestBodyExtension = Expando(
-                        ("max_tokens", 64 * 1024),
-                        ("extra_body", new
-                        {
-                            thinking_budget = 4096
-                        }))
-            });
-            var aiEngineGeminiPro30 = AddSharedObject("AIEngineGeminiPro3.0", new AIEngineCollection()
-            {
-                Engines = new List<AIEngineAPI>
-                {
-                    aiEngineGeminiPro30OnPoe,
-                    aiEngineGeminiPro30OnGoogle
-                },
-                SkipOnQuotasUsed = true,
-                SkipOnServiceUnavailable = true,
-                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
-                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
-            });
-
-            var aiEngineGrok4OnPoe = AddSharedObject("AIEngineGrok4OnPoe", new AIEngineAPIPoe()
-            {
-                BaseAddress = "https://api.poe.com/v1",
-                Model = "grok-4",
-                APIKeyName = "APIKeyPoe",
-                RequestBodyExtension = Expando(
-                        ("max_tokens", 64 * 1024))
-            });
-            var aiEngineGrok4 = AddSharedObject("AIEngineGrok4", new AIEngineCollection()
-            {
-                Engines = new List<AIEngineAPI>
-                {
-                    aiEngineGrok4OnPoe
-                },
-                SkipOnQuotasUsed = true,
-                SkipOnServiceUnavailable = true,
-                QuotasUsedRetryDelay = TimeSpan.FromHours(1),
-                ServiceUnavailableRetryDelay = TimeSpan.FromMinutes(2)
-            });
-
-            var aiEngineLocalAPI = AddSharedObject("AIEngineLocalAPI", new AIEngineAPIOpenAICompatible
-            {
-                BaseAddress = "http://localhost:10000/v1",
-                Model = "mistralai/mistral-small-3.2",
-                ValidateModelNameInResponse = true,
-                UseStreaming = true
-            });
+            // All engine should be overriden in --FSTB-SubtitleGenerator.override.txt
+            var defaultEngine = AddSharedObject("ChatBotAIEngineWillBeOverriden", new AIEngineChatBot());            
 
             var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects("TranscriberAudioFullSystemPrompt", Resources.TranscriberAudioFullSystemPrompt);
             var transcriberAudioFullUserPrompt = AddPromptToSharedObjects("TranscriberAudioFullUserPrompt", Resources.TranscriberAudioFullUserPrompt);
@@ -244,7 +103,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai",
                         SourceAudioId = "audio",
-                        Engine = aiEngineGeminiPro25,
+                        Engine = defaultEngine,
                         SystemPrompt = transcriberAudioFullSystemPrompt,
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
@@ -254,7 +113,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "full-ai-refined",
                         PrivateMetadataNames = "Justification",
-                        Engine = aiEngineGeminiPro30,
+                        Engine = defaultEngine,
                         ExpandStart = TimeSpan.FromSeconds(1.0),
                         ExpandEnd = TimeSpan.FromSeconds(1.0),
                         UpdateTimingsBeforeSaving = true,
@@ -308,7 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "full_local-api",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineLocalAPI,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator
                         {
                             TimingsSource = "full",
@@ -359,7 +218,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "on-screen-texts",
-                        Engine = aiEngineGeminiPro30,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -387,7 +246,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "singlevad-ai",
-                        Engine = aiEngineGeminiPro30,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -431,7 +290,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberAI()
                     {
                         TranscriptionId = "singlevad-ai-refined",
-                        Engine = aiEngineGeminiPro30,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -509,7 +368,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranscriptionId = "visual-analysis",
                         PrivateMetadataNames = "VoiceText",
-                        Engine = aiEngineGPT5,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -567,7 +426,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "translated-texts_maverick",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGeminiPro30,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -620,7 +479,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "translated-texts_naturalist",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGPT5,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
@@ -666,7 +525,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         TranslationId = "arbitrer-final-choice",
                         TargetLanguage = Language.FromString("en"),
-                        Engine = aiEngineGPT5,
+                        Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",

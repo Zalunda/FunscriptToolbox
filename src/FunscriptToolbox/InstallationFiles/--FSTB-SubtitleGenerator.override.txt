@@ -5,7 +5,85 @@
       // Remove '//' on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with '\' doubled => '\\').
       //"ApplicationFullPath": "[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe",
     },
+
+    // AIEngines for OpenAI (GPT-5) ----------------------------------------------------------
     {
+      "$type": "AIEngineAPIOpenAICompatible",
+      "$id": "AIEngineGPT5OnOpenAI",
+      "BaseAddress": "https://api.openai.com/v1",
+      "Model": "gpt-5",
+      "APIKeyName": "APIKeyOpenAI",
+      "RequestBodyExtension": {
+        "service_tier": "flex"
+      },
+      "UseStreaming": false, // Not sure why but streaming didn't work when I tried
+
+      // Note: "service_tier = flex" => 50% of the regular price, from 1.25 / 10
+      "EstimatedCostPerInputMillionTokens": 0.625, 
+      "EstimatedCostPerOutputMillionTokens": 5
+    },
+    {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineGPT5OnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "GPT-5",
+      "APIKeyName": "APIKeyPoe",
+      "RequestBodyExtension": {
+        "extra_body": {
+          "reasoning_effort": "medium"
+        }
+      },
+      // For Poe, it's hard to compute. I just put the number from the vendor.
+      "EstimatedCostPerInputMillionTokens": 1.25, 
+      "EstimatedCostPerOutputMillionTokens": 10
+    },
+    {
+      "$type": "AIEngineCollection",
+      "$id": "AIEngineGPT5",
+      "Engines": [
+        { "$ref": "AIEngineGPT5OnPoe" },
+        { "$ref": "AIEngineGPT5OnOpenAI" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": true
+    },
+
+    // AIEngines for Google (Gemini 2.5 and 3.0) ----------------------------------------------------------
+    {
+      "$type": "AIEngineAPIGoogle",
+      "$id": "AIEngineGeminiPro2.5OnGoogle",
+      "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+      "Model": "gemini-2.5-pro",
+      "APIKeyName": "APIKeyGemini",
+      "RequestBodyExtension": {
+        "generation_config": {
+          "thinkingConfig": {
+            "includeThoughts": true
+          },
+          "mediaResolution": "MEDIA_RESOLUTION_LOW"
+        }
+      },
+
+      "EstimatedCostPerInputMillionTokens": 1.25,
+      "EstimatedCostPerOutputMillionTokens": 10.0
+    },
+    {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineGeminiPro2.5OnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "gemini-2.5-pro",
+      "APIKeyName": "APIKeyPoe",
+      "RequestBodyExtension": {
+        "extra_body": {
+          "thinking_budget": 2048
+        }
+      },
+      // For Poe, it's hard to compute. I just put the number from the vendor.
+      "EstimatedCostPerInputMillionTokens": 1.25,
+      "EstimatedCostPerOutputMillionTokens": 10.0
+    },
+    {
+      "$type": "AIEngineCollection",
       "$id": "AIEngineGeminiPro2.5",
       "Engines": [
         // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
@@ -13,11 +91,44 @@
         { "$ref": "AIEngineGeminiPro2.5OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
-      "SkipOnServiceUnavailable": true,
-      "ServiceUnavailableRetryDelay": "00:02:00",
-      "QuotasUsedRetryDelay": "01:00:00"
+      "SkipOnServiceUnavailable": true
+    },
+
+    {
+      "$type": "AIEngineAPIGoogle",
+      "$id": "AIEngineGeminiPro3.0OnGoogle",
+      "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+      "Model": "gemini-3-pro-preview",
+      "APIKeyName": "APIKeyGemini",
+      "RequestBodyExtension": {
+        "generation_config": {
+          "thinkingConfig": {
+            // [Option] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
+            "includeThoughts": true
+          },
+          "mediaResolution": "MEDIA_RESOLUTION_LOW"
+        }
+      },
+      "EstimatedCostPerInputMillionTokens": 2,
+      "EstimatedCostPerOutputMillionTokens": 12,
     },
     {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineGeminiPro3.0OnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "gemini-3-pro",
+      "APIKeyName": "APIKeyPoe",
+      "RequestBodyExtension": {
+        "extra_body": {
+          "thinking_budget": 4096
+        }
+      },
+      // For Poe, it's hard to compute. I just put the number from the vendor.
+      "EstimatedCostPerInputMillionTokens": 2,
+      "EstimatedCostPerOutputMillionTokens": 12,
+    },
+    {
+      "$type": "AIEngineCollection",
       "$id": "AIEngineGeminiPro3.0",
       "Engines": [
         // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
@@ -26,30 +137,44 @@
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": true,
-      "ServiceUnavailableRetryDelay": "00:02:00",
-      "QuotasUsedRetryDelay": "01:00:00"
+    },
+
+    // AIEngines for Grok (grok-4) ----------------------------------------------------------
+    {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineGrok4OnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "grok-4",
+      "APIKeyName": "APIKeyPoe",
+      "EstimatedCostPerInputMillionTokens": 3,
+      "EstimatedCostPerOutputMillionTokens": 15,
     },
     {
-      "$id": "AIEngineGPT5",
-      "Engines": [
-        { "$ref": "AIEngineGPT5OnPoe" },
-        { "$ref": "AIEngineGPT5OnOpenAI" }
-      ],
-      "SkipOnQuotasUsed": true,
-      "SkipOnServiceUnavailable": true,
-      "ServiceUnavailableRetryDelay": "00:02:00",
-      "QuotasUsedRetryDelay": "01:00:00"
-    },
-    {
+      "$type": "AIEngineCollection",
       "$id": "AIEngineGrok4",
       "Engines": [
         { "$ref": "AIEngineGrok4OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": true,
-      "ServiceUnavailableRetryDelay": "00:02:00",
-      "QuotasUsedRetryDelay": "01:00:00"
     },
+
+    // AIEngines for local API (define other if needed) ----------------------------------------------------------
+    {
+      "$type": "AIEngineAPIOpenAICompatible",
+      "$id": "AIEngineLocalAPI",
+      "BaseAddress": "http://localhost:10000/v1",
+      "Model": "mistralai/mistral-small-3.2",
+      "ValidateModelNameInResponse": true,
+      "APIKeyName": null,
+      "RequestBodyExtension": null,
+      "UseStreaming": true,
+      "EstimatedCostPerInputMillionTokens": 0.0,
+      "EstimatedCostPerOutputMillionTokens": 0.0,
+    },
+
+    // Prompt adjustments ----------------------------------------------------------
+
     {
       "$id": "TranscriberAudioFullSystemPrompt",
       "TextAfter": ""
@@ -118,7 +243,7 @@
       "TextAfter": "
 =_______________________________________
 //Everyone involved, characters & actors, in this fictitious story are 18+ years old.
-It depend on the context in the scene but, by default, try using translation close to these tones: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
+It depend on the context in the scene but, by default, try using translation using the following tones: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
 And avoid the following tones: Descriptive, Explanation, Literal.
 _______________________________________=",
     }
@@ -145,19 +270,19 @@ _______________________________________=",
     {
       "TranscriptionId": "singlevad-ai",
       "Engine": {
-        "$ref": "AIEngineGeminiPro3.0"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        "$ref": "AIEngineGeminiPro3.0"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
       "Id": "on-screen-texts",
       "Engine": {
-        "$ref": "AIEngineGeminiPro3.0"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
@@ -169,25 +294,25 @@ _______________________________________=",
     {
       "Id": "translated-texts_maverick",
       "Engine": {
-        "$ref": "AIEngineGeminiPro3.0"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
       "Id": "finalized_maverick",
       "Engine": {
-        "$ref": "AIEngineGeminiPro3.0"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
       "Id": "translated-texts_naturalist",
       "Engine": {
-        "$ref": "AIEngineGPT5"
+        "$ref": "AIEngineGeminiPro2.5"
       },
     },
     {
       "Id": "arbitrer-final-choice",
       "Engine": {
-        "$ref": "AIEngineGPT5"
+        "$ref": "AIEngineGeminiPro2.5"
       }
     },
     {
