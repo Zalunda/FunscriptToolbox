@@ -74,7 +74,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return result;
         }
 
-        private static Regex rs_timeRegex = new Regex(@"\""(?<Grab>(StartTime|EndTime)\"":\s*\""(?<Time>[^\""]*))\""", RegexOptions.Compiled);
+        private static Regex rs_timeRegex = new Regex(@"(?<Grab>\""(StartTime|EndTime)\"":\s*\""(?<Time>[^\""]*))\""", RegexOptions.Compiled);
 
         protected string AddRealTime(SubtitleGeneratorContext context, TimeSpan startOffset, string assistantMessage)
         {

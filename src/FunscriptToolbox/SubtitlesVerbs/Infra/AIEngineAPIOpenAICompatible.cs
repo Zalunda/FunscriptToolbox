@@ -215,15 +215,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     request.TaskId,
                     this.EngineIdentifier,
                     request,
-                    assistantMessageExtended,
                     watch.Elapsed,
                     request.ItemsIncluded.Length,
                     0,
                     this.EstimatedCostPerInputMillionTokens,
                     this.EstimatedCostPerOutputMillionTokens,
-                    promptTokens,
-                    0,
-                    completionTokens));
+                    inputTokens: promptTokens,
+                    outputThoughtsChars: 0,
+                    outputThoughtsTokens: 0,
+                    outputCandidatesChars: assistantMessage.Length,
+                    outputCandidatesTokens: completionTokens));
         }
 
         private AIResponse ProcessStreamingResponse(
@@ -417,15 +418,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         request.TaskId,
                         this.EngineIdentifier,
                         request,
-                        assistantMessageExtended,
                         watch.Elapsed,
                         request.ItemsIncluded?.Length ?? 1,
                         0,
                         this.EstimatedCostPerInputMillionTokens,
                         this.EstimatedCostPerOutputMillionTokens,
-                        promptTokens,
-                        0,
-                        completionTokens));
+                        inputTokens: promptTokens,
+                        outputThoughtsChars: 0,
+                        outputThoughtsTokens: 0,
+                        outputCandidatesChars: fullContent.Length,
+                        outputCandidatesTokens: completionTokens));
             }
             finally
             {

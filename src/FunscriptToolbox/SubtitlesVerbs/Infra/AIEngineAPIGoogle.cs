@@ -149,7 +149,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var serializer = new JsonSerializer();
 
                 var chunksReceived = new StringBuilder();
-                var fullContent = new StringBuilder();
+                var candidates = new StringBuilder();
                 var thoughtContent = new StringBuilder();
                 var extraContent = new StringBuilder();
                 var currentLineBuffer = new StringBuilder();
@@ -186,7 +186,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                     }
                                     else
                                     {
-                                        fullContent.Append(part.Text);
+                                        candidates.Append(part.Text);
                                     }
 
                                     var indexOfLastNewLine = part.Text.LastIndexOf('\n');
@@ -247,7 +247,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 Console.WriteLine(extraContent.ToString());
 
-                string assistantMessageExtended = fullContent.ToString() + extraContent.ToString();
+                string assistantMessageExtended = candidates.ToString() + extraContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, request.ProcessStartTime);
 
@@ -257,15 +257,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     request.TaskId,
                     this.EngineIdentifier,
                     request,
-                    assistantMessageExtended,
                     watch.Elapsed,
                     request.ItemsIncluded?.Length ?? 1,
                     0,
                     this.EstimatedCostPerInputMillionTokens,
                     this.EstimatedCostPerOutputMillionTokens,
-                    googleUsageMetadata?.PromptTokenCount,
-                    googleUsageMetadata?.ThoughtsTokenCount,
-                    googleUsageMetadata?.CandidatesTokenCount,
+                    inputTokens: googleUsageMetadata?.PromptTokenCount,
+                    outputThoughtsChars: thoughtContent.Length,
+                    outputThoughtsTokens: googleUsageMetadata?.ThoughtsTokenCount,
+                    outputCandidatesChars: candidates.Length,
+                    outputCandidatesTokens: googleUsageMetadata?.CandidatesTokenCount,
                     (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
                         .ToDictionary(item => item.Modality, item => item.TokenCount)));
             }

@@ -15,6 +15,8 @@
         public byte[] Content { get; }
 
         public override string ForSimplifiedFullPrompt() => "[Image]";
-        public override double Weight => 1.0;
+        public override double Units => 1;
+        public override string UnitName => "images";
+        public override double EstimatedTokens => 120.0 * this.Units; // seem to go from 70 to 130 tokens per image for Gemini, I'll assume that it's similar for the other vendor.
     }
 }

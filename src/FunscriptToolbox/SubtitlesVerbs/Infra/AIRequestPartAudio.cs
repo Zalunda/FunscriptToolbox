@@ -19,6 +19,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public TimeSpan Duration { get; }
 
         public override string ForSimplifiedFullPrompt() => $"[Audio, {Duration.TotalSeconds}]";
-        public override double Weight => this.Duration.TotalSeconds;
+        public override double Units => this.Duration.TotalSeconds;
+        public override string UnitName => "seconds";
+        public override double EstimatedTokens => this.Units * 32; // 32 tokens per seconds for Gemini, I'll assume that it's similar for the other vendor.
     }
 }

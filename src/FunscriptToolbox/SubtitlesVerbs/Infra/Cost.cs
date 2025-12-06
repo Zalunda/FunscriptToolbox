@@ -16,13 +16,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public OutputCostDetails Output { get; }
         public DateTime? CreationTime { get; }
 
-
-        // High level totals
+        // High level totals (Actual Tokens)
         [JsonIgnore]
-        public int TotalPromptTokens => (int)Input.TotalTokens;
+        public int TotalPromptTokens => (int)Input.TotalActualTokens;
 
         [JsonIgnore]
-        public int TotalCompletionTokens => (int)Output.TotalTokens;
+        public int TotalCompletionTokens => (int)Output.TotalActualTokens;
 
         [JsonIgnore]
         public int TotalTokens => TotalPromptTokens + TotalCompletionTokens;
@@ -37,7 +36,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             Input = input ?? new InputCostDetails();
             Output = output ?? new OutputCostDetails();
             CreationTime = creationTime ?? DateTime.Now;
-
         }
 
         // --- Aggregation Logic ---
@@ -68,118 +66,144 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             // 1. Aggregate Input
-            var aggregatedInput = new InputCostDetails();
+            var aggregatedInput = new InputCostDetails
+            {
+                EstimatedCostPerMillionTokens = costs.First().Input.EstimatedCostPerMillionTokens,
+                Tokens = costs.Sum(c => c.Input.Tokens)
+            };
             AggregateSections(aggregatedInput.Sections, costs.Select(c => c.Input.Sections));
 
             // 2. Aggregate Output
-            var aggregatedOutput = new OutputCostDetails();
+            var aggregatedOutput = new OutputCostDetails
+            {
+                EstimatedCostPerMillionTokens = costs.First().Output.EstimatedCostPerMillionTokens,
+                ThoughtsTokens = costs.Sum(c => c.Output.ThoughtsTokens),
+                CandidatesTokens = costs.Sum(c => c.Output.CandidatesTokens)
+            };
             AggregateSections(aggregatedOutput.Sections, costs.Select(c => c.Output.Sections));
 
             return new Cost(newTaskName, costs.First().EngineIdentifier, totalTimeTaken, totalItemsInRequest, totalItemsInResponse, aggregatedInput, aggregatedOutput);
         }
 
-        // --- Creation/Distribution Logic ---
+        // --- Creation Logic ---
 
         public static Cost Create(
             string taskName,
             string engineIdentifier,
             AIRequest request,
-            string assistantMessage,
             TimeSpan timeTaken,
             int nbItemsInRequest,
             int nbItemsInResponse,
             double costPerInputMillionTokens,
             double costPerOutputMillionTokens,
             int? inputTokens,
+            int outputThoughtsChars,
             int? outputThoughtsTokens,
+            int outputCandidatesChars,
             int? outputCandidatesTokens,
             Dictionary<string, int> rawUsageInput = null)
         {
             return (inputTokens != null && outputThoughtsTokens != null && outputCandidatesTokens != null)
                 ? CreateTokenBasedCost(
                     taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse,
-                    costPerInputMillionTokens, costPerOutputMillionTokens,
-                    inputTokens.Value, outputThoughtsTokens.Value, outputCandidatesTokens.Value, rawUsageInput)
+                    costPerInputMillionTokens, costPerOutputMillionTokens, inputTokens.Value,
+                    outputThoughtsChars, outputThoughtsTokens.Value,
+                    outputCandidatesChars, outputCandidatesTokens.Value, rawUsageInput)
                 : CreateFallbackCost(
-                    taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse, 
-                    assistantMessage.Length);
+                taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse,
+                outputThoughtsChars + outputCandidatesChars);
         }
 
+        // TODO Add thought response / output text
         private static Cost CreateTokenBasedCost(
             string taskName,
             string engineIdentifier,
-            AIRequest originalRequest,
+            AIRequest request,
             TimeSpan timeTaken,
             int nbItemsInRequest,
             int nbItemsInResponse,
             double costPerInputMillionTokens,
             double costPerOutputMillionTokens,
-            int inputTokens,
+            int totalInputTokens,
+            int outputThoughtsChars,
             int outputThoughtsTokens,
+            int outputCandidatesChars,
             int outputCandidatesTokens,
             Dictionary<string, int> rawUsageInput)
         {
-            var allParts = originalRequest.SystemParts.Concat(originalRequest.UserParts).ToList();
-            var totalWeightsByModality = allParts
-                .GroupBy(p => p.Modality)
-                .ToDictionary(g => g.Key, g => g.Sum(p => p.Weight));
+            var allParts = request.SystemParts.Concat(request.UserParts).ToList();
 
-            var inputDetails = new InputCostDetails { EstimatedCostPerMillionTokens = costPerInputMillionTokens };
+            // Calculate Total Estimated Weight to distribute Actual Tokens
+            double totalEstimatedWeight = allParts.Sum(p => p.EstimatedTokens);
+            if (totalEstimatedWeight <= 0) totalEstimatedWeight = 1; // Prevent div by zero
 
-            double Distribute(string modality, double partWeight)
+            var inputDetails = new InputCostDetails
             {
-                int totalTokens = 0;
-                if (rawUsageInput != null && rawUsageInput.TryGetValue(modality, out int t))
-                    totalTokens = t;
-                else if (string.Equals(modality, "Text", StringComparison.InvariantCultureIgnoreCase) && rawUsageInput == null)
-                    totalTokens = inputTokens;
-
-                if (!totalWeightsByModality.TryGetValue(modality, out double totalWeight) || totalWeight <= 0) return 0;
-                return (int)Math.Round((partWeight / totalWeight) * totalTokens);
-            }
+                EstimatedCostPerMillionTokens = costPerInputMillionTokens,
+                Tokens = totalInputTokens
+            };
 
             foreach (var sectionGroup in allParts.GroupBy(p => p.Section))
             {
                 var breakdown = new ModalityBreakdown();
-                var modalitiesInSection = sectionGroup.Select(p => p.Modality).Distinct();
-                if (!modalitiesInSection.Any())
-                {
-                    modalitiesInSection = new[] { "UNKNOWN" };
-                }
 
-                foreach (var modality in modalitiesInSection)
+                // Group parts by Modality (Text, Image, Audio) within this section
+                foreach (var modalityGroup in sectionGroup.GroupBy(p => p.Modality))
                 {
-                    // Filter the specific parts for this section and modality
-                    var parts = sectionGroup.Where(p => p.Modality == modality).ToList();
-                    var sectionModalityWeight = parts.Sum(p => p.Weight);
+                    string modality = modalityGroup.Key;
+                    var parts = modalityGroup.ToList();
 
+                    // 1. Calculate Physical Units (Chars, Seconds, Images)
+                    double units = parts.Sum(p => p.Units);
+                    string unitName = parts.FirstOrDefault()?.UnitName ?? "units";
+                    double estimatedTokens = parts.Sum(p => p.EstimatedTokens);
                     int count = parts.Count;
 
-                    double distributedTokens = Distribute(modality, sectionModalityWeight);
-                    if (distributedTokens > 0)
+                    // 2. Calculate Actual Tokens (Distributed)
+                    // If the provider gives specific breakdown (rawUsageInput), use it. 
+                    // Otherwise distribute totalInputTokens based on estimated weight.
+                    double actualTokensForModality = 0;
+
+                    if (rawUsageInput != null && rawUsageInput.TryGetValue(modality, out int specificUsage))
                     {
-                        breakdown.Add(modality, distributedTokens, count);
+                        // The provider gave us exactly how many tokens this modality used
+                        // We assume the provider's breakdown applies to the whole request, 
+                        // so we weight it by this section's share of that modality.
+                        var totalEstForModality = allParts.Where(p => p.Modality == modality).Sum(p => p.EstimatedTokens);
+                        if (totalEstForModality > 0)
+                        {
+                            actualTokensForModality = (estimatedTokens / totalEstForModality) * specificUsage;
+                        }
                     }
+                    else
+                    {
+                        // Proportional distribution of the global total
+                        actualTokensForModality = (estimatedTokens / totalEstimatedWeight) * totalInputTokens;
+                    }
+
+                    breakdown.Add(modality, count, units, unitName, estimatedTokens, actualTokensForModality);
                 }
                 inputDetails.Sections[sectionGroup.Key] = breakdown;
             }
 
-            var outputDetails = new OutputCostDetails { EstimatedCostPerMillionTokens = costPerOutputMillionTokens };
-
-            // 1. Thoughts (Reasoning)
+            // Handle Output
+            var outputDetails = new OutputCostDetails 
+            {
+                EstimatedCostPerMillionTokens = costPerOutputMillionTokens,
+                ThoughtsTokens = outputThoughtsTokens,
+                CandidatesTokens = outputCandidatesTokens
+            };
             if (outputThoughtsTokens > 0)
             {
                 var thoughtsBreakdown = new ModalityBreakdown();
-                // Thoughts are usually 1 block of text
-                thoughtsBreakdown.Add("Text", outputThoughtsTokens, 1);
+                thoughtsBreakdown.Add("TEXT", 1, outputThoughtsChars, "chars", AIRequestPartText.GetEstimatedTokensFromChar(outputThoughtsChars), outputThoughtsTokens);
                 outputDetails.Sections[AIResponseSection.Thoughts] = thoughtsBreakdown;
             }
 
-            // 2. Candidates (The actual response)
             if (outputCandidatesTokens > 0)
             {
                 var candidatesBreakdown = new ModalityBreakdown();
-                candidatesBreakdown.Add("Text", outputCandidatesTokens, 1);
+                candidatesBreakdown.Add("TEXT", 1, outputCandidatesChars, "chars", AIRequestPartText.GetEstimatedTokensFromChar(outputCandidatesChars), outputCandidatesTokens);
                 outputDetails.Sections[AIResponseSection.Candidates] = candidatesBreakdown;
             }
 
@@ -196,49 +220,38 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             int nbCharsInResponse)
         {
             var allParts = originalRequest.SystemParts.Concat(originalRequest.UserParts).ToList();
-            var inputDetails = new InputCostDetails
-            {
-                EstimatedCostPerMillionTokens = 0
-            };
+            var inputDetails = new InputCostDetails { EstimatedCostPerMillionTokens = 0 };
 
             foreach (var sectionGroup in allParts.GroupBy(p => p.Section))
             {
-                var sectionName = sectionGroup.Key;
                 var breakdown = new ModalityBreakdown();
 
                 foreach (var modalityGroup in sectionGroup.GroupBy(p => p.Modality))
                 {
-                    var modality = modalityGroup.Key;
-                    double measuredAmount = 0;
-                    int count = modalityGroup.Count();
+                    string modality = modalityGroup.Key;
+                    var parts = modalityGroup.ToList();
 
-                    if (string.Equals(modality, "Text", StringComparison.OrdinalIgnoreCase))
-                    {
-                        measuredAmount = modalityGroup.OfType<AIRequestPartText>().Sum(p => p.Content?.Length ?? 0);
-                    }
-                    else if (string.Equals(modality, "Image", StringComparison.OrdinalIgnoreCase))
-                    {
-                        measuredAmount = count; // For images, amount and count are often the same in fallback
-                    }
-                    else
-                    {
-                        measuredAmount = modalityGroup.OfType<AIRequestPartAudio>().Sum(p => p.Duration.TotalSeconds);
-                    }
+                    double units = parts.Sum(p => p.Units);
+                    string unitName = parts.FirstOrDefault()?.UnitName ?? "units";
+                    double estimatedTokens = parts.Sum(p => p.EstimatedTokens);
+                    int count = parts.Count;
 
-                    if (measuredAmount > 0)
-                    {
-                        breakdown.Add(modality, measuredAmount, count);
-                    }
+                    // Actual tokens are 0 in fallback
+                    breakdown.Add(modality, count, units, unitName, estimatedTokens, 0);
                 }
-                inputDetails.Sections[sectionName | AIRequestSection.FALLBACK] = breakdown;
+                inputDetails.Sections[sectionGroup.Key | AIRequestSection.FALLBACK] = breakdown;
             }
 
-            var outputDetails = new OutputCostDetails { EstimatedCostPerMillionTokens = 0 };
+            var outputDetails = new OutputCostDetails 
+            { 
+                EstimatedCostPerMillionTokens = 0 
+            };
 
             if (nbCharsInResponse > 0)
             {
                 var candidatesBreakdown = new ModalityBreakdown();
-                candidatesBreakdown.Add("TEXT", nbCharsInResponse, 1);
+                double estimatedOutputTokens = AIRequestPartText.GetEstimatedTokensFromChar(nbCharsInResponse);
+                candidatesBreakdown.Add("TEXT", 1, nbCharsInResponse, "chars", estimatedOutputTokens, 0);
                 outputDetails.Sections[AIResponseSection.Candidates | AIResponseSection.FALLBACK] = candidatesBreakdown;
             }
 
@@ -248,41 +261,47 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public class InputCostDetails
         {
             public double EstimatedCostPerMillionTokens { get; set; }
-
-            public Dictionary<AIRequestSection, ModalityBreakdown> Sections { get; }
-                = new Dictionary<AIRequestSection, ModalityBreakdown>();
+            public int Tokens { get; set; }
+            public Dictionary<AIRequestSection, ModalityBreakdown> Sections { get; } = new Dictionary<AIRequestSection, ModalityBreakdown>();
 
             [JsonIgnore]
-            public double TotalTokens => Sections.Where(kvp => !kvp.Key.HasFlag(AIRequestSection.FALLBACK)).Sum(s => s.Value.Total);
+            public double TotalActualTokens => Sections.Sum(s => s.Value.TotalActualTokens);
         }
 
         public class OutputCostDetails
         {
             public double EstimatedCostPerMillionTokens { get; set; }
-
-            public Dictionary<AIResponseSection, ModalityBreakdown> Sections { get; }
-                = new Dictionary<AIResponseSection, ModalityBreakdown>();
+            public int ThoughtsTokens { get; set; }
+            public int CandidatesTokens { get; set; }
+            public Dictionary<AIResponseSection, ModalityBreakdown> Sections { get; } = new Dictionary<AIResponseSection, ModalityBreakdown>();
 
             [JsonIgnore]
-            public double TotalTokens => Sections.Where(kvp => !kvp.Key.HasFlag(AIResponseSection.FALLBACK)).Sum(s => s.Value.Total);
+            public double TotalActualTokens => Sections.Sum(s => s.Value.TotalActualTokens);
         }
 
         public class ModalityBreakdown
         {
-            public Dictionary<string, MetricStat> Modality { get; }
-                = new Dictionary<string, MetricStat>(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, MetricStat> Modality { get; } = new Dictionary<string, MetricStat>(StringComparer.OrdinalIgnoreCase);
 
             [JsonIgnore]
-            public double Total => Modality.Values.Sum(m => m.Amount);
+            public double TotalActualTokens => Modality.Values.Sum(m => m.ActualTokens);
 
-            public void Add(string modality, double amount, int count)
+            public void Add(string modality, int count, double units, string unitName, double estimatedTokens, double actualTokens)
             {
                 if (!Modality.ContainsKey(modality))
                 {
-                    Modality[modality] = new MetricStat();
+                    Modality[modality] = new MetricStat { UnitName = unitName };
                 }
-                Modality[modality].Amount += amount;
-                Modality[modality].Count += count;
+
+                var stat = Modality[modality];
+                stat.Count += count;
+                stat.Units += units;
+                stat.EstimatedTokens += estimatedTokens;
+                stat.ActualTokens += actualTokens;
+
+                // Keep UnitName consistent, or comma separate if they differ (rare)
+                if (stat.UnitName != unitName && !stat.UnitName.Contains(unitName))
+                    stat.UnitName = $"{stat.UnitName}/{unitName}";
             }
 
             public void Add(ModalityBreakdown other)
@@ -290,15 +309,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (other == null) return;
                 foreach (var kvp in other.Modality)
                 {
-                    Add(kvp.Key, kvp.Value.Amount, kvp.Value.Count);
+                    Add(kvp.Key, kvp.Value.Count, kvp.Value.Units, kvp.Value.UnitName, kvp.Value.EstimatedTokens, kvp.Value.ActualTokens);
                 }
             }
         }
 
         public class MetricStat
         {
-            public double Amount { get; set; }
             public int Count { get; set; }
+
+            /// <summary>
+            /// Physical units (Chars, Seconds, Images count)
+            /// </summary>
+            public double Units { get; set; }
+            public string UnitName { get; set; }
+
+            /// <summary>
+            /// Local calculation of tokens
+            /// </summary>
+            public double EstimatedTokens { get; set; }
+
+            /// <summary>
+            /// The billed tokens (distributed or exact)
+            /// </summary>
+            public double ActualTokens { get; set; }
         }
     }
 }

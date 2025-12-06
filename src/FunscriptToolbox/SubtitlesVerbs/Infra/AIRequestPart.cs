@@ -11,7 +11,8 @@
 
         public AIRequestSection Section { get; }
         public abstract string ForSimplifiedFullPrompt();
-
-        public abstract double Weight { get; }
+        public abstract double Units { get; }
+        public abstract string UnitName { get; }
+        public abstract double EstimatedTokens { get; }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace FunscriptToolbox.SubtitlesVerbs.Infra
+﻿using System;
+
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIRequestPartText : AIRequestPart
     {
@@ -12,6 +14,14 @@
 
         public string Content { get; }
         public override string ForSimplifiedFullPrompt() => this.Content;
-        public override double Weight => this.Content.Length;
+
+        internal static double GetEstimatedTokensFromChar(double nbCharsInResponse)
+        {
+            return nbCharsInResponse / 3.5;
+        }
+
+        public override double Units => this.Content.Length;
+        public override string UnitName => "chars";
+        public override double EstimatedTokens => GetEstimatedTokensFromChar(this.Units);
     }
 }

@@ -104,35 +104,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             // Helper to calculate total dollars for a list of costs
             double CalculateTotalDollars(IEnumerable<Cost> costsToSum)
             {
-                double input = costsToSum.Sum(c => (c.Input.TotalTokens / 1_000_000.0) * c.Input.EstimatedCostPerMillionTokens);
-                double output = costsToSum.Sum(c => (c.Output.TotalTokens / 1_000_000.0) * c.Output.EstimatedCostPerMillionTokens);
+                double input = costsToSum.Sum(c => (c.Input.TotalActualTokens / 1_000_000.0) * c.Input.EstimatedCostPerMillionTokens);
+                double output = costsToSum.Sum(c => (c.Output.TotalActualTokens / 1_000_000.0) * c.Output.EstimatedCostPerMillionTokens);
                 return input + output;
             }
 
-            // Helper to determine if a cost is purely fallback/stats based (no tokens)
+            // Helper: Check for fallback
             bool IsFallbackCost(Cost c)
             {
-                // Check if the primary input section has the Fallback flag
-                // (User stated a cost is either all fallback or all normal)
-                return c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK)) 
+                return c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK))
                     || c.Output.Sections.Keys.Any(k => k.HasFlag(AIResponseSection.FALLBACK));
             }
 
-            // 2. Group by Task Name (Level 1)
+            // Helper: Format numbers nicely
+            string Fmt(double val) => Math.Abs(val % 1) <= (Double.Epsilon * 100) ? $"{(long)val}" : $"{val:F2}";
+
+            // 2. Report Header
             var taskGroups = allCosts
                 .GroupBy(x => x.GroupName)
                 .OrderBy(g => g.First().Cost.CreationTime);
 
-            const string NoteForResponseWithoutTokens = " [NOTE: cost couldn't be estimated for responses without tokens]";
-            var taskGlobalCost = CalculateTotalDollars(allCosts.Select( f=> f.Cost));
-            var globalCostWarning = allCosts.Select(c => c.Cost).Any(c => IsFallbackCost(c)) ? NoteForResponseWithoutTokens : "";
+            const string NoteForFallback = " [NOTE: Responses from 'Engine (NO TOKENS REPORTED)' are not counted, see below]";
+            var taskGlobalCost = CalculateTotalDollars(allCosts.Select(f => f.Cost));
+            var globalCostWarning = allCosts.Any(c => IsFallbackCost(c.Cost)) ? NoteForFallback : "";
 
             yield return "========================================================================";
-            yield return " NOTE: All costs are estimates based on token usage (when available).";
-            yield return "       Please refer to your vendor billing for the actual final charges.";
+            yield return " AI COST REPORT";
+            yield return " All costs are estimates based on token usage reported by the API.";
+            yield return " Please refer to your vendor billing for the actual final charges.";
             yield return "========================================================================";
             yield return string.Empty;
-            yield return $"Global Cost: {taskGlobalCost:C}{globalCostWarning}";
+            yield return "Global:";
+            yield return $"   Calls: {taskGroups.SelectMany(f => f).Count()}";
+            yield return $"   Cost: {taskGlobalCost:C}{globalCostWarning}";
             yield return string.Empty;
 
             foreach (var taskGroup in taskGroups)
@@ -142,29 +146,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 var taskName = taskGroup.Key;
                 var taskCosts = taskGroup.Select(x => x.Cost).ToList();
 
-                // --- Level 1: Task Totals ---
+                // Level 1: Task Totals
                 var taskTotalTime = taskCosts.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.TimeTaken);
                 var taskTotalCost = CalculateTotalDollars(taskCosts);
-                var totalItemsInRequest = taskCosts.Aggregate(0, (acc, c) => acc + c.NbItemsInRequest);
-                var totalItemsInResponse = taskCosts.Aggregate(0, (acc, c) => acc + c.NbItemsInResponse);
-                var taskNbCalls = taskCosts.Count;
-
-                var costWarning = taskCosts.Any(c => IsFallbackCost(c)) ? NoteForResponseWithoutTokens : "";
+                var totalItemsInRequest = taskCosts.Sum(c => c.NbItemsInRequest);
+                var totalItemsInResponse = taskCosts.Sum(c => c.NbItemsInResponse);
 
                 yield return $"Task: {taskName}";
                 yield return $"   Totals:";
-                yield return $"      Calls: {taskNbCalls}";
-                yield return $"      Time Taken: {taskTotalTime:hh\\:mm\\:ss}";
-                yield return $"      Cost: {taskTotalCost:C}{costWarning}";
+                yield return $"      Calls: {taskCosts.Count}";
+                yield return $"      Time : {taskTotalTime:hh\\:mm\\:ss}";
+                yield return $"      Cost : {taskTotalCost:C}";
                 var retryString = (totalItemsInRequest > totalItemsInResponse) ? $" ({totalItemsInRequest - totalItemsInResponse} retries)" : string.Empty;
                 yield return $"      Primary nodes in request:  {totalItemsInRequest,4}{retryString}";
                 yield return $"      Primary nodes in response: {totalItemsInResponse,4}";
 
-                // 3. Group by Engine AND Fallback Status (Level 2)
-                // We group by both to ensure 'Gemini' (Tokens) and 'Gemini' (Fallback/Errors) remain distinct
+                // Level 2: Engine Groups (Separating Fallback/No-Token responses)
                 var engineGroups = taskCosts
                     .GroupBy(c => new { c.EngineIdentifier, IsFallback = IsFallbackCost(c) })
-                    .OrderBy(g => g.Key.IsFallback)
+                    .OrderBy(g => g.Key.IsFallback) // Standard first, Fallback last
                     .ThenBy(g => g.Key.EngineIdentifier);
 
                 foreach (var engineGroup in engineGroups)
@@ -173,94 +173,95 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     bool isFallback = engineGroup.Key.IsFallback;
                     var groupCosts = engineGroup.ToList();
 
-                    // Aggregate specific engine volume
+                    // Aggregate
                     var aggregated = Cost.Sum(taskName, groupCosts);
 
-                    // Calculate Financials for this engine
-                    double groupTotalInputDollars = groupCosts.Sum(c => (c.Input.TotalTokens / 1_000_000.0) * c.Input.EstimatedCostPerMillionTokens);
-                    double groupTotalOutputDollars = groupCosts.Sum(c => (c.Output.TotalTokens / 1_000_000.0) * c.Output.EstimatedCostPerMillionTokens);
-                    double groupTotalDollars = groupTotalInputDollars + groupTotalOutputDollars;
+                    double groupInputCost = (aggregated.Input.TotalActualTokens / 1_000_000.0) * aggregated.Input.EstimatedCostPerMillionTokens;
+                    double groupOutputCost = (aggregated.Output.TotalActualTokens / 1_000_000.0) * aggregated.Output.EstimatedCostPerMillionTokens;
+                    double groupTotalCost = groupInputCost + groupOutputCost;
 
-                    // Determine display flags
-                    bool showCost = groupTotalDollars > 0;
-                    string sectionTitle = isFallback ? $"Engine (RESPONSE WITHOUT TOKENS): {engineId}" : $"Engine: {engineId}";
+                    // Calculate Rates for display
+                    double avgInputRate = aggregated.Input.EstimatedCostPerMillionTokens;
+                    double avgOutputRate = aggregated.Output.EstimatedCostPerMillionTokens;
 
-                    // Calculate average rates (only needed if showing cost)
-                    double avgInputRate = (showCost && aggregated.TotalPromptTokens > 0)
-                        ? (groupTotalInputDollars / aggregated.TotalPromptTokens) * 1_000_000
-                        : 0;
-                    double avgOutputRate = (showCost && aggregated.TotalCompletionTokens > 0)
-                        ? (groupTotalOutputDollars / aggregated.TotalCompletionTokens) * 1_000_000
-                        : 0;
+                    string title = isFallback ? $"Engine (NO TOKENS REPORTED): {engineId}" : $"Engine: {engineId}";
 
-                    // --- Level 2 Header ---
-                    yield return $"   {sectionTitle}";
+                    yield return $"   {title}";
+                    yield return $"      Calls: {groupCosts.Count}, Time: {aggregated.TimeTaken:hh\\:mm\\:ss}{(isFallback ? "" : $", Cost: {groupTotalCost:C}")}";
+
+                    // --- INPUT ---
                     yield return isFallback
-                        ? $"      Calls: {groupCosts.Count}, Time: {aggregated.TimeTaken:hh\\:mm\\:ss}"
-                        : $"      Calls: {groupCosts.Count}, Time: {aggregated.TimeTaken:hh\\:mm\\:ss}, Cost: {groupTotalDollars:C}";
+                        ? $"      Input (Estimates only):"
+                        : $"      Input: {Fmt(aggregated.TotalPromptTokens)} tokens, {groupInputCost:C}";
 
-                    // --- Level 3: Details (Input) ---
-                    yield return isFallback
-                        ? $"      Input:"
-                        : $"      Input: {FormatMetric(aggregated.TotalPromptTokens, "tokens")}, {groupTotalInputDollars:C}";
-                 
                     foreach (var sectionKvp in aggregated.Input.Sections.OrderBy(k => k.Key))
                     {
-                        double sectionTotal = sectionKvp.Value.Total;
-                        double sectionCost = (sectionTotal / 1_000_000.0) * avgInputRate;
-
-                        // Clean up the Enum string for display
                         string sectionName = (sectionKvp.Key & ~AIRequestSection.FALLBACK).ToString();
-                        yield return isFallback
-                            ? $"         {sectionName}:"
-                            : $"         {sectionName}: {FormatMetric(sectionTotal, "tokens")}, {sectionCost:C}";
+                        double sectionTotalTokens = sectionKvp.Value.TotalActualTokens;
+                        double sectionCost = (sectionTotalTokens / 1_000_000.0) * avgInputRate;
+
+                        if (!isFallback)
+                        {
+                            yield return $"         {sectionName}: {Fmt(sectionTotalTokens)} tokens, {sectionCost:C}";
+                        }
+                        else
+                        {
+                            yield return $"         {sectionName}:";
+                        }
 
                         foreach (var modality in sectionKvp.Value.Modality)
                         {
                             string key = modality.Key;
-                            var count = modality.Value.Count;
+                            var stat = modality.Value;
 
-                            var amount = modality.Value.Amount;
-                            var unit = isFallback ? GetUnitForFallbackModality(key) : "tokens";
+                            double modCost = (stat.ActualTokens / 1_000_000.0) * avgInputRate;
+                            string costStr = (!isFallback && modCost > 0) ? $", {modCost:C}" : "";
 
-                            var modCost = (amount / 1_000_000.0) * avgInputRate;
-                            var modCostStr = modCost > 0 ? $", {modCost:C}" : "";
+                            // Logic to display tokens: if fallback, show estimated tokens with a label
+                            string tokenStr = isFallback
+                                ? $"{Fmt(stat.EstimatedTokens)} est. tokens"
+                                : $"{Fmt(stat.ActualTokens)} tokens";
 
-                            yield return $"            {key} ({count}): {FormatMetric(amount, unit)}{modCostStr}";
+                            yield return $"            {key} ({stat.Count}): {Fmt(stat.Units)} {stat.UnitName}, {tokenStr}{costStr}";
                         }
                     }
 
-                    // --- Level 3: Details (Output) ---
+                    // --- OUTPUT ---
                     yield return isFallback
-                        ? $"      Output:"
-                        : $"      Output: {FormatMetric(aggregated.TotalCompletionTokens, "tokens")}, {groupTotalOutputDollars:C}";
+                        ? $"      Output (Estimates only):"
+                        : $"      Output: {Fmt(aggregated.TotalCompletionTokens)} tokens, {groupOutputCost:C}";
 
                     foreach (var sectionKvp in aggregated.Output.Sections.OrderBy(k => k.Key))
                     {
-                        double sectionTotal = sectionKvp.Value.Total;
-                        double sectionCost = (sectionTotal / 1_000_000.0) * avgOutputRate;
-
                         string sectionName = (sectionKvp.Key & ~AIResponseSection.FALLBACK).ToString();
-                        yield return isFallback 
-                            ? $"         {sectionName}:"
-                            : $"         {sectionName}: {FormatMetric(sectionTotal, "tokens")}, {sectionCost:C}";
+                        double sectionTotalTokens = sectionKvp.Value.TotalActualTokens;
+                        double sectionCost = (sectionTotalTokens / 1_000_000.0) * avgOutputRate;
+
+                        if (!isFallback)
+                        {
+                            yield return $"         {sectionName}: {Fmt(sectionTotalTokens)} tokens, {sectionCost:C}";
+                        }
+                        else
+                        {
+                            yield return $"         {sectionName}:";
+                        }
 
                         foreach (var modality in sectionKvp.Value.Modality)
                         {
                             string key = modality.Key;
-                            var count = modality.Value.Count;
+                            var stat = modality.Value;
 
-                            var amount = modality.Value.Amount;
-                            var unit = isFallback ? GetUnitForFallbackModality(key) : "tokens";
+                            double modCost = (stat.ActualTokens / 1_000_000.0) * avgOutputRate;
+                            string costStr = (!isFallback && modCost > 0) ? $", {modCost:C}" : "";
 
-                            var modCost = (amount / 1_000_000.0) * avgOutputRate;
-                            var modCostStr = modCost > 0 ? $", {modCost:C}" : "";
+                            string tokenStr = isFallback
+                               ? $"{Fmt(stat.EstimatedTokens)} est. tokens"
+                               : $"{Fmt(stat.ActualTokens)} tokens";
 
-                            yield return $"            {key} ({count}): {FormatMetric(amount, unit)}{modCostStr}";
+                            yield return $"            {key} ({stat.Count}): {Fmt(stat.Units)} {stat.UnitName}, {tokenStr}{costStr}";
                         }
                     }
-
-                    yield return string.Empty; // Empty line between engines
+                    yield return string.Empty;
                 }
             }
         }
