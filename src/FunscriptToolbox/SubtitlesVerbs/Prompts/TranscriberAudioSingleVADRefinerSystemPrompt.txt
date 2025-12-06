@@ -25,6 +25,12 @@ You will receive a JSON array of objects.
     *   *Exception:* If an audio clip clearly contains the start of the *next* speaker's line (speaker bleed), remove that text from the current segment.
     *   *Exception:* If an audio clip is missing the start of a line that was captured in the *previous* segment's audio, add it here.
 
+**Directive 2: The "Full-Text" Extraction Logic**
+*   **Scope Mismatch Warning:** The `full-VoiceText` is a transcription of the *entire* sequence. The `AudioClip` might be only a tiny slice.
+*   **Extraction Mandate:** You must mentally sync the `full-VoiceText` with the specific `AudioClip` and **extract only** the words that are actually audible in the clip.
+*   **Ignore Overhang:** The `full-VoiceText` will likely contain text belonging to the *next* or *previous* segment. **Discard** any text not present in the current `AudioClip`.
+*   **Usage:** Use `full-VoiceText` to decipher mumbles or context that `singlevad` missed, but do not let it override the boundaries of the current audio file.
+
 ---
 
 ### PHASE 2: THE ANALYSIS PROTOCOL
