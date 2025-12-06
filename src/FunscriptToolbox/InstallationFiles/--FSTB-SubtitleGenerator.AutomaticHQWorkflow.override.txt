@@ -117,22 +117,6 @@
       ]
     },
     {
-      "Id": "translated-texts_naturalist",
-      "Enabled": false,
-      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
-      "ExportMetadataSrt": false
-    },
-    {
-      "Id": "arbitrer-choices",
-      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
-      "Enabled": false
-    },
-    {
-      "Id": "arbitrer-final-choice",
-      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
-      "Enabled": false
-    },	
-    {
       "TranscriptionId": "final-ai-texts",
       "Enabled": true,
       // [OPTION] Set to "arbitrer-final-choice" if you want to go with multiples translation and an arbiter.

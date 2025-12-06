@@ -118,12 +118,6 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="ArbitrerSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\ArbitrerSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="ArbitrerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
   <data name="FSTB-PrepareScriptForRelease_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-PrepareScriptForRelease.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
@@ -151,26 +145,26 @@
   <data name="TranscriberAudioFullSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="TranscriberAudioFullTimingRefinerSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TranscriberAudioFullTimingRefinerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
   <data name="TranscriberAudioFullUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
-  <data name="TranscriberAudioPrecisionSegmentRefinerSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  <data name="TranscriberAudioSingleVADRefinerSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
-  <data name="TranscriberAudioPrecisionSegmentRefinerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  <data name="TranscriberAudioSingleVADRefinerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="TranscriberAudioSingleVADSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioSingleVADSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="TranscriberAudioSingleVADUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioSingleVADUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="TranscriberAudioTranscriptionArbitrationRefinementUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="TranscriberOnScreenTextSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberOnScreenTextSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
@@ -183,9 +177,6 @@
   </data>
   <data name="TranslatorMaverickUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="TranslatorNaturalistUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranslatorNaturalistUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="TranslatorSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranslatorSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>

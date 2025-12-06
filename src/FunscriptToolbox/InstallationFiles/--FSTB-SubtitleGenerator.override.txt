@@ -174,19 +174,15 @@
     },
 
     // Prompt adjustments ----------------------------------------------------------
-
-    {
-      "$id": "TranscriberAudioFullSystemPrompt",
-      "TextAfter": ""
-    },
     {
       "$id": "TranscriberAudioFullUserPrompt",
       // [Option] Remove the // of the line similar to this one
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
     },
     {
-      "$id": "TranscriberAudioSingleVADSystemPrompt",
-      "TextAfter": ""
+      "$id": "TranscriberAudioFullTimingRefinerUserPrompt",
+      // [Option] Remove the // of the line similar to this one
+      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
     },
     {
       "$id": "TranscriberAudioSingleVADUserPrompt",
@@ -194,46 +190,12 @@
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
     },
     {
-      "$id": "TranscriberAudioPrecisionSegmentRefinerSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranscriberAudioPrecisionSegmentRefinerUserPrompt",
+      "$id": "TranscriberAudioSingleVADRefinerUserPrompt",
       // [Option] Remove the // of the line similar to this one
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
-    },
-    {
-      "$id": "TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranscriberAudioTranscriptionArbitrationRefinementUserPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
-    },
-    {
-      "$id": "TranscriberOnScreenTextSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranscriberVisualAnalystSystemPrompt",
-      "TextAfter": ""
     },
     {
       "$id": "TranscriberVisualAnalystUserPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
-    },
-    {
-      "$id": "ArbitrerSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranslatorSystemPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranslatorNaturalistUserPrompt",
       // [Option] Remove the // of the line similar to this one
       // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
     },
@@ -293,24 +255,6 @@ _______________________________________=",
     },
     {
       "Id": "translated-texts_maverick",
-      "Engine": {
-        "$ref": "AIEngineGeminiPro2.5"
-      }
-    },
-    {
-      "Id": "finalized_maverick",
-      "Engine": {
-        "$ref": "AIEngineGeminiPro2.5"
-      }
-    },
-    {
-      "Id": "translated-texts_naturalist",
-      "Engine": {
-        "$ref": "AIEngineGeminiPro2.5"
-      },
-    },
-    {
-      "Id": "arbitrer-final-choice",
       "Engine": {
         "$ref": "AIEngineGeminiPro2.5"
       }

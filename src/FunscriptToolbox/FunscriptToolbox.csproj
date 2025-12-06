@@ -334,10 +334,10 @@
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementUserPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerUserPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioPrecisionSegmentRefinerSystemPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerSystemPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerUserPrompt.txt" />
+    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberOnScreenTextSystemPrompt.txt" />
@@ -346,7 +346,6 @@
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranslatorNaturalistUserPrompt.txt" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8">

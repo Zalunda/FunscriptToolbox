@@ -41,28 +41,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
             // All engine should be overriden in --FSTB-SubtitleGenerator.override.txt
             var defaultEngine = AddSharedObject("ChatBotAIEngineWillBeOverriden", new AIEngineChatBot());            
 
-            var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects("TranscriberAudioFullSystemPrompt", Resources.TranscriberAudioFullSystemPrompt);
-            var transcriberAudioFullUserPrompt = AddPromptToSharedObjects("TranscriberAudioFullUserPrompt", Resources.TranscriberAudioFullUserPrompt);
+            var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullSystemPrompt), Resources.TranscriberAudioFullSystemPrompt);
+            var transcriberAudioFullUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullUserPrompt), Resources.TranscriberAudioFullUserPrompt);
 
-            var transcriberAudioSingleVADSystemPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADSystemPrompt", Resources.TranscriberAudioSingleVADSystemPrompt);
-            var transcriberAudioSingleVADUserPrompt = AddPromptToSharedObjects("TranscriberAudioSingleVADUserPrompt", Resources.TranscriberAudioSingleVADUserPrompt);
+            var transcriberAudioPrecisionSegmentRefinerSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullTimingRefinerSystemPrompt), Resources.TranscriberAudioFullTimingRefinerSystemPrompt);
+            var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullTimingRefinerUserPrompt), Resources.TranscriberAudioFullTimingRefinerUserPrompt);
 
-            var transcriberAudioPrecisionSegmentRefinerSystemPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerSystemPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerSystemPrompt);
-            var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects("TranscriberAudioPrecisionSegmentRefinerUserPrompt", Resources.TranscriberAudioPrecisionSegmentRefinerUserPrompt);
+            var transcriberAudioSingleVADSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADSystemPrompt), Resources.TranscriberAudioSingleVADSystemPrompt);
+            var transcriberAudioSingleVADUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADUserPrompt), Resources.TranscriberAudioSingleVADUserPrompt);
 
-            var transcriberAudioTranscriptionArbitrationRefinementSystemPrompt = AddPromptToSharedObjects("TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt", Resources.TranscriberAudioTranscriptionArbitrationRefinementSystemPrompt);
-            var transcriberAudioTranscriptionArbitrationRefinementUserPrompt = AddPromptToSharedObjects("TranscriberAudioTranscriptionArbitrationRefinementUserPrompt", Resources.TranscriberAudioTranscriptionArbitrationRefinementUserPrompt);
+            var transcriberAudioSingleVADRefinerSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADRefinerSystemPrompt), Resources.TranscriberAudioSingleVADRefinerSystemPrompt);
+            var transcriberAudioSingleVADRefinerUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADRefinerUserPrompt), Resources.TranscriberAudioSingleVADRefinerUserPrompt);
 
-            var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects("TranscriberOnScreenTextSystemPrompt", Resources.TranscriberOnScreenTextSystemPrompt);
+            var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberOnScreenTextSystemPrompt), Resources.TranscriberOnScreenTextSystemPrompt);
 
-            var transcriberVisualAnalystSystemPrompt = AddPromptToSharedObjects("TranscriberVisualAnalystSystemPrompt", Resources.TranscriberVisualAnalystSystemPrompt);
-            var transcriberVisualAnalystUserPrompt = AddPromptToSharedObjects("TranscriberVisualAnalystUserPrompt", Resources.TranscriberVisualAnalystUserPrompt);
+            var transcriberVisualAnalystSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberVisualAnalystSystemPrompt), Resources.TranscriberVisualAnalystSystemPrompt);
+            var transcriberVisualAnalystUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberVisualAnalystUserPrompt), Resources.TranscriberVisualAnalystUserPrompt);
 
-            var arbitrerSystemPrompt = AddPromptToSharedObjects("ArbitrerSystemPrompt", Resources.ArbitrerSystemPrompt);
-
-            var translatorSystemPrompt = AddPromptToSharedObjects("TranslatorSystemPrompt", Resources.TranslatorSystemPrompt);
-            var translatorNaturalistUserPrompt = AddPromptToSharedObjects("TranslatorNaturalistUserPrompt", Resources.TranslatorNaturalistUserPrompt);
-            var translatorMaverickUserPrompt = AddPromptToSharedObjects("TranslatorMaverickUserPrompt", Resources.TranslatorMaverickUserPrompt);
+            var translatorSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranslatorSystemPrompt), Resources.TranslatorSystemPrompt);
+            var translatorMaverickUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranslatorMaverickUserPrompt), Resources.TranslatorMaverickUserPrompt);
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -303,8 +300,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         Options = new AIOptions()
                         {
-                            SystemPrompt = transcriberAudioTranscriptionArbitrationRefinementSystemPrompt,
-                            UserPrompt = transcriberAudioTranscriptionArbitrationRefinementUserPrompt,
+                            SystemPrompt = transcriberAudioSingleVADRefinerSystemPrompt,
+                            UserPrompt = transcriberAudioSingleVADRefinerUserPrompt,
                             MetadataNeeded = "singlevad-VoiceText,!SkipRefined",
                             MetadataAlwaysProduced = "VoiceText",
                             BinaryDataExtractors = new BinaryDataExtractor[]
@@ -475,86 +472,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "TranslatedText",
                         }
                     },
-                    new TranslatorAI()
-                    {
-                        TranslationId = "translated-texts_naturalist",
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = defaultEngine,
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings",
-                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = translatorSystemPrompt,
-                            UserPrompt = translatorNaturalistUserPrompt,
-                            TextAfterAnalysis = " --reasoning_effort medium",
-
-                            MetadataNeeded = "VoiceText|OnScreenText",
-                            MetadataAlwaysProduced = "TranslatedText",
-
-                            BatchSize = 150,
-                            BatchSplitWindows = 10,
-                            NbContextItems = 1000,
-                            MetadataInContextLimits = new Dictionary<string, int>
-                            {
-                                { "ParticipantsPoses", 10 },
-                                { "TranslationAnalysis-Audio", 10 },
-                                { "TranslationAnalysis-Visual", 10 },
-                                { "VoiceText", 10 }
-                            },
-                            NbItemsMinimumReceivedToContinue = 50,
-                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
-                        }
-                    },
-                    new TranscriberAggregator
-                    {
-                        TranscriptionId = "arbitrer-choices",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings"
-                        },
-                        CandidatesSources = "translated-texts_maverick,translated-texts_naturalist,voice-texts,on-screen-texts,mergedvad,full",
-                        MetadataProduced = "CandidatesText",
-
-                        WaitForFinished = true,
-                        IncludeExtraItems = false
-                    },
-                    new TranslatorAI()
-                    {
-                        TranslationId = "arbitrer-final-choice",
-                        TargetLanguage = Language.FromString("en"),
-                        Engine = defaultEngine,
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings",
-                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,arbitrer-choices,manual-input"
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = arbitrerSystemPrompt,
-                            TextAfterAnalysis = " --reasoning_effort medium",
-
-                            MetadataNeeded = "CandidatesText",
-                            MetadataAlwaysProduced = "FinalText",
-
-                            BatchSize = 150,
-                            BatchSplitWindows = 10,
-                            NbContextItems = 100,
-                            MetadataInContextLimits = new Dictionary<string, int>
-                            {
-                                { "ParticipantsPoses", 10 },
-                                { "TranslationAnalysis-Audio", 10 },
-                                { "TranslationAnalysis-Visual", 10 },
-                                { "VoiceText", 10 }
-                            },
-                            NbItemsMinimumReceivedToContinue = 50,
-                            FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
-                        },
-                        AutoMergeOn = "[!MERGED]",
-                        AutoDeleteOn = "[!UNNEEDED]"
-                    },
                     new TranscriberClone()
                     {
                         TranscriptionId = "final-ai-texts",
@@ -576,7 +493,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "singlevad-ai,voice-texts,visual-analysis,on-screen-texts,speakers,manual-input",
+                            Sources = "on-screen-texts,speakers,singlevad-ai,singlevad-ai-refined,visual-analysis,translated-texts_maverick,manual-input",
                         },
                         TextSources = "final-ai-texts",
                         WaitForFinished = true

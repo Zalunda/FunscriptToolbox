@@ -53,6 +53,8 @@ The screenshots contains the StartTime in the upper left corner, use this inform
     *   **The Trigger:** If the view is filled with a shoulder, side of the neck, or hair, but you cannot see the buttocks.
     *   **The Rule:** If the previous known position was Front-Facing (Cowgirl), assume she is **still facing him** but has leaned forward to whisper or kiss the neck.
     *   **Differentiation:** "Reverse Cowgirl" is ONLY valid if you clearly see the buttocks, the spine centered away from the camera, or the back of the head. If you see a side profile (cheek, ear, jawline), she is **Facing Forward**.
+*   **Other Trap**
+    * If you see the floor behind the girl that mean that she's the one laying on her back on the ground and the position is probably missionary.
 
 **Step C: Linguistic Forensics (The "Flavor" Check)**
 *   **Analyze the Vocabulary:** Why did she choose *this* word?
