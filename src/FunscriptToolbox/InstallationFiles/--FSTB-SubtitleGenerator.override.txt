@@ -60,7 +60,8 @@
           "thinkingConfig": {
             "includeThoughts": true
           },
-          "mediaResolution": "MEDIA_RESOLUTION_LOW"
+          // According to Gemini doc: LOW: 64 tokens, MEDIUM: 256 tokens, HIGH: 256 tokens + Pan & Scan (not sure what it mean)
+          "mediaResolution": "MEDIA_RESOLUTION_HIGH"
         }
       },
 
@@ -73,11 +74,6 @@
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyPoe",
-      "RequestBodyExtension": {
-        "extra_body": {
-          "thinking_budget": 2048
-        }
-      },
       // For Poe, it's hard to compute. I just put the number from the vendor.
       "EstimatedCostPerInputMillionTokens": 1.25,
       "EstimatedCostPerOutputMillionTokens": 10.0
@@ -106,6 +102,8 @@
             // [Option] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
             "includeThoughts": true
           },
+          // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
+          // [Option] Change to MEDIUM/HIGH if you don't mind the higher cost. LOW seem to be a good enough job.
           "mediaResolution": "MEDIA_RESOLUTION_LOW"
         }
       },
@@ -118,11 +116,6 @@
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "gemini-3-pro",
       "APIKeyName": "APIKeyPoe",
-      "RequestBodyExtension": {
-        "extra_body": {
-          "thinking_budget": 4096
-        }
-      },
       // For Poe, it's hard to compute. I just put the number from the vendor.
       "EstimatedCostPerInputMillionTokens": 2,
       "EstimatedCostPerOutputMillionTokens": 12,
@@ -131,9 +124,9 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineGeminiPro3.0",
       "Engines": [
-        // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
-        { "$ref": "AIEngineGeminiPro3.0OnGoogle" },
-        { "$ref": "AIEngineGeminiPro3.0OnPoe" }
+        // [Option] If you have a paid account on Google want to use it before Poe (free account can't use 3.0 via API), change the order.
+        { "$ref": "AIEngineGeminiPro3.0OnPoe" },
+        { "$ref": "AIEngineGeminiPro3.0OnGoogle" }
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": true,
@@ -238,6 +231,8 @@ _______________________________________=",
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
+        // [OPTION] Right now, only 2.5 have 50 free transaction per day. Change to 3.0 if you use Poe or you have a paid account on google. 
+        // [OPTION #2] Change to "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
         "$ref": "AIEngineGeminiPro2.5"
       }
     },
@@ -256,6 +251,8 @@ _______________________________________=",
     {
       "Id": "translated-texts_maverick",
       "Engine": {
+        // [OPTION] Right now, only 2.5 have 50 free transaction per day. Change to 3.0 if you use Poe or you have a paid account on google. 
+        // [OPTION #2] Change to "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
         "$ref": "AIEngineGeminiPro2.5"
       }
     },

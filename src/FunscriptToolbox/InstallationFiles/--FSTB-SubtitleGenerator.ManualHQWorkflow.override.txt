@@ -71,7 +71,9 @@
         "BinaryDataExtractors": [
           {
             "OutputFieldName": "Screenshot",
-            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added. Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
+            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added. 
+            // Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: 
+            //    <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
             "Enabled": true,
             "AddContextNodes": true,
             "ContextShortGap": "00:00:05",
@@ -130,10 +132,10 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Options": {
-        "BatchSize": 100,
+        "BatchSize": 75,
         "BatchSplitWindows": 10,
         "NbContextItems": 100,
-        "NbItemsMinimumReceivedToContinue": 50,
+        "NbItemsMinimumReceivedToContinue": 40,
       }
     },
     {
@@ -147,27 +149,12 @@
       "RemoveMissing": false,
       "AddReviewIfTooLong": true,
       "SplitPatterns": [
-        { "CutWhere": "After", "Pattern": "([,.?!。、！:？-]+)" },
+        { "CutWhere": "After", "Pattern": "\\.|[?!。！？]+" },
+        { "CutWhere": "After", "Pattern": "[,.?!。、！:？]+" },
         { "CutWhere": "Before", "Pattern": "\\b(and|but|or)\\b" },
         { "CutWhere": "Before", "Pattern": "\\s" }
       ]
     },
-    {
-      "Id": "translated-texts_naturalist",
-      "Enabled": false,
-      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
-      "ExportMetadataSrt": false
-    },
-    {
-      "Id": "arbitrer-choices",
-      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
-      "Enabled": false
-    },
-    {
-      "Id": "arbitrer-final-choice",
-      // [OPTION] Set to true if you want to go with multiples translation and an arbiter.
-      "Enabled": false
-    },	
     {
       "TranscriptionId": "final-ai-texts",
       "Enabled": true,

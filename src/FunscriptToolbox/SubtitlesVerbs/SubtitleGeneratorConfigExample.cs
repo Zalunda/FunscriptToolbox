@@ -493,9 +493,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-texts,speakers,singlevad-ai,singlevad-ai-refined,visual-analysis,translated-texts_maverick,manual-input",
+                            Sources = "on-screen-texts,speakers,full-ai,singlevad-ai,singlevad-ai-refined,visual-analysis,translated-texts_maverick,manual-input",
                         },
-                        TextSources = "final-ai-texts",
+                        TextSources = "",
                         WaitForFinished = true
                     },
                     new SubtitleOutputCostReport()
