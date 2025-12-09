@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -32,7 +33,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 32)]
         public AIPrompt UserPrompt { get; set; }
 
+        public string[] TranscriptionToIgnorePatterns { get; set; }
+
         protected override string GetMetadataProduced() => this.MetadataProduced;
+
+        private Regex[] _transcriptionsToIgnoreRegexes;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -49,6 +54,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
+            _transcriptionsToIgnoreRegexes ??= this.TranscriptionToIgnorePatterns?.Select(t => new Regex($"^{t}$", RegexOptions.IgnoreCase | RegexOptions.Compiled)).ToArray() ?? Array.Empty<Regex>();
+
             var processStartTime = DateTime.Now;
 
             var fullPcmAudio = base.GetPcmAudio(context);
@@ -112,7 +119,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     throw new Exception($"'{this.GetType().Name}' does not support AIEngine type '{this.Engine.GetType().Name}'.");
                 }
-                HandleResponse(transcription, response, chunkStartTime, chunkEndTime);
+                HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime);
                 nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? chunkStartTime;
 
                 var startOfBufferZone = chunkEndTime - TimeSpan.FromSeconds(10);
@@ -169,6 +176,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private void HandleResponse(
+            SubtitleGeneratorContext context,
             Transcription transcription,
             AIResponse response,
             TimeSpan chunkStartTime,
@@ -188,11 +196,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     throw new Exception($"Received node with endtime {(string)node.EndTime} when audio chunk end is {chunkEndTime}.");
                 }
 
-                transcription.Items.Add(
-                    new TranscribedItem(
-                        startTime,
-                        endTime, 
-                        MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
+                if (!_transcriptionsToIgnoreRegexes.Any(regex => regex.IsMatch(node.VoiceText)))
+                {
+                    transcription.Items.Add(
+                        new TranscribedItem(
+                            startTime,
+                            endTime,
+                            MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
+                }
+                else
+                {
+                    context.WriteInfo($"Ignoring node at {startTime:hh\\:mm\\:ss\\.fff}: {node.VoiceText}");
+                }
                 response.Cost.NbItemsInResponse++;
             }
         }

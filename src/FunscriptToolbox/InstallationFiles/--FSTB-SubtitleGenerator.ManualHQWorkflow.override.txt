@@ -20,7 +20,12 @@
       "Id": "full-ai",
       "Enabled": true,
       "MaxChunkDuration": "00:05:00",
-      "ExportMetadataSrt": false
+      "ExportMetadataSrt": false,
+      "TranscriptionToIgnorePatterns" : [ 
+        "あ+[ぁ]*。",
+        "ん[っー]*。",
+        "うーん。"
+        ]
     },
     {
       "Id": "full-ai-refined",
