@@ -12,6 +12,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public abstract string ToolName { get; }
 
+        public bool IsAPIKeyAvailableIfNeeded(SubtitleGeneratorContext context) => (this.APIKeyName == null || context.GetPrivateConfig(this.APIKeyName) != null);
+
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string BaseAddress { get; set; } = "http://localhost:10000";
 

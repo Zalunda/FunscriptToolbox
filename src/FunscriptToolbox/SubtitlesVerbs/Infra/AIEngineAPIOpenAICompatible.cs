@@ -32,7 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (this.APIKeyName != null)
                 {
-                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetValidatedPrivateConfig(this.APIKeyName));
                 }
 
                 dynamic requestBody = CreateRequestBody(request);

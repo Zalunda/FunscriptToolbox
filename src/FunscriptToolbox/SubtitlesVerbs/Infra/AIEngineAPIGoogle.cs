@@ -155,7 +155,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 var requestId = $"{request.TaskId}, #{request.Number}: {request.UpdateMessage}";
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:batchGenerateContent?key={context.GetPrivateConfig(this.APIKeyName)}"))
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:batchGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
                     Content = new StringContent(batchRequestAsJson, Encoding.UTF8, "application/json")
                 };
@@ -200,8 +200,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 int pollNumber = 1;
 
                 // We use the 'name' property (e.g., "batches/zoop...") directly on the BaseAddress
-                var operationUrl = $"{operation.Name}?key={context.GetPrivateConfig(this.APIKeyName)}";
-                var cancelOperationUrl = $"{operation.Name}:cancel?key={context.GetPrivateConfig(this.APIKeyName)}";
+                var operationUrl = $"{operation.Name}?key={context.GetValidatedPrivateConfig(this.APIKeyName)}";
+                var cancelOperationUrl = $"{operation.Name}:cancel?key={context.GetValidatedPrivateConfig(this.APIKeyName)}";
 
                 while (true)
                 {
@@ -401,7 +401,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:streamGenerateContent?key={context.GetPrivateConfig(this.APIKeyName)}"))
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:streamGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
                     Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
                 };

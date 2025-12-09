@@ -60,6 +60,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                 }
 
+                if (!engine.Enabled)
+                {
+                    context.WriteInfo($"Skipping engine '{engineId}' because it's disabled.");
+                    continue;
+                }
+                if (!engine.IsAPIKeyAvailableIfNeeded(context))
+                {
+                    context.WriteInfo($"Skipping engine '{engineId}' because it's disbled (API key not set).");
+                    continue;
+                }
+
                 try
                 {
                     context.WriteInfo($"Attempting to use engine: {engine.BaseAddress}, Model: {engine.Model}");
@@ -111,6 +122,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             // All engines failed
+            if (exceptions.Count == 0)
+            {
+                throw new AIEngineAPIException($"All engines are disabled/skipped.");
+            }
             if (exceptions.Count == 1)
             {
                 throw exceptions[0];
@@ -119,7 +134,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var allEnginesFailed = new AggregateException(
                 $"All {Engines.Count} engines in the collection failed.",
                 exceptions);
-
             throw new AIEngineAPIException(
                 $"All engines failed. Errors: {string.Join("; ", exceptions.Select(e => e.Message))}",
                 allEnginesFailed,

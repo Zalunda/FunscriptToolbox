@@ -57,6 +57,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return r_privateConfig.GetValue(itemName);
         }
 
+        public string GetValidatedPrivateConfig(string itemName)
+        {
+            return r_privateConfig.GetValidatedValue(itemName);
+        }
+
         internal void WriteInfoAlreadyDone(string message = null)
         {
             WriteInfo(message, ConsoleColor.DarkGray);

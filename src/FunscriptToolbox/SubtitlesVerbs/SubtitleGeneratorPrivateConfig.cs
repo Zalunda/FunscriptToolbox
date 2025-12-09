@@ -53,6 +53,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         internal string GetValue(string itemName)
         {
+            if (r_privateItems?.TryGetValue(itemName, out var value) == true)
+            {
+                return value;
+            }
+            return null;
+        }
+
+        internal string GetValidatedValue(string itemName)
+        {
             if (r_privateItems == null)
             {
                 if (!File.Exists(r_filepath))
