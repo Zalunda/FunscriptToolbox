@@ -48,7 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (now < skipInfo.SkipUntil)
                     {
                         var remainingTime = skipInfo.SkipUntil - now;
-                        context.WriteLog($"Skipping engine '{engineId}' due to {skipInfo.ErrorType}. " +
+                        context.WriteInfo($"Skipping engine '{engineId}' due to {skipInfo.ErrorType}. " +
                             $"Will retry in {remainingTime.TotalMinutes:F1} minutes.");
                         continue;
                     }
@@ -56,13 +56,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         // Retry delay has passed, remove from skipped list
                         s_skippedEngines.TryRemove(engineId, out _);
-                        context.WriteLog($"Retry delay passed for engine '{engineId}'. Attempting to use it again.");
+                        context.WriteInfo($"Retry delay passed for engine '{engineId}'. Attempting to use it again.");
                     }
                 }
 
                 try
                 {
-                    context.WriteLog($"Attempting to use engine: {engine.BaseAddress}, Model: {engine.Model}");
+                    context.WriteInfo($"Attempting to use engine: {engine.BaseAddress}, Model: {engine.Model}");
                     var response = engine.Execute(context, request);
 
                     // Success - make sure engine is not in skipped list
@@ -73,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 catch (AIEngineAPIException ex)
                 {
                     exceptions.Add(ex);
-                    context.WriteLog($"Engine '{engineId}' failed with {ex.ErrorType}: {ex.Message}");
+                    context.WriteInfo($"Engine '{engineId}' failed with {ex.ErrorType}: {ex.Message}");
 
                     bool shouldSkip = false;
                     TimeSpan retryDelay = TimeSpan.Zero;
@@ -102,7 +102,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         var skipUntil = DateTime.UtcNow + retryDelay;
                         s_skippedEngines[engineId] = new SkippedEngineInfo(ex.ErrorType, skipUntil, ex.Message);
-                        context.WriteLog($"Engine '{engineId}' will be skipped until {skipUntil:u} ({retryDelay.TotalMinutes:F1} minutes).");
+                        context.WriteInfo($"Engine '{engineId}' will be skipped until {skipUntil:u} ({retryDelay.TotalMinutes:F1} minutes).");
                     }
 
                     // Continue to next engine

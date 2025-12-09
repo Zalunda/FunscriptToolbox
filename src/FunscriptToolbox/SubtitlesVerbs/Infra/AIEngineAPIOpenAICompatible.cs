@@ -35,8 +35,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetPrivateConfig(this.APIKeyName));
                 }
 
-                var lastTimeSaved = DateTime.Now;
-
                 dynamic requestBody = CreateRequestBody(request);
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
@@ -239,7 +237,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             try
             {
-                var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
+                var requestId = $"{request.TaskId}, #{request.Number}: {request.UpdateMessage}";
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
                 {
@@ -250,7 +248,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waited {DateTime.Now - startTime:mm\\:ss} for 1st token...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");

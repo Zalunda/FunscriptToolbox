@@ -55,6 +55,7 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyGemini",
+      "UseBatchMode": true,
       "RequestBodyExtension": {
         "generation_config": {
           "thinkingConfig": {
@@ -65,8 +66,9 @@
         }
       },
 
-      "EstimatedCostPerInputMillionTokens": 1.25,
-      "EstimatedCostPerOutputMillionTokens": 10.0
+      // Note: UseBatchMode => 50% of the regular price, from 1.25$ / 10$
+      "EstimatedCostPerInputMillionTokens": 0.625,
+      "EstimatedCostPerOutputMillionTokens": 5.0
     },
     {
       "$type": "AIEngineAPIPoe",
@@ -82,7 +84,7 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineGeminiPro2.5",
       "Engines": [
-        // [Option] If you use a paid google account and you want to use your points of Poe first, reverse the order.
+        // [Option] Change the order if you want to use your Poe points first.
         { "$ref": "AIEngineGeminiPro2.5OnGoogle" },
         { "$ref": "AIEngineGeminiPro2.5OnPoe" }
       ],
@@ -96,6 +98,7 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-3-pro-preview",
       "APIKeyName": "APIKeyGemini",
+      "UseBatchMode": true,
       "RequestBodyExtension": {
         "generation_config": {
           "thinkingConfig": {
@@ -107,8 +110,9 @@
           "mediaResolution": "MEDIA_RESOLUTION_LOW"
         }
       },
-      "EstimatedCostPerInputMillionTokens": 2,
-      "EstimatedCostPerOutputMillionTokens": 12,
+      // Note: UseBatchMode => 50% of the regular price, from 2 / 12
+      "EstimatedCostPerInputMillionTokens": 1,
+      "EstimatedCostPerOutputMillionTokens": 6,
     },
     {
       "$type": "AIEngineAPIPoe",
@@ -124,9 +128,9 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineGeminiPro3.0",
       "Engines": [
-        // [Option] If you have a paid account on Google want to use it before Poe (free account can't use 3.0 via API), change the order.
-        { "$ref": "AIEngineGeminiPro3.0OnPoe" },
-        { "$ref": "AIEngineGeminiPro3.0OnGoogle" }
+        // [Option] Change the order if you want to use your Poe points first.
+        { "$ref": "AIEngineGeminiPro3.0OnGoogle" },
+        { "$ref": "AIEngineGeminiPro3.0OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": true,
@@ -231,9 +235,9 @@ _______________________________________=",
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        // [OPTION] Right now, only 2.5 have 50 free transaction per day. Change to 3.0 if you use Poe or you have a paid account on google. 
-        // [OPTION #2] Change to "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
-        "$ref": "AIEngineGeminiPro2.5"
+        // [OPTION #1] Change to Gemini Pro 2.5 for slighly better cost but image analysis seems to be worse on 2.5 too.
+        // [OPTION #2] Change to "AIEngineGPT-5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
@@ -251,9 +255,9 @@ _______________________________________=",
     {
       "Id": "translated-texts_maverick",
       "Engine": {
-        // [OPTION] Right now, only 2.5 have 50 free transaction per day. Change to 3.0 if you use Poe or you have a paid account on google. 
-        // [OPTION #2] Change to "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
-        "$ref": "AIEngineGeminiPro2.5"
+        // [OPTION #1] Change to Gemini Pro 2.5 for slighly lower cost. For text only like that, I didn't notice a huge different between 2.5 and 3.0
+        // [OPTION #2] Change to "AIEngineGPT-5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        "$ref": "AIEngineGeminiPro3.0"
       }
     },
     {
