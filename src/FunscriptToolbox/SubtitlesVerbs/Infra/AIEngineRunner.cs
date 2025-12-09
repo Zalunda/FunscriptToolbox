@@ -36,27 +36,75 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var bracesCounter = 0;
             var lastClosingBraceIndex = -1;
             var index = 0;
+
+            // List to track indices of quotes that need escaping
+            var unescapedQuoteIndices = new List<int>();
+
             while (index < json.Length)
             {
-                // Skip string so that { or } inside the string don't messup bracesCounter
+                // Skip string so that { or } inside the string don't mess up bracesCounter
                 if (json[index] == '"')
                 {
-                    index++;
-                    while (index < json.Length && json[index] != '"')
+                    index++; // Move past the opening quote
+                    while (index < json.Length)
                     {
+                        // Case 1: Already escaped quote \"
                         if (index + 1 < json.Length && json[index] == '\\' && json[index + 1] == '"')
                         {
                             index += 2;
                         }
+                        // Case 2: A quote " that might be the end or might need escaping
+                        else if (json[index] == '"')
+                        {
+                            // LOOKAHEAD VALIDATION
+                            // Check if this quote is followed by <space> and then [, } ] :
+                            bool isRealEnding = false;
+                            int k = index + 1;
+
+                            // Skip upcoming whitespace to find the next significant character
+                            while (k < json.Length && char.IsWhiteSpace(json[k]))
+                            {
+                                k++;
+                            }
+
+                            if (k < json.Length)
+                            {
+                                char nextChar = json[k];
+                                // If the next char is a delimiter, this is likely the real end of the string
+                                if (nextChar == ',' || nextChar == '}' || nextChar == ']' || nextChar == ':')
+                                {
+                                    isRealEnding = true;
+                                }
+                            }
+                            else
+                            {
+                                // End of text reached; assume this is the closing quote
+                                isRealEnding = true;
+                            }
+
+                            if (isRealEnding)
+                            {
+                                index++; // Skip closing "
+                                break;   // Exit the string loop
+                            }
+                            else
+                            {
+                                // It's an unescaped quote inside the string. 
+                                // Add to list and continue inside the string loop.
+                                unescapedQuoteIndices.Add(index);
+                                index++;
+                            }
+                        }
+                        // Case 3: Normal character
                         else
                         {
                             index++;
                         }
                     }
-                    index++; // skip closing "
                 }
                 else
                 {
+                    // Standard JSON structure parsing
                     var c = json[index++];
                     var diff = (c == '{')
                         ? 1
@@ -71,10 +119,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
             }
 
+            // FIX 1: Fix unescaped quotes
+            // We traverse in reverse order so that inserting characters doesn't mess up previous indices
+            for (int i = unescapedQuoteIndices.Count - 1; i >= 0; i--)
+            {
+                int insertAt = unescapedQuoteIndices[i];
+                json = json.Insert(insertAt, "\\");
+
+                // IMPORTANT: Since we added a character, we must shift the lastClosingBraceIndex
+                // if the insertion happened before it.
+                if (lastClosingBraceIndex > insertAt)
+                {
+                    lastClosingBraceIndex++;
+                }
+            }
+
+            // FIX 2: Fix incomplete JSON at the end
             if (tryToFixEnd && bracesCounter != 0 && lastClosingBraceIndex >= 0)
             {
-                json = json.Substring(0, lastClosingBraceIndex);
-                json += "]";
+                // Ensure the index is still within bounds (safety check)
+                if (lastClosingBraceIndex <= json.Length)
+                {
+                    json = json.Substring(0, lastClosingBraceIndex);
+                    json += "]";
+                }
             }
 
             var indexOfLastBracket = json.LastIndexOf(']');
