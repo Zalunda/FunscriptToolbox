@@ -2,6 +2,7 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -106,18 +107,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var chunkStartTime = nextStartTime;
                 var chunkEndTime = nextStartTime + this.MaxChunkDuration;
+                var chunkTiming = new Timing(
+                        chunkStartTime,
+                        chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime);
                 var request = CreateRequestForFullAudio(
                     context,
                     processStartTime,
                     requestNumber++,
-                    new Timing(
-                        chunkStartTime,
-                        chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime),
+                    chunkTiming,
                     binaryDataExtractors);
                 var response = this.Engine.Execute(context, request);
                 if (response.AssistantMessage == null)
                 {
                     throw new Exception($"'{this.GetType().Name}' does not support AIEngine type '{this.Engine.GetType().Name}'.");
+                }
+                if (response.Cost != null)
+                {
+                    dynamic customInfos = new ExpandoObject();
+                    customInfos.ChunkStartTime = $"{chunkTiming.StartTime:hh\\:mm\\:ss\\.fff}";
+                    customInfos.ChunkEndTime = $"{chunkTiming.EndTime:hh\\:mm\\:ss\\.fff}";
+                    customInfos.Duration = $"{chunkTiming.Duration:hh\\:mm\\:ss\\.fff}";
+                    response.Cost.CustomInfos = customInfos;
                 }
                 HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime);
                 nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? chunkStartTime;

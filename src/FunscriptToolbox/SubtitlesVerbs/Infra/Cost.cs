@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -14,6 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int NbItemsInResponse { get; set; }
         public InputCostDetails Input { get; }
         public OutputCostDetails Output { get; }
+        public ExpandoObject CustomInfos { get; set; }
         public DateTime? CreationTime { get; }
 
         // High level totals (Actual Tokens)
@@ -26,7 +28,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public int TotalTokens => TotalPromptTokens + TotalCompletionTokens;
 
-        public Cost(string taskName, string engineIdentifier, TimeSpan timeTaken, int nbItemsInRequest, int? nbItemsInResponse = null, InputCostDetails input = null, OutputCostDetails output = null, DateTime? creationTime = null)
+        public Cost(string taskName, string engineIdentifier, TimeSpan timeTaken, int nbItemsInRequest, int? nbItemsInResponse = null, InputCostDetails input = null, OutputCostDetails output = null, ExpandoObject customInfos = null, DateTime? creationTime = null)
         {
             TaskName = taskName;
             EngineIdentifier = engineIdentifier;
@@ -35,6 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             NbItemsInResponse = nbItemsInResponse ?? nbItemsInRequest;
             Input = input ?? new InputCostDetails();
             Output = output ?? new OutputCostDetails();
+            CustomInfos = customInfos;
             CreationTime = creationTime ?? DateTime.Now;
         }
 
@@ -82,6 +85,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             };
             AggregateSections(aggregatedOutput.Sections, costs.Select(c => c.Output.Sections));
 
+            // 3. TODO, maybe, one day, accumulate the field in customInfos that look like a number or a TimeSpan
+
             return new Cost(newTaskName, costs.First().EngineIdentifier, totalTimeTaken, totalItemsInRequest, totalItemsInResponse, aggregatedInput, aggregatedOutput);
         }
 
@@ -101,17 +106,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             int? outputThoughtsTokens,
             int outputCandidatesChars,
             int? outputCandidatesTokens,
-            Dictionary<string, int> rawUsageInput = null)
+            Dictionary<string, int> rawUsageInput = null,
+            dynamic customInfos = null)
         {
             return (inputTokens != null && outputThoughtsTokens != null && outputCandidatesTokens != null)
                 ? CreateTokenBasedCost(
                     taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse,
                     costPerInputMillionTokens, costPerOutputMillionTokens, inputTokens.Value,
                     outputThoughtsChars, outputThoughtsTokens.Value,
-                    outputCandidatesChars, outputCandidatesTokens.Value, rawUsageInput)
+                    outputCandidatesChars, outputCandidatesTokens.Value, rawUsageInput, customInfos)
                 : CreateFallbackCost(
                 taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse,
-                outputThoughtsChars + outputCandidatesChars);
+                outputThoughtsChars + outputCandidatesChars, customInfos);
         }
 
         // TODO Add thought response / output text
@@ -129,7 +135,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             int outputThoughtsTokens,
             int outputCandidatesChars,
             int outputCandidatesTokens,
-            Dictionary<string, int> rawUsageInput)
+            Dictionary<string, int> rawUsageInput,
+            dynamic customInfos)
         {
             var allParts = request.SystemParts.Concat(request.UserParts).ToList();
 
@@ -207,7 +214,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 outputDetails.Sections[AIResponseSection.Candidates] = candidatesBreakdown;
             }
 
-            return new Cost(taskName, engineIdentifier, timeTaken, nbItemsInRequest, nbItemsInResponse, inputDetails, outputDetails);
+            return new Cost(taskName, engineIdentifier, timeTaken, nbItemsInRequest, nbItemsInResponse, inputDetails, outputDetails, customInfos);
         }
 
         private static Cost CreateFallbackCost(
@@ -217,7 +224,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             TimeSpan timeTaken,
             int nbItemsInRequest,
             int nbItemsInResponse,
-            int nbCharsInResponse)
+            int nbCharsInResponse,
+            dynamic customInfos)
         {
             var allParts = originalRequest.SystemParts.Concat(originalRequest.UserParts).ToList();
             var inputDetails = new InputCostDetails { EstimatedCostPerMillionTokens = 0 };
@@ -255,7 +263,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 outputDetails.Sections[AIResponseSection.Candidates | AIResponseSection.FALLBACK] = candidatesBreakdown;
             }
 
-            return new Cost(taskName, engineIdentifier, timeTaken, nbItemsInRequest, nbItemsInResponse, inputDetails, outputDetails);
+            return new Cost(taskName, engineIdentifier, timeTaken, nbItemsInRequest, nbItemsInResponse, inputDetails, outputDetails, customInfos);
         }
 
         public class InputCostDetails

@@ -172,8 +172,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 GoogleOperation operation = null;
                 bool canCancel = false;
                 var startTime = DateTime.Now;
+                var pendingWatch = Stopwatch.StartNew();
                 waitingTimer = new Timer(_ =>
                 {
+                    if (operation?.GetState() == "BATCH_STATE_RUNNING")
+                    {
+                        pendingWatch.Stop();
+                    }
                     canCancel = operation?.GetState() == "BATCH_STATE_PENDING";
                     var cancelMessage = canCancel ? " => PRESS Q TO CANCEL" : "";
                     context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waited {DateTime.Now - startTime:mm\\:ss} for batch response (State: {operation?.GetState()?.Replace("BATCH_STATE_", "")}{cancelMessage})... ");
@@ -338,6 +343,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 Console.WriteLine();
                 Console.WriteLine(AddRealTime(context, request.StartOffset, candidates.ToString()));
 
+                var runningTime = watch.Elapsed - pendingWatch.Elapsed;
+                extraContent.AppendLine($"PendingTime: {pendingWatch.Elapsed}");
+                extraContent.AppendLine($"RunningTime: {runningTime}");
+                dynamic customInfos = new ExpandoObject();
+                customInfos.PendingTime = $"{pendingWatch.Elapsed:hh\\:mm\\:ss\\.fff}";
+                customInfos.RunningTime = $"{runningTime:hh\\:mm\\:ss\\.fff}";
+
                 // 4. Calculate Usage and Costs
                 if (googleUsageMetadata != null)
                 {
@@ -359,22 +371,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
 
-                return new AIResponse(request, assistantMessageExtended, Cost.Create(
-                    request.TaskId,
-                    this.EngineIdentifier,
-                    request,
-                    watch.Elapsed,
-                    request.ItemsIncluded?.Length ?? 1,
-                    0,
-                    this.EstimatedCostPerInputMillionTokens,
-                    this.EstimatedCostPerOutputMillionTokens,
-                    inputTokens: googleUsageMetadata?.PromptTokenCount,
-                    outputThoughtsChars: thoughtContent.Length,
-                    outputThoughtsTokens: googleUsageMetadata?.ThoughtsTokenCount,
-                    outputCandidatesChars: candidates.Length,
-                    outputCandidatesTokens: googleUsageMetadata?.CandidatesTokenCount,
-                    (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
-                        .ToDictionary(item => item.Modality, item => item.TokenCount)));
+                return new AIResponse(
+                    request, 
+                    assistantMessageExtended, 
+                    Cost.Create(
+                        request.TaskId,
+                        this.EngineIdentifier,
+                        request,
+                        watch.Elapsed,
+                        request.ItemsIncluded?.Length ?? 1,
+                        0,
+                        this.EstimatedCostPerInputMillionTokens,
+                        this.EstimatedCostPerOutputMillionTokens,
+                        inputTokens: googleUsageMetadata?.PromptTokenCount,
+                        outputThoughtsChars: thoughtContent.Length,
+                        outputThoughtsTokens: googleUsageMetadata?.ThoughtsTokenCount,
+                        outputCandidatesChars: candidates.Length,
+                        outputCandidatesTokens: googleUsageMetadata?.CandidatesTokenCount,
+                        rawUsageInput: (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
+                            .ToDictionary(item => item.Modality, item => item.TokenCount),
+                        customInfos: customInfos)
+                    );
             }
             finally
             {

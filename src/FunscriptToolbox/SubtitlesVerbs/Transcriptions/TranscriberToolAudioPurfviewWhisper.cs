@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -133,12 +134,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     process.BeginOutputReadLine();
                     process.WaitForExit();
 
+                    dynamic customInfos = new ExpandoObject();
+                    customInfos.TotalDuration = $"{totalDuration:hh\\:mm\\:ss\\.fff}";
+
                     transcription.Costs.Add(
                         new Cost(
                             transcription.Id,
                             ToolName,
                             stopwatch.Elapsed,
-                            audios.Length));
+                            audios.Length,
+                            customInfos: customInfos));
 
                     // Process transcription results for each temporary audio file
                     for (int i = 0; i < tempFiles.Count; i++)
