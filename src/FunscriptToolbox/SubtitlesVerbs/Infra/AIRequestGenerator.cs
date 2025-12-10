@@ -305,10 +305,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             if (binaryDataExtractors != null)
             {
+                parts.AddText(section, sb.ToString());
+                sb.Clear();
                 foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForItem(section, item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
                 {
                     sb.Append($"    \"{binaryItem.Key}\": ");
-                    parts.AddText(section, sb.ToString());
+                    parts.AddText(section, sb.ToString(), binaryItem.Value.First().AssociatedDataType);
                     sb.Clear();
                     parts.AddRange(binaryItem.Value);
                     sb.AppendLine();
@@ -340,19 +342,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var sb = new StringBuilder();
                 sb.AppendLine("  {");
                 sb.AppendLine($"    \"StartTime FOR CONTEXT ONLY\": \"{node.time:hh\\:mm\\:ss\\.fff}\",");
+                BinaryDataType? lastDataType = null;
                 foreach (var binaryItem in node.binaryItems)
                 {
                     sb.Append($"    \"{binaryItem.name}\": ");
-                    yield return new AIRequestPartText(section, sb.ToString());
+                    yield return new AIRequestPartText(section, sb.ToString(), binaryItem.dataType);
                     sb.Clear();
                     foreach (var cl in binaryItem.contentList)
                     {
                         yield return cl;
                     }
                     sb.AppendLine();
+                    yield return new AIRequestPartText(section, sb.ToString(), binaryItem.dataType);
+                    sb.Clear();
+
+                    lastDataType = binaryItem.dataType;
                 }
                 sb.AppendLine("  },");
-                yield return new AIRequestPartText(section, sb.ToString());
+                yield return new AIRequestPartText(section, sb.ToString(), lastDataType);
             }
         }
 

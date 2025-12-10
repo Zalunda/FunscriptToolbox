@@ -5,11 +5,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     public class AIRequestPartText : AIRequestPart
     {
         public override string Modality { get; } = "TEXT";
+        public override BinaryDataType? AssociatedDataType { get; }
 
-        public AIRequestPartText(AIRequestSection section, string content)
+        public AIRequestPartText(AIRequestSection section, string content, BinaryDataType? associatedDataType = null)
             : base(section)
         {
             this.Content = content;
+            this.AssociatedDataType = associatedDataType;
         }
 
         public string Content { get; }

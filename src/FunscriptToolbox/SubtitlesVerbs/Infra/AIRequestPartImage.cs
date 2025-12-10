@@ -3,6 +3,7 @@
     public class AIRequestPartImage : AIRequestPart
     {
         public override string Modality { get; } = "IMAGE";
+        public override BinaryDataType? AssociatedDataType => BinaryDataType.Image;
 
         public AIRequestPartImage(AIRequestSection section, string filename, byte[] content)
             : base(section)

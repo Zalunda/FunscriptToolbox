@@ -17,6 +17,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 .ToDictionary(item => item.Extractor.OutputFieldName, item => item);
         }
 
+        internal BinaryDataType? GetDefaultDataType()
+        {
+            return r_extractors.Count == 1
+                ? r_extractors.First().Value.Extractor.DataType
+                : (BinaryDataType?) null;
+        }
+
         public Dictionary<string, AIRequestPart[]> GetNamedContentListForTiming(
             AIRequestSection section,
             ITiming timing, 
@@ -48,7 +55,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return data;
         }
 
-        public IEnumerable<(TimeSpan time, (string name, AIRequestPart[] contentList)[] binaryItems)> GetContextOnlyNodes(
+        public IEnumerable<(TimeSpan time, (string name, BinaryDataType dataType, AIRequestPart[] contentList)[] binaryItems)> GetContextOnlyNodes(
             AIRequestSection section,
             ITiming timing, 
             MetadataCollection metadatas,
@@ -59,7 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 .SelectMany(bde => bde.Value.GetContextOnlyNodes(section, timing, getText))
                 .GroupBy(item => item.time)
                 .ToDictionary(item => item.Key, item => item.ToArray())
-                .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.contentList)).ToArray()));
+                .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.dataType, x.contentList)).ToArray()));
         }
 
         internal IEnumerable<AIRequestPart> GetTrainingContentList()

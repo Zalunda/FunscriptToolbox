@@ -63,7 +63,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 requestBody.systemInstruction = new
                 {
-                    parts = request.SystemParts.Select(ConvertPart).ToArray()
+                    parts = request.SystemParts.Where(IsSupported).Select(ConvertPart).ToArray()
                 };
             }
             if (request.UserParts.Any())
@@ -71,7 +71,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 requestBody.contents = new
                 {
                     role = "user",
-                    parts = request.UserParts.Select(ConvertPart).ToArray()
+                    parts = request.UserParts.Where(IsSupported).Select(ConvertPart).ToArray()
                 };
             }
             return requestBody;

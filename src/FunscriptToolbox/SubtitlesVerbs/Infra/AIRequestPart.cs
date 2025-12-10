@@ -4,6 +4,8 @@
     {
         public abstract string Modality { get; }
 
+        public abstract BinaryDataType? AssociatedDataType { get; }
+
         public AIRequestPart(AIRequestSection section) 
         {
             this.Section = section;

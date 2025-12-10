@@ -81,7 +81,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     new
                     {
                         role = "system",
-                        content = request.SystemParts.Select(ConvertPart).ToArray()
+                        content = request.SystemParts.Where(IsSupported).Select(ConvertPart).ToArray()
                     });
             }
             if (request.UserParts.Any())
@@ -90,13 +90,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     new
                     {
                         role = "user",
-                        content = request.UserParts.Select(ConvertPart).ToArray()
+                        content = request.UserParts.Where(IsSupported).Select(ConvertPart).ToArray()
                     });
             }
             requestBody.messages = messages;
             return requestBody;
         }
-        
 
         protected virtual dynamic ConvertPart(AIRequestPart part)
         {

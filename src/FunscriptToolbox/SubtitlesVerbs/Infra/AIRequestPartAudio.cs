@@ -5,6 +5,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     public class AIRequestPartAudio : AIRequestPart
     {
         public override string Modality { get; } = "AUDIO";
+        public override BinaryDataType? AssociatedDataType => BinaryDataType.Audio;
 
         public AIRequestPartAudio(AIRequestSection section, string filename, byte[] content, TimeSpan duration)
             : base(section)

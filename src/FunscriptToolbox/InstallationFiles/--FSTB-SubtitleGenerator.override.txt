@@ -17,6 +17,8 @@
         "service_tier": "flex"
       },
       "UseStreaming": false, // Not sure why but streaming didn't work when I tried
+      "SupportAudio": true, // I think
+      "SupportImage": true,
 
       // Note: "service_tier = flex" => 50% of the regular price, from 1.25 / 10
       "EstimatedCostPerInputMillionTokens": 0.625, 
@@ -33,6 +35,9 @@
           "reasoning_effort": "medium"
         }
       },
+      "SupportAudio": false,
+      "SupportImage": true,
+
       // For Poe, it's hard to compute. I just put the number from the vendor.
       "EstimatedCostPerInputMillionTokens": 1.25, 
       "EstimatedCostPerOutputMillionTokens": 10
@@ -41,8 +46,9 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineGPT5",
       "Engines": [
-        { "$ref": "AIEngineGPT5OnPoe" },
-        { "$ref": "AIEngineGPT5OnOpenAI" }
+        // [Option] Change the order if you want to use your Poe points first.
+        { "$ref": "AIEngineGPT5OnOpenAI" },
+        { "$ref": "AIEngineGPT5OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": true
@@ -65,6 +71,8 @@
           "mediaResolution": "MEDIA_RESOLUTION_HIGH"
         }
       },
+      "SupportAudio": true,
+      "SupportImage": true,
 
       // Note: UseBatchMode => 50% of the regular price, from 1.25$ / 10$
       "EstimatedCostPerInputMillionTokens": 0.625,
@@ -76,6 +84,9 @@
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyPoe",
+      "SupportAudio": true,
+      "SupportImage": true,
+
       // For Poe, it's hard to compute. I just put the number from the vendor.
       "EstimatedCostPerInputMillionTokens": 1.25,
       "EstimatedCostPerOutputMillionTokens": 10.0
@@ -110,6 +121,9 @@
           "mediaResolution": "MEDIA_RESOLUTION_LOW"
         }
       },
+      "SupportAudio": true,
+      "SupportImage": true,
+
       // Note: UseBatchMode => 50% of the regular price, from 2 / 12
       "EstimatedCostPerInputMillionTokens": 1,
       "EstimatedCostPerOutputMillionTokens": 6,
@@ -120,6 +134,9 @@
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "gemini-3-pro",
       "APIKeyName": "APIKeyPoe",
+      "SupportAudio": true,
+      "SupportImage": true,
+
       // For Poe, it's hard to compute. I just put the number from the vendor.
       "EstimatedCostPerInputMillionTokens": 2,
       "EstimatedCostPerOutputMillionTokens": 12,
@@ -143,6 +160,9 @@
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "grok-4",
       "APIKeyName": "APIKeyPoe",
+      "SupportAudio": false,
+      "SupportImage": true,
+
       "EstimatedCostPerInputMillionTokens": 3,
       "EstimatedCostPerOutputMillionTokens": 15,
     },
@@ -156,7 +176,7 @@
       "SkipOnServiceUnavailable": true,
     },
 
-    // AIEngines for local API (define other if needed) ----------------------------------------------------------
+    // AIEngines for local API (define other if needed or change this one) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIOpenAICompatible",
       "$id": "AIEngineLocalAPI",
@@ -166,6 +186,9 @@
       "APIKeyName": null,
       "RequestBodyExtension": null,
       "UseStreaming": true,
+      "SupportAudio": false,
+      "SupportImage": true,
+
       "EstimatedCostPerInputMillionTokens": 0.0,
       "EstimatedCostPerOutputMillionTokens": 0.0,
     },
@@ -235,8 +258,8 @@ _______________________________________=",
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        // [OPTION #1] Change to Gemini Pro 2.5 for slighly better cost but image analysis seems to be worse on 2.5 too.
-        // [OPTION #2] Change to "AIEngineGPT-5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        // [OPTION #1] Change to Gemini Pro 2.5 for slighly better cost but know that image analysis seems to be worse on 2.5. 
+        // [OPTION #2] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
         "$ref": "AIEngineGeminiPro3.0"
       }
     },
@@ -256,7 +279,7 @@ _______________________________________=",
       "Id": "translated-texts_maverick",
       "Engine": {
         // [OPTION #1] Change to Gemini Pro 2.5 for slighly lower cost. For text only like that, I didn't notice a huge different between 2.5 and 3.0
-        // [OPTION #2] Change to "AIEngineGPT-5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        // [OPTION #2] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
         "$ref": "AIEngineGeminiPro3.0"
       }
     },
