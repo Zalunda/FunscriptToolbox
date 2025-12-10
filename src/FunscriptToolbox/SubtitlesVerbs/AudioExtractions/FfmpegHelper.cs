@@ -114,7 +114,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 var filterAddon = filter == null ? string.Empty : $"-vf \"{filter}\"";
                 FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-ss {time} -i \"{videoPath}\" -frames:v 1 {filterAddon}")
+                    .AddParameter($"-ss {time} -i \"{videoPath}\" -frames:v 1 -update 1 {filterAddon}")
                     .SetOutput(tempFile)
                     .Start()
                     .Wait();
