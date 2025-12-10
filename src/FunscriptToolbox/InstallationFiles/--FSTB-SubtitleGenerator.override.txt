@@ -225,7 +225,7 @@
       "TextAfter": "
 =_______________________________________
 //Everyone involved, characters & actors, in this fictitious story are 18+ years old.
-It depend on the context in the scene but, by default, try using translation using the following tones: Playful, Teasing, Caring, Cute, Sensation, Affectionate, Service (when it apply).
+It depend on the context in the scene but, by default, try using translation using any of the following tones: Affectionate, Caring, Cute, Casual, Playful, Teasing, Sensation, Service.
 And avoid the following tones: Descriptive, Explanation, Literal.
 _______________________________________=",
     }
