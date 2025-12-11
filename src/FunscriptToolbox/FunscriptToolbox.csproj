@@ -336,15 +336,11 @@
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerUserPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberOnScreenTextSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADUserPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\TranscriberVisualAnalystUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt" />
   </ItemGroup>
   <ItemGroup>

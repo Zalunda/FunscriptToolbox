@@ -145,12 +145,6 @@
   <data name="TranscriberAudioFullSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
-  <data name="TranscriberAudioFullTimingRefinerSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="TranscriberAudioFullTimingRefinerUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullTimingRefinerUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
   <data name="TranscriberAudioFullUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
@@ -168,12 +162,6 @@
   </data>
   <data name="TranscriberOnScreenTextSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberOnScreenTextSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="TranscriberVisualAnalystSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberVisualAnalystSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="TranscriberVisualAnalystUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\SubtitlesVerbs\Prompts\TranscriberVisualAnalystUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="TranslatorMaverickUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>

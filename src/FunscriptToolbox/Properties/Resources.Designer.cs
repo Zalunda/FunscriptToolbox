@@ -83,10 +83,8 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
         ///      &quot;MaxChunkDuration&quot;: &quot;00:05:00&quot;,
-        ///      &quot;ExportMetadataSrt&quot;: false
-        ///    },
-        ///    {
-        ///    [rest of string was truncated]&quot;;.
+        ///      &quot;ExportMetadataSrt&quot;: false,
+        ///      &quot;Transcript [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -117,10 +115,8 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
         ///      &quot;MaxChunkDuration&quot;: &quot;00:05:00&quot;,
-        ///      &quot;ExportMetadataSrt&quot;: false
-        ///    },
-        ///    {
-        ///    [rest of string was truncated]&quot;;.
+        ///      &quot;ExportMetadataSrt&quot;: false,
+        ///      &quot;Transcript [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
@@ -373,30 +369,6 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # AUDIO-TEXT ALIGNMENT AND ANNOTATION MANDATE (version 2025-09-07)
-        ///
-        ///### Role
-        ///You are a Precision Audio-Text Alignment and Annotation Engine. Your function is to process a batch of audio clips and a corresponding text string, precisely locate the audio of the text within the clip, and generate a new string that annotates the leading, trailing, and internal pauses.
-        ///
-        ///### Mission
-        ///Given an array of `AudioClip` and an associated `OriginalVoiceText`, your mission is to produce a single JSON arrqay of result  [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string TranscriberAudioFullTimingRefinerSystemPrompt {
-            get {
-                return ResourceManager.GetString("TranscriberAudioFullTimingRefinerSystemPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to .
-        /// </summary>
-        internal static string TranscriberAudioFullTimingRefinerUserPrompt {
-            get {
-                return ResourceManager.GetString("TranscriberAudioFullTimingRefinerUserPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The audio should be in [TranscriptionLanguage].
         ///.
         /// </summary>
@@ -410,7 +382,7 @@ namespace FunscriptToolbox.Properties {
         ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-11-25)
         ///
         ///### Role
-        ///You are a Transcription &amp; Acoustic Nuance Analyst. Your mission is to produce a hyper-accurate transcription (`VoiceText`) augmented with a critical contextual analysis (`TranslationAnalysis-Audio`). You serve as the eyes and ears for a human translator.
+        ///You are a Transcription &amp; Acoustic Nuance Analyst. Your mission is to produce a hyper-accurate transcription (`VoiceText`) augmented with a critical contextual analysis (`TranslationAnalysis`). You serve as the eyes and ears for a human translator.
         ///
         ///### Input Protocol
         ///You will receive a JSON array of objects.
@@ -430,7 +402,7 @@ namespace FunscriptToolbox.Properties {
         ///**The Metric for Success:** Your ability to anchor your analysis strictly to the **current timestamp** and correctly integrate &quot;Context Nodes.&quot; A transcription that is textually accurate but fails to account for visual timing or gaps is a **mission failure**.
         ///
         ///**Definition of a Critical Analysis Failure:**
-        ///1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis-Audio` that appears in *fu [rest of string was truncated]&quot;;.
+        ///1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis` that appears in *fu [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioSingleVADRefinerUserPrompt {
             get {
@@ -476,39 +448,6 @@ namespace FunscriptToolbox.Properties {
         internal static string TranscriberOnScreenTextSystemPrompt {
             get {
                 return ResourceManager.GetString("TranscriberOnScreenTextSystemPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to # **MULTIMODAL TRANSLATION AUGMENTATION (MTA) MANDATE (version 2025-09-25)**
-        ///
-        ///### **Role &amp; Mission**
-        ///
-        ///You are a Multimodal Translation Augmentation Specialist (MTAS). Your job is to analyze an image and its corresponding `VoiceText` to create a concise JSON output for a human translator. You must process a batch of nodes, treating each one as a completely separate task.
-        ///
-        ///### **Core Directives (Non-Negotiable)**
-        ///
-        ///1.  **The Per-Node Firewall:** You MUST process each node in the input array one at a ti [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string TranscriberVisualAnalystSystemPrompt {
-            get {
-                return ResourceManager.GetString("TranscriberVisualAnalystSystemPrompt", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to # URGENT: HIGH-STAKES ACCURACY AUDIT (VALIDATION 2025-09-05)
-        ///
-        ///**Attention MTAS:** This entire batch of nodes is subject to a mandatory, zero-tolerance accuracy audit. Your output will be programmatically validated against the visual evidence.
-        ///
-        ///**The Single Metric for Success:** Your absolute and unwavering adherence to the **&quot;Strict Visual Grounding Protocol&quot;** outlined in your mandate.
-        ///
-        ///**Definition of a Critical Hallucination Failure:**
-        ///An analysis is given on the wrong node (i.e. describing image from St [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string TranscriberVisualAnalystUserPrompt {
-            get {
-                return ResourceManager.GetString("TranscriberVisualAnalystUserPrompt", resourceCulture);
             }
         }
         

@@ -341,6 +341,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 // Print to console to mimic streaming feedback (all at once now)
                 Console.WriteLine();
+                Console.WriteLine(thoughtContent.ToString());
                 Console.WriteLine(AddRealTime(context, request.StartOffset, candidates.ToString()));
 
                 var runningTime = watch.Elapsed - pendingWatch.Elapsed;

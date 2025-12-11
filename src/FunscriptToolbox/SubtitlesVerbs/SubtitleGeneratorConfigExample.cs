@@ -44,9 +44,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullSystemPrompt), Resources.TranscriberAudioFullSystemPrompt);
             var transcriberAudioFullUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullUserPrompt), Resources.TranscriberAudioFullUserPrompt);
 
-            var transcriberAudioPrecisionSegmentRefinerSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullTimingRefinerSystemPrompt), Resources.TranscriberAudioFullTimingRefinerSystemPrompt);
-            var transcriberAudioPrecisionSegmentRefinerUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullTimingRefinerUserPrompt), Resources.TranscriberAudioFullTimingRefinerUserPrompt);
-
             var transcriberAudioSingleVADSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADSystemPrompt), Resources.TranscriberAudioSingleVADSystemPrompt);
             var transcriberAudioSingleVADUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADUserPrompt), Resources.TranscriberAudioSingleVADUserPrompt);
 
@@ -54,9 +51,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var transcriberAudioSingleVADRefinerUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioSingleVADRefinerUserPrompt), Resources.TranscriberAudioSingleVADRefinerUserPrompt);
 
             var transcriberOnScreenTextSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberOnScreenTextSystemPrompt), Resources.TranscriberOnScreenTextSystemPrompt);
-
-            var transcriberVisualAnalystSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberVisualAnalystSystemPrompt), Resources.TranscriberVisualAnalystSystemPrompt);
-            var transcriberVisualAnalystUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberVisualAnalystUserPrompt), Resources.TranscriberVisualAnalystUserPrompt);
 
             var translatorSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranslatorSystemPrompt), Resources.TranslatorSystemPrompt);
             var translatorMaverickUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranslatorMaverickUserPrompt), Resources.TranslatorMaverickUserPrompt);
@@ -105,47 +99,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
                         MaxChunkDuration = TimeSpan.FromMinutes(5)
-                    },
-                    new TranscriberAI()
-                    {
-                        TranscriptionId = "full-ai-refined",
-                        PrivateMetadataNames = "Justification",
-                        Engine = defaultEngine,
-                        ExpandStart = TimeSpan.FromSeconds(1.0),
-                        ExpandEnd = TimeSpan.FromSeconds(1.0),
-                        UpdateTimingsBeforeSaving = true,
-                        AddSpeechCadenceBeforeSaving = true,
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "full-ai",
-                            Sources = "full-ai",
-                            MergeRules = new Dictionary<string, string>
-                            {
-                                { "VoiceText", "OriginalVoiceText" }
-                            }
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = transcriberAudioPrecisionSegmentRefinerSystemPrompt,
-                            UserPrompt = transcriberAudioPrecisionSegmentRefinerUserPrompt,
-                            MetadataNeeded = "OriginalVoiceText",
-                            MetadataAlwaysProduced = "VoiceText",
-                            BinaryDataExtractors = new []
-                                {
-                                    new BinaryDataExtractorAudio
-                                    {
-                                        SourceAudioId = "audio",
-                                        OutputFieldName = "Audio",
-                                        FillGapSmallerThen = TimeSpan.FromSeconds(0.2)
-                                    }
-                                },
-
-                            BatchSize = 50,
-                            BatchSplitWindows = 0,
-                            NbContextItems = 0,
-                            NbItemsMinimumReceivedToContinue = 30,
-                            FieldsToInclude = NodeFields.StartTime
-                        }
                     },
                     new TranscriberClone()
                     {
@@ -335,7 +288,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             {
                                 { "StartTime", 50 },
                                 { "EndTime", 50 },
-                                { "TranslationAnalysis-Audio", 20 },
+                                { "TranslationAnalysis", 20 },
                                 { "full-VoiceText", 0 },
                                 { "singlevad-VoiceText", 0 }
                             }
@@ -360,43 +313,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper
-                    },
-                    new TranscriberAI()
-                    {
-                        TranscriptionId = "visual-analysis",
-                        PrivateMetadataNames = "VoiceText",
-                        Engine = defaultEngine,
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings",
-                            Sources = "on-screen-texts,voice-texts,speakers,manual-input",
-                            MergeRules = new Dictionary<string, string>
-                            {
-                                { "TranslationAnalysis-Audio", null }
-                            }
-
-                        },
-                        Options = new AIOptions()
-                        {
-                            SystemPrompt = transcriberVisualAnalystSystemPrompt,
-                            UserPrompt = transcriberVisualAnalystUserPrompt,
-                            TextAfterAnalysis = " --reasoning_effort medium",
-                            MetadataNeeded = "!OnScreenText,!GrabOnScreenText",
-                            MetadataAlwaysProduced = "TranslationAnalysis-Visual",
-                            BinaryDataExtractors = new [] { 
-                                new BinaryDataExtractorImage
-                                {
-                                    OutputFieldName = "Screenshot",
-                                    MetadataForTraining = "VisualTraining",
-                                    FfmpegFilter = "v360=input=he:in_stereo=sbs:pitch=-35:v_fov=90:h_fov=90:d_fov=180:output=sg:w=1024:h=1024,crop=1024:894:0:0,drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=12:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5"                                    
-                                }
-                            },
-                            BatchSize = 30,
-                            BatchSplitWindows = 0,
-                            NbContextItems = 5,
-                            NbItemsMinimumReceivedToContinue = 10,
-                            FieldsToInclude = NodeFields.StartTime
-                        }
                     },
                     new SubtitleOutputComplexSrt()
                     {
@@ -445,8 +361,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
                                 { "ParticipantsPoses", 10 },
-                                { "TranslationAnalysis-Audio", 10 },
-                                { "TranslationAnalysis-Visual", 10 },
+                                { "TranslationAnalysis", 10 },
                                 { "VoiceText", 10 }
                             },
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime

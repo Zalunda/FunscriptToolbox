@@ -28,12 +28,6 @@
         ]
     },
     {
-      "Id": "full-ai-refined",
-      // [OPTION] Enable to get a second pass on the audio that should improve the timings (i.e. start and end) of the subtitles, and add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
-      "Enabled": false,
-      "ExportMetadataSrt": false
-    },
-    {
       "Id": "full",
       "Enabled": true,
       // [OPTION] Change to "full-ai-refined" if you enabled it above
@@ -56,30 +50,49 @@
       "Enabled": true
     },
     {
-      "Id": "voice-texts",
-      "Enabled": true,
-      "SourceId": "full"
-    },    
-    // -----------------------------
-    // Use timings, manual-input and voice-texts to mergedvad, speaker, on-screen-texts, visual-analysis
-    {
-      "Id": "mergedvad",
-      "Enabled": false
+      "Id": "on-screen-texts",
+      "Enabled": true
     },
     {
       "Id": "speakers",
       "Enabled": false
     },
     {
-      "Id": "on-screen-texts",
-      "Enabled": true
+      "Id": "singlevad-ai-refined",
+      // This AI will receive the audio and validate that the transcription by looking at the initial transcription and the full-ai transcription. It also receive and analyze screenshot to create a better TranslationAnalysis.
+      // [OPTION] Disable if you want to reduce the API cost.
+      "Enabled": true,
+      "ExportMetadataSrt": false,
+      // Expand the audio send to the AI because we can't trust 100% the automatic timings.
+      "ExpandStart": "00:00:01",
+      "ExpandEnd": "00:00:01",
+      "Options": {
+        "MetadataNeeded": "full-VoiceText,!SkipRefined",
+        "BinaryDataExtractors": [
+          {
+            "OutputFieldName": "Screenshot",
+            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added. 
+            // Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: 
+            //    <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
+            "Enabled": true,
+            "AddContextNodes": true,
+            "ContextShortGap": "00:00:05",
+            "ContextLongGap": "00:00:30"
+          }
+        ],
+        // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
+        "BatchSize": 16,
+        "BatchSplitWindows": 2,
+        "NbContextItems": 200,
+        "NbItemsMinimumReceivedToContinue": 8,
+        "TextAfterAnalysis": "IMPORTANT: You will only receive the 'full-VoiceText'. The timings on those transcriptions cannot be trusted 100% so the the audio clip you will receive has been padded on each side by 1 second. Try to find the original VoiceText inside the audio clip and only re-analyze that part to see if there was some mistake done in the transcription. If you can't find it, just use the original full-VoiceText.
+      }
     },
     {
-      "Id": "visual-analysis",
-      "Enabled": true
-      // [OPTION] =>  Set to false to save some time and API costs but should produce lower quality subtitles.
-    },
-    
+      "Id": "voice-texts",
+      "Enabled": true,
+      "SourceId": "full"
+    },    
     // -----------------------------
     // Advanced step: Allowing the user to review and override AI generated metadatas
     {
@@ -99,9 +112,9 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Options": {
-        "BatchSize": 100,
-        "BatchSplitWindows": 10,
-        "NbContextItems": 200,
+        "BatchSize": 75,
+        "BatchSplitWindows": 5,
+        "NbContextItems": 400,
         "NbItemsMinimumReceivedToContinue": 50
       }
     },

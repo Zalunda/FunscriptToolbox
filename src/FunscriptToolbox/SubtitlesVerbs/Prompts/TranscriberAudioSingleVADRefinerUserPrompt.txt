@@ -3,7 +3,7 @@
 **The Metric for Success:** Your ability to anchor your analysis strictly to the **current timestamp** and correctly integrate "Context Nodes." A transcription that is textually accurate but fails to account for visual timing or gaps is a **mission failure**.
 
 **Definition of a Critical Analysis Failure:**
-1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis-Audio` that appears in *future* nodes but is **not yet visible** in the current screenshot. (e.g., Saying "She is riding him" when she is still positioning herself).
+1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis` that appears in *future* nodes but is **not yet visible** in the current screenshot. (e.g., Saying "She is riding him" when she is still positioning herself).
 2.  **Context Blindness:** Failing to provide a `[Gap Summary]` when preceding "FOR CONTEXT ONLY" nodes indicate a significant action occurred off-mic.
 3.  Missing tone for the suggested translations (ie. "Option 1 (Teasing): ...").
 4.  Missing nodes in response (i.e received 30 nodes returned 13).

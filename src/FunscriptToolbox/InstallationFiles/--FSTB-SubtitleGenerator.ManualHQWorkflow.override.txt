@@ -28,13 +28,6 @@
         ]
     },
     {
-      "Id": "full-ai-refined",
-      // [OPTION] Enable to get a second pass on that should improve the timings (i.e. start and end) of the subtitles, and add 'cadence marker' in the text ("How about..8..we go in my bedroom?").
-      // Note: It's less useful for this workflow since the start and end should be adjusted manually and another transcription will be done that override the cadence markers.
-      "Enabled": false,
-      "ExportMetadataSrt": false
-    },
-    {
       "Id": "full",
       "Enabled": true,
       // [OPTION] Change to "full-ai-refined" if you enabled it above
@@ -55,6 +48,10 @@
       "Enabled": true
     },
     {
+      "Id": "on-screen-texts",
+      "Enabled": true
+    },
+    {
       "Id": "singlevad-ai",
       "Enabled": true,
       "ExportMetadataSrt": false,
@@ -67,8 +64,13 @@
       }
     },
     {
+      "Id": "speakers",
+      "Enabled": true
+      // [OPTION] Set to false if you don't want to take the time to manually identify the speakers.
+    },
+    {
       "Id": "singlevad-ai-refined",
-      // Note: this is not the same refininement as full. In this case, the AI will validate that the transcription by looking at the initial transcription and the full-ai transcription. It also receive and analyze screenshot to create a better TranslationAnalysis.
+      // This AI will receive the audio and validate that the transcription by looking at the initial transcription and the full-ai transcription. It also receive and analyze screenshot to create a better TranslationAnalysis.
       // [OPTION] Disable if you want to reduce the API cost.
       "Enabled": true,
       "ExportMetadataSrt": false,
@@ -104,20 +106,6 @@
       "Id": "mergedvad",
       "Enabled": false
     },
-    {
-      "Id": "speakers",
-      "Enabled": true
-      // [OPTION] Set to false if you don't want to take the time to manually identify the speakers.
-    },
-    {
-      "Id": "on-screen-texts",
-      "Enabled": true
-    },
-    {
-      "Id": "visual-analysis",
-      "Enabled": false
-      // [OPTION] =>  Set to true to use full visual analysis (even though singlevad-ai-refined already does a visual analysis).
-    },
     // -----------------------------
     // Advanced step: Allowing the user to review and override AI generated metadatas
     {
@@ -138,9 +126,9 @@
       "ExportMetadataSrt": false,
       "Options": {
         "BatchSize": 75,
-        "BatchSplitWindows": 10,
-        "NbContextItems": 100,
-        "NbItemsMinimumReceivedToContinue": 40,
+        "BatchSplitWindows": 5,
+        "NbContextItems": 400,
+        "NbItemsMinimumReceivedToContinue": 50
       }
     },
     {
