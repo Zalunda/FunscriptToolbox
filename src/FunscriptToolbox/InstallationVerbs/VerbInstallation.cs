@@ -13,7 +13,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 {
     internal class VerbInstallation : Verb
     {
-        private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog rs_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private static readonly Encoding UTF8NoBOM = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
@@ -34,7 +34,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         public int Execute()
         {
-            var prefixExamples = "Default-2.0.14-";
+            var prefixExamples = "Default-2.0.16-";
 
             InstallOFSPlugin();
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat, UTF8NoBOM);
