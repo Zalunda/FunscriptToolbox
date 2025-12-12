@@ -85,7 +85,7 @@
         "BatchSplitWindows": 2,
         "NbContextItems": 200,
         "NbItemsMinimumReceivedToContinue": 8,
-        "TextAfterAnalysis": "IMPORTANT: You will only receive the 'full-VoiceText'. The timings on those transcriptions cannot be trusted 100% so the the audio clip you will receive has been padded on each side by 1 second. Try to find the original VoiceText inside the audio clip and only re-analyze that part to see if there was some mistake done in the transcription. If you can't find it, just use the original full-VoiceText.
+        "TextAfterAnalysis": "IMPORTANT: You will only receive the 'full-VoiceText'. The timings on those transcriptions cannot be trusted 100% so the the audio clip you will receive has been padded on each side by 1 second. Try to find the original VoiceText inside the audio clip and only re-analyze that part to see if there was some mistake done in the transcription. If you can't find it, just use the original full-VoiceText."
       }
     },
     {

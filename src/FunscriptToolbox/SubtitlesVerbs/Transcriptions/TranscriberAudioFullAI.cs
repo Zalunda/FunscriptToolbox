@@ -201,22 +201,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var startTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime);
                 var endTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime);
+                var voiceText = (string)node.VoiceText;
                 if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
                 {
                     throw new Exception($"Received node with endtime {(string)node.EndTime} when audio chunk end is {chunkEndTime}.");
                 }
 
-                if (!_transcriptionsToIgnoreRegexes.Any(regex => regex.IsMatch(node.VoiceText)))
+                if (!_transcriptionsToIgnoreRegexes.Any(regex => regex.IsMatch(voiceText)))
                 {
                     transcription.Items.Add(
                         new TranscribedItem(
                             startTime,
                             endTime,
-                            MetadataCollection.CreateSimple(this.MetadataProduced, prefix + (string)node.VoiceText)));
+                            MetadataCollection.CreateSimple(this.MetadataProduced, prefix + voiceText)));
                 }
                 else
                 {
-                    context.WriteInfo($"Ignoring node at {startTime:hh\\:mm\\:ss\\.fff}: {node.VoiceText}");
+                    context.WriteInfo($"Ignoring node at {startTime:hh\\:mm\\:ss\\.fff}: {voiceText}");
                 }
                 response.Cost.NbItemsInResponse++;
             }
