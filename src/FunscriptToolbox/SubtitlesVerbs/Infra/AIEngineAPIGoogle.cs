@@ -246,14 +246,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     operation = JsonConvert.DeserializeObject<GoogleOperation>(pollJson);
                     var state = operation.GetState();
                     var error = operation.GetError();
-                    if (state == "BATCH_STATE_SUCCEEDED")
+                    if (error != null)
+                    {
+                        throw new AIResponseException(request, $"Batch API returned:\nState: {state}\nCode:{error.Code}\nMessage: {error.Message}");
+                    }
+                    else if (state == "BATCH_STATE_SUCCEEDED")
                     {
                         finalResult = operation.GetResultItem();
                         break;
-                    }
-                    else if (error != null)
-                    {
-                        throw new AIResponseException(request, $"Batch API returned:\nState: {state}\nCode:{error.Code}\nMessage: {error.Message}");
                     }
                     else if (!(state == "BATCH_STATE_PENDING" || state == "BATCH_STATE_RUNNING"))
                     {

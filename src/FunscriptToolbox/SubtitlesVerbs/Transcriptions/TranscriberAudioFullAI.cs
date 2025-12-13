@@ -123,7 +123,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
                 if (response.Cost != null)
                 {
-                    dynamic customInfos = new ExpandoObject();
+                    dynamic customInfos = response.Cost.CustomInfos ?? new ExpandoObject();
                     customInfos.ChunkStartTime = $"{chunkTiming.StartTime:hh\\:mm\\:ss\\.fff}";
                     customInfos.ChunkEndTime = $"{chunkTiming.EndTime:hh\\:mm\\:ss\\.fff}";
                     customInfos.Duration = $"{chunkTiming.Duration:hh\\:mm\\:ss\\.fff}";

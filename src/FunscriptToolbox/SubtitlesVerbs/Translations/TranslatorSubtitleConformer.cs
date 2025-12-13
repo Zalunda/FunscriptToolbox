@@ -316,7 +316,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             {
                 get
                 {
-                    _regex = _regex ?? new Regex(this.Pattern, RegexOptions.Compiled);
+                    _regex = _regex ?? new Regex(this.Pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
                     return _regex;
                 }
             }
