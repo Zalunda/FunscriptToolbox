@@ -129,8 +129,20 @@
       "RemoveMissing": false,
       "AddReviewIfTooLong": true,
       "SplitPatterns": [
-        { "CutWhere": "After", "Pattern": "([,.?!。、！:？-]+)" },
-        { "CutWhere": "Before", "Pattern": "\\b(and|but|or)\\b" },
+        // 1. Strong Punctuation (End of sentence)
+        { "CutWhere": "After", "Pattern": "(?<!\\.)\\.(?![\\d\\.])|[?!…]+" },
+        // 2. Weak Punctuation (Commas, colons)
+        { "CutWhere": "After", "Pattern": "\\.{3}|[,:：]+" },
+        // 3. Logical/Casual Connectors (High quality splits)
+        //    distinct from 'and/but/or', these usually don't require a preceding comma
+        { "CutWhere": "Before", "Pattern": "\\b(because|if|since|while|although|until|unless|so|that)\\b" },
+        // 4. "Wh-" Clause Connectors (Medium quality splits)
+        //    Good for sentences like "I don't know [what to do]"
+        { "CutWhere": "Before", "Pattern": "\\b(what|when|where|how|why)\\b" },
+        // 5. Prepositions (Fallback for long sentences)
+        //    Only use this if you really need to cut a long line
+        { "CutWhere": "Before", "Pattern": "\\b(with|about|for|from|into)\\b" },
+        // 6. Last Resort: Split on any space
         { "CutWhere": "Before", "Pattern": "\\s" }
       ]
     },
