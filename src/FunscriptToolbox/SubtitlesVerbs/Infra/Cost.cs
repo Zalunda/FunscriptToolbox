@@ -18,16 +18,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public ExpandoObject CustomInfos { get; set; }
         public DateTime? CreationTime { get; }
 
-        // High level totals (Actual Tokens)
-        [JsonIgnore]
-        public int TotalPromptTokens => (int)Input.TotalActualTokens;
-
-        [JsonIgnore]
-        public int TotalCompletionTokens => (int)Output.TotalActualTokens;
-
-        [JsonIgnore]
-        public int TotalTokens => TotalPromptTokens + TotalCompletionTokens;
-
         public Cost(string taskName, string engineIdentifier, TimeSpan timeTaken, int nbItemsInRequest, int? nbItemsInResponse = null, InputCostDetails input = null, OutputCostDetails output = null, ExpandoObject customInfos = null, DateTime? creationTime = null)
         {
             TaskName = taskName;
@@ -120,7 +110,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 outputThoughtsChars + outputCandidatesChars, customInfos);
         }
 
-        // TODO Add thought response / output text
         private static Cost CreateTokenBasedCost(
             string taskName,
             string engineIdentifier,
@@ -270,10 +259,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             public double EstimatedCostPerMillionTokens { get; set; }
             public int Tokens { get; set; }
+            public double EstimatedCost => (double)Tokens / 1_000_000 * EstimatedCostPerMillionTokens;
             public Dictionary<AIRequestSection, ModalityBreakdown> Sections { get; } = new Dictionary<AIRequestSection, ModalityBreakdown>();
-
-            [JsonIgnore]
-            public double TotalActualTokens => Sections.Sum(s => s.Value.TotalActualTokens);
         }
 
         public class OutputCostDetails
@@ -281,10 +268,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             public double EstimatedCostPerMillionTokens { get; set; }
             public int ThoughtsTokens { get; set; }
             public int CandidatesTokens { get; set; }
+            public int Tokens => ThoughtsTokens + CandidatesTokens;
+            public double EstimatedCost => (double)Tokens / 1_000_000 * EstimatedCostPerMillionTokens;
             public Dictionary<AIResponseSection, ModalityBreakdown> Sections { get; } = new Dictionary<AIResponseSection, ModalityBreakdown>();
-
-            [JsonIgnore]
-            public double TotalActualTokens => Sections.Sum(s => s.Value.TotalActualTokens);
         }
 
         public class ModalityBreakdown

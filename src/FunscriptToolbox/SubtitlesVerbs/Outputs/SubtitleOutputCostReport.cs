@@ -104,8 +104,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             // Helper to calculate total dollars for a list of costs
             double CalculateTotalDollars(IEnumerable<Cost> costsToSum)
             {
-                double input = costsToSum.Sum(c => (c.Input.TotalActualTokens / 1_000_000.0) * c.Input.EstimatedCostPerMillionTokens);
-                double output = costsToSum.Sum(c => (c.Output.TotalActualTokens / 1_000_000.0) * c.Output.EstimatedCostPerMillionTokens);
+                double input = costsToSum.Sum(c => c.Input.EstimatedCost);
+                double output = costsToSum.Sum(c => c.Output.EstimatedCost);
                 return input + output;
             }
 
@@ -117,7 +117,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
 
             // Helper: Format numbers nicely
-            string Fmt(double val) => Math.Abs(val % 1) <= (Double.Epsilon * 100) ? $"{(long)val}" : $"{val:F2}";
+            string Fmt(double val) => $"{val:#,##0.##}";
 
             // 2. Report Header
             var taskGroups = allCosts
@@ -136,6 +136,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             yield return string.Empty;
             yield return "Global:";
             yield return $"   Calls: {taskGroups.SelectMany(f => f).Count()}";
+            yield return $"   Time : {allCosts.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.Cost.TimeTaken):hh\\:mm\\:ss}";
+            yield return $"   Input Tokens: {Fmt(allCosts.Sum(c => c.Cost.Input.Tokens))}";
+            yield return $"   Output Tokens: {Fmt(allCosts.Sum(c => c.Cost.Output.Tokens))}";
             yield return $"   Cost: {taskGlobalCost:C}{globalCostWarning}";
             yield return string.Empty;
 
@@ -147,16 +150,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 var taskCosts = taskGroup.Select(x => x.Cost).ToList();
 
                 // Level 1: Task Totals
-                var taskTotalTime = taskCosts.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.TimeTaken);
-                var taskTotalCost = CalculateTotalDollars(taskCosts);
-                var totalItemsInRequest = taskCosts.Sum(c => c.NbItemsInRequest);
-                var totalItemsInResponse = taskCosts.Sum(c => c.NbItemsInResponse);
-
                 yield return $"Task: {taskName}";
                 yield return $"   Totals:";
                 yield return $"      Calls: {taskCosts.Count}";
-                yield return $"      Time : {taskTotalTime:hh\\:mm\\:ss}";
-                yield return $"      Cost : {taskTotalCost:C}";
+                yield return $"      Time : {taskCosts.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.TimeTaken):hh\\:mm\\:ss}";
+                yield return $"      Input Tokens: {Fmt(taskCosts.Sum(c => c.Input.Tokens))}";
+                yield return $"      Output Tokens: {Fmt(taskCosts.Sum(c => c.Output.Tokens))}";
+                yield return $"      Cost : {CalculateTotalDollars(taskCosts):C}";
+
+                var totalItemsInRequest = taskCosts.Sum(c => c.NbItemsInRequest);
+                var totalItemsInResponse = taskCosts.Sum(c => c.NbItemsInResponse);
                 var retryString = (totalItemsInRequest > totalItemsInResponse) ? $" ({totalItemsInRequest - totalItemsInResponse} retries)" : string.Empty;
                 yield return $"      Primary nodes in request:  {totalItemsInRequest,4}{retryString}";
                 yield return $"      Primary nodes in response: {totalItemsInResponse,4}";
@@ -176,8 +179,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     // Aggregate
                     var aggregated = Cost.Sum(taskName, groupCosts);
 
-                    double groupInputCost = (aggregated.Input.TotalActualTokens / 1_000_000.0) * aggregated.Input.EstimatedCostPerMillionTokens;
-                    double groupOutputCost = (aggregated.Output.TotalActualTokens / 1_000_000.0) * aggregated.Output.EstimatedCostPerMillionTokens;
+                    double groupInputCost = aggregated.Input.EstimatedCost;
+                    double groupOutputCost = aggregated.Output.EstimatedCost;
                     double groupTotalCost = groupInputCost + groupOutputCost;
 
                     // Calculate Rates for display
@@ -192,7 +195,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     // --- INPUT ---
                     yield return isFallback
                         ? $"      Input (Estimates only):"
-                        : $"      Input: {Fmt(aggregated.TotalPromptTokens)} tokens, {groupInputCost:C}";
+                        : $"      Input: {Fmt(aggregated.Input.Tokens)} tokens, {groupInputCost:C}";
 
                     foreach (var sectionKvp in aggregated.Input.Sections.OrderBy(k => k.Key))
                     {
@@ -229,7 +232,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     // --- OUTPUT ---
                     yield return isFallback
                         ? $"      Output (Estimates only):"
-                        : $"      Output: {Fmt(aggregated.TotalCompletionTokens)} tokens, {groupOutputCost:C}";
+                        : $"      Output: {Fmt(aggregated.Output.Tokens)} tokens, {groupOutputCost:C}";
 
                     foreach (var sectionKvp in aggregated.Output.Sections.OrderBy(k => k.Key))
                     {
