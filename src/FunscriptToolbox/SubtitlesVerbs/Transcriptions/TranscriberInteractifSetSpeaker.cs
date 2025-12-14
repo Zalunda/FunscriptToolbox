@@ -129,8 +129,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
             }
 
+            // Update workItems list since we might have Finalized some speakers above
+            (allItems, itemsToDo, itemsAlreadyDone, _) = requestGenerator.AnalyzeItemsState();
+            workItems = CreateWorkItem(allItems, itemsToDo.Union(itemsAlreadyDone).ToArray(), UpdateAndSave).ToArray();
+
             var watch = Stopwatch.StartNew();
-            var isFinished = Test.SpeakerCorrection(
+            var isFinished = workItems.Length == 0
+                ? true
+                : Test.SpeakerCorrection(
                 workItems,
                 time => { 
                     var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
