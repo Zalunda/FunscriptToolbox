@@ -215,7 +215,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
                 else
                 {
-                    context.WriteInfo($"Ignoring '{pattern.Name}' transcription at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(item.StartTime)}]: {voiceText}");
+                    context.WriteInfo($"Ignoring '{pattern.Name}' transcription at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(startTime)}]: {voiceText}");
                 }
                 response.Cost.NbItemsInResponse++;
             }
