@@ -84,16 +84,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 assistantMessage,
                 match =>
                 {
-                    var grab = match.Groups["Grab"].Value;
                     try
                     {
-                        var time = match.Groups["Time"].Value;
-                        var originalTime = TimeSpanExtensions.FlexibleTimeSpanParse(time);
-                        var adjustedTime = startOffset + TimeSpanExtensions.FlexibleTimeSpanParse(time);
-                        var (index, _, newTime) = context.WIP.TimelineMap.GetPathAndPosition(adjustedTime);
-                        return (newTime != originalTime)
-                            ? $"{grab} [{index}, {newTime:hh\\:mm\\:ss\\.fff}]\""
-                            : match.Groups["Grab"].Value + "\"";
+                        var grab = match.Groups["Grab"].Value;
+                        var requestSpecificTime = TimeSpanExtensions.FlexibleTimeSpanParse(
+                            match.Groups["Time"].Value);
+                        var globalTime = startOffset + requestSpecificTime;
+                        return context.WIP.TimelineMap.IsMultipart
+                            ? $"{grab} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(globalTime)}]\""
+                            : $"{grab}\"";
                     }
                     catch (Exception)
                     {

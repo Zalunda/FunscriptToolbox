@@ -34,11 +34,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 32)]
         public AIPrompt UserPrompt { get; set; }
 
-        public string[] TranscriptionToIgnorePatterns { get; set; }
+        [JsonProperty(Order = 33)]
+        public TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
-
-        private Regex[] _transcriptionsToIgnoreRegexes;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -55,8 +54,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            _transcriptionsToIgnoreRegexes ??= this.TranscriptionToIgnorePatterns?.Select(t => new Regex($"^{t}$", RegexOptions.IgnoreCase | RegexOptions.Compiled)).ToArray() ?? Array.Empty<Regex>();
-
             var processStartTime = DateTime.Now;
 
             var fullPcmAudio = base.GetPcmAudio(context);
@@ -207,7 +204,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     throw new Exception($"Received node with endtime {(string)node.EndTime} when audio chunk end is {chunkEndTime}.");
                 }
 
-                if (!_transcriptionsToIgnoreRegexes.Any(regex => regex.IsMatch(voiceText)))
+                var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(pattern => pattern.Regex.IsMatch(voiceText));
+                if (pattern == null)
                 {
                     transcription.Items.Add(
                         new TranscribedItem(
@@ -217,9 +215,33 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
                 else
                 {
-                    context.WriteInfo($"Ignoring node at {startTime:hh\\:mm\\:ss\\.fff}: {voiceText}");
+                    context.WriteInfo($"Ignoring '{pattern.Name}' transcription at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(item.StartTime)}]: {voiceText}");
                 }
                 response.Cost.NbItemsInResponse++;
+            }
+        }
+
+        public class TranscriptioToIgnorePattern
+        {
+            public string Name { get; set; }
+            public string Pattern { get; set; }
+            private Regex _regex;
+
+            [JsonIgnore]
+            public Regex Regex
+            {
+                get
+                {
+                    _regex = _regex ?? new Regex($"^{this.Pattern}$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                    return _regex;
+                }
+            }
+
+            public TranscriptioToIgnorePattern(string name, string pattern)
+            {
+                this.Name = name;
+                this.Pattern = pattern;
+                _regex = null;
             }
         }
     }

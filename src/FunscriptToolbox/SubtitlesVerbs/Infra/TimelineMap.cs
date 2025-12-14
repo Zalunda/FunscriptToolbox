@@ -11,6 +11,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     { 
         public TimelineSegment[] Segments { get; }
         public TimeSpan Duration { get; }
+        [JsonIgnore]
+        public bool IsMultipart => Segments.Length > 1;
 
         public TimelineMap(string[] filenames)
         {
@@ -44,6 +46,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             var lastSegment = this.Segments.Last();
             return (index, lastSegment.Filename, position - lastSegment.Offset);
+        }
+
+        public string ConvertToPartSpecificFileIndexAndTime(TimeSpan globalTime)
+        {
+            var (index, _, newTime) = GetPathAndPosition(globalTime);
+            return this.IsMultipart
+                ? $"{index}, {newTime:hh\\:mm\\:ss\\.fff}"
+                : $"{globalTime:hh\\:mm\\:ss\\.fff}";
         }
     }
 }
