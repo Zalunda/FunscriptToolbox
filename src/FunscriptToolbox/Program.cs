@@ -27,7 +27,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 50;
+            int test = 51;
 
             switch (test)
             {
@@ -112,7 +112,7 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
-                    // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";
+                    // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";                    
                     var prefix = "IPVR-331*";
                     args = new[]
                     {
@@ -153,6 +153,7 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
+                        "--autovseq",
                         "--config", ".\\--FSTB-SubtitleGenerator.config",
                         "*.vseq", "*.mp4"
                     };
@@ -178,13 +179,10 @@ namespace FunscriptToolbox
                     args = new[]
                     {
                         "subtitles.storyvideo",
-                        //"--video", @"InstallationTest\DSVR-1721-A.mp4",
-                        //"--subtitles", @"InstallationTest\DSVR-1721-A.srt"
                         "--video", @"InstallationTest\frame_counter_5994fps.mp4",
                         "--subtitles", @"InstallationTest\frame_counter_5994fps.srt"
                     };
                     break;
-
             }
 #endif
             try
