@@ -23,6 +23,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
             [Value(0, MetaName = "files", Required = true, HelpText = ".mp4 files")]
             public IEnumerable<string> Input { get; set; }
 
+            [Option('v', "autovseq", Required = false, HelpText = "Try to create .vseq files automatically", Default = false)]
+            public bool AutoVseq { get; set; }
+
             [Option('r', "recursive", Required = false, HelpText = "If a file contains '*', allow to search recursivly for matches", Default = false)]
             public bool Recursive { get; set; }
 
@@ -55,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
-        private static IEnumerable<VideoSequence> ToVideoSequences(IEnumerable<string> masterFileList)
+        private static IEnumerable<VideoSequence> ToVideoSequences(bool autoVseq, IEnumerable<string> masterFileList)
         {
             static bool IsVseqPath(string path) => path.EndsWith(".vseq", StringComparison.OrdinalIgnoreCase);
 
@@ -89,12 +92,105 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
             }
 
-            foreach (var fullpath in allFiles
+            // --- Pass 2: Process remaining files (Auto-create VSEQ or return individual) ---
+
+            // Get all unclaimed files with full paths and grouped by folder to process folders individually
+            foreach (var group in allFiles
                 .Select(path => Path.GetFullPath(path))
-                .Where(fullPath => !IsVseqPath(fullPath) && !claimedVideoPaths.Contains(fullPath)))
+                .Where(fullPath => !IsVseqPath(fullPath) && !claimedVideoPaths.Contains(fullPath))
+                .GroupBy(path => PathExtension.SafeGetDirectoryName(path)))
             {
-                yield return new VideoSequence(fullpath, new[] { fullpath });
+                var dirPath = group.Key;
+                var filesInDir = group.ToList();
+
+                bool groupCreated = false;
+                if (autoVseq && filesInDir.Count > 1)
+                {
+                    // 1. Determine Patterns (Prefix/Suffix) based on File Names (not full paths)
+                    var fileNames = filesInDir.Select(Path.GetFileName).ToList();
+
+                    string prefix = GetCommonPrefix(fileNames);
+                    string suffix = GetCommonSuffix(fileNames);
+
+                    // 2. Validate Constraints
+                    // Check if all files fit the pattern: Prefix + Middle + Suffix
+                    // And Middle length <= 2
+                    var parsedFiles = new List<(string FullPath, string Middle)>();
+                    bool isValidPattern = true;
+
+                    foreach (var filename in fileNames)
+                    {
+                        int prefixLen = prefix.Length;
+                        int suffixLen = suffix.Length;
+                        int middleLen = filename.Length - prefixLen - suffixLen;
+
+                        // Constraint: Rest of string (Middle) is less than 2 characters (<= 2)
+                        if (middleLen < 0 || middleLen > 2)
+                        {
+                            isValidPattern = false;
+                            break;
+                        }
+
+                        string middle = filename.Substring(prefixLen, middleLen);
+                        parsedFiles.Add((filename, middle));
+                    }
+
+                    if (isValidPattern)
+                    {
+                        // 3. Sort: First by length of middle part (1 vs 11), then alphanumeric
+                        // This ensures "1" comes before "2", and "1" comes before "11"
+                        var sortedPaths = parsedFiles
+                            .OrderBy(x => x.Middle.Length)
+                            .ThenBy(x => x.Middle, StringComparer.OrdinalIgnoreCase)
+                            .Select(x => x.FullPath)
+                            .ToArray();
+
+                        string vseqName = Path.ChangeExtension($"{prefix}{suffix}", ".vseq");
+                        string vseqFullPath = Path.Combine(dirPath, vseqName);
+                        File.WriteAllLines(vseqFullPath, sortedPaths);
+
+                        yield return new VideoSequence(vseqFullPath, sortedPaths);
+                        groupCreated = true;
+                    }
+                }
+
+                // Fallback: If grouping disabled, not enough files, or constraints failed
+                if (!groupCreated)
+                {
+                    foreach (var file in filesInDir)
+                    {
+                        yield return new VideoSequence(file, new[] { file });
+                    }
+                }
             }
+        }
+
+        private static string GetCommonPrefix(List<string> strings)
+        {
+            string first = strings.First();
+            string last = strings.Last();
+
+            int minLen = Math.Min(first.Length, last.Length);
+            int i = 0;
+            while (i < minLen && first[i] == last[i])
+            {
+                i++;
+            }
+            return first.Substring(0, i);
+        }
+
+        private static string GetCommonSuffix(List<string> strings)
+        {
+            string first = strings.First();
+            string last = strings.Last();
+
+            int minLen = Math.Min(first.Length, last.Length);
+            int i = 1;
+            while (i <= minLen && first[first.Length - i] == last[last.Length - i])
+            {
+                i++;
+            }
+            return first.Substring(first.Length - i + 1);
         }
 
         public async Task<int> ExecuteAsync()
@@ -111,6 +207,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var errors = new List<string>();
             var userTodoList = new List<string>();
             foreach (var videoSequence in ToVideoSequences(
+                r_options.AutoVseq,
                 r_options
                 .Input
                 .SelectMany(file => HandleStarAndRecusivity(
