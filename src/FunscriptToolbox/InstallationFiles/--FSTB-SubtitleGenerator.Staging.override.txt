@@ -22,17 +22,12 @@
       "ExportMetadataSrt": false
     },
     {
-      "TranscriptionId": "full",
-      "Enabled": true,
-      "SourceId": "full-whisper"
-    },
-    {
-      "TranslationId": "full_google",
+      "TranslationId": "full-whisper_google",
       "Enabled": true,
       "ExportMetadataSrt": false
     },
     {
-      "TranslationId": "full_local-api",
+      "TranslationId": "full-whisper_local-api",
       "Enabled": false,
       "ExportMetadataSrt": false
     },
@@ -40,7 +35,12 @@
       "OutputId": "preliminary-srt",
       "Enabled": true,
       "FileSuffix": ".srt",
-      "WorkerId": "full_google"
+      "WorkerId": "full-whisper_google"
     }
+    {
+      "TranscriptionId": "full",
+      "Enabled": true,
+      "SourceId": "full-whisper"
+    },
   ]
 }

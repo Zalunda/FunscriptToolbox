@@ -222,18 +222,18 @@ _______________________________________=",
   ],
   "Workers": [
     {
+      "TranslationId": "full-whisper_local-api",
+      "Engine": {
+        "$ref": "AIEngineLocalAPI"
+      }
+    },
+    {
       "TranscriptionId": "full-ai",
       "Engine": {
         // As of 2026/12, it seem like only Gemini 2.5 on Google API return good timings. 
         // When using Poe or Gemini3.0 (on google or poe), the audio in 'shortened' (removing silence) before
         // sending it to the AI, so the AI response return timings based on the shortend audio.
         "$ref": "AIEngineGeminiPro2.5OnGoogle"
-      }
-    },
-    {
-      "TranslationId": "full_local-api",
-      "Engine": {
-        "$ref": "AIEngineLocalAPI"
       }
     },
     {

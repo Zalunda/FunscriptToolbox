@@ -90,38 +90,23 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper,
                     },
-                    new TranscriberAudioFullAI()
-                    {
-                        TranscriptionId = "full-ai",
-                        SourceAudioId = "audio",
-                        Engine = defaultEngine,
-                        SystemPrompt = transcriberAudioFullSystemPrompt,
-                        UserPrompt = transcriberAudioFullUserPrompt,
-                        MetadataProduced = "VoiceText",
-                        MaxChunkDuration = TimeSpan.FromMinutes(5)
-                    },
-                    new TranscriberClone()
-                    {
-                        TranscriptionId = "full",
-                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper or full-ai or full-ai-refined
-                    },
                     new TranslatorGoogleV1API()
                     {
-                        TranslationId = "full_google",
-                        TranscriptionId = "full",
+                        TranslationId = "full-whisper_google",
+                        TranscriptionId = "full-whisper",
                         TargetLanguage = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
                     },
                     new TranslatorAI()
                     {
-                        TranslationId = "full_local-api",
+                        TranslationId = "full-whisper_local-api",
                         TargetLanguage = Language.FromString("en"),
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator
                         {
-                            TimingsSource = "full",
-                            Sources = "full"
+                            TimingsSource = "full-whisper",
+                            Sources = "full-whisper"
                         },
                         Options = new AIOptions()
                         {
@@ -141,7 +126,30 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         OutputId = "preliminary-srt",
                         FileSuffix = ".srt",
-                        WorkerId = "full_google"
+                        WorkerId = "full-whisper_google"
+                    },
+                    new TranscriberAudioFullAI()
+                    {
+                        TranscriptionId = "full-ai",
+                        SourceAudioId = "audio",
+                        Engine = defaultEngine,
+                        SystemPrompt = transcriberAudioFullSystemPrompt,
+                        UserPrompt = transcriberAudioFullUserPrompt,
+                        MetadataProduced = "VoiceText",
+                        MaxChunkDuration = TimeSpan.FromMinutes(5)
+                    },
+                    new TranslatorGoogleV1API()
+                    {
+                        TranslationId = "full-ai_google",
+                        TranscriptionId = "full",
+                        TargetLanguage = Language.FromString("en"),
+                        MetadataNeeded = "VoiceText",
+                        MetadataProduced = "TranslatedText"
+                    },
+                    new TranscriberClone()
+                    {
+                        TranscriptionId = "full",
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper or full-ai
                     },
 
                     //---------------------------------------------------

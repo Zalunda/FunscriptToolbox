@@ -8,11 +8,11 @@
     },
     {
       "Id": "audio-clean-waveform",
-      "Enabled": true,
+      "Enabled": true
     },
     {
       "Id": "asig",
-      "Enabled": true     
+      "Enabled": true
     },
     // -----------------------------
     // Creating initial manual-input source 
@@ -29,14 +29,20 @@
       ]
     },
     {
+      "Id": "full-ai_google",
+      // [OPTION] Enable simple translation for the full-ai transcription to use in the initial manual input below.
+      "Enabled": false
+    },
+    {
       "Id": "full",
       "Enabled": true,
-      // [OPTION] Change to "full-ai-refined" if you enabled it above
       "SourceId": "full-ai"
     },
     {
       "Id": "generated-manual-input-srt",
-      "Enabled": true
+      "Enabled": true,
+      // [OPTION] Change to "full-ai_google" (and enable that step above) to have basic english translation in the the manual-input file.
+      "WorkerId": "full"
     },
     {
       "Id": "manual-input",
