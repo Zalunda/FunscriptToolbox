@@ -36,11 +36,11 @@
       "Enabled": true,
       "FileSuffix": ".srt",
       "WorkerId": "full-whisper_google"
-    }
+    },
     {
       "TranscriptionId": "full",
       "Enabled": true,
       "SourceId": "full-whisper"
-    },
+    }
   ]
 }
