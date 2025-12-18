@@ -196,12 +196,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     response.AssistantMessage,
                                     tryToFixEnd: false)))
             {
-                var startTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime);
-                var endTime = chunkStartTime + TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime);
+                var nodeStartTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime);
+                var nodeEndTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime);
+                var startTime = chunkStartTime + nodeStartTime;
+                var endTime = chunkStartTime + nodeEndTime;
                 var voiceText = (string)node.VoiceText;
                 if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
                 {
-                    throw new Exception($"Received node with endtime {(string)node.EndTime} when audio chunk end is {chunkEndTime}.");
+                    throw new Exception($"Received node with endtime {nodeEndTime} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(endTime)}] when audio chunk end is [context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunkEndTime)].");
                 }
 
                 var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(pattern => pattern.Regex.IsMatch(voiceText));
