@@ -40,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             foreach (var engine in Engines)
             {
-                var engineId = engine.EngineIdentifier;
+                var engineId = engine.EngineIdentifierWithoutModel;
 
                 // Check if this engine should be skipped
                 if (s_skippedEngines.TryGetValue(engineId, out var skipInfo))

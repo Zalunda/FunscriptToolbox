@@ -47,7 +47,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public bool PauseBeforeSavingResponse { get; set; } = false;
 
         [JsonIgnore]
-        public string EngineIdentifier => $"{BaseAddress}|{APIKeyName}";
+        public string EngineIdentifierWithoutModel => $"{BaseAddress}|{APIKeyName}";
+        [JsonIgnore]
+        public string EngineIdentifier => $"{EngineIdentifierWithoutModel}|{Model}";
 
         protected dynamic CreateRequestBodyWithExtension()
         {
