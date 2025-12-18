@@ -357,7 +357,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = translatorSystemPrompt,
                             UserPrompt = translatorMaverickUserPrompt,
-                            TextAfterAnalysis = " --reasoning_effort medium",
 
                             MetadataNeeded = "VoiceText|OnScreenText",
                             MetadataAlwaysProduced = "TranslatedText",
