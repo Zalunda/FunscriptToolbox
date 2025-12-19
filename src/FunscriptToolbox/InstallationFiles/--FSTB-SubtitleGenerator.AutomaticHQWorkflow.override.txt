@@ -19,7 +19,7 @@
     {
       "Id": "full-ai",
       "Enabled": true,
-      "MaxChunkDuration": "00:05:00",
+      "MaxChunkDuration": "00:03:00",
       "ExportMetadataSrt": false,
       "TranscriptionToIgnorePatterns" : [ 
         { "Name": "Aaah", "Pattern": "あ+[ぁ]*。" },
@@ -87,8 +87,8 @@
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
         "BatchSize": 16,
         "BatchSplitWindows": 2,
-        "NbContextItems": 200,
-        "NbItemsMinimumReceivedToContinue": 8,
+        "NbContextItems": 15,
+        "NbItemsMinimumReceivedToContinue": 1,
         "TextAfterAnalysis": "IMPORTANT: You will only receive the 'full-VoiceText'. The timings on those transcriptions cannot be trusted 100% so the the audio clip you will receive has been padded on each side by 1 second. Try to find the original VoiceText inside the audio clip and only re-analyze that part to see if there was some mistake done in the transcription. If you can't find it, just use the original full-VoiceText."
       }
     },
@@ -116,10 +116,10 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Options": {
-        "BatchSize": 75,
+        "BatchSize": 50,
         "BatchSplitWindows": 5,
-        "NbContextItems": 400,
-        "NbItemsMinimumReceivedToContinue": 50
+        "NbContextItems": 10000,
+        "NbItemsMinimumReceivedToContinue": 30
       }
     },
     {
@@ -128,8 +128,8 @@
       "ExportMetadataSrt": false,
       "MaxLineLength": 50,
       "MaxMergeGapSameSpeaker": "00:00:01",
-      "MaxMergeGapDialogue": "00:00:01.2000000",
-      "MaxMergeDuration": "00:00:06",
+      "MaxMergeGapDialogue": "00:00:00.8",
+      "MaxMergeDuration": "00:00:04",
       "RemoveMissing": false,
       "AddReviewIfTooLong": true,
       "SplitPatterns": [

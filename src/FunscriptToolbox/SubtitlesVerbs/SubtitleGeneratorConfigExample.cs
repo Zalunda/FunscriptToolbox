@@ -141,7 +141,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranslatorGoogleV1API()
                     {
                         TranslationId = "full-ai_google",
-                        TranscriptionId = "full",
+                        TranscriptionId = "full-ai",
                         TargetLanguage = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
@@ -367,7 +367,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             NbItemsMinimumReceivedToContinue = 50,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
-                                { "ParticipantsPoses", 10 },
+                                { "StartTime", 50 },
+                                { "EndTime", 50 },
                                 { "TranslationAnalysis", 10 },
                                 { "VoiceText", 10 }
                             },

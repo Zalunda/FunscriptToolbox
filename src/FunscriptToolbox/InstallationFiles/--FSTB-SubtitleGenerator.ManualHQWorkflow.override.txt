@@ -19,7 +19,7 @@
     {
       "Id": "full-ai",
       "Enabled": true,
-      "MaxChunkDuration": "00:05:00",
+      "MaxChunkDuration": "00:03:00",
       "ExportMetadataSrt": false,
       "TranscriptionToIgnorePatterns" : [ 
         { "Name": "Aaah", "Pattern": "あ+[ぁ]*。" },
@@ -63,7 +63,7 @@
       "ExportMetadataSrt": false,
       "Options": {
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
-        "BatchSize": 100,
+        "BatchSize": 50,
         "BatchSplitWindows": 5,
         "NbContextItems": 10,
         "NbItemsMinimumReceivedToContinue": 40
@@ -96,8 +96,8 @@
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
         "BatchSize": 16,
         "BatchSplitWindows": 2,
-        "NbContextItems": 100,
-        "NbItemsMinimumReceivedToContinue": 8
+        "NbContextItems": 15,
+        "NbItemsMinimumReceivedToContinue": 1
       }
     },
     {
@@ -131,10 +131,10 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Options": {
-        "BatchSize": 75,
+        "BatchSize": 50,
         "BatchSplitWindows": 5,
-        "NbContextItems": 400,
-        "NbItemsMinimumReceivedToContinue": 50
+        "NbContextItems": 10000,
+        "NbItemsMinimumReceivedToContinue": 30
       }
     },
     {
@@ -143,8 +143,8 @@
       "ExportMetadataSrt": false,
       "MaxLineLength": 50,
       "MaxMergeGapSameSpeaker": "00:00:01",
-      "MaxMergeGapDialogue": "00:00:01.2000000",
-      "MaxMergeDuration": "00:00:06",
+      "MaxMergeGapDialogue": "00:00:00.8",
+      "MaxMergeDuration": "00:00:04",
       "RemoveMissing": false,
       "AddReviewIfTooLong": true,
       "SplitPatterns": [

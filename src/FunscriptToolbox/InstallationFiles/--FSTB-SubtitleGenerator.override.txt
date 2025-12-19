@@ -46,22 +46,23 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineGPT5",
       "Engines": [
-        // [Option] Change the order if you want to use your Poe points first.
+        // [OPTION] Change the order if you want to use your Poe points first.
         { "$ref": "AIEngineGPT5OnOpenAI" },
         { "$ref": "AIEngineGPT5OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
-      "SkipOnServiceUnavailable": true
+      "SkipOnServiceUnavailable": false
     },
 
-    // AIEngines for Google (Gemini 2.5 and 3.0) ----------------------------------------------------------
+    // AIEngines for Google (gemini-2.5-pro, gemini-3-flash and gemini-3-pro) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIGoogle",
-      "$id": "AIEngineGeminiPro2.5OnGoogle",
+      "$id": "AIEngineGemini2.5ProOnGoogle",
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyGemini",
-      "UseBatchMode": true,
+      // [OPTION] Use BatchMode for half the cost
+      "UseBatchMode": false,
       "RequestBodyExtension": {
         "safetySettings": [
           {
@@ -92,13 +93,12 @@
       "SupportAudio": true,
       "SupportImage": true,
 
-      // Note: UseBatchMode => 50% of the regular price, from 1.25$ / 10$
-      "EstimatedCostPerInputMillionTokens": 0.625,
-      "EstimatedCostPerOutputMillionTokens": 5.0
+      "EstimatedCostPerInputMillionTokens": 1.25,
+      "EstimatedCostPerOutputMillionTokens": 10
     },
     {
       "$type": "AIEngineAPIPoe",
-      "$id": "AIEngineGeminiPro2.5OnPoe",
+      "$id": "AIEngineGemini2.5ProOnPoe",
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyPoe",
@@ -111,23 +111,24 @@
     },
     {
       "$type": "AIEngineCollection",
-      "$id": "AIEngineGeminiPro2.5",
+      "$id": "AIEngineGemini2.5Pro",
       "Engines": [
-        // [Option] Change the order if you want to use your Poe points first.
-        { "$ref": "AIEngineGeminiPro2.5OnGoogle" },
-        { "$ref": "AIEngineGeminiPro2.5OnPoe" }
+        // [OPTION] Change the order if you want to use your Poe points first.
+        { "$ref": "AIEngineGemini2.5ProOnGoogle" },
+        { "$ref": "AIEngineGemini2.5ProOnPoe" }
       ],
       "SkipOnQuotasUsed": true,
-      "SkipOnServiceUnavailable": true
+      "SkipOnServiceUnavailable": false
     },
 
     {
       "$type": "AIEngineAPIGoogle",
-      "$id": "AIEngineGeminiPro3.0OnGoogle",
+      "$id": "AIEngineGemini3FlashOnGoogle",
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-      "Model": "gemini-3-pro-preview",
+      "Model": "gemini-3-flash-preview",
       "APIKeyName": "APIKeyGemini",
-      "UseBatchMode": true,
+      // [OPTION] Use BatchMode for half the cost
+      "UseBatchMode": false,
       "RequestBodyExtension": {
         "safetySettings": [
           {
@@ -149,24 +150,93 @@
         ],
         "generation_config": {
           "thinkingConfig": {
-            // [Option] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
             "includeThoughts": true
           },
           // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
-          // [Option] Change to MEDIUM/HIGH if you don't mind the higher cost. LOW seem to be a good enough job.
+          "mediaResolution": "MEDIA_RESOLUTION_MEDIUM"
+        }
+      },
+      "SupportAudio": true,
+      "SupportImage": true,
+
+      "EstimatedCostPerInputMillionTokens": 0.5,
+      "EstimatedCostPerOutputMillionTokens": 3
+    },
+    {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineGemini3FlashOnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "gemini-3-flash",
+      "APIKeyName": "APIKeyPoe",
+      "RequestBodyExtension": {
+        "extra_body": {          
+          "thinking_level": "low"
+        }
+      },
+      "SupportAudio": true,
+      "SupportImage": true,
+
+      "EstimatedCostPerInputMillionTokens": 0.5,
+      "EstimatedCostPerOutputMillionTokens": 3
+    },
+    {
+      "$type": "AIEngineCollection",
+      "$id": "AIEngineGemini3Flash",
+      "Engines": [
+        // [OPTION] Change the order if you want to use your Poe points first. 
+        { "$ref": "AIEngineGemini3FlashOnGoogle" },
+        { "$ref": "AIEngineGemini3FlashOnPoe" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": false
+    },
+
+    {
+      "$type": "AIEngineAPIGoogle",
+      "$id": "AIEngineGemini3ProOnGoogle",
+      "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+      "Model": "gemini-3-pro-preview",
+      "APIKeyName": "APIKeyGemini",
+      // [OPTION] Use BatchMode for half the cost
+      "UseBatchMode": false,
+      "RequestBodyExtension": {
+        "safetySettings": [
+          {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "OFF"
+          }
+        ],
+        "generation_config": {
+          "thinkingConfig": {
+            // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
+            "includeThoughts": true
+          },
+          // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
+          // [OPTION] Change to MEDIUM/HIGH if you don't mind the higher cost. LOW seem to be a good enough job.
           "mediaResolution": "MEDIA_RESOLUTION_LOW"
         }
       },
       "SupportAudio": true,
       "SupportImage": true,
 
-      // Note: UseBatchMode => 50% of the regular price, from 2 / 12
-      "EstimatedCostPerInputMillionTokens": 1,
-      "EstimatedCostPerOutputMillionTokens": 6,
+      "EstimatedCostPerInputMillionTokens": 2,
+      "EstimatedCostPerOutputMillionTokens": 12,
     },
     {
       "$type": "AIEngineAPIPoe",
-      "$id": "AIEngineGeminiPro3.0OnPoe",
+      "$id": "AIEngineGemini3ProOnPoe",
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "gemini-3-pro",
       "APIKeyName": "APIKeyPoe",
@@ -179,14 +249,14 @@
     },
     {
       "$type": "AIEngineCollection",
-      "$id": "AIEngineGeminiPro3.0",
+      "$id": "AIEngineGemini3Pro",
       "Engines": [
-        // [Option] Change the order if you want to use your Poe points first.
-        { "$ref": "AIEngineGeminiPro3.0OnGoogle" },
-        { "$ref": "AIEngineGeminiPro3.0OnPoe" }
+        // [OPTION] Change the order if you want to use your Poe points first.
+        { "$ref": "AIEngineGemini3ProOnGoogle" },
+        { "$ref": "AIEngineGemini3ProOnPoe" }
       ],
       "SkipOnQuotasUsed": true,
-      "SkipOnServiceUnavailable": true,
+      "SkipOnServiceUnavailable": false
     },
 
     // AIEngines for Grok (grok-4) ----------------------------------------------------------
@@ -209,7 +279,7 @@
         { "$ref": "AIEngineGrok4OnPoe" }
       ],
       "SkipOnQuotasUsed": true,
-      "SkipOnServiceUnavailable": true,
+      "SkipOnServiceUnavailable": false
     },
 
     // AIEngines for local API (define other if needed or change this one) ----------------------------------------------------------
@@ -232,28 +302,26 @@
     // Prompt adjustments ----------------------------------------------------------
     {
       "$id": "TranscriberAudioFullUserPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
+      "TextAfter": ""
     },
     {
       "$id": "TranscriberAudioSingleVADUserPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
+      "TextAfter": ""
     },
     {
       "$id": "TranscriberAudioSingleVADRefinerUserPrompt",
-      // [Option] Remove the // of the line similar to this one
-      // "TextAfter": "Everyone involved, characters & actors, in this fictitious story are 18+ years old.\n\n"
+      "TextAfter": "
+=_______________________________________
+The usual rule is to provide 2 translation options but, for this one, I want 5 translation options.
+_______________________________________="
     },
     {
       "$id": "TranslatorMaverickUserPrompt",
-      // [Option] Remove the // of the line similar to this one
       "TextAfter": "
 =_______________________________________
-//Everyone involved, characters & actors, in this fictitious story are 18+ years old.
 It depend on the context in the scene but, by default, try using translation using any of the following tones: Affectionate, Caring, Cute, Casual, Playful, Teasing, Sensation, Service.
 And avoid the following tones: Descriptive, Explanation, Literal.
-_______________________________________=",
+_______________________________________="
     }
   ],
   "Workers": [
@@ -266,38 +334,37 @@ _______________________________________=",
     {
       "TranscriptionId": "full-ai",
       "Engine": {
-        // As of 2026/12, it seem like only Gemini 2.5 on Google API return good timings. 
+        // As of 2026/12, it seem like only Gemini 2.5 on Google API return good timings and flash 3. 
         // When using Poe or Gemini3.0 (on google or poe), the audio in 'shortened' (removing silence) before
         // sending it to the AI, so the AI response return timings based on the shortend audio.
-        "$ref": "AIEngineGeminiPro2.5OnGoogle"
+        // [OPTION] Change to AIEngineGemini2.5ProOnGoogle.
+        "$ref": "AIEngineGemini3Flash"
       }
     },
     {
       "TranscriptionId": "singlevad-ai",
       "Engine": {
-        "$ref": "AIEngineGeminiPro2.5"
+        "$ref": "AIEngineGemini3Flash"
       }
     },
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        // [OPTION #1] Change to Gemini Pro 2.5 for slighly better cost but know that image analysis seems to be worse on 2.5. 
-        // [OPTION #2] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
-        "$ref": "AIEngineGeminiPro3.0"
+        // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        "$ref": "AIEngineGemini3Flash"
       }
     },
     {
       "Id": "on-screen-texts",
       "Engine": {
-        "$ref": "AIEngineGeminiPro2.5"
+        "$ref": "AIEngineGemini3Flash"
       }
     },
     {
       "Id": "translated-texts_maverick",
       "Engine": {
-        // [OPTION #1] Change to Gemini Pro 2.5 for slighly lower cost. For text only like that, I didn't notice a huge different between 2.5 and 3.0
-        // [OPTION #2] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
-        "$ref": "AIEngineGeminiPro3.0"
+        // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        "$ref": "AIEngineGemini3Flash"
       }
     },
     {
