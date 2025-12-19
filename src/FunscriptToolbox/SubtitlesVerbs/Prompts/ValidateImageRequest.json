@@ -1,0 +1,28 @@
+﻿{
+  "safetySettings": [
+    {
+      "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+      "threshold": "OFF"
+    }
+  ],
+  "generation_config": {
+    "thinkingConfig": {
+      "thinkingLevel": "low"
+    },
+    "mediaResolution": "MEDIA_RESOLUTION_LOW"
+  },
+  "contents": {
+    "role": "user",
+    "parts": [
+      {
+        "text": "Is this image prohibited?  Please respond with a simple \"Yes\" or \"No\". I don't need an image description."
+      },
+      {
+        "inlineData": {
+          "mimeType": "image/jpeg",
+          "data": "[IMAGE_BASE64_DATA]"
+        }
+      }
+    ]
+  }
+}

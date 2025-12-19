@@ -331,8 +331,7 @@
     <Content Include="PythonSource\funscripttoolbox-extract-vad.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="SubtitlesVerbs\Prompts\ArbitrerSystemPrompt.txt" />
-    <Content Include="SubtitlesVerbs\Prompts\ArbitrerUserPrompt.txt" />
+    <None Include="SubtitlesVerbs\Prompts\ValidateImageRequest.json" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerSystemPrompt.txt" />

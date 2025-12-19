@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.Properties;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,12 +14,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIEngineAPIGoogle : AIEngineAPI
     {
+        private const string PROHIBITED_CONTENT = "PROHIBITED_CONTENT";
         public override string ToolName { get; } = "Google-API";
 
         [JsonProperty(Order = 30)]
         public bool UseBatchMode { get; set; } = true;
 
         [JsonProperty(Order = 31)]
+        public bool ValidateImagesOnProbititedResponse { get; set; } = true;
+
+        [JsonProperty(Order = 32)]
         public bool DebugBatchPollingResponse { get; set; }
 
         public override AIResponse Execute(
@@ -118,7 +123,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             HttpClient client,
             AIRequest request,
-            string verbosePrefix)
+            string verbosePrefix,
+            bool isFirstCall = true)
         {
             Timer waitingTimer = null;
 
@@ -316,7 +322,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (finalResult.PromptFeedback != null)
                 {
                     extraContent.AppendLine();
-                    extraContent.AppendLine($"BlockReason: {finalResult.PromptFeedback.BlockReason}");
+                    extraContent.AppendLine($"PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}");
                 }
                 foreach (var candidate in finalResult.Candidates ?? Array.Empty<GoogleCandidate>())
                 {
@@ -370,15 +376,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 string assistantMessageExtended = candidates.ToString() + extraContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, request.ProcessStartTime);
 
-                PauseIfEnabled(this.PauseBeforeSavingResponse);
-
-                return new AIResponse(
-                    request, 
-                    assistantMessageExtended, 
-                    Cost.Create(
+                var unfilteredResponseCost = Cost.Create(
                         request.TaskId,
                         this.EngineIdentifier,
-                        request,
+                        request.SystemParts.Concat(request.UserParts).ToArray(),
                         watch.Elapsed,
                         request.ItemsIncluded?.Length ?? 1,
                         0,
@@ -391,8 +392,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         outputCandidatesTokens: googleUsageMetadata?.CandidatesTokenCount,
                         rawUsageInput: (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
                             .ToDictionary(item => item.Modality, item => item.TokenCount),
-                        customInfos: customInfos)
-                    );
+                        customInfos: customInfos);
+                var additionalCostsForImageValidation = new List<Cost>();
+
+                if (isFirstCall
+                    && this.ValidateImagesOnProbititedResponse 
+                    && finalResult.PromptFeedback.BlockReason == PROHIBITED_CONTENT
+                    && batchRequestAsJson.IndexOf("image/jpeg", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    context.WriteInfo($"Received 'PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}', validating image one by one...");
+                    var nbImagesRemoved = 0;
+                    var filteredRequest = new AIRequest(
+                        request.ProcessStartTime,
+                        request.Number,
+                        request.TaskId,
+                        request.ItemsIncluded,
+                        request.SystemParts.Select(part => ReplaceProhibitedImage(context, client, request, verbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
+                        request.UserParts.Select(part => ReplaceProhibitedImage(context, client, request, verbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
+                        request.MetadataAlwaysProduced,
+                        request.UpdateMessage,
+                        request.StartOffset);
+                    if (nbImagesRemoved > 0)
+                    {
+                        context.WriteInfo($"Processing filtered request...");
+                        var filteredResponse = ProcessStreamingResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false);
+                        filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
+                        filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
+                        return filteredResponse;
+                    }
+                }
+
+                PauseIfEnabled(this.PauseBeforeSavingResponse);
+
+                return new AIResponse(request, assistantMessageExtended, unfilteredResponseCost, additionalCostsForImageValidation);
             }
             finally
             {
@@ -405,7 +437,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             HttpClient client,
             AIRequest request,
-            string verbosePrefix)
+            string verbosePrefix,
+            bool isFirstCall = true)
         {
             Timer waitingTimer = null;
 
@@ -446,6 +479,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var thoughtContent = new StringBuilder();
                 var extraContent = new StringBuilder();
                 var currentLineBuffer = new StringBuilder();
+                string promptFeedbackBlockReason = null;
                 GoogleUsageMetadata googleUsageMetadata = null;
 
                 try
@@ -505,8 +539,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                                 if (googleEvent.PromptFeedback != null)
                                 {
+                                    promptFeedbackBlockReason = googleEvent.PromptFeedback.BlockReason;
                                     extraContent.AppendLine();
-                                    extraContent.AppendLine($"BlockReason: {googleEvent.PromptFeedback.BlockReason}");
+                                    extraContent.AppendLine($"PromptFeedback.BlockReason: {googleEvent.PromptFeedback.BlockReason}");
                                 }
 
                                 googleUsageMetadata = googleEvent.UsageMetadata ?? googleUsageMetadata;
@@ -544,12 +579,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, request.ProcessStartTime);
 
-                PauseIfEnabled(this.PauseBeforeSavingResponse);
-
-                return new AIResponse(request, assistantMessageExtended, Cost.Create(
+                var unfilteredResponseCost = Cost.Create(
                     request.TaskId,
                     this.EngineIdentifier,
-                    request,
+                    request.SystemParts.Concat(request.UserParts).ToArray(),
                     watch.Elapsed,
                     request.ItemsIncluded?.Length ?? 1,
                     0,
@@ -561,11 +594,107 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     outputCandidatesChars: candidates.Length,
                     outputCandidatesTokens: googleUsageMetadata?.CandidatesTokenCount,
                     (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
-                        .ToDictionary(item => item.Modality, item => item.TokenCount)));
+                        .ToDictionary(item => item.Modality, item => item.TokenCount));
+                var additionalCostsForImageValidation = new List<Cost>();
+
+                if (isFirstCall
+                    && this.ValidateImagesOnProbititedResponse
+                    && promptFeedbackBlockReason == PROHIBITED_CONTENT
+                    && requestBodyAsJson.IndexOf("image/jpeg", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    context.WriteInfo($"Received 'PromptFeedback.BlockReason: {promptFeedbackBlockReason}', validating image one by one...");
+                    var nbImagesRemoved = 0;
+                    var filteredRequest = new AIRequest(
+                        request.ProcessStartTime,
+                        request.Number,
+                        request.TaskId,
+                        request.ItemsIncluded,
+                        request.SystemParts.Select(part => ReplaceProhibitedImage(context, client, request, verbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
+                        request.UserParts.Select(part => ReplaceProhibitedImage(context, client, request, verbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
+                        request.MetadataAlwaysProduced,
+                        request.UpdateMessage,
+                        request.StartOffset);
+                    if (nbImagesRemoved > 0)
+                    {
+                        context.WriteInfo($"Processing filtered request...");
+                        var filteredResponse = ProcessStreamingResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false);
+                        filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
+                        filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
+                        return filteredResponse;
+                    }
+                }
+
+                PauseIfEnabled(this.PauseBeforeSavingResponse);
+
+                return new AIResponse(request, assistantMessageExtended, unfilteredResponseCost, additionalCostsForImageValidation);
             }
             finally
             {
                 waitingTimer?.Dispose();
+            }
+        }
+
+        private AIRequestPart ReplaceProhibitedImage(SubtitleGeneratorContext context, HttpClient client, AIRequest request, string verbosePrefix, AIRequestPart part, List<Cost> additionalCosts, ref int nbImagesRemoved)
+        {
+            if (part is AIRequestPartImage partImage)
+            {
+                var watch = Stopwatch.StartNew();
+
+                var requestBodyAsJson = Resources.ValidateImageRequest.Replace("[IMAGE_BASE64_DATA]", Convert.ToBase64String(partImage.Content));
+                context.CreateVerboseTextFile($"{verbosePrefix}-Test-{partImage.FileName}-Req.json", requestBodyAsJson, request.ProcessStartTime);
+
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:generateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
+                {
+                    Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
+                };
+
+                var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw AIEngineAPIException.FromHttpStatusCode(response, this.EngineIdentifier);
+                }
+
+                string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                context.CreateVerboseTextFile($"{verbosePrefix}-Test-{partImage.FileName}-Resp.json", responseAsJson, request.ProcessStartTime);
+
+                var serializer = new JsonSerializer();
+                var googleEvent = serializer.Deserialize<GoogleResultItem>(new JsonTextReader(new StringReader(responseAsJson)));
+                additionalCosts.Add(
+                    Cost.Create(
+                        request.TaskId,
+                        this.EngineIdentifier + "+ValidateImage",
+                        new AIRequestPart[] { 
+                            new AIRequestPartText(part.Section, "X"),
+                            part
+                        },
+                        watch.Elapsed,
+                        1,
+                        1,
+                        this.EstimatedCostPerInputMillionTokens,
+                        this.EstimatedCostPerOutputMillionTokens,
+                        inputTokens: googleEvent.UsageMetadata?.PromptTokenCount,
+                        outputThoughtsChars: 1,
+                        outputThoughtsTokens: googleEvent.UsageMetadata?.ThoughtsTokenCount,
+                        outputCandidatesChars: 1,
+                        outputCandidatesTokens: googleEvent.UsageMetadata?.CandidatesTokenCount,
+                        (googleEvent.UsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
+                    .ToDictionary(item => item.Modality, item => item.TokenCount)));
+
+                if (responseAsJson.IndexOf(PROHIBITED_CONTENT, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    context.WriteInfo($"Tested image '{partImage.FileName}' => OK");
+                    return part;
+                }
+                else
+                {
+                    nbImagesRemoved++;
+                    context.WriteInfo($"Tested image '{partImage.FileName}' => {PROHIBITED_CONTENT} (removed from request)");
+                    return new AIRequestPartText(part.Section, "IMAGE_UNAVAILABLE", part.AssociatedDataType);
+                }
+            }
+            else
+            {
+                return part;
             }
         }
 
@@ -642,7 +771,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             public int CandidatesTokenCount { get; set; }
             public int ThoughtsTokenCount { get; set; }
 
-            // TODO something with this??
+            // Do something with this??
             public int CachedContentTokenCount { get; set; } 
             public GooglePromptTokensDetails[] CacheTokensDetails { get; set; }
         }

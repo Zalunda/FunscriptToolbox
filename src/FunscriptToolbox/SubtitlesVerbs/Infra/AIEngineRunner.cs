@@ -211,10 +211,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                             lastResponseReceived = response;
                             r_workingOnContainer.Costs.Add(response.Cost);
+                            r_workingOnContainer.Costs.AddRange(response.AdditionalCosts);
 
                             if (response.AssistantMessage != null)
                             {
-                                var itemsAdded = ParseAssistantMessageAndAddItems(requestsGenerator.GetTimings(), response.AssistantMessage, request, response.Cost);
+                                var itemsAdded = ParseAssistantMessageAndAddItems(
+                                    requestsGenerator.GetTimings(), 
+                                    response.AssistantMessage, 
+                                    request, 
+                                    () => response.Cost.NbItemsInResponse++);
                                 r_context.WIP.Save();
                             }
                         }
@@ -303,7 +308,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             ITiming[] timings,
             string responseReceived,
             AIRequest request,
-            Cost cost = null)
+            Action increaseNbItemsInCostAction = null)
         {
             static string GetSegmentInformation(JToken segment)
             {
@@ -379,10 +384,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (!r_workingOnContainer.Items.Any(f => f.StartTime == startTime))
                     {
                         itemsAdded.Add(r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas));
-                        if (cost != null)
-                        {
-                            cost.NbItemsInResponse++;
-                        }
+                        increaseNbItemsInCostAction?.Invoke();
                     }
                 }
                 return itemsAdded;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -23,8 +24,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             int requestNumber,
             string taskId,
             TimedItemWithMetadata[] ItemsIncluded,
-            List<AIRequestPart> systemParts,
-            List<AIRequestPart> userParts,
+            IEnumerable<AIRequestPart> systemParts,
+            IEnumerable<AIRequestPart> userParts,
             string metadataAlwaysProduced,
             string updateMessage,
             TimeSpan? startOffset = null)

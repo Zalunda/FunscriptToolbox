@@ -211,7 +211,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 Cost.Create(
                     request.TaskId,
                     this.EngineIdentifier,
-                    request,
+                    request.SystemParts.Concat(request.UserParts).ToArray(),
                     watch.Elapsed,
                     request.ItemsIncluded.Length,
                     0,
@@ -414,7 +414,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     Cost.Create(
                         request.TaskId,
                         this.EngineIdentifier,
-                        request,
+                        request.SystemParts.Concat(request.UserParts).ToArray(),
                         watch.Elapsed,
                         request.ItemsIncluded?.Length ?? 1,
                         0,

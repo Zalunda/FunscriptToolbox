@@ -71,11 +71,11 @@ namespace FunscriptToolbox.Properties {
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
-        ///      &quot;Enabled&quot;: true,
+        ///      &quot;Enabled&quot;: true
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;asig&quot;,
-        ///      &quot;Enabled&quot;: true     
+        ///      &quot;Enabled&quot;: true
         ///    },
         ///    // -----------------------------
         ///    // Creating initial manual-input source 
@@ -84,7 +84,7 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Enabled&quot;: true,
         ///      &quot;MaxChunkDuration&quot;: &quot;00:05:00&quot;,
         ///      &quot;ExportMetadataSrt&quot;: false,
-        ///      &quot;Transcript [rest of string was truncated]&quot;;.
+        ///      &quot;TranscriptionToI [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -103,11 +103,11 @@ namespace FunscriptToolbox.Properties {
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
-        ///      &quot;Enabled&quot;: true,
+        ///      &quot;Enabled&quot;: true
         ///    },
         ///    {
         ///      &quot;Id&quot;: &quot;asig&quot;,
-        ///      &quot;Enabled&quot;: true     
+        ///      &quot;Enabled&quot;: true
         ///    },
         ///    // -----------------------------
         ///    // Creating initial manual-input source 
@@ -116,7 +116,7 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;Enabled&quot;: true,
         ///      &quot;MaxChunkDuration&quot;: &quot;00:05:00&quot;,
         ///      &quot;ExportMetadataSrt&quot;: false,
-        ///      &quot;Transcript [rest of string was truncated]&quot;;.
+        ///      &quot;TranscriptionToI [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
@@ -176,7 +176,7 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to @echo off
-        ///REM ScriptVersion:2.0
+        ///REM ScriptVersion:2.1
         ///
         ///set &quot;path=[[FunscriptToolboxFolder]];%path%&quot;
         ///
@@ -187,6 +187,7 @@ namespace FunscriptToolbox.Properties {
         ///		--config &quot;.\--FSTB-SubtitleGenerator.config&quot; ^
         ///		--recursive ^
         ///		--verbose ^
+        ///		--autovseq ^
         ///		&quot;*.mp4&quot; &quot;*.vseq&quot;
         ///pause
         ///REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)
@@ -388,7 +389,7 @@ namespace FunscriptToolbox.Properties {
         ///You will receive a JSON array of objects.
         ///1.  `StartTime`/`EndTime`: Timing of the segment.
         ///2.  `AudioClip`: The **Absolute Ground Truth**.
-        ///3.  `s [rest of string was truncated]&quot;;.
+        ///3.  `singlev [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioSingleVADRefinerSystemPrompt {
             get {
@@ -402,7 +403,7 @@ namespace FunscriptToolbox.Properties {
         ///**The Metric for Success:** Your ability to anchor your analysis strictly to the **current timestamp** and correctly integrate &quot;Context Nodes.&quot; A transcription that is textually accurate but fails to account for visual timing or gaps is a **mission failure**.
         ///
         ///**Definition of a Critical Analysis Failure:**
-        ///1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis` that appears in *fu [rest of string was truncated]&quot;;.
+        ///1.  **Visual Hallucination (Temporal Bleed):** Describing an action or object in the `TranslationAnalysis` that appears in *future*  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioSingleVADRefinerUserPrompt {
             get {
@@ -452,7 +453,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-11-25)**
+        ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Maverick (version 2025-12-14)**
         ///
         ///### **Role**
         ///
@@ -482,6 +483,34 @@ namespace FunscriptToolbox.Properties {
         internal static string TranslatorSystemPrompt {
             get {
                 return ResourceManager.GetString("TranslatorSystemPrompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;safetySettings&quot;: [
+        ///    {
+        ///      &quot;category&quot;: &quot;HARM_CATEGORY_SEXUALLY_EXPLICIT&quot;,
+        ///      &quot;threshold&quot;: &quot;OFF&quot;
+        ///    }
+        ///  ],
+        ///  &quot;generation_config&quot;: {
+        ///    &quot;mediaResolution&quot;: &quot;MEDIA_RESOLUTION_LOW&quot;
+        ///  },
+        ///  &quot;contents&quot;: {
+        ///    &quot;role&quot;: &quot;user&quot;,
+        ///    &quot;parts&quot;: [
+        ///      {
+        ///        &quot;text&quot;: &quot;Is this image prohibated?  Please respond with a simple \&quot;Yes\&quot; or \&quot;No\&quot;. I don&apos;t need an image description.&quot;
+        ///      },
+        ///      {
+        ///        &quot;inlineData&quot;: {
+        ///          &quot;mimeType&quot;: &quot;image/jpeg&quot;,
+        ///          &quot;data&quot;: &quot;[IMAGE_BASE64_D [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string ValidateImageRequest {
+            get {
+                return ResourceManager.GetString("ValidateImageRequest", resourceCulture);
             }
         }
         

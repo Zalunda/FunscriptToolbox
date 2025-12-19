@@ -191,6 +191,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             string prefix = "")
         {
             transcription.Costs.Add(response.Cost);
+            transcription.Costs.AddRange(response.AdditionalCosts);
             foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
                                     response.Request,
                                     response.AssistantMessage,

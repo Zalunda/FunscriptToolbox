@@ -85,7 +85,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public static Cost Create(
             string taskName,
             string engineIdentifier,
-            AIRequest request,
+            AIRequestPart[] allParts,
             TimeSpan timeTaken,
             int nbItemsInRequest,
             int nbItemsInResponse,
@@ -101,19 +101,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             return (inputTokens != null && outputThoughtsTokens != null && outputCandidatesTokens != null)
                 ? CreateTokenBasedCost(
-                    taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse,
+                    taskName, engineIdentifier, allParts, timeTaken, nbItemsInRequest, nbItemsInResponse,
                     costPerInputMillionTokens, costPerOutputMillionTokens, inputTokens.Value,
                     outputThoughtsChars, outputThoughtsTokens.Value,
                     outputCandidatesChars, outputCandidatesTokens.Value, rawUsageInput, customInfos)
                 : CreateFallbackCost(
-                taskName, engineIdentifier, request, timeTaken, nbItemsInRequest, nbItemsInResponse,
+                taskName, engineIdentifier, allParts, timeTaken, nbItemsInRequest, nbItemsInResponse,
                 outputThoughtsChars + outputCandidatesChars, customInfos);
         }
 
         private static Cost CreateTokenBasedCost(
             string taskName,
             string engineIdentifier,
-            AIRequest request,
+            AIRequestPart[] allParts,
             TimeSpan timeTaken,
             int nbItemsInRequest,
             int nbItemsInResponse,
@@ -127,8 +127,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             Dictionary<string, int> rawUsageInput,
             dynamic customInfos)
         {
-            var allParts = request.SystemParts.Concat(request.UserParts).ToList();
-
             // Calculate Total Estimated Weight to distribute Actual Tokens
             double totalEstimatedWeight = allParts.Sum(p => p.EstimatedTokens);
             if (totalEstimatedWeight <= 0) totalEstimatedWeight = 1; // Prevent div by zero
@@ -209,14 +207,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private static Cost CreateFallbackCost(
             string taskName,
             string engineIdentifier,
-            AIRequest originalRequest,
+            AIRequestPart[] allParts,
             TimeSpan timeTaken,
             int nbItemsInRequest,
             int nbItemsInResponse,
             int nbCharsInResponse,
             dynamic customInfos)
         {
-            var allParts = originalRequest.SystemParts.Concat(originalRequest.UserParts).ToList();
             var inputDetails = new InputCostDetails { EstimatedCostPerMillionTokens = 0 };
 
             foreach (var sectionGroup in allParts.GroupBy(p => p.Section))
