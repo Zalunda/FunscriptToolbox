@@ -22,10 +22,12 @@
       "MaxChunkDuration": "00:03:00",
       "ExportMetadataSrt": false,
       "TranscriptionToIgnorePatterns" : [ 
-        { "Name": "Aaah", "Pattern": "あ+[ぁ]*。" },
-        { "Name": "Hmmm", "Pattern": "ん[っー]*。|うーん。" },
-        { "Name": "Giggle", "Pattern": "ふふ[っ]*。" },
-        { "Name": "Moan",  "Pattern": "あ[っー]*ん*[っ]*。" },
+        { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
+        { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+" },
+        { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
+        { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+" },
+        { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*" },
+        { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーは、。\\s…!！]+" }
       ]
     },
     {
