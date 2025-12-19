@@ -560,6 +560,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                 Console.WriteLine();
 
+                extraContent.AppendLine($"RunningTime: {watch.Elapsed}");
+
                 if (googleUsageMetadata != null)
                 {
                     extraContent.AppendLine($"InputTokensByModality:     {googleUsageMetadata.PromptTokenCount,7}, {GetInputCost(googleUsageMetadata.PromptTokenCount):C}");

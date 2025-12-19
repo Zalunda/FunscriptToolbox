@@ -107,8 +107,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return;
             }
 
-            if (itemsAlreadyDone.Length == 0)
+            if (itemsAlreadyDone.Length == 0 && transcription.Items.Count == 0)
             {
+                //var numberWithX = workItems.Count(item => item.Metadata.Get(this.MetadataProduced));
                 var autoSpeakerChoices = workItems.Select(f => f.PotentialSpeakers.Count == 1 ? f.PotentialSpeakers[0] : null).Distinct().ToArray();
                 if (itemsAlreadyDone.Length == 0 && autoSpeakerChoices.Length == 1 && autoSpeakerChoices[0] != null)
                 {
