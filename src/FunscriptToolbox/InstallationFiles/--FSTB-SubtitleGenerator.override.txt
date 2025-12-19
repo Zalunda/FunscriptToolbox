@@ -63,6 +63,24 @@
       "APIKeyName": "APIKeyGemini",
       "UseBatchMode": true,
       "RequestBodyExtension": {
+        "safetySettings": [
+          {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "OFF"
+          }
+        ],
         "generation_config": {
           "thinkingConfig": {
             "includeThoughts": true
@@ -111,6 +129,24 @@
       "APIKeyName": "APIKeyGemini",
       "UseBatchMode": true,
       "RequestBodyExtension": {
+        "safetySettings": [
+          {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "OFF"
+          }
+        ],
         "generation_config": {
           "thinkingConfig": {
             // [Option] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
