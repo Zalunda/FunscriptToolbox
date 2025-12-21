@@ -19,7 +19,7 @@
     {
       "Id": "full-ai",
       "Enabled": true,
-      "MaxChunkDuration": "00:03:00",
+      "MaxChunkDuration": "00:05:00",
       "ExportMetadataSrt": false,
       "TranscriptionToIgnorePatterns" : [ 
         { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
@@ -118,7 +118,7 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Options": {
-        "BatchSize": 50,
+        "BatchSize": 75,
         "BatchSplitWindows": 5,
         "NbContextItems": 10000,
         "NbItemsMinimumReceivedToContinue": 30

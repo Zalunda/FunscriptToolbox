@@ -19,7 +19,7 @@
     {
       "Id": "full-ai",
       "Enabled": true,
-      "MaxChunkDuration": "00:03:00",
+      "MaxChunkDuration": "00:05:00",
       "ExportMetadataSrt": false,
       "TranscriptionToIgnorePatterns" : [ 
         { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
@@ -65,7 +65,7 @@
       "ExportMetadataSrt": false,
       "Options": {
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
-        "BatchSize": 50,
+        "BatchSize": 75,
         "BatchSplitWindows": 5,
         "NbContextItems": 10,
         "NbItemsMinimumReceivedToContinue": 40
@@ -133,7 +133,7 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Options": {
-        "BatchSize": 50,
+        "BatchSize": 75,
         "BatchSplitWindows": 5,
         "NbContextItems": 10000,
         "NbItemsMinimumReceivedToContinue": 30

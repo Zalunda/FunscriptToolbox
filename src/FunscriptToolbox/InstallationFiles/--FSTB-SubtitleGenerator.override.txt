@@ -337,24 +337,23 @@ _______________________________________="
     {
       "TranscriptionId": "full-ai",
       "Engine": {
-        // As of 2026/12, it seem like only Gemini 2.5 on Google API return good timings and flash 3. 
+        // As of 2026/12, it seem like only gemini-2.5-pro and gemini-3-flash on Google API return good timings. 
         // When using Poe or Gemini3.0 (on google or poe), the audio in 'shortened' (removing silence) before
         // sending it to the AI, so the AI response return timings based on the shortend audio.
-        // [OPTION] Change to AIEngineGemini2.5ProOnGoogle.
-        "$ref": "AIEngineGemini3Flash"
+        "$ref": "AIEngineGemini2.5ProOnGoogle"
       }
     },
     {
       "TranscriptionId": "singlevad-ai",
       "Engine": {
-        "$ref": "AIEngineGemini3Flash"
+        "$ref": "AIEngineGemini3Pro"
       }
     },
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
         // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
-        "$ref": "AIEngineGemini3Flash"
+        "$ref": "AIEngineGemini3Pro"
       }
     },
     {
@@ -367,7 +366,7 @@ _______________________________________="
       "Id": "translated-texts_maverick",
       "Engine": {
         // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
-        "$ref": "AIEngineGemini3Flash"
+        "$ref": "AIEngineGemini3Pro"
       }
     },
     {

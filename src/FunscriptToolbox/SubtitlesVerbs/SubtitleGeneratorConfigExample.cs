@@ -294,9 +294,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime,
                             MetadataInContextLimits = new Dictionary<string, int>
                             {
-                                { "StartTime", 50 },
-                                { "EndTime", 50 },
-                                { "TranslationAnalysis", 20 },
+                                { "StartTime", 10 },
+                                { "EndTime", 10 },
+                                { "TranslationAnalysis", 10 },
                                 { "full-VoiceText", 0 },
                                 { "singlevad-VoiceText", 0 }
                             }
