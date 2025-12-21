@@ -34,7 +34,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         public int Execute()
         {
-            var prefixExamples = "Default-2.1.0-";
+            var prefixExamples = "Default-2.1.1-";
 
             InstallOFSPlugin();
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat, UTF8NoBOM);
