@@ -303,6 +303,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     // we loop...
                 }
 
+                waitingTimer?.Dispose();
+                waitingTimer = null;
+
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", pollJson, request.ProcessStartTime);
 
                 // 3. Process the Result
@@ -397,7 +400,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (isFirstCall
                     && this.ValidateImagesOnProbititedResponse 
-                    && finalResult.PromptFeedback.BlockReason == PROHIBITED_CONTENT
+                    && finalResult.PromptFeedback?.BlockReason == PROHIBITED_CONTENT
                     && batchRequestAsJson.IndexOf("image/jpeg", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     context.WriteInfo($"Received 'PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}', validating image one by one...");
@@ -415,7 +418,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (nbImagesRemoved > 0)
                     {
                         context.WriteInfo($"Processing filtered request...");
-                        var filteredResponse = ProcessStreamingResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false);
+                        var filteredResponse = ProcessBatchResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false);
                         filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
                         filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
                         return filteredResponse;
@@ -556,6 +559,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     extraContent.AppendLine($"==> An exception occured while receiving the AI response: {ex.Message}");
                     context.WriteLog(ex.ToString());
                 }
+
+                waitingTimer?.Dispose();
+                waitingTimer = null;
 
                 Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                 Console.WriteLine();
