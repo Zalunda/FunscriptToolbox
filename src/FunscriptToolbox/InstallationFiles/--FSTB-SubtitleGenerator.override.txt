@@ -61,8 +61,9 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyGemini",
-      // [OPTION] Use BatchMode for half the cost
-      "UseBatchMode": false,
+      // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
+      "UseBatchMode": true,
+      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
           {
@@ -127,8 +128,9 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-3-flash-preview",
       "APIKeyName": "APIKeyGemini",
-      // [OPTION] Use BatchMode for half the cost
-      "UseBatchMode": false,
+      // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
+      "UseBatchMode": true,
+      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
           {
@@ -197,8 +199,9 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-3-pro-preview",
       "APIKeyName": "APIKeyGemini",
-      // [OPTION] Use BatchMode for half the cost
-      "UseBatchMode": false,
+      // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
+      "UseBatchMode": true,
+      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
           {

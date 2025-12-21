@@ -38,8 +38,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 17)]
         public double EstimatedCostPerOutputMillionTokens { get; set; } = 0.0;
 
-        public double GetInputCost(int nbTokens) => (double)nbTokens / 1_000_000 * EstimatedCostPerInputMillionTokens;
-        public double GetOutputCost(int nbTokens) => (double)nbTokens / 1_000_000 * EstimatedCostPerOutputMillionTokens;
+        public double GetInputCost(int nbTokens) => (double)nbTokens / 1_000_000 * EstimatedCostPerInputMillionTokens * CostSaving;
+        public double GetOutputCost(int nbTokens) => (double)nbTokens / 1_000_000 * EstimatedCostPerOutputMillionTokens * CostSaving;
+
+        [JsonIgnore]
+        protected virtual double CostSaving => 1.0;
 
         [JsonProperty(Order = 20)]
         public bool PauseBeforeSendingRequest { get; set; } = false;
@@ -49,7 +52,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public string EngineIdentifierWithoutModel => $"{BaseAddress}|{APIKeyName}";
         [JsonIgnore]
-        public string EngineIdentifier => $"{EngineIdentifierWithoutModel}|{Model}";
+        public virtual string EngineIdentifier => $"{EngineIdentifierWithoutModel}|{Model}";
 
         protected dynamic CreateRequestBodyWithExtension()
         {

@@ -21,10 +21,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public bool UseBatchMode { get; set; } = true;
 
         [JsonProperty(Order = 31)]
-        public bool ValidateImagesOnProbititedResponse { get; set; } = true;
+        public double UseBatchModeSaving { get; set; } = 0.5;
 
         [JsonProperty(Order = 32)]
+        public bool ValidateImagesOnProbititedResponse { get; set; } = true;
+
+        [JsonProperty(Order = 33)]
         public bool DebugBatchPollingResponse { get; set; }
+
+        protected override double CostSaving => UseBatchMode ? 0.5 : 1.0;
+        public override string EngineIdentifier => base.EngineIdentifier + (UseBatchMode ? "+Batch" : "+Stream");
 
         public override AIResponse Execute(
             SubtitleGeneratorContext context,
