@@ -204,6 +204,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             if ((n2.StartTime - n1.EndTime) >= this.MaxMergeGapDialogue) return null;
 
+            var totalDuration = n2.EndTime - n1.StartTime;
+            if (totalDuration >= this.MaxMergeDuration) return null;
+
             var text1 = n1.Metadata.Get(this.Options.MetadataNeeded);
             var text2 = n2.Metadata.Get(this.Options.MetadataNeeded);
 
