@@ -174,66 +174,6 @@
                         defaultSetName = "Amplitude"
                     }
                 }
-            },
-            {
-                type = "Header",
-                header = "    4. Timing Adjustments",
-                items = {
-                    {
-                        label = "Similitude threshold %",
-                        targetPath = "timing.SimilitudeThreshold",
-                        type = "InputInt",
-                        defaultValue = 20,
-                        defaultValueSet = "Timing",
-                        groupTags = {"UpdateVirtualPoints"},
-                        step = 10, min = 0, max = 100
-                    },
-                    {
-                        label = "Minimum Ratio Up-Down",
-                        targetPath = "timing.MinRatioUpDown",
-                        type = "InputInt",
-                        defaultValue = 50,
-                        defaultValueSet = "Timing",
-                        groupTags = {"UpdateVirtualPoints"},
-                        step = 5, min = 0, max = 100
-                    },
-                    {
-                        label = "Maximum Ratio Up-Down",
-                        targetPath = "timing.MaxRatioUpDown",
-                        type = "InputInt",
-                        defaultValue = 60,
-                        defaultValueSet = "Timing",
-                        groupTags = {"UpdateVirtualPoints"},
-                        step = 5,
-                        customClamp = function(val)
-                            return clamp(val, config_manager:getConfigValue("timing.MinRatioUpDown"), 100)
-                        end
-                    },
-                    {
-                        label = "Top Points Offset",
-                        targetPath = "timing.TopPointsOffset",
-                        type = "InputInt",
-                        defaultValue = 0,
-                        defaultValueSet = "Timing",
-                        groupTags = {"UpdateVirtualPoints"},
-                        step = 1, min = -10, max = 10,
-                        shortcuts = {{label = "0", value = 0}}
-                    },
-                    {
-                        label = "Bottom Points Offset",
-                        targetPath = "timing.BottomPointsOffset",
-                        type = "InputInt",
-                        defaultValue = 0,
-                        defaultValueSet = "Timing",
-                        groupTags = {"UpdateVirtualPoints"},
-                        step = 1, min = -10, max = 10,
-                        shortcuts = {{label = "0", value = 0}}
-                    },
-                    {
-                        type = "ManageDefaultValueSet",
-                        defaultSetName = "Timing"
-                    }
-                }
             }
         }
     },

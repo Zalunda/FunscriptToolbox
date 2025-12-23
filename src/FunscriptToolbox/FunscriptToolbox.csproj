@@ -255,7 +255,6 @@
     <None Include="InstallationFiles\--FSTB-VerifyDownloadedScripts.bat" />
     <None Include="InstallationFiles\LuaPlugin\gui_config_manager.lua" />
     <None Include="InstallationFiles\LuaPlugin\gui_config_def.lua" />
-    <None Include="InstallationFiles\LuaPlugin\fullstroke.lua" />
     <None Include="InstallationFiles\LuaPlugin\json.lua" />
     <None Include="InstallationFiles\LuaPlugin\main.lua" />
     <None Include="InstallationFiles\LuaPlugin\server_connection.lua" />
@@ -304,7 +303,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy "$(SolutionDir)\..\lib\precompiled-ffmpeg\ffmpeg.exe" /D .
+    <PostBuildEvent>REM xcopy "$(SolutionDir)\..\lib\precompiled-ffmpeg\ffmpeg.exe" /D .
 </PostBuildEvent>
   </PropertyGroup>
   <Import Project="..\packages\Whisper.net.Runtime.Cublas.1.5.0\build\Whisper.net.Runtime.Cublas.targets" Condition="Exists('..\packages\Whisper.net.Runtime.Cublas.1.5.0\build\Whisper.net.Runtime.Cublas.targets')" />

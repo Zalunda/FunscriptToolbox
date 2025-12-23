@@ -23,20 +23,16 @@ namespace FunscriptToolbox.Core.MotionVectors
         /// </summary>
         public FrameAnalyserUnit DownToUpTransitionAnalyser { get; }
 
-        public FunscriptAction[] ReferenceActions { get; }
-
         public FrameAnalyser(
             MotionVectorsFrameLayout frameLayout,
             FrameAnalyserUnit obviousMovementAnalyser,
             FrameAnalyserUnit upToDownTransitionAnalyser,
-            FrameAnalyserUnit downToUpTransitionAnalyser,
-            FunscriptAction[] referenceActions)
+            FrameAnalyserUnit downToUpTransitionAnalyser)
         {
             FrameLayout = frameLayout;
             ObviousMovementAnalyser = obviousMovementAnalyser;
             UpToDownTransitionAnalyser = upToDownTransitionAnalyser;
             DownToUpTransitionAnalyser = downToUpTransitionAnalyser;
-            ReferenceActions = referenceActions;
         }
 
         /// <summary>
@@ -48,8 +44,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 FrameLayout,
                 ObviousMovementAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
                 UpToDownTransitionAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
-                DownToUpTransitionAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
-                ReferenceActions);
+                DownToUpTransitionAnalyser.Mask(maskX, maskY, maskWidth, maskHeight));
         }
 
         /// <summary>
@@ -61,8 +56,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 FrameLayout,
                 ObviousMovementAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
                 UpToDownTransitionAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
-                DownToUpTransitionAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
-                ReferenceActions);
+                DownToUpTransitionAnalyser.Filter(activityLevel, qualityLevel, minPercentage));
         }
 
         public FunscriptActionExtended[] GenerateActions(

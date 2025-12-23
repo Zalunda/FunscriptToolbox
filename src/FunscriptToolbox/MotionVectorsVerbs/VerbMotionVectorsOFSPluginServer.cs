@@ -158,14 +158,13 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
                         if (learningActions == null)
                         {
-                           // TODO maybe or not
                             var rules = new List<BlocAnalyserRule>();
                             for (ushort i = 0; i < mvsReader.FrameLayout.NbCellsTotalPerFrame; i++)
                             {
                                 rules.Add(new BlocAnalyserRule(i, 6));
                             }
                             var unit = new FrameAnalyserUnit(mvsReader.FrameLayout, rules.ToArray());
-                            var tempAnalyser = new FrameAnalyser(mvsReader.FrameLayout, unit, unit, unit, new FunscriptAction[] { });
+                            var tempAnalyser = new FrameAnalyser(mvsReader.FrameLayout, unit, unit, unit);
                             learningActions = tempAnalyser.GenerateActions(
                                 mvsReader, 
                                 createRulesRequest.CurrentVideoTimeAsTimeSpan, 

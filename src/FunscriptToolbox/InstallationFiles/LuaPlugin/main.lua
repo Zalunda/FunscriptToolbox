@@ -2,7 +2,6 @@
 json = require "json"
 server_connection = require "server_connection"
 virtual_actions = require "virtual_actions"
-fullstroke = require "fullstroke"
 configManager = require "gui_config_manager"
 require "static_config" -- Defines PluginVersion, FTMVSFullPath etc.
 require "gui_config_def" -- Defines guiConfigDefinition
@@ -57,6 +56,57 @@ function createRequest(service)
     }
 end
 
+-- Helper function to get actions for the last N half-strokes
+function getActionsForLastNHalfStrokes(actions, maxNumberHalfStrokes)
+    -- Need at least 2 actions to detect direction
+    if #actions < 2 then
+        return actions
+    end
+    
+    local actionsToInclude = {}
+    local directionChanges = 0
+    local previousDirection = nil
+    
+    -- Start from the most recent action (end of array) and work backwards
+    -- Always include the newest action
+    table.insert(actionsToInclude, actions[#actions])
+    
+    for i = #actions - 1, 1, -1 do
+        local current = actions[i]
+        local next = actions[i+1]  -- The action after (more recent in time)
+        
+        -- Determine direction (still from older to newer perspective)
+        local direction = nil
+        if current.pos < next.pos then
+            direction = "up"
+        elseif current.pos > next.pos then
+            direction = "down"
+        else
+            direction = "neutral"
+        end
+        
+        -- Check for direction change (skip neutral)
+        if direction ~= "neutral" then
+            if previousDirection ~= nil and direction ~= previousDirection then
+                directionChanges = directionChanges + 1
+                
+                -- If we found enough direction changes, we're done
+                if directionChanges >= maxNumberHalfStrokes then
+                    break
+                end
+            end
+            
+            -- Update previous direction
+            previousDirection = direction
+        end
+
+        -- Include this action
+        table.insert(actionsToInclude, 1, current)  -- Insert at beginning to maintain chronological order        
+    end
+    
+    return actionsToInclude
+end
+
 function sendCreateRulesRequest(showUI)
     getVirtualActions():unvirtualizeActionsBefore('sendCreateRulesRequest', player.CurrentTime())
     getVirtualActions():removeAllVirtualActionsInTimelime('sendCreateRulesRequest')
@@ -74,7 +124,7 @@ function sendCreateRulesRequest(showUI)
         end
     end
 
-    local actionsToSend = fullstroke.getActionsForLastNHalfStrokes(
+    local actionsToSend = getActionsForLastNHalfStrokes(
         candidates, 
         config_manager:getConfigValue("learn.MaxLearningStrokes") * 2)
 
@@ -200,87 +250,43 @@ function binding.go_back_to_start()
         player.Seek(start)
     end
 end
-function isClosestActionTop()
-	local script = ofs.Script(ofs.ActiveIdx())
-	local firstAction, indexBefore = script:closestAction(player.CurrentTime())
-	local nextAction = firstAction and script:closestActionAfter(firstAction.at)
-	if firstAction and nextAction then
-		return firstAction.pos > nextAction.pos
-	else		
-		return false
-	end
-end
-function binding.smart_points_move_to_left()
-    local targetPath = isClosestActionTop() and "TopPointsOffset" or "BottomPointsOffset"
-    if config_manager:IncrementValueByStep(targetPath, -1) then
-        updateVirtualPoints()
-    end
-end
-function binding.smart_points_move_to_right()
-    local targetPath = isClosestActionTop() and "TopPointsOffset" or "BottomPointsOffset"
-    if config_manager:IncrementValueByStep(targetPath, 1) then
-        updateVirtualPoints()
-    end
-end
-function binding.all_points_move_to_left()
-    local changed1 = config_manager:IncrementValueByStep("TopPointsOffset", -1)
-    local changed2 = config_manager:IncrementValueByStep("BottomPointsOffset", -1)
-    if changed1 or changed2 then updateVirtualPoints() end
-end
-function binding.all_points_move_to_right()
-    local changed1 = config_manager:IncrementValueByStep("TopPointsOffset", 1)
-    local changed2 = config_manager:IncrementValueByStep("BottomPointsOffset", 1)
-    if changed1 or changed2 then updateVirtualPoints() end
-end
-function binding.top_points_move_to_left()
-    if config_manager:IncrementValueByStep("TopPointsOffset", -1) then updateVirtualPoints() end
-end
-function binding.top_points_move_to_right()
-    if config_manager:IncrementValueByStep("TopPointsOffset", 1) then updateVirtualPoints() end
-end
-function binding.bottom_points_move_to_left()
-    if config_manager:IncrementValueByStep("BottomPointsOffset", -1) then updateVirtualPoints() end
-end
-function binding.bottom_points_move_to_right()
-    if config_manager:IncrementValueByStep("BottomPointsOffset", 1) then updateVirtualPoints() end
-end
 function binding.min_position_move_up()
-    if config_manager:IncrementValueByStep("MinimumPosition", 1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.MinimumPosition", 1) then updateVirtualPoints() end
 end
 function binding.min_position_move_down()
-    if config_manager:IncrementValueByStep("MinimumPosition", -1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.MinimumPosition", -1) then updateVirtualPoints() end
 end
 function binding.max_position_move_up()
-    if config_manager:IncrementValueByStep("MaximumPosition", 1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.MaximumPosition", 1) then updateVirtualPoints() end
 end
 function binding.max_position_move_down()
-    if config_manager:IncrementValueByStep("MaximumPosition", -1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.MaximumPosition", -1) then updateVirtualPoints() end
 end
 function binding.min_percentage_filled_move_up()
-    if config_manager:IncrementValueByStep("MinimumPercentageFilled", 1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.MinimumPercentageFilled", 1) then updateVirtualPoints() end
 end
 function binding.min_percentage_filled_move_down()
-    if config_manager:IncrementValueByStep("MinimumPercentageFilled", -1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.MinimumPercentageFilled", -1) then updateVirtualPoints() end
 end
 function binding.center_move_up()
-    if config_manager:IncrementValueByStep("AmplitudeCenter", 1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.Center", 1) then updateVirtualPoints() end
 end
 function binding.center_move_down()
-    if config_manager:IncrementValueByStep("AmplitudeCenter", -1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.Center", -1) then updateVirtualPoints() end
 end
 function binding.center_top()
-    config_manager:setConfigValue("AmplitudeCenter", 100)
+    config_manager:setConfigValue("amplitude.Center", 100)
     updateVirtualPoints()
 end
 function binding.center_bottom()
-    config_manager:setConfigValue("AmplitudeCenter", 0)
+    config_manager:setConfigValue("amplitude.Center", 0)
     updateVirtualPoints()
 end
 function binding.extraamplitude_move_up()
-    if config_manager:IncrementValueByStep("ExtraPercentage", 1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.ExtraPercentage", 1) then updateVirtualPoints() end
 end
 function binding.extraamplitude_move_down()
-    if config_manager:IncrementValueByStep("ExtraPercentage", -1) then updateVirtualPoints() end
+    if config_manager:IncrementValueByStep("amplitude.ExtraPercentage", -1) then updateVirtualPoints() end
 end
 
 function updateVirtualPoints()

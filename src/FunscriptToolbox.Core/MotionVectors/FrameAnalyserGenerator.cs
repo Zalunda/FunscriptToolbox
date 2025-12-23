@@ -297,8 +297,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 reader.FrameLayout,
                 obviousAnalyser,
                 upToDownAnalyser,
-                downToUpAnalyser,
-                referenceActions);
+                downToUpAnalyser);
         }
 
         private static FrameAnalyserUnit CreateAnalyserFromTemp(
@@ -346,8 +345,7 @@ namespace FunscriptToolbox.Core.MotionVectors
 
             return new FrameAnalyserUnit(
                 frameLayout,
-                rules.ToArray(),
-                referenceActions);
+                rules.ToArray());
         }
     }
 }

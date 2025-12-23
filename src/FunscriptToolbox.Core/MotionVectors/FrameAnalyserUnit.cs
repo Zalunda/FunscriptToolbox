@@ -8,20 +8,17 @@ namespace FunscriptToolbox.Core.MotionVectors
     {
         public MotionVectorsFrameLayout FrameLayout { get; }
         public BlocAnalyserRule[] Rules { get; }
-        public FunscriptAction[] ReferenceActions { get; }
         public int ActivityLevel { get; }
         public int QualityLevel { get; }
 
         public FrameAnalyserUnit(
             MotionVectorsFrameLayout frameLayout, 
             BlocAnalyserRule[] rules = null,
-            FunscriptAction[] referenceActions = null,
             int activityLevel = 0, 
             int qualityLevel = 0)
         {
             this.FrameLayout = frameLayout;
             this.Rules = rules ?? Array.Empty<BlocAnalyserRule>();
-            this.ReferenceActions = referenceActions ?? Array.Empty<FunscriptAction>();
             this.ActivityLevel = activityLevel;
             this.QualityLevel = qualityLevel;
         }
@@ -73,7 +70,6 @@ namespace FunscriptToolbox.Core.MotionVectors
             return new FrameAnalyserUnit(
                 this.FrameLayout,       // FrameLayout itself doesn't change
                 filteredRules.ToArray(),
-                this.ReferenceActions,  // ReferenceActions are passed along
                 this.ActivityLevel,     // ActivityLevel is preserved
                 this.QualityLevel       // QualityLevel is preserved
             );
@@ -97,7 +93,6 @@ namespace FunscriptToolbox.Core.MotionVectors
             return new FrameAnalyserUnit(
                 this.FrameLayout,       // FrameLayout itself doesn't change
                 rules,
-                this.ReferenceActions,  // ReferenceActions are passed along
                 this.ActivityLevel,     // ActivityLevel is preserved
                 this.QualityLevel);     // QualityLevel is preserved
         }
