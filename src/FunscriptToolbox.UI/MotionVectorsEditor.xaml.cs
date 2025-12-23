@@ -1,13 +1,10 @@
 ﻿using FunscriptToolbox.Core.MotionVectors;
 using FunscriptToolbox.Core.MotionVectors.PluginMessages;
 using System;
-using System.Collections.Generic;
-using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -122,7 +119,7 @@ namespace FunscriptToolbox.UI
                 graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 graphics.DrawImage(r_snapshot, 0, 0, r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
 
-                foreach (var rule in analyser.Rules)
+                foreach (var rule in analyser.UpToDownTransitionAnalyser.Rules)
                 {
                     var vectorBitmap = r_vectorBitmaps[rule.Direction];
                     var y = rule.Index / analyser.FrameLayout.NbColumns;
@@ -208,30 +205,30 @@ namespace FunscriptToolbox.UI
         {
             if (TabControl.SelectedItem == ManualTab)
             {
-                var selection = VirtualCanvas.SelectionRectangle;
+                //var selection = VirtualCanvas.SelectionRectangle;
 
-                var direction = m_currentManualFrameAnalyser.Rules.Select(f => f.Direction).FirstOrDefault();
-                var rules = new List<BlocAnalyserRule>();
-                for (int indexBlocY = 0; indexBlocY < r_mvsReader.FrameLayout.NbRows; indexBlocY++)
-                {
-                    var blocY = indexBlocY * r_mvsReader.FrameLayout.CellHeight;
-                    if (blocY >= selection.Top && blocY < selection.Bottom)
-                    {
-                        for (int indexBlocX = 0; indexBlocX < r_mvsReader.FrameLayout.NbColumns; indexBlocX++)
-                        {
-                            var blocX = indexBlocX * r_mvsReader.FrameLayout.CellWidth;
-                            if (blocX >= selection.Left && blocX < selection.Right)
-                            {
-                                rules.Add(
-                                    new BlocAnalyserRule(
-                                        (ushort)(indexBlocY * r_mvsReader.FrameLayout.NbColumns + indexBlocX), 
-                                        GetDirection().Value));
-                            }
-                        }
-                    }
-                }
+                //var direction = m_currentManualFrameAnalyser.ObviousMovementAnalyser.Rules.Select(f => f.Direction).FirstOrDefault();
+                //var rules = new List<BlocAnalyserRule>();
+                //for (int indexBlocY = 0; indexBlocY < r_mvsReader.FrameLayout.NbRows; indexBlocY++)
+                //{
+                //    var blocY = indexBlocY * r_mvsReader.FrameLayout.CellHeight;
+                //    if (blocY >= selection.Top && blocY < selection.Bottom)
+                //    {
+                //        for (int indexBlocX = 0; indexBlocX < r_mvsReader.FrameLayout.NbColumns; indexBlocX++)
+                //        {
+                //            var blocX = indexBlocX * r_mvsReader.FrameLayout.CellWidth;
+                //            if (blocX >= selection.Left && blocX < selection.Right)
+                //            {
+                //                rules.Add(
+                //                    new BlocAnalyserRule(
+                //                        (ushort)(indexBlocY * r_mvsReader.FrameLayout.NbColumns + indexBlocX), 
+                //                        GetDirection().Value));
+                //            }
+                //        }
+                //    }
+                //}
 
-                m_currentManualFrameAnalyser = new FrameAnalyser(r_mvsReader.FrameLayout, rules.ToArray());
+                //m_currentManualFrameAnalyser = new FrameAnalyser(r_mvsReader.FrameLayout, rules.ToArray());
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));
@@ -260,12 +257,12 @@ namespace FunscriptToolbox.UI
             var direction = GetDirection();
             if (direction != null)
             {
-                m_currentManualFrameAnalyser = new FrameAnalyser(
-                    r_mvsReader.FrameLayout, 
-                    m_currentManualFrameAnalyser
-                        .Rules
-                        .Select(r => new BlocAnalyserRule(r.Index, direction.Value))
-                        .ToArray());
+                //m_currentManualFrameAnalyser = new FrameAnalyser(
+                //    r_mvsReader.FrameLayout, 
+                //    m_currentManualFrameAnalyser
+                //        .ObviousMovementAnalyser.Rules
+                //        .Select(r => new BlocAnalyserRule(r.Index, direction.Value))
+                //        .ToArray());
                 await Task.Run(() =>
                 {
                     Dispatcher.Invoke(() => UpdateImage(m_currentManualFrameAnalyser));
