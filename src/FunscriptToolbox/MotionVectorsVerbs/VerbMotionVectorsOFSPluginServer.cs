@@ -252,7 +252,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         private async Task<byte[]> TakeSnapshot(string videoFullPath, TimeSpan time)
         {
-            var tempFile = Path.GetTempFileName() + ".png";
+            var tempFile = Path.GetTempFileName() + ".jpg";
             try
             {
                 var conversion = await FFmpeg.Conversions.FromSnippet.Snapshot(videoFullPath, tempFile, time);
