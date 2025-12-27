@@ -9,30 +9,30 @@ namespace FunscriptToolbox.Core.MotionVectors
         public MotionVectorsFrameLayout FrameLayout { get; }
 
         /// <summary>
-        /// Analyser optimized for detecting the main/obvious part of movements
+        /// Analyser optimized for detecting the main/coarse part of movements
         /// </summary>
-        public FrameAnalyserUnit ObviousMovementAnalyser { get; }
+        public FrameDirectionAnalyser CoarseAnalyser { get; }
 
         /// <summary>
         /// Analyser optimized for detecting UP to DOWN transitions (peaks)
         /// </summary>
-        public FrameAnalyserUnit UpToDownTransitionAnalyser { get; }
+        public FrameDirectionAnalyser PeaksAnalyser { get; }
 
         /// <summary>
         /// Analyser optimized for detecting DOWN to UP transitions (valleys)
         /// </summary>
-        public FrameAnalyserUnit DownToUpTransitionAnalyser { get; }
+        public FrameDirectionAnalyser ValleysAnalyser { get; }
 
         public FrameAnalyser(
             MotionVectorsFrameLayout frameLayout,
-            FrameAnalyserUnit obviousMovementAnalyser,
-            FrameAnalyserUnit upToDownTransitionAnalyser,
-            FrameAnalyserUnit downToUpTransitionAnalyser)
+            FrameDirectionAnalyser coarseAnalyser,
+            FrameDirectionAnalyser peaksAnalyser,
+            FrameDirectionAnalyser valleysAnalyser)
         {
             FrameLayout = frameLayout;
-            ObviousMovementAnalyser = obviousMovementAnalyser;
-            UpToDownTransitionAnalyser = upToDownTransitionAnalyser;
-            DownToUpTransitionAnalyser = downToUpTransitionAnalyser;
+            CoarseAnalyser = coarseAnalyser;
+            PeaksAnalyser = peaksAnalyser;
+            ValleysAnalyser = valleysAnalyser;
         }
 
         /// <summary>
@@ -42,9 +42,9 @@ namespace FunscriptToolbox.Core.MotionVectors
         {
             return new FrameAnalyser(
                 FrameLayout,
-                ObviousMovementAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
-                UpToDownTransitionAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
-                DownToUpTransitionAnalyser.Mask(maskX, maskY, maskWidth, maskHeight));
+                CoarseAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
+                PeaksAnalyser.Mask(maskX, maskY, maskWidth, maskHeight),
+                ValleysAnalyser.Mask(maskX, maskY, maskWidth, maskHeight));
         }
 
         /// <summary>
@@ -54,9 +54,9 @@ namespace FunscriptToolbox.Core.MotionVectors
         {
             return new FrameAnalyser(
                 FrameLayout,
-                ObviousMovementAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
-                UpToDownTransitionAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
-                DownToUpTransitionAnalyser.Filter(activityLevel, qualityLevel, minPercentage));
+                CoarseAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
+                PeaksAnalyser.Filter(activityLevel, qualityLevel, minPercentage),
+                ValleysAnalyser.Filter(activityLevel, qualityLevel, minPercentage));
         }
 
         public FunscriptActionExtended[] GenerateActions(
@@ -75,26 +75,24 @@ namespace FunscriptToolbox.Core.MotionVectors
             var framesWithSameDirectionAccumulator = new List<WeightedMotionVectorsFrameEx>();
 
             // Track which analyser detected the direction for the current movement
-            FrameAnalyserUnit currentMovementAnalyser = ObviousMovementAnalyser;
-
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
             {
                 // Compute weights using all three analysers
-                var obviousWeight = ComputeFrameTotalWeight(ObviousMovementAnalyser, frame, out var obviousPartialWeight);
-                var upToDownWeight = ComputeFrameTotalWeight(UpToDownTransitionAnalyser, frame, out var upToDownPartialWeight);
-                var downToUpWeight = ComputeFrameTotalWeight(DownToUpTransitionAnalyser, frame, out var downToUpPartialWeight);
+                var coarseWeight = ComputeFrameTotalWeight(CoarseAnalyser, frame, out var coarsePartialWeight);
+                var peaksWeight = ComputeFrameTotalWeight(PeaksAnalyser, frame, out var peaksPartialWeight);
+                var valleysWeight = ComputeFrameTotalWeight(ValleysAnalyser, frame, out var valleysPartialWeight);
 
-                // Determine the primary direction from the obvious analyser
-                var totalWeight = obviousWeight;
-                var partialWeight = obviousPartialWeight;
+                // Determine the primary direction from the coarse analyser
+                var totalWeight = coarseWeight;
+                var partialWeight = coarsePartialWeight;
 
                 var currentFrameWithWeight = new WeightedMotionVectorsFrameEx(
                     frame,
                     totalWeight,
                     partialWeight,
-                    obviousWeight,
-                    upToDownWeight,
-                    downToUpWeight);
+                    coarseWeight,
+                    peaksWeight,
+                    valleysWeight);
 
                 if (currentActionStartTime < TimeSpan.Zero)
                 {
@@ -166,7 +164,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             int endValue = (lastFrameTotalWeight > 0) ? 100 : 0;
 
             // Determine which transition analyser to use based on movement direction
-            bool isUpMovement = lastFrameTotalWeight > 0;
+            bool isValleyTransition = lastFrameTotalWeight > 0;
 
             // Create the action points
             var startPoint = GetOrAddPoint(points, FunscriptActionExtended.TimeToAt(currentActionStartTime), startValue);
@@ -177,47 +175,34 @@ namespace FunscriptToolbox.Core.MotionVectors
             // - End of movement: use the transition analyser for the current direction change
 
             // Find the start point using transition analyser
-            var startMouvAt = isUpMovement
-                ? FindMovementBoundary(
+            var startMouvAt = FindMovementBoundary(
                     framesWithSameDirectionAccumulator,
-                    downToUpWeight, // Start of UP = valley (down-to-up))
-                    isStart: true,
-                    settings)
-                : FindMovementBoundary(
-                    framesWithSameDirectionAccumulator,
-                    upToDownWeight, // Start of DOWN = peak (up-to-down)
+                    (p) => isValleyTransition ? p.ValleysWeight : p.PeaksWeight,
                     isStart: true,
                     settings);
 
             // Find the end point using transition analyser  
-            var endMouvAt = isUpMovement
-                ? FindMovementBoundary(
+            var endMouvAt = FindMovementBoundary(
                     framesWithSameDirectionAccumulator,
-                    upToDownWeight, // End of UP = peak (up-to-down)
-                    isStart: false,
-                    settings)
-                : FindMovementBoundary(
-                    framesWithSameDirectionAccumulator,
-                    downToUpWeight, // End of DOWN = valley (down-to-up)
+                    (p) => isValleyTransition ? p.PeaksWeight : p.ValleysWeight,
                     isStart: false,
                     settings);
 
-            // Calculate weights from the obvious analyser for intensity
+            // Calculate weights from the coarse analyser for intensity
             var frameCountToKeep = Math.Max(2, (int)Math.Ceiling(framesWithSameDirectionAccumulator.Count * (double)settings.PercentageOfFramesToKeep / 100));
             var weight = 0L;
             var partialWeight = 0L;
             foreach (var frameX in framesWithSameDirectionAccumulator
-                .OrderByDescending(f => Math.Abs(f.ObviousWeight))
+                .OrderByDescending(f => Math.Abs(f.CoarseWeight))
                 .Take(frameCountToKeep))
             {
-                weight += frameX.ObviousWeight;
+                weight += frameX.CoarseWeight;
                 partialWeight += frameX.Weight > 0 ?
                     Math.Max(0, frameX.PartialWeight) :
                     Math.Min(0, frameX.PartialWeight);
             }
 
-            startPoint.SetAtMax(startMouvAt);
-            endPoint.SetAtMinAndWeight(endMouvAt, weight, partialWeight);
+            endPoint.SetWeight(weight, partialWeight);
         }
 
         /// <summary>
@@ -265,10 +250,6 @@ namespace FunscriptToolbox.Core.MotionVectors
             return FunscriptActionExtended.TimeToAt(fallbackFrame.Original.FrameTime);
         }
 
-        // Helper lambdas for weight selection
-        private static long upToDownWeight(WeightedMotionVectorsFrameEx f) => f.UpToDownWeight;
-        private static long downToUpWeight(WeightedMotionVectorsFrameEx f) => f.DownToUpWeight;
-
         private FunscriptActionExtended GetOrAddPoint(List<FunscriptActionExtended> points, int at, int pos)
         {
             var previousPoint = points.LastOrDefault();
@@ -302,7 +283,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         }
 
         private long ComputeFrameTotalWeight(
-            FrameAnalyserUnit analyser,
+            FrameDirectionAnalyser analyser,
             MotionVectorsFrame<CellMotionSByte> frame,
             out long partialWeight)
         {
@@ -354,7 +335,7 @@ namespace FunscriptToolbox.Core.MotionVectors
         public MotionVectorsFrame<CellMotionSByte> Original { get; }
 
         /// <summary>
-        /// Primary weight (from obvious analyser, used for direction detection)
+        /// Primary weight (from coarse analyser, used for direction detection)
         /// </summary>
         public long Weight { get; }
 
@@ -364,34 +345,34 @@ namespace FunscriptToolbox.Core.MotionVectors
         public long PartialWeight { get; }
 
         /// <summary>
-        /// Weight calculated using the obvious movement analyser
+        /// Weight calculated using the coarse movement analyser
         /// </summary>
-        public long ObviousWeight { get; }
+        public long CoarseWeight { get; }
 
         /// <summary>
         /// Weight calculated using the up-to-down transition analyser (peaks)
         /// </summary>
-        public long UpToDownWeight { get; }
+        public long PeaksWeight { get; }
 
         /// <summary>
         /// Weight calculated using the down-to-up transition analyser (valleys)
         /// </summary>
-        public long DownToUpWeight { get; }
+        public long ValleysWeight { get; }
 
         public WeightedMotionVectorsFrameEx(
             MotionVectorsFrame<CellMotionSByte> original,
             long weight,
             long partialWeight,
-            long obviousWeight,
-            long upToDownWeight,
-            long downToUpWeight)
+            long coarseWeight,
+            long peaksWeight,
+            long valleysWeight)
         {
             Original = original;
             Weight = weight;
             PartialWeight = partialWeight;
-            ObviousWeight = obviousWeight;
-            UpToDownWeight = upToDownWeight;
-            DownToUpWeight = downToUpWeight;
+            CoarseWeight = coarseWeight;
+            PeaksWeight = peaksWeight;
+            ValleysWeight = valleysWeight;
         }
     }
 }

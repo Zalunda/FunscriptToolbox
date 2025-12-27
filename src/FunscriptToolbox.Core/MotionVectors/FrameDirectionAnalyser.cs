@@ -4,28 +4,28 @@ using System.Linq;
 
 namespace FunscriptToolbox.Core.MotionVectors
 {
-    public class FrameAnalyserUnit
+    public class FrameDirectionAnalyser
     {
         public MotionVectorsFrameLayout FrameLayout { get; }
-        public BlocAnalyserRule[] Rules { get; }
+        public BlocDirectionRule[] Rules { get; }
         public int ActivityLevel { get; }
         public int QualityLevel { get; }
 
-        public FrameAnalyserUnit(
-            MotionVectorsFrameLayout frameLayout, 
-            BlocAnalyserRule[] rules = null,
+        public FrameDirectionAnalyser(
+            MotionVectorsFrameLayout frameLayout,
+            BlocDirectionRule[] rules = null,
             int activityLevel = 0, 
             int qualityLevel = 0)
         {
             this.FrameLayout = frameLayout;
-            this.Rules = rules ?? Array.Empty<BlocAnalyserRule>();
+            this.Rules = rules ?? Array.Empty<BlocDirectionRule>();
             this.ActivityLevel = activityLevel;
             this.QualityLevel = qualityLevel;
         }
 
-        public FrameAnalyserUnit Mask(double maskX, double maskY, double maskWidth, double maskHeight)
+        public FrameDirectionAnalyser Mask(double maskX, double maskY, double maskWidth, double maskHeight)
         {
-            var filteredRules = new List<BlocAnalyserRule>();
+            var filteredRules = new List<BlocDirectionRule>();
 
             // Get block dimensions and number of columns from FrameLayout
             int blockPixelWidth = this.FrameLayout.CellWidth;
@@ -67,7 +67,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 }
             }
 
-            return new FrameAnalyserUnit(
+            return new FrameDirectionAnalyser(
                 this.FrameLayout,       // FrameLayout itself doesn't change
                 filteredRules.ToArray(),
                 this.ActivityLevel,     // ActivityLevel is preserved
@@ -75,7 +75,7 @@ namespace FunscriptToolbox.Core.MotionVectors
             );
         }
 
-        public FrameAnalyserUnit Filter(int activityLevel, int qualityLevel, double minPercentage)
+        public FrameDirectionAnalyser Filter(int activityLevel, int qualityLevel, double minPercentage)
         {
             var rules = this.Rules
                     .Where(rule => rule.Activity >= activityLevel)
@@ -90,7 +90,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                     .Take(minRules)
                     .ToArray();
             }
-            return new FrameAnalyserUnit(
+            return new FrameDirectionAnalyser(
                 this.FrameLayout,       // FrameLayout itself doesn't change
                 rules,
                 this.ActivityLevel,     // ActivityLevel is preserved

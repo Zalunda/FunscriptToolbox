@@ -261,7 +261,6 @@
     <None Include="InstallationFiles\LuaPlugin\static_config.lua" />
     <None Include="InstallationFiles\LuaPlugin\virtual_actions.lua" />
     <None Include="InstallationFiles\static_config_with_variables.lua" />
-    <None Include="new_virtual_actions.lua" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

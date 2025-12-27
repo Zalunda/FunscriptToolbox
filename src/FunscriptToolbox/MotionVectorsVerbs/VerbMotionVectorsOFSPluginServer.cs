@@ -1,5 +1,4 @@
 ﻿using CommandLine;
-using FunscriptToolbox.Core;
 using FunscriptToolbox.Core.MotionVectors;
 using FunscriptToolbox.Core.MotionVectors.PluginMessages;
 using FunscriptToolbox.InstallationFiles;
@@ -158,12 +157,12 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
                         if (learningActions == null)
                         {
-                            var rules = new List<BlocAnalyserRule>();
+                            var rules = new List<BlocDirectionRule>();
                             for (ushort i = 0; i < mvsReader.FrameLayout.NbCellsTotalPerFrame; i++)
                             {
-                                rules.Add(new BlocAnalyserRule(i, 6));
+                                rules.Add(new BlocDirectionRule(i, 6));
                             }
-                            var unit = new FrameAnalyserUnit(mvsReader.FrameLayout, rules.ToArray());
+                            var unit = new FrameDirectionAnalyser(mvsReader.FrameLayout, rules.ToArray());
                             var tempAnalyser = new FrameAnalyser(mvsReader.FrameLayout, unit, unit, unit);
                             learningActions = tempAnalyser.GenerateActions(
                                 mvsReader, 

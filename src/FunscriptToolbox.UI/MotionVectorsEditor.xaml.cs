@@ -119,7 +119,7 @@ namespace FunscriptToolbox.UI
                 graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 graphics.DrawImage(r_snapshot, 0, 0, r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
 
-                foreach (var rule in analyser.UpToDownTransitionAnalyser.Rules)
+                foreach (var rule in analyser.PeaksAnalyser.Rules)
                 {
                     var vectorBitmap = r_vectorBitmaps[rule.Direction];
                     var y = rule.Index / analyser.FrameLayout.NbColumns;
@@ -207,7 +207,7 @@ namespace FunscriptToolbox.UI
             {
                 //var selection = VirtualCanvas.SelectionRectangle;
 
-                //var direction = m_currentManualFrameAnalyser.ObviousMovementAnalyser.Rules.Select(f => f.Direction).FirstOrDefault();
+                //var direction = m_currentManualFrameAnalyser.CoarseAnalyser.Rules.Select(f => f.Direction).FirstOrDefault();
                 //var rules = new List<BlocAnalyserRule>();
                 //for (int indexBlocY = 0; indexBlocY < r_mvsReader.FrameLayout.NbRows; indexBlocY++)
                 //{
@@ -260,7 +260,7 @@ namespace FunscriptToolbox.UI
                 //m_currentManualFrameAnalyser = new FrameAnalyser(
                 //    r_mvsReader.FrameLayout, 
                 //    m_currentManualFrameAnalyser
-                //        .ObviousMovementAnalyser.Rules
+                //        .CoarseAnalyser.Rules
                 //        .Select(r => new BlocAnalyserRule(r.Index, direction.Value))
                 //        .ToArray());
                 await Task.Run(() =>

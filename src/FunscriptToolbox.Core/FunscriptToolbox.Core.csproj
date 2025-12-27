@@ -49,6 +49,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MotionVectors\BlocDirectionRule.cs" />
     <Compile Include="MotionVectors\FrameAnalyser.cs" />
     <Compile Include="MotionVectors\FunscriptActionExtended.cs" />
     <Compile Include="MotionVectors\GenerateActionsSettings.cs" />
@@ -59,8 +60,7 @@
     <Compile Include="Infra\PathExtension.cs" />
     <Compile Include="Infra\SimpleTypeNameSerializationBinder.cs" />
     <Compile Include="Infra\TimeSpanExtensions.cs" />
-    <Compile Include="MotionVectors\BlocAnalyserRule.cs" />
-    <Compile Include="MotionVectors\FrameAnalyserUnit.cs" />
+    <Compile Include="MotionVectors\FrameDirectionAnalyser.cs" />
     <Compile Include="MotionVectors\FrameAnalyserGenerator.cs" />
     <Compile Include="FunscriptAudioSignature.cs" />
     <Compile Include="Funscript.cs" />

@@ -1,6 +1,6 @@
 ﻿namespace FunscriptToolbox.Core.MotionVectors
 {
-    public struct BlocAnalyserRule
+    public struct BlocDirectionRule
     {
         public ushort Index { get; }
         public byte Direction { get; }
@@ -8,7 +8,7 @@
         public float Quality { get; }
         public float WeightTraveled { get; }
 
-        public BlocAnalyserRule(
+        public BlocDirectionRule(
             ushort index,
             byte direction,
             float activity = 0,

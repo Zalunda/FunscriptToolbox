@@ -36,8 +36,8 @@ namespace FunscriptToolbox.Core.MotionVectors
         {
             /// <summary>Transition zone (direction change)</summary>
             Transition,
-            /// <summary>Main/obvious movement zone</summary>
-            Obvious
+            /// <summary>Coarse movement zone</summary>
+            Coarse
         }
 
         /// <summary>
@@ -57,9 +57,9 @@ namespace FunscriptToolbox.Core.MotionVectors
             var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
 
             // Three separate temp arrays for the three analysers
-            var tempObvious = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
-            var tempUpToDown = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
-            var tempDownToUp = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
+            var tempCoarse = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
+            var tempPeaks = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
+            var tempValleys = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
 
             // Calculate transition zone size (frames to capture around direction changes)
             var transitionFrames = settings.NbFramesToIgnoreAroundAction;
@@ -186,7 +186,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                         continue;
                     }
 
-                    // Determine if we're in a transition zone or obvious zone
+                    // Determine if we're in a transition zone or coarse zone
                     var framesFromStart = frameCounter;
                     var framesFromEnd = currentSegmentFrames - frameCounter;
 
@@ -232,24 +232,24 @@ namespace FunscriptToolbox.Core.MotionVectors
                     }
                     else
                     {
-                        // Middle of segment - obvious movement
-                        phase = MovementPhase.Obvious;
+                        // Middle of segment - coarse movement
+                        phase = MovementPhase.Coarse;
                     }
                 }
 
                 // Select the appropriate temp array based on phase
                 TempValue[,] targetTemp;
-                if (phase == MovementPhase.Obvious)
+                if (phase == MovementPhase.Coarse)
                 {
-                    targetTemp = tempObvious;
+                    targetTemp = tempCoarse;
                 }
                 else if (transitionType == MovementDirection.Up)
                 {
-                    targetTemp = tempUpToDown; // At peak, transitioning from UP to DOWN
+                    targetTemp = tempPeaks; // At peak, transitioning from UP to DOWN
                 }
                 else
                 {
-                    targetTemp = tempDownToUp; // At valley, transitioning from DOWN to UP
+                    targetTemp = tempValleys; // At valley, transitioning from DOWN to UP
                 }
 
                 // Process the frame
@@ -289,25 +289,24 @@ namespace FunscriptToolbox.Core.MotionVectors
             }
 
             // Create the three analysers
-            var obviousAnalyser = CreateAnalyserFromTemp(tempObvious, reader.FrameLayout, referenceActions);
-            var upToDownAnalyser = CreateAnalyserFromTemp(tempUpToDown, reader.FrameLayout, referenceActions);
-            var downToUpAnalyser = CreateAnalyserFromTemp(tempDownToUp, reader.FrameLayout, referenceActions);
+            var coarseAnalyser = CreateAnalyserFromTemp(tempCoarse, reader.FrameLayout);
+            var peaksAnalyser = CreateAnalyserFromTemp(tempPeaks, reader.FrameLayout);
+            var valleysAnalyser = CreateAnalyserFromTemp(tempValleys, reader.FrameLayout);
 
             return new FrameAnalyser(
                 reader.FrameLayout,
-                obviousAnalyser,
-                upToDownAnalyser,
-                downToUpAnalyser);
+                coarseAnalyser,
+                peaksAnalyser,
+                valleysAnalyser);
         }
 
-        private static FrameAnalyserUnit CreateAnalyserFromTemp(
+        private static FrameDirectionAnalyser CreateAnalyserFromTemp(
             TempValue[,] temp,
-            MotionVectorsFrameLayout frameLayout,
-            FunscriptAction[] referenceActions)
+            MotionVectorsFrameLayout frameLayout)
         {
             var nbCells = temp.GetLength(0);
             var nbDirections = temp.GetLength(1);
-            var rules = new List<BlocAnalyserRule>();
+            var rules = new List<BlocDirectionRule>();
 
             for (int i = 0; i < nbCells; i++)
             {
@@ -334,7 +333,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 var activity = nbFrames == 0 ? 0 : (float)(100f * nbDirection) / nbFrames;
                 var quality = nbDirection == 0 ? 50 : (float)100f * best.NbRightDirection / nbDirection;
 
-                rules.Add(new BlocAnalyserRule(
+                rules.Add(new BlocDirectionRule(
                     (ushort)i,
                     bestDirection,
                     activity,
@@ -343,7 +342,7 @@ namespace FunscriptToolbox.Core.MotionVectors
                 ));
             }
 
-            return new FrameAnalyserUnit(
+            return new FrameDirectionAnalyser(
                 frameLayout,
                 rules.ToArray());
         }
