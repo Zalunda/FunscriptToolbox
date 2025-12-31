@@ -20,7 +20,9 @@ namespace FunscriptToolbox.UI
     {
         private readonly MotionVectorsFileReader r_mvsReader;
         private readonly FrameAnalyser r_originalFrameAnalyser;
-        private readonly Bitmap[] r_vectorBitmaps;
+        private readonly Bitmap[] r_vectorBitmapsCoarse;
+        private readonly Bitmap[] r_vectorBitmapsPeaks;
+        private readonly Bitmap[] r_vectorBitmapsValleys;
         private readonly Bitmap r_snapshot;
         private FrameAnalyser m_currentLearnFromScriptFrameAnalyser;
         private Rect? m_currentLearnFromScriptMask;
@@ -36,8 +38,10 @@ namespace FunscriptToolbox.UI
         {
             r_mvsReader = mvsReader;
             r_originalFrameAnalyser = originalFrameAnalyser;
-            r_vectorBitmaps = CreateVectorBitmaps(r_mvsReader.FrameLayout.CellWidth, r_mvsReader.FrameLayout.CellHeight);
-            
+            r_vectorBitmapsCoarse = CreateVectorBitmaps(r_mvsReader.FrameLayout.CellWidth, r_mvsReader.FrameLayout.CellHeight, Color.Green);
+            r_vectorBitmapsPeaks = CreateVectorBitmaps(r_mvsReader.FrameLayout.CellWidth / 2, r_mvsReader.FrameLayout.CellHeight / 2, Color.Orange);
+            r_vectorBitmapsValleys = CreateVectorBitmaps(r_mvsReader.FrameLayout.CellWidth / 2, r_mvsReader.FrameLayout.CellHeight / 2, Color.Blue);
+
             var snapshotContentResult = snapshotContent.Result;
             if (snapshotContentResult != null)
             {
@@ -67,7 +71,7 @@ namespace FunscriptToolbox.UI
             VirtualCanvas.ExtentSize = new System.Windows.Size(r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
         }
 
-        private static Bitmap[] CreateVectorBitmaps(int cellWidth, int cellHeight)
+        private static Bitmap[] CreateVectorBitmaps(int cellWidth, int cellHeight, Color color)
         {
             var vectorBitmaps = new Bitmap[MotionVectorsHelper.NbBaseDirection];
             for (int i = 0; i < vectorBitmaps.Length; i++)
@@ -97,10 +101,10 @@ namespace FunscriptToolbox.UI
                     matrix.Translate(cellWidth / 2, cellHeight / 2, MatrixOrder.Append);
                     path.Transform(matrix);
 
-                    var brush = new SolidBrush(Color.Green);
+                    var brush = new SolidBrush(color);
                     graphics.FillPath(brush, path);
 
-                    var pen = new Pen(Color.Green, 0f);
+                    var pen = new Pen(color, 0f);
                     graphics.DrawPath(pen, path);
                 }
                 vectorBitmaps[i] = vectorBitmap;
@@ -119,14 +123,32 @@ namespace FunscriptToolbox.UI
                 graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 graphics.DrawImage(r_snapshot, 0, 0, r_mvsReader.VideoWidth, r_mvsReader.VideoHeight);
 
-                foreach (var rule in analyser.PeaksAnalyser.Rules)
+                foreach (var rule in analyser.CoarseAnalyser.Rules)
                 {
-                    var vectorBitmap = r_vectorBitmaps[rule.Direction];
+                    var vectorBitmap = r_vectorBitmapsCoarse[rule.Direction];
                     var y = rule.Index / analyser.FrameLayout.NbColumns;
                     var x = rule.Index % analyser.FrameLayout.NbColumns;
                     graphics.DrawImage(
                         vectorBitmap, 
                         new Rectangle(x * vectorBitmap.Width, y * vectorBitmap.Height, vectorBitmap.Width, vectorBitmap.Height));
+                }
+                foreach (var rule in analyser.PeaksAnalyser.Rules)
+                {
+                    var vectorBitmap = r_vectorBitmapsPeaks[rule.Direction];
+                    var y = rule.Index / analyser.FrameLayout.NbColumns;
+                    var x = rule.Index % analyser.FrameLayout.NbColumns;
+                    graphics.DrawImage(
+                        vectorBitmap,
+                        new Rectangle(2 * x * vectorBitmap.Width, 2 * y * vectorBitmap.Height, vectorBitmap.Width, vectorBitmap.Height));
+                }
+                foreach (var rule in analyser.ValleysAnalyser.Rules)
+                {
+                    var vectorBitmap = r_vectorBitmapsValleys[rule.Direction];
+                    var y = rule.Index / analyser.FrameLayout.NbColumns;
+                    var x = rule.Index % analyser.FrameLayout.NbColumns;
+                    graphics.DrawImage(
+                        vectorBitmap,
+                        new Rectangle(2 * x * vectorBitmap.Width + vectorBitmap.Width, 2 * y * vectorBitmap.Height + vectorBitmap.Height, vectorBitmap.Width, vectorBitmap.Height));
                 }
             }
 

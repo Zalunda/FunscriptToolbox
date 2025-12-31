@@ -7,16 +7,29 @@ namespace FunscriptToolbox.Core.MotionVectors
 {
     public static class FrameAnalyserGenerator
     {
-        public static FrameAnalyser CreateFromScriptSequence(
-            MotionVectorsFileReader reader,
-            FunscriptAction[] actions,
-            LearnFromActionsSettings settings)
+        public enum FrameBlockType
         {
-            var watchload = Stopwatch.StartNew();
-            var collection = AnalyseReferenceActions(reader, actions, settings);
-            watchload.Stop();
+            ObviousUp,
+            ObviousDown,
+            Peak,
+            Valley
+        }
 
-            return collection;
+        public sealed class FrameBlock
+        {
+            public FrameBlockType Type { get; }
+            public IReadOnlyList<MotionVectorsFrame<CellMotionSByte>> Frames { get; }
+            public MotionVectorsFrame<CellMotionSByte> ReferenceFrame { get; }
+
+            public FrameBlock(
+                FrameBlockType type,
+                IReadOnlyList<MotionVectorsFrame<CellMotionSByte>> frames,
+                MotionVectorsFrame<CellMotionSByte> referenceFrame = null)
+            {
+                Type = type;
+                Frames = frames;
+                ReferenceFrame = referenceFrame;
+            }
         }
 
         public struct TempValue
@@ -29,269 +42,45 @@ namespace FunscriptToolbox.Core.MotionVectors
             public long WeightWhenNeutral;
         }
 
-        /// <summary>
-        /// Represents the phase of movement being analyzed
-        /// </summary>
         private enum MovementPhase
         {
-            /// <summary>Transition zone (direction change)</summary>
             Transition,
-            /// <summary>Coarse movement zone</summary>
             Coarse
         }
 
-        /// <summary>
-        /// Direction of the movement
-        /// </summary>
         private enum MovementDirection
         {
-            Up,   // pos increasing
-            Down  // pos decreasing
+            Up,
+            Down
         }
 
-        public static unsafe FrameAnalyser AnalyseReferenceActions(
+        // ------------------------------------------------------------
+        // ENTRY POINT
+        // ------------------------------------------------------------
+
+        public static FrameAnalyser CreateFromScriptSequence(
             MotionVectorsFileReader reader,
-            FunscriptAction[] referenceActions,
+            FunscriptAction[] actions,
             LearnFromActionsSettings settings)
         {
-            var lookupTable = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
+            var watch = Stopwatch.StartNew();
 
-            // Three separate temp arrays for the three analysers
-            var tempCoarse = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
-            var tempPeaks = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
-            var tempValleys = new TempValue[reader.FrameLayout.NbCellsTotalPerFrame, MotionVectorsHelper.NbBaseDirection / 2];
+            var (coarseBlocks, peakBlocks, valleyBlocks) =
+                AnalyseReferenceActions(reader, actions, settings);
 
-            // Calculate transition zone size (frames to capture around direction changes)
-            var transitionFrames = settings.NbFramesToIgnoreAroundAction;
+            var coarseAnalyser = CreateAnalyserFromBlocks(
+                coarseBlocks,
+                reader.FrameLayout);
 
-            // We need to look a bit before the first action and after the last action
-            // to capture the transition zones at the boundaries
-            var frameDuration = TimeSpan.FromSeconds(1.0 / (double)reader.VideoFramerate);
-            var extraTime = TimeSpan.FromSeconds((transitionFrames + 1) / (double)reader.VideoFramerate);
-            var startTime = referenceActions.First().AtAsTimeSpan - extraTime;
-            var endTime = referenceActions.Last().AtAsTimeSpan + extraTime;
+            var peaksAnalyser = CreateAnalyserFromBlocks(
+                peakBlocks,
+                reader.FrameLayout);
 
-            // Clamp to valid range
-            if (startTime < TimeSpan.Zero) startTime = TimeSpan.Zero;
+            var valleysAnalyser = CreateAnalyserFromBlocks(
+                valleyBlocks,
+                reader.FrameLayout);
 
-            var frameCounter = 0;
-            var currentSegmentFrames = 0;
-            FunscriptAction previousAction = null;
-            FunscriptAction currentAction = null;
-            FunscriptAction nextAction = referenceActions.First();
-            var indexAction = 1;
-            var isBeforeFirstAction = true;
-
-            foreach (var frame in reader.ReadFrames(startTime, endTime))
-            {
-                // Handle action transitions
-                while (nextAction != null && frame.FrameTime >= nextAction.AtAsTimeSpan)
-                {
-                    previousAction = currentAction;
-                    currentAction = nextAction;
-
-                    if (indexAction < referenceActions.Length)
-                    {
-                        nextAction = referenceActions[indexAction++];
-                        // Calculate total frames in this segment
-                        currentSegmentFrames = (int)((nextAction.AtAsTimeSpan - currentAction.AtAsTimeSpan).TotalSeconds * (double)reader.VideoFramerate);
-                    }
-                    else
-                    {
-                        nextAction = null;
-                        currentSegmentFrames = 0;
-                    }
-
-                    frameCounter = 0;
-                    isBeforeFirstAction = false;
-                }
-
-                // Determine what phase we're in and the movement direction
-                MovementPhase phase;
-                MovementDirection? transitionType = null;
-                int posOrNegInFunscript = 0;
-
-                if (isBeforeFirstAction)
-                {
-                    // Before the first action - this is a transition zone leading into the first action
-                    if (referenceActions.Length >= 2)
-                    {
-                        var firstDiff = referenceActions[1].Pos - referenceActions[0].Pos;
-                        if (firstDiff > 0)
-                        {
-                            // First segment goes UP, so we're at the end of a DOWN movement (valley)
-                            phase = MovementPhase.Transition;
-                            transitionType = MovementDirection.Down;
-                            posOrNegInFunscript = -1; // down movement ending
-                        }
-                        else if (firstDiff < 0)
-                        {
-                            // First segment goes DOWN, so we're at the end of an UP movement (peak)
-                            phase = MovementPhase.Transition;
-                            transitionType = MovementDirection.Up;
-                            posOrNegInFunscript = 1; // up movement ending
-                        }
-                        else
-                        {
-                            frameCounter++;
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        frameCounter++;
-                        continue;
-                    }
-                }
-                else if (currentAction == null || nextAction == null)
-                {
-                    // After the last action - this is a transition zone
-                    if (previousAction != null && currentAction != null)
-                    {
-                        var lastDiff = currentAction.Pos - previousAction.Pos;
-                        if (lastDiff > 0)
-                        {
-                            // Last segment went UP, so we're transitioning at a peak
-                            phase = MovementPhase.Transition;
-                            transitionType = MovementDirection.Up;
-                            posOrNegInFunscript = 1;
-                        }
-                        else if (lastDiff < 0)
-                        {
-                            // Last segment went DOWN, so we're transitioning at a valley
-                            phase = MovementPhase.Transition;
-                            transitionType = MovementDirection.Down;
-                            posOrNegInFunscript = -1;
-                        }
-                        else
-                        {
-                            frameCounter++;
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        frameCounter++;
-                        continue;
-                    }
-                }
-                else
-                {
-                    var diff = nextAction.Pos - currentAction.Pos;
-                    posOrNegInFunscript = Math.Sign(diff);
-
-                    if (posOrNegInFunscript == 0)
-                    {
-                        frameCounter++;
-                        continue;
-                    }
-
-                    // Determine if we're in a transition zone or coarse zone
-                    var framesFromStart = frameCounter;
-                    var framesFromEnd = currentSegmentFrames - frameCounter;
-
-                    if (framesFromStart < transitionFrames)
-                    {
-                        // Near the start of segment - transition from previous direction
-                        phase = MovementPhase.Transition;
-
-                        // Determine what direction we're transitioning FROM
-                        if (previousAction != null)
-                        {
-                            var prevDiff = currentAction.Pos - previousAction.Pos;
-                            if (prevDiff > 0)
-                            {
-                                // Previous was going UP, now transitioning (this is a peak - up to down)
-                                transitionType = MovementDirection.Up;
-                            }
-                            else if (prevDiff < 0)
-                            {
-                                // Previous was going DOWN, now transitioning (this is a valley - down to up)
-                                transitionType = MovementDirection.Down;
-                            }
-                            else
-                            {
-                                // Previous had no movement, skip
-                                frameCounter++;
-                                continue;
-                            }
-                        }
-                        else
-                        {
-                            // No previous action, treat as transition based on opposite of current direction
-                            transitionType = (posOrNegInFunscript > 0) ? MovementDirection.Down : MovementDirection.Up;
-                        }
-                    }
-                    else if (framesFromEnd < transitionFrames)
-                    {
-                        // Near the end of segment - transition to next direction
-                        phase = MovementPhase.Transition;
-
-                        // We're at the end of current movement, so transition type is current direction
-                        transitionType = (posOrNegInFunscript > 0) ? MovementDirection.Up : MovementDirection.Down;
-                    }
-                    else
-                    {
-                        // Middle of segment - coarse movement
-                        phase = MovementPhase.Coarse;
-                    }
-                }
-
-                // Select the appropriate temp array based on phase
-                TempValue[,] targetTemp;
-                if (phase == MovementPhase.Coarse)
-                {
-                    targetTemp = tempCoarse;
-                }
-                else if (transitionType == MovementDirection.Up)
-                {
-                    targetTemp = tempPeaks; // At peak, transitioning from UP to DOWN
-                }
-                else
-                {
-                    targetTemp = tempValleys; // At valley, transitioning from DOWN to UP
-                }
-
-                // Process the frame
-                fixed (short* pLookup = lookupTable)
-                fixed (CellMotionSByte* pMotion = frame.Motions)
-                fixed (TempValue* pTemp = targetTemp)
-                {
-                    var pCurrentMotion = pMotion;
-                    var pCurrentTemp = pTemp;
-
-                    for (int i = 0; i < reader.FrameLayout.NbCellsTotalPerFrame; i++, pCurrentMotion++)
-                    {
-                        var baseOffset = ((byte)pCurrentMotion->X * 256 + (byte)pCurrentMotion->Y) * MotionVectorsHelper.NbBaseDirection;
-                        for (int k = 0; k < MotionVectorsHelper.NbBaseDirection / 2; k++, pCurrentTemp++)
-                        {
-                            var motionWeight = *(pLookup + baseOffset + k);
-                            var posOrNeg = (motionWeight > 0) ? 1 : (motionWeight < 0) ? -1 : 0;
-                            if (posOrNegInFunscript == posOrNeg)
-                            {
-                                pCurrentTemp->NbRightDirection++;
-                                pCurrentTemp->WeightWhenRight += Math.Abs(motionWeight);
-                            }
-                            else if (posOrNeg == 0)
-                            {
-                                pCurrentTemp->NbNeutralDirection++;
-                                pCurrentTemp->WeightWhenNeutral += Math.Abs(motionWeight);
-                            }
-                            else
-                            {
-                                pCurrentTemp->NbWrongDirection++;
-                                pCurrentTemp->WeightWhenWrong += Math.Abs(motionWeight);
-                            }
-                        }
-                    }
-                }
-                frameCounter++;
-            }
-
-            // Create the three analysers
-            var coarseAnalyser = CreateAnalyserFromTemp(tempCoarse, reader.FrameLayout);
-            var peaksAnalyser = CreateAnalyserFromTemp(tempPeaks, reader.FrameLayout);
-            var valleysAnalyser = CreateAnalyserFromTemp(tempValleys, reader.FrameLayout);
+            watch.Stop();
 
             return new FrameAnalyser(
                 reader.FrameLayout,
@@ -300,51 +89,249 @@ namespace FunscriptToolbox.Core.MotionVectors
                 valleysAnalyser);
         }
 
-        private static FrameDirectionAnalyser CreateAnalyserFromTemp(
-            TempValue[,] temp,
+        // ------------------------------------------------------------
+        // STEP 1: SPLIT FRAMES INTO BLOCKS
+        // ------------------------------------------------------------
+
+        private static (
+            List<FrameBlock> coarse,
+            List<FrameBlock> peaks,
+            List<FrameBlock> valleys)
+        AnalyseReferenceActions(
+            MotionVectorsFileReader reader,
+            FunscriptAction[] actions,
+            LearnFromActionsSettings settings)
+        {
+            var frameDuration = TimeSpan.FromSeconds(1.0 / (float)reader.VideoFramerate);
+            var ignoreFramesDuration = TimeSpan.FromMilliseconds(frameDuration.TotalMilliseconds * (settings.NbFramesToIgnoreAroundAction + 1));
+
+            var availableFrames = reader
+                .ReadFrames(
+                    actions.First().AtAsTimeSpan - ignoreFramesDuration,
+                    actions.Last().AtAsTimeSpan + ignoreFramesDuration)
+                .ToList();
+
+            var coarse = new List<FrameBlock>();
+            var peaks = new List<FrameBlock>();
+            var valleys = new List<FrameBlock>();
+
+            int windowRadius = settings.NbFramesToIgnoreAroundAction;
+
+            for (int i = 0; i < actions.Length; i++)
+            {
+                int prevDiff = i > 0
+                    ? actions[i].Pos - actions[i - 1].Pos
+                    : 0;
+
+                int nextDiff = i < actions.Length - 1
+                    ? actions[i + 1].Pos - actions[i].Pos
+                    : 0;
+
+                FrameBlockType? type = null;
+
+                if (i == 0)
+                {
+                    // TODO TEST
+                    type = (nextDiff > 0) 
+                        ? FrameBlockType.Valley
+                        : FrameBlockType.Peak;
+                }
+                else if (i == actions.Length - 1)
+                {
+                    // TODO TEST
+                    type = (nextDiff > 0)
+                        ? FrameBlockType.Peak
+                        : FrameBlockType.Valley;
+                }
+                else
+                {
+                    // TODO TEST
+                    if (prevDiff > 0 && nextDiff < 0)
+                        type = FrameBlockType.Peak;
+                    else if (prevDiff < 0 && nextDiff > 0)
+                        type = FrameBlockType.Valley;
+                }
+
+                if (type == null)
+                    continue;
+
+                if (availableFrames.Count == 0)
+                    break;
+
+                var index = FindClosestFrameIndex(
+                    availableFrames,
+                    actions[i].AtAsTimeSpan);
+                var referenceFrame = availableFrames[index];
+
+                int start = Math.Max(0, index - windowRadius);
+                int end = Math.Min(availableFrames.Count - 1, index + windowRadius);
+
+                var frames = availableFrames
+                    .GetRange(start, end - start + 1);
+
+                if (frames.Count < windowRadius * 2 + 1)
+                    continue;
+
+                // Remove used frames to prevent overlap
+                availableFrames.RemoveRange(start, end - start + 1);
+
+                var obviousFrames = availableFrames
+                        .GetRange(0, start)
+                        .ToArray();
+                availableFrames.RemoveRange(0, start);
+                if (i > 0)
+                {
+                    coarse.Add(new FrameBlock(type == FrameBlockType.Peak ? FrameBlockType.ObviousUp : FrameBlockType.ObviousDown, obviousFrames));
+                }
+
+                var block = new FrameBlock(type.Value, frames, referenceFrame);
+
+                if (type == FrameBlockType.Peak)
+                    peaks.Add(block);
+                else
+                    valleys.Add(block);
+            }
+
+            return (coarse, peaks, valleys);
+        }
+
+        private static int FindClosestFrameIndex(
+            IReadOnlyList<MotionVectorsFrame<CellMotionSByte>> frames,
+            TimeSpan targetTime)
+        {
+            int bestIndex = 0;
+            var bestDelta = TimeSpan.MaxValue;
+
+            for (int i = 0; i < frames.Count; i++)
+            {
+                var delta = (frames[i].FrameTime - targetTime).Duration();
+                if (delta < bestDelta)
+                {
+                    bestDelta = delta;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        // ------------------------------------------------------------
+        // STEP 2: LEARN ANALYSER FROM BLOCKS
+        // ------------------------------------------------------------
+        private static FrameDirectionAnalyser CreateAnalyserFromBlocks(
+            IReadOnlyList<FrameBlock> blocks,
             MotionVectorsFrameLayout frameLayout)
         {
-            var nbCells = temp.GetLength(0);
-            var nbDirections = temp.GetLength(1);
-            var rules = new List<BlocDirectionRule>();
+            var temp = new TempValue[
+                frameLayout.NbCellsTotalPerFrame,
+                MotionVectorsHelper.NbBaseDirection / 2];
 
-            for (int i = 0; i < nbCells; i++)
+            var lookup = MotionVectorsHelper.GetLookupMotionXYAndDirectionToWeightTable();
+
+            foreach (var block in blocks)
             {
-                TempValue best = new TempValue();
-                var bestScore = float.MinValue;
-                var bestDirection = (byte)0;
+                var expectedSign = ExpectedDirection(block.Type);
+                if (expectedSign == 0)
+                    continue;
 
-                // Find best direction for this cell
-                for (int j = 0; j < nbDirections; j++)
+                foreach (var frame in block.Frames)
                 {
-                    var current = temp[i, j];
-                    var score = 1000 * current.WeightWhenRight / (current.WeightWhenRight + current.WeightWhenWrong + 1);
+                    unsafe
+                    {
+                        fixed (short* pLookup = lookup)
+                        fixed (CellMotionSByte* pMotion = frame.Motions)
+                        fixed (TempValue* pTemp = temp)
+                        {
+                            var pCurrentMotion = pMotion;
+                            var pCurrentTemp = pTemp;
+
+                            for (int i = 0; i < frameLayout.NbCellsTotalPerFrame; i++, pCurrentMotion++)
+                            {
+                                var baseOffset =
+                                    ((byte)pCurrentMotion->X * 256 + (byte)pCurrentMotion->Y)
+                                    * MotionVectorsHelper.NbBaseDirection;
+                                for (int d = 0; d < MotionVectorsHelper.NbBaseDirection / 2; d++, pCurrentTemp++)
+                                {
+                                    var motionWeight = *(pLookup + baseOffset + d);
+                                    var motionSign = Math.Sign(motionWeight);
+
+                                    if (motionSign == expectedSign)
+                                    {
+                                        pCurrentTemp->NbRightDirection++;
+                                        pCurrentTemp->WeightWhenRight += Math.Abs(motionWeight);
+                                    }
+                                    else if (motionSign == 0)
+                                    {
+                                        pCurrentTemp->NbNeutralDirection++;
+                                        pCurrentTemp->WeightWhenNeutral += Math.Abs(motionWeight);
+                                    }
+                                    else
+                                    {
+                                        pCurrentTemp->NbWrongDirection++;
+                                        pCurrentTemp->WeightWhenWrong += Math.Abs(motionWeight);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            var rules = new List<BlocDirectionRule>();
+            for (int i = 0; i < frameLayout.NbCellsTotalPerFrame; i++)
+            {
+                TempValue best = default;
+                float bestScore = float.MinValue;
+                byte bestDirection = 0;
+
+                for (int d = 0; d < MotionVectorsHelper.NbBaseDirection / 2; d++)
+                {
+                    var current = temp[i, d];
+                    var score =
+                        1000f * current.WeightWhenRight /
+                        (current.WeightWhenRight + current.WeightWhenWrong + 1);
 
                     if (score > bestScore)
                     {
                         best = current;
                         bestScore = score;
-                        bestDirection = (byte)j;
+                        bestDirection = (byte)d;
                     }
                 }
 
-                var nbFrames = best.NbRightDirection + best.NbNeutralDirection + best.NbWrongDirection;
-                var nbDirection = best.NbRightDirection + best.NbWrongDirection;
-                var activity = nbFrames == 0 ? 0 : (float)(100f * nbDirection) / nbFrames;
-                var quality = nbDirection == 0 ? 50 : (float)100f * best.NbRightDirection / nbDirection;
+                var nbFrames =
+                    best.NbRightDirection +
+                    best.NbNeutralDirection +
+                    best.NbWrongDirection;
+
+                var nbDirectional =
+                    best.NbRightDirection +
+                    best.NbWrongDirection;
+
+                var activity = nbFrames == 0 ? 0 : 100f * nbDirectional / nbFrames;
+                var quality = nbDirectional == 0 ? 50 : 100f * best.NbRightDirection / nbDirectional;
 
                 rules.Add(new BlocDirectionRule(
                     (ushort)i,
                     bestDirection,
                     activity,
                     quality,
-                    bestScore
-                ));
+                    bestScore));
             }
 
-            return new FrameDirectionAnalyser(
-                frameLayout,
-                rules.ToArray());
+            return new FrameDirectionAnalyser(frameLayout, rules.ToArray());
+        }
+
+        private static int ExpectedDirection(FrameBlockType type)
+        {
+            return type switch
+            {
+                FrameBlockType.ObviousUp => +1,
+                FrameBlockType.ObviousDown => -1,
+                FrameBlockType.Valley => +1,
+                FrameBlockType.Peak => -1,
+                _ => 0
+            };
         }
     }
 }

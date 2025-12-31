@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace FunscriptToolbox.Core.MotionVectors
 {
@@ -72,17 +73,15 @@ namespace FunscriptToolbox.Core.MotionVectors
             var currentActionEndTime = TimeSpan.Zero;
             var lastFrameTotalWeight = 0L;
             var minimumActionDuration = TimeSpan.FromMilliseconds(1000.0 / (settings.MaximumStrokesDetectedPerSecond * 2) - 20);
-            var framesWithSameDirectionAccumulator = new List<WeightedMotionVectorsFrameEx>();
 
-            // Track which analyser detected the direction for the current movement
+            var currentMovementFrames = new List<WeightedMotionVectorsFrameEx>();
+            var previousMovementFrames = new List<WeightedMotionVectorsFrameEx>();
             foreach (var frame in mvsReader.ReadFrames(startingTime, endTime))
             {
-                // Compute weights using all three analysers
                 var coarseWeight = ComputeFrameTotalWeight(CoarseAnalyser, frame, out var coarsePartialWeight);
                 var peaksWeight = ComputeFrameTotalWeight(PeaksAnalyser, frame, out var peaksPartialWeight);
                 var valleysWeight = ComputeFrameTotalWeight(ValleysAnalyser, frame, out var valleysPartialWeight);
 
-                // Determine the primary direction from the coarse analyser
                 var totalWeight = coarseWeight;
                 var partialWeight = coarsePartialWeight;
 
@@ -103,12 +102,12 @@ namespace FunscriptToolbox.Core.MotionVectors
                     previousFrameTime = frame.FrameTime;
                 }
 
-                if (currentFrameWithWeight.Weight == 0 // i.e. probably one of the rare I-frame
+                if (currentFrameWithWeight.Weight == 0
                     || (currentFrameWithWeight.Weight > 0 && lastFrameTotalWeight > 0)
                     || (currentFrameWithWeight.Weight < 0 && lastFrameTotalWeight < 0))
                 {
                     // Same direction...
-                    framesWithSameDirectionAccumulator.Add(currentFrameWithWeight);
+                    currentMovementFrames.Add(currentFrameWithWeight);
                     currentActionEndTime = frame.FrameTime;
                 }
                 else
@@ -121,34 +120,37 @@ namespace FunscriptToolbox.Core.MotionVectors
                             currentActionStartTime,
                             currentActionEndTime,
                             lastFrameTotalWeight,
-                            framesWithSameDirectionAccumulator,
+                            previousMovementFrames,
+                            currentMovementFrames,
                             settings);
                     }
 
                     lastFrameTotalWeight = currentFrameWithWeight.Weight;
                     currentActionStartTime = previousFrameTime;
 
-                    framesWithSameDirectionAccumulator.Clear();
-                    framesWithSameDirectionAccumulator.Add(currentFrameWithWeight);
+                    // Move current frames to previous, start fresh for current
+                    previousMovementFrames.Clear();
+                    previousMovementFrames.AddRange(currentMovementFrames);
+                    currentMovementFrames.Clear();
+                    currentMovementFrames.Add(currentFrameWithWeight);
                 }
                 previousFrameTime = frame.FrameTime;
             }
 
-            // Handle the last movement if any
-            if (framesWithSameDirectionAccumulator.Count > 0 && currentActionEndTime - currentActionStartTime >= minimumActionDuration)
+            // Handle the last movement
+            if (currentMovementFrames.Count > 0 && currentActionEndTime - currentActionStartTime >= minimumActionDuration)
             {
                 AddPoints(
                     points,
                     currentActionStartTime,
                     currentActionEndTime,
                     lastFrameTotalWeight,
-                    framesWithSameDirectionAccumulator,
+                    previousMovementFrames,
+                    currentMovementFrames,
                     settings);
             }
 
-            // Normalize positions based on weights
             NormalizePositions(points);
-
             return points.ToArray();
         }
 
@@ -157,42 +159,42 @@ namespace FunscriptToolbox.Core.MotionVectors
             TimeSpan currentActionStartTime,
             TimeSpan currentActionEndTime,
             long lastFrameTotalWeight,
-            List<WeightedMotionVectorsFrameEx> framesWithSameDirectionAccumulator,
+            List<WeightedMotionVectorsFrameEx> beforeTransitionFrames,
+            List<WeightedMotionVectorsFrameEx> afterTransitionFrames,
             GenerateActionsSettings settings)
         {
             int startValue = (lastFrameTotalWeight > 0) ? 0 : 100;
             int endValue = (lastFrameTotalWeight > 0) ? 100 : 0;
 
-            // Determine which transition analyser to use based on movement direction
-            bool isValleyTransition = lastFrameTotalWeight > 0;
+            // Determine transition type based on current movement direction
+            // If current movement is UP (weight > 0), the START is a valley (DOWN→UP transition)
+            // If current movement is DOWN (weight < 0), the START is a peak (UP→DOWN transition)
+            bool currentIsUpMovement = lastFrameTotalWeight > 0;
 
-            // Create the action points
             var startPoint = GetOrAddPoint(points, FunscriptActionExtended.TimeToAt(currentActionStartTime), startValue);
             var endPoint = GetOrAddPoint(points, FunscriptActionExtended.TimeToAt(currentActionEndTime), endValue);
 
-            // For finding the precise transition points, we use different strategies:
-            // - Start of movement: use the transition analyser for the previous direction change
-            // - End of movement: use the transition analyser for the current direction change
-
-            // Find the start point using transition analyser
+            // Find start transition point:
+            // - For UP movement: start is a valley, use ValleysAnalyser
+            // - For DOWN movement: start is a peak, use PeaksAnalyser
+            // Look at END of previous movement + START of current movement
             var startMouvAt = FindMovementBoundary(
-                    framesWithSameDirectionAccumulator,
-                    (p) => isValleyTransition ? p.ValleysWeight : p.PeaksWeight,
-                    isStart: true,
-                    settings);
+                beforeTransitionFrames,
+                afterTransitionFrames,
+                (p) => currentIsUpMovement ? p.ValleysWeight : p.PeaksWeight,
+                settings);
 
-            // Find the end point using transition analyser  
-            var endMouvAt = FindMovementBoundary(
-                    framesWithSameDirectionAccumulator,
-                    (p) => isValleyTransition ? p.PeaksWeight : p.ValleysWeight,
-                    isStart: false,
-                    settings);
+            // Find end transition point:
+            // - For UP movement: end is a peak, use PeaksAnalyser  
+            // - For DOWN movement: end is a valley, use ValleysAnalyser
+            // Note: We don't have the next movement frames yet, so we use current movement's end
+            // This will be refined when the next movement is processed
 
             // Calculate weights from the coarse analyser for intensity
-            var frameCountToKeep = Math.Max(2, (int)Math.Ceiling(framesWithSameDirectionAccumulator.Count * (double)settings.PercentageOfFramesToKeep / 100));
+            var frameCountToKeep = Math.Max(2, (int)Math.Ceiling(afterTransitionFrames.Count * (double)settings.PercentageOfFramesToKeep / 100));
             var weight = 0L;
             var partialWeight = 0L;
-            foreach (var frameX in framesWithSameDirectionAccumulator
+            foreach (var frameX in afterTransitionFrames
                 .OrderByDescending(f => Math.Abs(f.CoarseWeight))
                 .Take(frameCountToKeep))
             {
@@ -206,38 +208,47 @@ namespace FunscriptToolbox.Core.MotionVectors
         }
 
         /// <summary>
-        /// Finds the precise boundary of a movement using the appropriate transition analyser
+        /// Finds the precise transition boundary by looking at frames from both sides of the transition
         /// </summary>
         private int FindMovementBoundary(
-            List<WeightedMotionVectorsFrameEx> frames,
-            Func<WeightedMotionVectorsFrameEx, long> weightSelector,
-            bool isStart,
+            List<WeightedMotionVectorsFrameEx> beforeTransitionFrames,
+            List<WeightedMotionVectorsFrameEx> afterTransitionFrames,
+            Func<WeightedMotionVectorsFrameEx, long> transitionWeightSelector,
             GenerateActionsSettings settings)
         {
-            if (frames.Count == 0)
+            // Combine frames from both sides of the transition
+            var transitionZoneFrames = new List<WeightedMotionVectorsFrameEx>();
+
+            // Take frames from the END of the previous movement
+            var prevFrameCount = Math.Max(1, Math.Min(beforeTransitionFrames.Count / 3,
+                (int)(beforeTransitionFrames.Count * settings.PercentageOfFramesToKeep / 100.0)));
+            if (beforeTransitionFrames.Count > 0)
             {
+                transitionZoneFrames.AddRange(
+                    beforeTransitionFrames.Skip(Math.Max(0, beforeTransitionFrames.Count - prevFrameCount)));
+            }
+
+            // Take frames from the START of the current movement
+            var currFrameCount = Math.Max(1, Math.Min(afterTransitionFrames.Count / 3,
+                (int)(afterTransitionFrames.Count * settings.PercentageOfFramesToKeep / 100.0)));
+            if (afterTransitionFrames.Count > 0)
+            {
+                transitionZoneFrames.AddRange(afterTransitionFrames.Take(currFrameCount));
+            }
+
+            if (transitionZoneFrames.Count == 0)
+            {
+                // Fallback
+                if (afterTransitionFrames.Count > 0)
+                    return FunscriptActionExtended.TimeToAt(afterTransitionFrames.First().Original.FrameTime);
+                if (beforeTransitionFrames.Count > 0)
+                    return FunscriptActionExtended.TimeToAt(beforeTransitionFrames.Last().Original.FrameTime);
                 return 0;
             }
 
-            // Calculate how many frames to consider for transition detection
-            var transitionFrameCount = Math.Max(1, Math.Min(frames.Count / 3,
-                (int)(frames.Count * settings.PercentageOfFramesToKeep / 100.0)));
-
-            IEnumerable<WeightedMotionVectorsFrameEx> transitionFrames;
-            if (isStart)
-            {
-                // For start, look at the first portion of frames
-                transitionFrames = frames.Take(transitionFrameCount);
-            }
-            else
-            {
-                // For end, look at the last portion of frames
-                transitionFrames = frames.Skip(Math.Max(0, frames.Count - transitionFrameCount));
-            }
-
             // Find the frame with the strongest transition signal
-            var bestFrame = transitionFrames
-                .OrderByDescending(f => Math.Abs(weightSelector(f)))
+            var bestFrame = transitionZoneFrames
+                .OrderByDescending(f => Math.Abs(transitionWeightSelector(f)))
                 .FirstOrDefault();
 
             if (bestFrame != null)
@@ -245,9 +256,8 @@ namespace FunscriptToolbox.Core.MotionVectors
                 return FunscriptActionExtended.TimeToAt(bestFrame.Original.FrameTime);
             }
 
-            // Fallback to first/last frame
-            var fallbackFrame = isStart ? frames.First() : frames.Last();
-            return FunscriptActionExtended.TimeToAt(fallbackFrame.Original.FrameTime);
+            // Fallback to the boundary between the two movements
+            return FunscriptActionExtended.TimeToAt(afterTransitionFrames.First().Original.FrameTime);
         }
 
         private FunscriptActionExtended GetOrAddPoint(List<FunscriptActionExtended> points, int at, int pos)
