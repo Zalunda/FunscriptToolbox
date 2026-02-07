@@ -344,7 +344,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var segment in responseArray)
                 {
                     currentSegment = segment;
-                    var seg = (JObject)segment;
                     var node = segment.ToObject<TranscriptionNode>();
 
                     // Extract and remove known fields
@@ -379,7 +378,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     // Everything left is metadata
                     var extraMetadatas = new MetadataCollection();
-                    foreach (var prop in seg.Properties())
+                    foreach (var prop in ((JObject)segment).Properties())
                     {
                         if (prop.Value != null 
                           && !string.Equals(prop.Name, nameof(TranscriptionNode.StartTime), StringComparison.OrdinalIgnoreCase)
