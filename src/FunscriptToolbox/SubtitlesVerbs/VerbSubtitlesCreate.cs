@@ -227,6 +227,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         WorkInProgressSubtitles.Extension);
 
                     context.ChangeCurrentFile(null, null);
+                    Console.WriteLine($"------ {PathExtension.GetRelativePath(Environment.CurrentDirectory, Path.ChangeExtension(wipsubFullpath, null))} ------");
+
                     var wipsub = File.Exists(wipsubFullpath)
                         ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                         : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);

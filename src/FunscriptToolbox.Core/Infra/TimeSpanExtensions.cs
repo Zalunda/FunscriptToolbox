@@ -24,6 +24,11 @@ namespace FunscriptToolbox.Core.Infra
 
         public static TimeSpan FlexibleTimeSpanParse(string text)
         {
+            // Patch for local AI model
+            if (text.StartsWith("000"))
+            {
+                text = text.Substring(1);
+            }
             // Defines the expected formats, from most specific to least specific.
             string[] formats = {
                     @"h\:m\:s\.fff",

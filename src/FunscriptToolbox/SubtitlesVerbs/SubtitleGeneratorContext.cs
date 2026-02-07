@@ -43,7 +43,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.WIP = wipsub;
             this.ChangePrefix((wipsub != null)
                 ? Path.GetFileNameWithoutExtension(wipsub.OriginalFilePath) + ": "
-                : "root: ");
+                : string.Empty);
         }
 
         public void ForgetCurrentFile()
