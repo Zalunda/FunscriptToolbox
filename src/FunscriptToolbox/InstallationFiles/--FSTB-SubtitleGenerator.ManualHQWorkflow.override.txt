@@ -61,7 +61,8 @@
     },
     {
       "Id": "singlevad-ai",
-      "Enabled": true,
+      // [OPTION] Activate to get 2-pass transcription (i.e. done here then re-validated in singlevad-ai-refined).
+      "Enabled": false,
       "ExportMetadataSrt": false,
       "Options": {
         // [OPTION] Increase the batch size to reduce the number of request but it also mean that there will be less 'thinking' time allocated per node.
@@ -109,7 +110,7 @@
       "SourceId": "singlevad-ai-refined"
     },    
     // -----------------------------
-    // Use timings, manual-input and voice-texts to mergedvad, speaker, on-screen-texts, visual-analysis
+    // Use timings, manual-input and voice-texts to mergedvad, speaker, on-screen-texts, singlevad-ai-refined
     {
       "Id": "mergedvad",
       "Enabled": false
