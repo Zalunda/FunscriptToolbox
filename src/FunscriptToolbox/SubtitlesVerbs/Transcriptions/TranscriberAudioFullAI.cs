@@ -182,6 +182,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 timing.StartTime);
         }
 
+        private class TranscriptionNode
+        {
+            public string StartTime { get; set; }
+            public string EndTime { get; set; }
+            public string VoiceText { get; set; }
+        }
+
         private void HandleResponse(
             SubtitleGeneratorContext context,
             Transcription transcription,
@@ -192,21 +199,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             transcription.Costs.Add(response.Cost);
             transcription.Costs.AddRange(response.AdditionalCosts);
-            foreach (var node in JsonConvert.DeserializeObject<dynamic>(AIEngineRunner.TryToFixReceivedJson(
+            foreach (var node in JsonConvert.DeserializeObject<TranscriptionNode[]>(AIEngineRunner.TryToFixReceivedJson(
                                     response.Request,
                                     response.AssistantMessage,
                                     tryToFixEnd: false)))
             {
-                var nodeStartTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)node.StartTime);
-                var nodeEndTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)node.EndTime);
+                var nodeStartTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
+                var nodeEndTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
                 var startTime = chunkStartTime + nodeStartTime;
                 var endTime = chunkStartTime + nodeEndTime;
-                var voiceText = (string)node.VoiceText;
+                var voiceText = node.VoiceText ?? string.Empty;
                 if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
                 {
                     throw new Exception($"Received node with endtime {nodeEndTime} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(endTime)}] when audio chunk end is [context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunkEndTime)].");
                 }
-
                 var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(pattern => pattern.Regex.IsMatch(voiceText));
                 if (pattern == null)
                 {

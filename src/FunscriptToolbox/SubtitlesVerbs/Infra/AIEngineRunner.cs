@@ -304,6 +304,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return nbErrors;
         }
 
+        private class TranscriptionNode
+        {
+            public string StartTime { get; set; }
+            public string EndTime { get; set; }
+        }
+
         private List<T> ParseAssistantMessageAndAddItems(
             ITiming[] timings,
             string responseReceived,
@@ -339,13 +345,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     currentSegment = segment;
                     var seg = (JObject)segment;
+                    var node = segment.ToObject<TranscriptionNode>();
 
                     // Extract and remove known fields
-                    var startTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)seg["StartTime"]);
-                    TimeSpan endTime;
-                    if (seg.ContainsKey("EndTime"))
+                    if (string.IsNullOrWhiteSpace(node.StartTime))
                     {
-                        endTime = TimeSpanExtensions.FlexibleTimeSpanParse((string)seg["EndTime"]);
+                        throw new Exception($"StartTime is missing or empty. {GetSegmentInformation(segment)}");
+                    }
+
+                    var startTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
+                    TimeSpan endTime;
+                    if (!string.IsNullOrWhiteSpace(node.EndTime))
+                    {
+                        endTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
                     }
                     else
                     {
@@ -364,14 +376,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                         endTime = startTimeItem.EndTime;
                     }
-                    seg.Remove("StartTime");
-                    seg.Remove("EndTime");
 
                     // Everything left is metadata
                     var extraMetadatas = new MetadataCollection();
                     foreach (var prop in seg.Properties())
                     {
-                        if (prop.Value != null)
+                        if (prop.Value != null 
+                          && !string.Equals(prop.Name, nameof(TranscriptionNode.StartTime), StringComparison.OrdinalIgnoreCase)
+                          && !string.Equals(prop.Name, nameof(TranscriptionNode.EndTime), StringComparison.OrdinalIgnoreCase))
                             extraMetadatas[prop.Name] = prop.Value.ToString();
                     }
 
