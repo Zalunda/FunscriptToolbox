@@ -106,6 +106,7 @@ You must now bridge the gap between "what happened" and "what it means." Do not 
 7.  **Mandatory Translation Candidates:**
     *   You must conclude your analysis by providing **2 possible translations**.
     *   **Constraint:** If you identified the Vector as "Type B" (Gossip), your candidates **MUST** use "He/His" or "It/The."
+    *   Do not provide just one generic option. Provide options that highlight different aspects of the nuance you analyzed (e.g., one "Literal/Polite" vs. one "Seductive/Implied").
     *   *Format:* `\nOption 1 (Tone): Text\nOption 2 (Tone): Text`
     *   Specifying the tone is MANDATORY.
 
