@@ -208,7 +208,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "onscreentext,manual-input"
+                            Sources = "on-screen-texts,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -263,7 +263,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = transcriberAudioSingleVADRefinerSystemPrompt,
                             UserPrompt = transcriberAudioSingleVADRefinerUserPrompt,
-                            MetadataNeeded = "singlevad-VoiceText,!SkipRefined",
+                            MetadataNeeded = "!NoVoice,!OnScreenText,!GrabOnScreenText,!SkipRefined",
                             MetadataAlwaysProduced = "VoiceText",
                             BinaryDataExtractors = new BinaryDataExtractor[]
                                 {
@@ -329,7 +329,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,voice-texts,on-screen-texts,speakers,manual-input",
+                            Sources = "singlevad-ai-refined,voice-texts,on-screen-texts,speakers,manual-input",
                         },
                         WaitForFinished = true
                     },
@@ -351,7 +351,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "visual-analysis,on-screen-texts,voice-texts,speakers,manual-input"
+                            Sources = "singlevad-ai-refined,voice-texts,on-screen-texts,speakers,manual-input"
                         },
                         Options = new AIOptions()
                         {
@@ -398,7 +398,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TranscriberClone()
                     {
                         TranscriptionId = "final-ai-texts",
-                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick or arbitrer-final-choice
+                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick
                     },
                     new SubtitleOutputSimpleSrt()
                     {
@@ -416,7 +416,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "timings",
-                            Sources = "on-screen-texts,speakers,full-ai,singlevad-ai,singlevad-ai-refined,visual-analysis,translated-texts_maverick,manual-input",
+                            Sources = "on-screen-texts,speakers,full-ai,singlevad-ai,singlevad-ai-refined,translated-texts_maverick,manual-input",
                         },
                         TextSources = "",
                         WaitForFinished = true
@@ -444,7 +444,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Metadatas = new MetadataAggregator()
                         {
                             TimingsSource = "final-ai-texts",
-                            Sources = "voice-texts,on-screen-texts,visual-analysis,speakers,manual-input",
+                            Sources = "singlevad-ai-refined,voice-texts,on-screen-texts,speakers,manual-input",
                         },
                         TextSources = "final-user-texts,final-ai-texts"
                     }
