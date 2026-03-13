@@ -216,7 +216,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
                 .Where(file => !file.EndsWith(".FAST.mp4", StringComparison.OrdinalIgnoreCase))
                 .Distinct()
-                .OrderBy(f => f)))
+                .OrderBy(f => f))
+                .OrderBy(vs => vs.ContainerFullPath))
             {
                 try
                 {
@@ -227,7 +228,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         WorkInProgressSubtitles.Extension);
 
                     context.ChangeCurrentFile(null, null);
-                    Console.WriteLine($"------ {PathExtension.GetRelativePath(Environment.CurrentDirectory, Path.ChangeExtension(wipsubFullpath, null))} ------");
+                    Console.WriteLine($"------ {PathExtension.GetRelativePath(Environment.CurrentDirectory, Path.ChangeExtension(Path.GetFullPath(wipsubFullpath), null))} ------");
 
                     var wipsub = File.Exists(wipsubFullpath)
                         ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
