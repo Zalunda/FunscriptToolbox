@@ -309,7 +309,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                     if (chunk?.choices.Count > 0)
                                     {
                                         var delta = chunk.choices[0].delta;
-                                        if (delta?.content != null)
+                                        
+                                        if (delta?.reasoning_content != null)
+                                        {
+                                            string reasoningContentChunk = delta.reasoning_content;
+
+                                            // Stop the timer on first content token
+                                            if (waitingTimer != null)
+                                            {
+                                                Console.WriteLine();
+                                                waitingTimer?.Dispose();
+                                                waitingTimer = null;
+                                            }
+                                            thoughtContent.Append(reasoningContentChunk);
+                                            Console.Write(reasoningContentChunk);
+                                        }
+                                        else if (delta?.content != null)
                                         {
                                             string contentChunk = delta.content;
 
