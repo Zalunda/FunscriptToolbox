@@ -247,7 +247,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waited {DateTime.Now - startTime:mm\\:ss} for 1st token...");
+                    var duration = DateTime.Now - startTime;
+                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waited {(int)duration.TotalMinutes}:{duration:ss} for 1st token...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");

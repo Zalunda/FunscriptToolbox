@@ -187,13 +187,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var pendingWatch = Stopwatch.StartNew();
                 waitingTimer = new Timer(_ =>
                 {
+                    canCancel = operation?.GetState() == "BATCH_STATE_PENDING";
+                    var cancelMessage = canCancel ? " (PRESS Q TO CANCEL)" : "";
+                    var duration = DateTime.Now - startTime;
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")
                     {
                         pendingWatch.Stop();
+                        var durationPending = pendingWatch.Elapsed;
+                        var durationRunning = duration - durationPending;
+                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}... ");
                     }
-                    canCancel = operation?.GetState() == "BATCH_STATE_PENDING";
-                    var cancelMessage = canCancel ? " => PRESS Q TO CANCEL" : "";
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waited {DateTime.Now - startTime:mm\\:ss} for batch response (State: {operation?.GetState()?.Replace("BATCH_STATE_", "")}{cancelMessage})... ");
+                    else
+                    {
+                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{cancelMessage}... ");
+                    }
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 string initialResponseAsJson = response.Content.ReadAsStringAsync().Result;
