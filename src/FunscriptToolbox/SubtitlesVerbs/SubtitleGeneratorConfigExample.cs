@@ -253,7 +253,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "timings",
                             Sources = "singlevad-ai,full-ai,on-screen-texts,speakers,manual-input",
-                            MergeRules = new Dictionary<string, string>
+                            MergeRules = new MergeRuleDictionary()
                             {
                                 { "singlevad-ai,VoiceText", "singlevad-VoiceText" },
                                 { "full-ai,VoiceText", "full-VoiceText" }
@@ -384,7 +384,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             TimingsSource = "timings",
                             Sources = "translated-texts_maverick,speakers,manual-input",
-                            MergeRules = new Dictionary<string, string>()
+                            MergeRules = new MergeRuleDictionary()
                             {
                                 { "TranslatedText", "OriginalTranslatedText" }
                             }

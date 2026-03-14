@@ -207,6 +207,7 @@
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractor.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorAudio.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorImage.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\MergeRuleDictionary.cs" />
     <Compile Include="SubtitlesVerbs\Infra\MetadataAggregation.cs" />
     <Compile Include="SubtitlesVerbs\Infra\MetadataAggregator.cs" />
     <Compile Include="SubtitlesVerbs\Infra\Language.cs" />
@@ -217,6 +218,8 @@
     <Compile Include="SubtitlesVerbs\Infra\AIRequestPartAudio.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestPartImage.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIRequestPartText.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\ValueTransformationRule.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\ValueTransformationRuleDictionary.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataCollection.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadata.cs" />
     <Compile Include="SubtitlesVerbs\Infra\TimedItemWithMetadataTagged.cs" />

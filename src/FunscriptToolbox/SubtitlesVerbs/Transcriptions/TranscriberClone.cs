@@ -73,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 aggregatedMetadata.ReferenceTimingsWithMetadata.Select(item =>
                 {
                     var filteredMetadata = new MetadataCollection();
-                    filteredMetadata.Merge(item.Metadata, privateMetadataNames: transcription.PrivateMetadataNames);
+                    filteredMetadata.Merge(item.Metadata, sourcePrivateMetadataNames: transcription.PrivateMetadataNames);
                     return new TranscribedItem(
                         item.StartTime,
                         item.EndTime,

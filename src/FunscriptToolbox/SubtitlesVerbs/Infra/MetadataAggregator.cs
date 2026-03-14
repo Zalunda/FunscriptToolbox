@@ -19,7 +19,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 2)]
         public string Sources { get; set; }
         [JsonProperty(Order = 3)]
-        public Dictionary<string, string> MergeRules { get; set; }
+        public MergeRuleDictionary MergeRules { get; set; }
+        [JsonProperty(Order = 4)]
+        public ValueTransformationRuleDictionary ValueTransformationRules { get; set; }
 
         public MetadataAggregation Aggregate(
             SubtitleGeneratorContext context,
@@ -28,7 +30,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var timings = context.WIP?.Transcriptions?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings() 
                 ?? context.WIP?.Translations?.FirstOrDefault(t => t.Id == this.TimingsSource && t.IsFinished)?.GetTimings();
             var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(context, this.Sources?.Split(',').Select(f => f.Trim()).ToArray(), additionalSource);
-            var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, this.MergeRules) : null;
+            var referenceTimingsWithMetadata = timings != null ? MergeRawSources(timings, rawSourceReferences, this.MergeRules, this.ValueTransformationRules) : null;
             return new MetadataAggregation(
                 this.TimingsSource,
                 reasonsFromSourcesReferences,
@@ -105,7 +107,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private static TimedItemWithMetadata[] MergeRawSources(
             ITiming[] timings,
             TimedItemWithMetadataCollection[] rawReferenceSources,
-            Dictionary<string, string> mergeRules)
+            MergeRuleDictionary mergeRules,
+            ValueTransformationRuleDictionary valueTransformationRules)
         {
             if (timings == null)
                 return null;
@@ -121,7 +124,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     foreach (var item in rawReferenceSource.GetItems().Where(item => item.StartTime < timing.EndTime && item.EndTime > timing.StartTime))
                     {
                         allItems.Remove(item);
-                        metadata.Merge(item.Metadata, mergeRules, rawReferenceSource.Id, rawReferenceSource.PrivateMetadataNames);
+                        metadata.Merge(item.Metadata, mergeRules, valueTransformationRules, rawReferenceSource.Id, rawReferenceSource.PrivateMetadataNames);
                         nbMerges++;
                     }
                     if (nbMerges >= 2)

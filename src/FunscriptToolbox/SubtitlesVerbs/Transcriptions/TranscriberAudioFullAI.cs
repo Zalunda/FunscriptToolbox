@@ -127,6 +127,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     response.Cost.CustomInfos = customInfos;
                 }
                 HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime);
+                context.WriteInfo($"Current number of subtitles: {transcription.Items.Count}");
                 nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? chunkStartTime;
 
                 var startOfBufferZone = chunkEndTime - TimeSpan.FromSeconds(10);
@@ -178,7 +179,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 systemParts,
                 userParts,
                 this.MetadataProduced,
-                $"{timing.StartTime} to {timing.EndTime} out of {context.WIP.TimelineMap.Duration}",
+                @$"{timing.StartTime:hh\:mm\:ss} to {timing.EndTime:hh\:mm\:ss} out of {context.WIP.TimelineMap.Duration:hh\:mm\:ss}",
                 timing.StartTime);
         }
 
