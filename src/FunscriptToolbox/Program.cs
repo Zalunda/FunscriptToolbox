@@ -120,6 +120,7 @@ namespace FunscriptToolbox
                         "--verbose",
                         "--recursive",
                         "--skipupdate",
+                        "--autovseq",
                         "--config", ".\\--FSTB-SubtitleGenerator.config",
                         $"{prefix}.vseq",
                         $"{prefix}.mp4"
