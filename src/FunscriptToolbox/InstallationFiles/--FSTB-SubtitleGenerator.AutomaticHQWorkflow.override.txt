@@ -117,6 +117,12 @@
       "Id": "translated-texts_maverick",
       "Enabled": true,
       "ExportMetadataSrt": false,
+      "Metadatas": {
+        "TextModificationRules": {
+        // [OPTION] Uncomment line bellow to remove the options in the request (good when using Claude-Opus).
+        //  "TranslationAnalysis": { "Pattern": "^Option \\d.*$", "ReplacementOutput": "" }
+        }
+      },
       "Options": {
         "BatchSize": 75,
         "BatchSplitWindows": 5,
@@ -129,9 +135,9 @@
       "Enabled": true,
       "ExportMetadataSrt": false,
       "MaxLineLength": 50,
-      "MaxMergeGapSameSpeaker": "00:00:01",
-      "MaxMergeGapDialogue": "00:00:00.8",
-      "MaxMergeDuration": "00:00:04",
+      "MaxMergeGapSameSpeaker": "00:00:00",
+      "MaxMergeGapDialogue": "00:00:00.5",
+      "MaxMergeDuration": "00:00:02",
       "RemoveMissing": false,
       "AddReviewIfTooLong": true,
       "SplitPatterns": [
@@ -157,7 +163,9 @@
     },
     {
       "Id": "final-ai-srt",
-      "Enabled": true
+      "Enabled": true,
+      "MinimumSubtitleDuration" = "00:00:01.5",
+      "ExpandSubtileDuration" = "00:00:00.5"
     },
     {
       "Id": "final-ai-debug-srt",

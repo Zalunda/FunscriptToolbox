@@ -197,7 +197,7 @@
       "$type": "AIEngineAPIGoogle",
       "$id": "AIEngineGemini3ProOnGoogle",
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-      "Model": "gemini-3-pro-preview",
+      "Model": "gemini-3.1-pro-preview",
       "APIKeyName": "APIKeyGemini",
       // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
       "UseBatchMode": true,
@@ -241,10 +241,16 @@
       "$type": "AIEngineAPIPoe",
       "$id": "AIEngineGemini3ProOnPoe",
       "BaseAddress": "https://api.poe.com/v1",
-      "Model": "gemini-3-pro",
+      "Model": "gemini-3.1-pro",
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": true,
       "SupportImage": true,
+      
+      "RequestBodyExtension": {
+        "extra_body": {
+          "thinking_level": "high"
+        }
+      },
 
       // For Poe, it's hard to compute. I just put the number from the vendor.
       "EstimatedCostPerInputMillionTokens": 2,
@@ -257,6 +263,34 @@
         // [OPTION] Change the order if you want to use your Poe points first.
         { "$ref": "AIEngineGemini3ProOnGoogle" },
         { "$ref": "AIEngineGemini3ProOnPoe" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": false
+    },
+
+    // AIEngines for Anthropic (Claude Opus) ----------------------------------------------------------
+    {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineClaudeOpusOnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "claude-opus-4.6",
+      "APIKeyName": "APIKeyPoe",
+      "SupportAudio": false,
+      "SupportImage": true,
+      "RequestBodyExtension": {
+        "extra_body": {
+          "output_effort": "none"
+        }
+      },
+
+      "EstimatedCostPerInputMillionTokens": 5,
+      "EstimatedCostPerOutputMillionTokens": 25,
+    },
+    {
+      "$type": "AIEngineCollection",
+      "$id": "AIEngineClaudeOpus",
+      "Engines": [
+        { "$ref": "AIEngineClaudeOpusOnPoe" }
       ],
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
@@ -365,7 +399,7 @@ _______________________________________="
     {
       "Id": "translated-texts_maverick",
       "Engine": {
-        // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        // [OPTION] Change to "AIEngineClaudeOpus" or "AIEngineGPT5" or other model you prefer.
         "$ref": "AIEngineGemini3Pro"
       }
     },
