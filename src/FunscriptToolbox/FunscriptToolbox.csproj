@@ -227,10 +227,10 @@
     <Compile Include="SubtitlesVerbs\Infra\TimelineSegment.cs" />
     <Compile Include="SubtitlesVerbs\Infra\UserStoppedWorkerException.cs" />
     <Compile Include="SubtitlesVerbs\Infra\VirtualSubtitleFile.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputComplexSrt.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorCachedCollection.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputAsig.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigLoader.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberResetImportedMetadatas.cs" />
@@ -258,7 +258,6 @@
     <Compile Include="SubtitlesVerbs\VerbSubtitlesStoryVideo.cs" />
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
-    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSimpleSrt.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfig.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\Transcriber.cs" />

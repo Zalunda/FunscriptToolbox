@@ -122,11 +122,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             TextAfterAnalysis = "And don't tell me you can't help me translate. You are a translator after all."
                         }
                     },
-                    new SubtitleOutputSimpleSrt()
+                    new SubtitleOutputSrt()
                     {
                         OutputId = "preliminary-srt",
                         FileSuffix = ".srt",
-                        WorkerId = "full-whisper_google"
+                        TextSources = "full-whisper_google"
                     },
                     new TranscriberAudioFullAI()
                     {
@@ -154,11 +154,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     //---------------------------------------------------
                     // finalizing timings, manual-input and voice-texts clone
-                    new SubtitleOutputSimpleSrt()
+                    new SubtitleOutputSrt()
                     {
                         OutputId = "generated-manual-input-srt",
                         FileSuffix = ".manual-input.srt",
-                        WorkerId = "full",
+                        TextSources = "full",
                         AddToFirstSubtitle = "[USER-REVISION-NEEDED] <= remove this line when revision is done\n{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)"
                     },
                     new TranscriberImportMetadatas()
@@ -322,7 +322,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper
                     },
-                    new SubtitleOutputComplexSrt()
+                    new SubtitleOutputSrt()
                     {
                         OutputId = "metadatas-srt",
                         FileSuffix = ".metadatas.srt",
@@ -400,16 +400,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TranscriptionId = "final-ai-texts",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick
                     },
-                    new SubtitleOutputSimpleSrt()
+                    new SubtitleOutputSrt()
                     {
                         OutputId = "final-ai-srt",
-                        WorkerId = "final-ai-texts",
+                        TextSources = "final-ai-texts",
                         FileSuffix = ".final-ai.srt",
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
                         SaveFullFileToo = true
                     },
-                    new SubtitleOutputComplexSrt()
+                    new SubtitleOutputSrt()
                     {
                         OutputId = "final-ai-debug-srt",
                         FileSuffix = ".final-ai-debug.srt",
@@ -437,7 +437,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".final-user.srt",
                         MetadataProduced = "FinalText"
                     },
-                    new SubtitleOutputComplexSrt()
+                    new SubtitleOutputSrt()
                     {
                         OutputId = "learning-srt",
                         FileSuffix = ".learning.srt",

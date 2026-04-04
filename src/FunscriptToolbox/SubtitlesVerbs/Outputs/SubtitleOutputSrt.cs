@@ -5,12 +5,13 @@ using System.Text;
 using FunscriptToolbox.Core;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    internal class SubtitleOutputComplexSrt : SubtitleOutput
+    internal class SubtitleOutputSrt : SubtitleOutput
     {
-        public SubtitleOutputComplexSrt()
+        public SubtitleOutputSrt()
         {
 
         }
@@ -21,17 +22,63 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 10)]
         public bool WaitForFinished { get; set; } = false;
 
-        [JsonProperty(Order = 20, Required = Required.Always)]
+        [JsonProperty(Order = 15)]
         public MetadataAggregator Metadatas { get; set; }
-        [JsonProperty(Order = 21)]
+        [JsonProperty(Order = 16)]
         public string TextSources { get; set; }
+        public string WorkerId // For backward compatibility
+        {
+            set { TextSources = value; }
+        }
+
+        [JsonProperty(Order = 20)]
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.Zero;
+        [JsonProperty(Order = 21)]
+        public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.Zero;
+
         [JsonProperty(Order = 22)]
+        public string AddToFirstSubtitle { get; set; } = string.Empty;
+        [JsonProperty(Order = 23)]
+        public SubtitleToInject[] SubtitlesToInject { get; set; }
+
+        [JsonProperty(Order = 24)]
         public string SkipWhenTextSourcesAreIdentical { get; set; }
+        [JsonProperty(Order = 25)]
+        public bool SaveFullFileToo { get; set; } = false;
+
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
+            var textSourceIds = this.TextSources?.Split(',')
+                .Select(f => f.Trim())
+                .Where(f => !string.IsNullOrEmpty(f))
+                .ToArray() ?? Array.Empty<string>();
+
+            // Normalize state
+            if (this.Metadatas == null && textSourceIds.Any())
+            {
+                this.Metadatas = new MetadataAggregator()
+                {
+                    TimingsSource = textSourceIds.First(),
+                    Sources = "" // Empty string ensures no metadata analysis is appended
+                };
+            }
+
+            if (this.Metadatas == null)
+            {
+                // If there's no Metadata and no TextSources, the only valid reason to proceed is if we have manual text to inject
+                if (string.IsNullOrEmpty(this.AddToFirstSubtitle))
+                {
+                    reason = "TextSources or Metadatas.TimingsSource must be set.";
+                    return false;
+                }
+
+                reason = null;
+                return true;
+            }
+
             var aggregate = this.Metadatas.Aggregate(context);
 
             if (this.WaitForFinished)
@@ -64,7 +111,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         protected override bool IsFinished(SubtitleGeneratorContext context)
         {
-            return context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) != null;
+            if (context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) == null)
+                return false;
+
+            return (this.SaveFullFileToo && context.WIP.TimelineMap.Segments.Length > 1)
+                ? File.Exists(Path.Combine(context.WIP.BaseFilePath + this.FileSuffix))
+                : true;
         }
 
         protected override void DoWork(
@@ -83,6 +135,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             var metadataSources = metadataSourcesRaw.Select(osr => osr.GetAnalysis(timings)).ToArray();
 
             var sourcesToCompareIds = this.SkipWhenTextSourcesAreIdentical?.Split(',').Select(f => f.Trim()).ToHashSet();
+            string addToNextSubtitle = string.IsNullOrEmpty(this.AddToFirstSubtitle) ? null : "\n" + this.AddToFirstSubtitle;
 
             foreach (var timing in timings)
             {
@@ -123,37 +176,66 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     continue; // The values were identical; skip to the next timing.
                 }
 
-                sb.AppendLine("------- Metadatas -------");
-
                 // 2. Append Metadatas from all sources in the aggregator
-                foreach (var metadataSource in metadataSources)
+                if (metadataSources.Length > 0)
                 {
-                    if (metadataSource.TimingsWithOverlapItems.TryGetValue(timing, out var overlaps))
+                    sb.AppendLine("------- Metadatas -------");
+
+                    foreach (var metadataSource in metadataSources)
                     {
-                        foreach (var overlap in overlaps)
+                        if (metadataSource.TimingsWithOverlapItems.TryGetValue(timing, out var overlaps))
                         {
-                            foreach (var metadata in overlap.Item.Metadata.OrderBy(kvp => kvp.Key))
+                            foreach (var overlap in overlaps)
                             {
-                                sb.AppendLine($"[{metadataSource.Container.Id}] {{{metadata.Key}:{metadata.Value}}}");
+                                foreach (var metadata in overlap.Item.Metadata.OrderBy(kvp => kvp.Key))
+                                {
+                                    sb.AppendLine($"[{metadataSource.Container.Id}] {{{metadata.Key}:{metadata.Value}}}");
+                                }
                             }
                         }
                     }
                 }
 
-                if (sb.Length > 0)
+                string subtitleText = sb.ToString().TrimEnd();
+
+                if (addToNextSubtitle != null)
                 {
-                    virtualSubtitleFile.Subtitles.Add(
-                        new Subtitle(timing.StartTime,
-                        timing.EndTime,
-                        sb.ToString().TrimEnd()));
+                    subtitleText = (subtitleText + addToNextSubtitle).TrimStart();
+                    addToNextSubtitle = null;
                 }
+
+                virtualSubtitleFile.Subtitles.Add(
+                    new Subtitle(timing.StartTime, timing.EndTime, subtitleText));
             }
 
+            if (addToNextSubtitle != null)
+            {
+                virtualSubtitleFile.Subtitles.Add(new Subtitle(TimeSpan.Zero, TimeSpan.FromSeconds(5), addToNextSubtitle.TrimStart()));
+            }
 
+            // Apply SaveFullFileToo
+            if (this.SaveFullFileToo && context.WIP.TimelineMap.Segments.Length > 1)
+            {
+                var newFullFile = new SubtitleFile();
+                // Copy freshly generated items prior to expansion
+                newFullFile.Subtitles.AddRange(
+                    virtualSubtitleFile.Subtitles.Select(item =>
+                        new Subtitle(item.StartTime, item.EndTime, item.Text)));
+
+                VirtualSubtitleFile.InjectSubtitleInFile(newFullFile, this.SubtitlesToInject, TimeSpan.Zero);
+                newFullFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
+                newFullFile.SaveSrt(
+                    Path.Combine(
+                        context.WIP.BaseFilePath + this.FileSuffix));
+            }
+
+            // Save part files
+            virtualSubtitleFile.ExpandTiming(this.MinimumSubtitleDuration, this.ExpandSubtileDuration);
             virtualSubtitleFile.Save(
                 context.WIP.ParentPath,
                 this.FileSuffix,
-                context.SoftDelete);
+                context.SoftDelete,
+                this.SubtitlesToInject);
         }
     }
 }
