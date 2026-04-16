@@ -55,45 +55,51 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             client.BaseAddress = new Uri("https://translate.googleapis.com/");
 
             var watch = Stopwatch.StartNew();
-
-            var currentIndex = 1;
-            foreach (var transcribedItem in missingTranscriptions)
+            var nbAdded = 0;
+            try
             {
-                var sourceLanguage = transcription.Language?.ShortName ?? "auto";
-                string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
-                    "?client=gtx" +
-                    $"&sl={sourceLanguage}" +
-                    $"&tl={translation.Language.ShortName}" +
-                    $"&dt=t" +
-                    $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded) ?? string.Empty)}";
-
-                var response = client.GetAsync(apiUrl).Result;
-                if (!response.IsSuccessStatusCode)
+                var currentIndex = 1;
+                foreach (var transcribedItem in missingTranscriptions)
                 {
-                    context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
-                    return;
+                    var sourceLanguage = transcription.Language?.ShortName ?? "auto";
+                    string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
+                        "?client=gtx" +
+                        $"&sl={sourceLanguage}" +
+                        $"&tl={translation.Language.ShortName}" +
+                        $"&dt=t" +
+                        $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded) ?? string.Empty)}";
+
+                    var response = client.GetAsync(apiUrl).Result;
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                        return;
+                    }
+
+                    string responseAsJson = response.Content.ReadAsStringAsync().Result;
+
+                    dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+
+                    var translatedText = (string)ExtractTranslatedText(responseBody);
+                    translation.Items.Add(
+                        new TranslatedItem(
+                            transcribedItem.StartTime,
+                            transcribedItem.EndTime,
+                            MetadataCollection.CreateSimple(this.MetadataProduced, translatedText)));
+                    nbAdded++;
+
+                    context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
                 }
 
-                string responseAsJson = response.Content.ReadAsStringAsync().Result;
-
-                dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-
-                var translatedText = (string)ExtractTranslatedText(responseBody);
-                translation.Items.Add(
-                    new TranslatedItem(
-                        transcribedItem.StartTime,
-                        transcribedItem.EndTime,
-                        MetadataCollection.CreateSimple(this.MetadataProduced, translatedText)));
-
-                context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
+                translation.MarkAsFinished();
             }
-
-            watch.Stop();
-            translation.Costs.Add(
-                new Cost(transcription.Id, ToolName, watch.Elapsed, missingTranscriptions.Length));
-
-            translation.MarkAsFinished();
-            context.WIP.Save();
+            finally
+            {
+                watch.Stop();
+                translation.Costs.Add(
+                    new Cost(transcription.Id, ToolName, watch.Elapsed, nbAdded));
+                context.WIP.Save();
+            }
         }
 
     public static Language DetectLanguage(IEnumerable<TranscribedItem> items, string metadataNeeded)
