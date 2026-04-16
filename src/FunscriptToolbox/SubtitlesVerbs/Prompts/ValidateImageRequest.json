@@ -1,16 +1,4 @@
 ﻿{
-  "safetySettings": [
-    {
-      "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-      "threshold": "OFF"
-    }
-  ],
-  "generation_config": {
-    "thinkingConfig": {
-      "thinkingLevel": "low"
-    },
-    "mediaResolution": "MEDIA_RESOLUTION_LOW"
-  },
   "contents": {
     "role": "user",
     "parts": [
