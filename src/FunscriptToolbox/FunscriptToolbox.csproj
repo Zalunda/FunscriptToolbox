@@ -188,6 +188,7 @@
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromPcm.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromVideo.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPI.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIAnthropic.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIGoogle.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIPoe.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineCollection.cs" />

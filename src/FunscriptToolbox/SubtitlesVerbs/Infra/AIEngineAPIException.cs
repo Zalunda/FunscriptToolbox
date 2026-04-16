@@ -9,10 +9,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     [Serializable]
     public class AIEngineAPIException : Exception
     {
-
-
-
-
         public AIEngineErrorType ErrorType { get; }
         public string EngineIdentifier { get; }
 

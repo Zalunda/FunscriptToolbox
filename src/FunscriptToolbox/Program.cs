@@ -113,7 +113,7 @@ namespace FunscriptToolbox
 
                 case 50:
                     // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";                    
-                    var prefix = "VRKM-1111-T*";
+                    var prefix = "*";
                     args = new[]
                     {
                         "subtitles.create",

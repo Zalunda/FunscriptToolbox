@@ -61,7 +61,7 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyGemini",
-      // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
+      // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
       "UseBatchMode": true,
       "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
@@ -128,7 +128,7 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-3-flash-preview",
       "APIKeyName": "APIKeyGemini",
-      // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
+      // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
       "UseBatchMode": true,
       "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
@@ -199,7 +199,7 @@
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
       "Model": "gemini-3.1-pro-preview",
       "APIKeyName": "APIKeyGemini",
-      // [OPTION] Set BatchMode to false to remove wait time (but without the saving).
+      // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
       "UseBatchMode": true,
       "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
@@ -270,18 +270,45 @@
 
     // AIEngines for Anthropic (Claude Opus) ----------------------------------------------------------
     {
+      "$type": "AIEngineAPIAnthropic",
+      "$id": "AIEngineClaudeOpusOnAnthropic",
+      "BaseAddress": "https://api.anthropic.com/v1",
+      "Model": "claude-opus-4-7",
+      "APIKeyName": "APIKeyAnthropic",
+      "RequestBodyExtension": {
+	    // Note: max_tokens is required for Anthropic API
+	    "max_tokens": 8192,
+		
+	    // [OPTION] Remove '//' for the following lines to activate thinking mode.
+		// "thinking": {
+		//  "type": "enabled",
+		//  "budget_tokens": 4196
+		//}
+      },
+      // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
+      "UseBatchMode": true,
+      "UseBatchModeSaving": 0.50,
+      "SupportAudio": false,
+      "SupportImage": true,
+
+      "EstimatedCostPerInputMillionTokens": 5,
+      "EstimatedCostPerOutputMillionTokens": 25
+    },
+    {
       "$type": "AIEngineAPIPoe",
       "$id": "AIEngineClaudeOpusOnPoe",
       "BaseAddress": "https://api.poe.com/v1",
-      "Model": "claude-opus-4.6",
+      "Model": "claude-opus-4.7",
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": false,
       "SupportImage": true,
       "RequestBodyExtension": {
         "extra_body": {
-          "output_effort": "none"
+			"output_effort": "none"
         }
       },
+      "SupportAudio": false,
+      "SupportImage": true,
 
       "EstimatedCostPerInputMillionTokens": 5,
       "EstimatedCostPerOutputMillionTokens": 25,
@@ -290,6 +317,7 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineClaudeOpus",
       "Engines": [
+        { "$ref": "AIEngineClaudeOpusOnAnthropic" },
         { "$ref": "AIEngineClaudeOpusOnPoe" }
       ],
       "SkipOnQuotasUsed": true,

@@ -29,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 33)]
         public bool DebugBatchPollingResponse { get; set; }
 
-        protected override double CostSaving => UseBatchMode ? 0.5 : 1.0;
+        protected override double CostSaving => UseBatchMode ? UseBatchModeSaving : 1.0;
         public override string EngineIdentifier => base.EngineIdentifier + (UseBatchMode ? "+Batch" : "+Stream");
 
         public override AIResponse Execute(
