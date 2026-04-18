@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -193,16 +194,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var cancelUrl = $"messages/batches/{batch.id}/cancel";
                 var startTime = DateTime.Now;
                 bool canCancel = false;
+                HttpStatusCode? lastStatusCodeReceived = null;
+                DateTime? firstTimeLastCodeReceived = null;
                 int pollNumber = 1;
                 string pollJson = null;
 
                 waitingTimer = new Timer(_ =>
                 {
-                    canCancel = batch?.processing_status == "in_progress";
-                    var cancelMsg = canCancel ? " (PRESS Q TO CANCEL)" : "";
+                    var cancellationText = lastStatusCodeReceived != null
+                        ? $" (\"{lastStatusCodeReceived}\" received for {DateTime.Now - firstTimeLastCodeReceived}, PRESS Q TO CANCEL)"
+                        : batch?.processing_status == "in_progress"
+                        ? " (PRESS Q TO CANCEL)"
+                        : null;
+                    var canCancel = cancellationText != null;
                     var duration = DateTime.Now - startTime;
                     context.DefaultProgressUpdateHandler(ToolName, requestId,
-                        $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{cancelMsg}...");
+                        $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 while (true)
@@ -230,25 +237,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     pollReq.Headers.Add("anthropic-beta", BATCH_BETA_HEADER);
 
                     var pollResp = client.SendAsync(pollReq).Result;
-                    if (!pollResp.IsSuccessStatusCode)
-                        throw AIEngineAPIException.FromHttpStatusCode(pollResp, this.EngineIdentifier);
 
-                    pollJson = pollResp.Content.ReadAsStringAsync().Result;
+                    if (pollResp.IsSuccessStatusCode)
+                    {
+                        lastStatusCodeReceived = null;
+                        firstTimeLastCodeReceived = null;
 
-                    if (this.DebugBatchPollingResponse)
-                        context.CreateVerboseTextFile(
-                            $"{verbosePrefix}-Batch-Polling-{pollNumber++}-Resp.json",
-                            pollJson, request.ProcessStartTime);
+                        pollJson = pollResp.Content.ReadAsStringAsync().Result;
 
-                    batch = JsonConvert.DeserializeObject<AnthropicBatch>(pollJson);
-                    var status = batch?.processing_status;
+                        if (this.DebugBatchPollingResponse)
+                            context.CreateVerboseTextFile(
+                                $"{verbosePrefix}-Batch-Polling-{pollNumber++}-Resp.json",
+                                pollJson, request.ProcessStartTime);
 
-                    if (status == BATCH_STATUS_ENDED)
-                        break;
+                        batch = JsonConvert.DeserializeObject<AnthropicBatch>(pollJson);
+                        var status = batch?.processing_status;
 
-                    if (status != "in_progress")
-                        throw new AIResponseException(request,
-                            $"Batch API returned unexpected status: {status}");
+                        if (status == BATCH_STATUS_ENDED)
+                            break;
+
+                        if (status != "in_progress")
+                            throw new AIResponseException(request,
+                                $"Batch API returned unexpected status: {status}");
+                    }
+                    else
+                    {
+                        if (lastStatusCodeReceived == null || pollResp.StatusCode != lastStatusCodeReceived)
+                        {
+                            firstTimeLastCodeReceived = DateTime.Now;
+                        }
+                        lastStatusCodeReceived = pollResp.StatusCode;
+
+                        // Ignore errors, keep polling
+                    }
 
                     // Handle cancellation request
                     if (delayedCancel)

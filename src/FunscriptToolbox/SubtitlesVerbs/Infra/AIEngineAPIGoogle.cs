@@ -184,22 +184,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 GoogleOperation operation = null;
                 bool canCancel = false;
                 var startTime = DateTime.Now;
+                int? lastErrorCodeReceived = null;
+                string lastErrorMessageReceived = null;
+                DateTime? firstTimeLastCodeReceived = null;
                 var pendingWatch = Stopwatch.StartNew();
                 waitingTimer = new Timer(_ =>
                 {
-                    canCancel = operation?.GetState() == "BATCH_STATE_PENDING";
-                    var cancelMessage = canCancel ? " (PRESS Q TO CANCEL)" : "";
+                    var cancellationText = lastErrorCodeReceived != null
+                        ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\" for {DateTime.Now - firstTimeLastCodeReceived}, PRESS Q TO CANCEL)"
+                        : operation?.GetState() == "BATCH_STATE_PENDING"
+                        ? " (PRESS Q TO CANCEL)"
+                        : null;
+                    var canCancel = cancellationText != null;
                     var duration = DateTime.Now - startTime;
+
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")
                     {
                         pendingWatch.Stop();
                         var durationPending = pendingWatch.Elapsed;
                         var durationRunning = duration - durationPending;
-                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}... ");
+                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}{cancellationText}... ");
                     }
                     else
                     {
-                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{cancelMessage}... ");
+                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}... ");
                     }
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
@@ -265,9 +273,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     operation = JsonConvert.DeserializeObject<GoogleOperation>(pollJson);
                     var state = operation.GetState();
                     var error = operation.GetError();
+
+                    if (error == null)
+                    {
+                        lastErrorCodeReceived = null;
+                        lastErrorMessageReceived = null;
+                        firstTimeLastCodeReceived = null;
+                    }
+                    else
+                    {
+                        if (lastErrorCodeReceived == null || error.Code != lastErrorCodeReceived)
+                        {
+                            firstTimeLastCodeReceived = DateTime.Now;
+                        }
+                        lastErrorCodeReceived = error.Code;
+                        lastErrorMessageReceived = error.Message; ;
+                    }
+
                     if (error != null)
                     {
-                        throw new AIResponseException(request, $"Batch API returned:\nState: {state}\nCode:{error.Code}\nMessage: {error.Message}");
+                        // Ignore errors, keep polling
                     }
                     else if (state == "BATCH_STATE_SUCCEEDED")
                     {
@@ -278,7 +303,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         throw new AIResponseException(request, $"Batch API returned state: {state}. Expecting: BATCH_STATE_SUCCEEDED, BATCH_STATE_PENDING or BATCH_STATE_RUNNING");
                     }
-                    else if (state == "BATCH_STATE_PENDING" && delayedCancel)
+                    else if ((state == "BATCH_STATE_PENDING" || lastErrorCodeReceived != null) && delayedCancel)
                     {
                         waitingTimer?.Dispose();
                         waitingTimer = null;
