@@ -110,13 +110,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 middleTimeInRightFile,
                                 ".jpg",
                                 extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
-                            var data = new[]
-                                {
+                            var data = (image != null) 
+                                ? new[]
+                                    {
                                     new AIRequestPartImage(
                                         section,
                                         $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
                                         image)
-                                };
+                                    }
+                                : new AIRequestPartImage[0];
                             if (extractor.KeepTemporaryFiles)
                                 context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);
                             return data;

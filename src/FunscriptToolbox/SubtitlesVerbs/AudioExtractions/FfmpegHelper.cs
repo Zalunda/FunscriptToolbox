@@ -118,7 +118,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                     .SetOutput(tempFile)
                     .Start()
                     .Wait();
-                return File.ReadAllBytes(tempFile);
+                return File.Exists(tempFile) ? File.ReadAllBytes(tempFile) : null;
 
             }
             finally
