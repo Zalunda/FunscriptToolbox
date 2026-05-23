@@ -195,7 +195,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         : operation?.GetState() == "BATCH_STATE_PENDING"
                         ? " (PRESS Q TO CANCEL)"
                         : null;
-                    var canCancel = cancellationText != null;
+                    canCancel = cancellationText != null;
                     var duration = DateTime.Now - startTime;
 
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")

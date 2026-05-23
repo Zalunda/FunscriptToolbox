@@ -206,7 +206,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         : batch?.processing_status == "in_progress"
                         ? " (PRESS Q TO CANCEL)"
                         : null;
-                    var canCancel = cancellationText != null;
+                    canCancel = cancellationText != null;
                     var duration = DateTime.Now - startTime;
                     context.DefaultProgressUpdateHandler(ToolName, requestId,
                         $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}...");
