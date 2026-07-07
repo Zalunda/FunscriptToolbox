@@ -310,7 +310,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var binaryItem in binaryDataExtractors.GetNamedContentListForItem(section, item, item.StartTime.ToString(@"hh\:mm\:ss\.fff")))
                 {
                     sb.Append($"    \"{binaryItem.Key}\": ");
-                    parts.AddText(section, sb.ToString(), binaryItem.Value.First().AssociatedDataType);
+                    parts.AddText(section, sb.ToString(), binaryItem.Value.FirstOrDefault()?.AssociatedDataType ?? BinaryDataType.Image);
                     sb.Clear();
                     parts.AddRange(binaryItem.Value);
                     sb.AppendLine();

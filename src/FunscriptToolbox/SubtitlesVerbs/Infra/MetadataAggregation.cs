@@ -41,9 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             if (reasons.Any())
             {
-                reason = (reasons.Count > 0)
-                    ? "\n" + string.Join("\n", reasons)
-                    : reasons.First();
+                reason = "\n" + string.Join("\n", reasons);
                 return false;
             }
 

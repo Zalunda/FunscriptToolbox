@@ -105,23 +105,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
                             var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
-                            var image = context.FfmpegHelper.TakeScreenshotAsBytes(
-                                Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
-                                middleTimeInRightFile,
-                                ".jpg",
-                                extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
-                            var data = (image != null) 
-                                ? new[]
-                                    {
-                                    new AIRequestPartImage(
-                                        section,
-                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
-                                        image)
-                                    }
-                                : new AIRequestPartImage[0];
-                            if (extractor.KeepTemporaryFiles)
-                                context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);
-                            return data;
+                            try
+                            {
+                                var image = context.FfmpegHelper.TakeScreenshotAsBytes(
+                                    Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
+                                    middleTimeInRightFile,
+                                    ".jpg",
+                                    extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
+                                if (image == null)
+                                {
+                                    context.WriteError($"Ffmpeg didn't extract a screenshot at {middleTimeInRightFile}.");
+                                    return new AIRequestPartImage[0];
+                                }
+                                else
+                                {
+                                    var data = new[]
+                                            {
+                                            new AIRequestPartImage(
+                                                section,
+                                                $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
+                                                image)
+                                            };
+                                    if (extractor.KeepTemporaryFiles)
+                                        context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);
+                                    return data;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                context.WriteError($"Unable to extract screenshot at {middleTimeInRightFile}, ffmpeg returned errors: {ex.Message}");
+                                return new AIRequestPartImage[0];
+                            }
                         };
                     }
                     else
