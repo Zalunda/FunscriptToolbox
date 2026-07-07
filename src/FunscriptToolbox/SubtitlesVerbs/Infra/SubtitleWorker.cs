@@ -119,6 +119,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 context.WIP.ParentPath,
                 extension,
                 context.SoftDelete);
+
+                var fullfilePath = context.WIP.BaseFilePath + extension;
+                if (context.WIP.TimelineMap.IsMultipart && (!wasAlreadyFinished || File.Exists(fullfilePath)))
+                {
+                    var newFullFile = new SubtitleFile();
+                    newFullFile.Subtitles.AddRange(
+                        virtualSubtitleFile.Subtitles.Select(item =>
+                            new Subtitle(item.StartTime, item.EndTime, item.Text)));
+                    newFullFile.SaveSrt(fullfilePath);
+                }
             }
         }
 
