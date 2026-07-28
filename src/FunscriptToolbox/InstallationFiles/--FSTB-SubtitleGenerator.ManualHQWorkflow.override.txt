@@ -1,5 +1,9 @@
 ﻿{
   "Workers": [
+    {
+      "Id": "used-config",
+      "Enabled": true
+    },
     // -----------------------------
     // Audio extraction
     {

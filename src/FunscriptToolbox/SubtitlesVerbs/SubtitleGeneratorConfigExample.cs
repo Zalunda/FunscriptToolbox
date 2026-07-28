@@ -60,6 +60,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 SharedObjects = sharedObjects.ToArray(),
                 Workers = new SubtitleWorker[]
                 {
+                    new SubtitleOutputUsedConfig()
+                    {
+                        OutputId = "used-config",
+                        CanBeUpdated = true,
+                    },
                     //---------------------------------------------------
                     // Audio extraction
                     new AudioExtractorFromVideo()

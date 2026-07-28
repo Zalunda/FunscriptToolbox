@@ -230,6 +230,7 @@
     <Compile Include="SubtitlesVerbs\Infra\VirtualSubtitleFile.cs" />
     <Compile Include="SubtitlesVerbs\Infra\SubtitleWorker.cs" />
     <Compile Include="SubtitlesVerbs\Infra\BinaryDataExtractorCachedCollection.cs" />
+    <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputUsedConfig.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputAsig.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />

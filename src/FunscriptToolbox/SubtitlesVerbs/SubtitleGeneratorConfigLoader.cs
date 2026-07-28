@@ -586,6 +586,287 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 RegexOptions.Singleline);
         }
 
+        public static string GetMinimalFileContent(
+                    SubtitleGeneratorConfig originalConfig,
+                    bool removeUnusedTasks = true,
+                    bool removeUnusedSharedObjects = true)
+        {
+            // 1. Serialize the full current configuration to a JObject
+            var rootConfig = JObject.FromObject(originalConfig, rs_serializer);
+
+            var workersArray = rootConfig[nameof(SubtitleGeneratorConfig.Workers)] as JArray;
+            var sharedObjectsArray = rootConfig[nameof(SubtitleGeneratorConfig.SharedObjects)] as JArray;
+
+            // 2. Filter out disabled workers (only if requested)
+            if (removeUnusedTasks && workersArray != null)
+            {
+                var workersToRemove = workersArray
+                    .Where(w =>
+                    {
+                        var enabledToken = w[nameof(SubtitleWorker.Enabled)];
+                        return enabledToken == null || enabledToken.Value<bool>() == false;
+                    })
+                    .ToList();
+
+                foreach (var w in workersToRemove)
+                {
+                    w.Remove();
+                }
+            }
+
+            var neededIds = new HashSet<string>();
+            var idMap = new Dictionary<string, string>();
+            var refContext = new Dictionary<string, (string WorkerId, string PropertyName)>();
+
+            // 3. Find and filter the required SharedObjects based on reference mapping
+            if (sharedObjectsArray != null && workersArray != null)
+            {
+                var queue = new Queue<(string RefId, string WorkerId, string PropertyName)>();
+
+                // Get initial required references from all active workers
+                foreach (var worker in workersArray)
+                {
+                    string workerId = GetWorkerId(worker);
+                    foreach (var (refId, propName) in GetRefs(worker))
+                    {
+                        queue.Enqueue((refId, workerId, propName));
+                    }
+                }
+
+                // 4. Iteratively resolve dependencies in SharedObjects
+                while (queue.Count > 0)
+                {
+                    var (id, workerId, propName) = queue.Dequeue();
+
+                    if (neededIds.Add(id))
+                    {
+                        refContext[id] = (workerId, propName);
+
+                        var sharedObj = sharedObjectsArray.FirstOrDefault(o => o["$id"]?.Value<string>() == id);
+                        if (sharedObj != null)
+                        {
+                            foreach (var (nestedRef, nestedProp) in GetRefs(sharedObj))
+                            {
+                                if (!neededIds.Contains(nestedRef))
+                                {
+                                    // Pass down the same workerId, but use the new nested property name
+                                    queue.Enqueue((nestedRef, workerId, nestedProp));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                var usedNames = new HashSet<string>();
+
+                // 5. Process SharedObjects: Remove unused, rename intelligently, format prompts
+                var objectsToRemove = sharedObjectsArray
+                    .Where(o =>
+                    {
+                        var oldId = o["$id"]?.Value<string>();
+                        bool isReferenced = oldId != null && neededIds.Contains(oldId);
+
+                        if (removeUnusedSharedObjects && !isReferenced)
+                        {
+                            return true; // Remove it
+                        }
+
+                        if (oldId != null && !isReferenced)
+                        {
+                            neededIds.Add(oldId);
+                        }
+
+                        var typeName = o["$type"]?.Value<string>() ?? nameof(SubtitleGeneratorConfig.SharedObjects);
+                        string baseId = typeName;
+
+                        // --- AIPrompt Specific Naming and Formatting strongly typed ---
+                        if (typeName == nameof(AIPrompt))
+                        {
+                            if (oldId != null && refContext.TryGetValue(oldId, out var context))
+                            {
+                                // Look at the property name to see if it matches SystemPrompt or UserPrompt
+                                if (context.PropertyName.Contains(nameof(AIOptions.SystemPrompt)))
+                                {
+                                    // Generates "AISystemPrompt"
+                                    baseId = $"AI{nameof(AIOptions.SystemPrompt)}";
+                                }
+                                else if (context.PropertyName.Contains(nameof(AIOptions.UserPrompt)))
+                                {
+                                    // Generates "AIUserPrompt"
+                                    baseId = $"AI{nameof(AIOptions.UserPrompt)}";
+                                }
+
+                                if (!string.IsNullOrEmpty(context.WorkerId))
+                                {
+                                    baseId = $"{baseId}_{context.WorkerId}";
+                                }
+                            }
+
+                            string[] textFields = {
+                                nameof(AIPrompt.Text),
+                                nameof(AIPrompt.TextBefore),
+                                nameof(AIPrompt.TextAfter)
+                            };
+
+                            foreach (var field in textFields)
+                            {
+                                var token = o[field];
+                                if (token != null && token.Type == JTokenType.String)
+                                {
+                                    string val = token.Value<string>();
+                                    if (!string.IsNullOrEmpty(val) && !val.StartsWith(STARTLONGSTRING))
+                                    {
+                                        o[field] = CreateLongString(val);
+                                    }
+                                }
+                            }
+                        }
+
+                        string newId = baseId;
+                        int counter = 2;
+
+                        // Ensure name is strictly unique
+                        while (usedNames.Contains(newId))
+                        {
+                            newId = $"{baseId}_{counter}";
+                            counter++;
+                        }
+
+                        usedNames.Add(newId);
+
+                        if (oldId != null)
+                        {
+                            idMap[oldId] = newId;
+                        }
+
+                        return false; // Don't remove it
+                    })
+                    .ToList();
+
+                foreach (var o in objectsToRemove)
+                {
+                    o.Remove();
+                }
+            }
+
+            // 6. Strip unreferenced IDs and rename the needed ones (and their references)
+            CleanupAndRenameIds(rootConfig, neededIds, idMap);
+
+            // 7. Convert back to string and apply the hybrid long-string visual formatting
+            string jsonContent = rootConfig.ToString(Formatting.Indented);
+            return ReplaceLongStringFromJsonToHybrid(jsonContent);
+        }
+
+        /// <summary>
+        /// Extracts the most logical identifier from a Worker object using strongly-typed property names.
+        /// </summary>
+        private static string GetWorkerId(JToken workerToken)
+        {
+            if (workerToken is JObject workerObj)
+            {
+                // Strongly typed keys resilient to refactoring
+                string[] idKeys = {
+                    nameof(Translator.TranslationId),
+                    nameof(Transcriber.TranscriptionId),
+                    nameof(AudioExtractor.AudioExtractionId),
+                    nameof(SubtitleOutput.OutputId),
+                    "Id" // Kept as string literal since it's an abstract fallback concept in your array merge rule
+                };
+
+                foreach (var key in idKeys)
+                {
+                    var val = workerObj[key]?.Value<string>();
+                    if (!string.IsNullOrEmpty(val))
+                    {
+                        return val;
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Recursively removes "$id" properties that aren't needed, and renames needed "$id"s and "$ref"s.
+        /// </summary>
+        private static void CleanupAndRenameIds(JToken token, HashSet<string> neededIds, Dictionary<string, string> idMap)
+        {
+            if (token is JObject obj)
+            {
+                // Handle $id
+                var idToken = obj["$id"];
+                if (idToken != null)
+                {
+                    var oldId = idToken.Value<string>();
+                    if (!neededIds.Contains(oldId))
+                    {
+                        obj.Remove("$id");
+                    }
+                    else if (idMap.TryGetValue(oldId, out string descriptiveName))
+                    {
+                        obj["$id"] = descriptiveName;
+                    }
+                }
+
+                // Handle $ref
+                var refToken = obj["$ref"];
+                if (refToken != null)
+                {
+                    var oldRef = refToken.Value<string>();
+                    if (idMap.TryGetValue(oldRef, out string descriptiveName))
+                    {
+                        obj["$ref"] = descriptiveName;
+                    }
+                }
+
+                // Recurse (using ToList() to avoid modification exceptions)
+                foreach (var prop in obj.Properties().ToList())
+                {
+                    CleanupAndRenameIds(prop.Value, neededIds, idMap);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    CleanupAndRenameIds(item, neededIds, idMap);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively searches the JToken hierarchy for "$ref" properties and extracts their values alongside the property name that holds them.
+        /// </summary>
+        private static IEnumerable<(string RefId, string PropertyName)> GetRefs(JToken token)
+        {
+            var refs = new List<(string, string)>();
+            GetRefsRecursive(token, refs);
+            return refs;
+        }
+
+        private static void GetRefsRecursive(JToken token, List<(string, string)> refs)
+        {
+            if (token is JObject obj)
+            {
+                if (obj.TryGetValue("$ref", out var refToken))
+                {
+                    string propName = (obj.Parent as JProperty)?.Name ?? "UnknownProperty";
+                    refs.Add((refToken.Value<string>(), propName));
+                }
+
+                foreach (var prop in obj.Properties())
+                {
+                    GetRefsRecursive(prop.Value, refs);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    GetRefsRecursive(item, refs);
+                }
+            }
+        }
+
         internal class ValidatingReferenceResolver : IReferenceResolver
         {
             private readonly IReferenceResolver r_parent;
