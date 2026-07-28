@@ -17,6 +17,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 7)]
         public bool ExportMetadataSrt { get; set; } = false;
 
+        [JsonProperty(Order = 8)]
+        public bool StopOnFirstExecution { get; set; } = false;
+
         protected override string GetId() => this.TranscriptionId;
         protected override string GetWorkerTypeName() => "Transcription";
         protected override string GetExecutionVerb() => "Transcribing";
@@ -45,13 +48,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var importedTranscription = TryImportMetadatasSrt(context, transcription);
 
-            if (importedTranscription == null)
+            if (importedTranscription != null)
             {
-                DoWorkInternal(context, transcription);
+                transcription = importedTranscription;
+            }
+            else if (this.StopOnFirstExecution && !transcription.HasStoppedOnFirstExecution)
+            {
+                context.WriteInfo("STOPPING to let user see the result of previous steps.");
+                transcription.HasStoppedOnFirstExecution = true;
+                context.WIP.Save();
             }
             else
             {
-                transcription = importedTranscription;
+                DoWorkInternal(context, transcription);
             }
         }
 

@@ -9,6 +9,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
     {
         [JsonProperty(Order = 6)]
         public Language Language { get; }
+        [JsonProperty(Order = 7)]
+        public bool HasStoppedOnFirstExecution { get; set; } = false;
 
         public Translation(
             string id,

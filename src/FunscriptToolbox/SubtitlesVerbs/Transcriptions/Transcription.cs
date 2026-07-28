@@ -9,7 +9,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     {
         [JsonProperty(Order = 10)]
         public Language Language { get; }
-        [JsonProperty(Order = 11, TypeNameHandling = TypeNameHandling.Auto)]
+        [JsonProperty(Order = 11)]
+        public bool HasStoppedOnFirstExecution { get; set; } = false;
+        [JsonProperty(Order = 12, TypeNameHandling = TypeNameHandling.Auto)]
         public object CurrentJobState { get; set; }
 
         public Transcription(

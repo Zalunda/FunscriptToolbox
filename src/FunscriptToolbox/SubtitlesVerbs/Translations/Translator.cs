@@ -19,6 +19,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 7)]
         public bool ExportMetadataSrt { get; set; } = false;
 
+        [JsonProperty(Order = 8)]
+        public bool StopOnFirstExecution { get; set; } = false;
+
         protected abstract string GetMetadataProduced();
 
         protected override string GetId() => $"{this.TranslationId}";
@@ -48,13 +51,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             var translation = context.WIP.Translations.FirstOrDefault(t => t.Id == this.TranslationId);
             var importedTranslation = TryImportMetadatasSrt(context, translation);
 
-            if (importedTranslation == null)
+            if (importedTranslation != null)
             {
-                DoWorkInternal(context, translation);
+                translation = importedTranslation;
+            }
+            else if (this.StopOnFirstExecution && !translation.HasStoppedOnFirstExecution)
+            {
+                context.WriteInfo("STOPPING to let user see the result of previous steps.");
+                translation.HasStoppedOnFirstExecution = true;
+                context.WIP.Save();
             }
             else
             {
-                translation = importedTranslation;
+                DoWorkInternal(context, translation);
             }
         }
 
