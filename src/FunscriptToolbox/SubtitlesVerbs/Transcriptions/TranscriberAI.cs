@@ -124,7 +124,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                             new AIRequestPartImage(
                                                 section,
                                                 $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
-                                                image)
+                                                image,
+                                                timing.StartTime)
                                             };
                                     if (extractor.KeepTemporaryFiles)
                                         context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);

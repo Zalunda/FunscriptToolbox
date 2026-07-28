@@ -728,13 +728,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 if (responseAsJson.IndexOf(PROHIBITED_CONTENT, StringComparison.OrdinalIgnoreCase) < 0)
                 {
-                    context.WriteInfo($"Tested image '{partImage.FileName}' => OK");
+                    context.WriteInfo($"Tested image '{partImage.FileName}' [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(partImage.ExtractTime)}] => OK");
                     return part;
                 }
                 else
                 {
                     nbImagesRemoved++;
-                    context.WriteInfo($"Tested image '{partImage.FileName}' => {PROHIBITED_CONTENT} (removed from request)");
+                    context.WriteInfo($"Tested image '{partImage.FileName}' [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(partImage.ExtractTime)}] => {PROHIBITED_CONTENT} (removed from request)");
                     return new AIRequestPartText(part.Section, "IMAGE_UNAVAILABLE", part.AssociatedDataType);
                 }
             }

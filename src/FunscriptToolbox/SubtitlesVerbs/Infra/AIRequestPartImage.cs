@@ -1,19 +1,23 @@
-﻿namespace FunscriptToolbox.SubtitlesVerbs.Infra
+﻿using System;
+
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIRequestPartImage : AIRequestPart
     {
         public override string Modality { get; } = "IMAGE";
         public override BinaryDataType? AssociatedDataType => BinaryDataType.Image;
 
-        public AIRequestPartImage(AIRequestSection section, string filename, byte[] content)
+        public AIRequestPartImage(AIRequestSection section, string filename, byte[] content, TimeSpan extractTime)
             : base(section)
         {
             this.FileName = filename;
             this.Content = content;
+            this.ExtractTime = extractTime;
         }
 
         public string FileName { get; }
         public byte[] Content { get; }
+        public TimeSpan ExtractTime { get; }
 
         public override string ForSimplifiedFullPrompt() => "[Image]";
         public override double Units => 1;
