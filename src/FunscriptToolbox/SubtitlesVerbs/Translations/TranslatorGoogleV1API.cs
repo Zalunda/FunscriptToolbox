@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -16,7 +18,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public TranslatorGoogleV1API()
         {
         }
-
 
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string TranscriptionId { get; set; }
@@ -59,36 +60,87 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             try
             {
                 var currentIndex = 1;
-                foreach (var transcribedItem in missingTranscriptions)
-                {
-                    var sourceLanguage = transcription.Language?.ShortName ?? "auto";
-                    string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
-                        "?client=gtx" +
-                        $"&sl={sourceLanguage}" +
-                        $"&tl={translation.Language.ShortName}" +
-                        $"&dt=t" +
-                        $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded) ?? string.Empty)}";
+                var sourceLanguage = transcription.Language?.ShortName ?? "auto";
+                int maxConcurrency = 5; // The maximum number of requests running at any given time
 
-                    var response = client.GetAsync(apiUrl).Result;
-                    if (!response.IsSuccessStatusCode)
+                // Local helper method to start a background HTTP request task
+                Task<(bool IsSuccess, string Text, string Error)> StartTask(TranscribedItem transcribedItem)
+                {
+                    return Task.Run(() =>
                     {
-                        context.WriteError($"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                        try
+                        {
+                            string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
+                                "?client=gtx" +
+                                $"&sl={sourceLanguage}" +
+                                $"&tl={translation.Language.ShortName}" +
+                                $"&dt=t" +
+                                $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(this.MetadataNeeded) ?? string.Empty)}";
+
+                            var response = GetWithRetry(client, apiUrl);
+                            if (!response.IsSuccessStatusCode)
+                            {
+                                return (false, (string)null, $"Error: {response.StatusCode} - {response.ReasonPhrase}");
+                            }
+
+                            string responseAsJson = response.Content.ReadAsStringAsync().Result;
+                            dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
+                            var translatedText = (string)ExtractTranslatedText(responseBody);
+
+                            return (true, translatedText, (string)null);
+                        }
+                        catch (Exception ex)
+                        {
+                            return (false, (string)null, $"Exception: {ex.Message}");
+                        }
+                    });
+                }
+
+                // A queue to hold our running tasks in exact chronological order
+                var runningTasks = new Queue<(TranscribedItem Item, Task<(bool IsSuccess, string Text, string Error)> Task)>();
+
+                int missingIndex = 0;
+
+                // 1. Fill the initial pipeline with up to 'maxConcurrency' tasks
+                while (runningTasks.Count < maxConcurrency && missingIndex < missingTranscriptions.Length)
+                {
+                    var item = missingTranscriptions[missingIndex++];
+                    runningTasks.Enqueue((item, StartTask(item)));
+                }
+
+                // 2. Process tasks sequentially. As one finishes, enqueue a new one.
+                while (runningTasks.Count > 0)
+                {
+                    // Dequeue the oldest item to guarantee sequential, ordered writing
+                    var (transcribedItem, task) = runningTasks.Dequeue();
+
+                    // Block and wait ONLY for this specific oldest task to finish
+                    var result = task.Result;
+
+                    // If an error occurred, log it and stop. 
+                    // The 'finally' block below guarantees previously succeeded items are saved!
+                    if (!result.IsSuccess)
+                    {
+                        context.WriteError(result.Error);
                         return;
                     }
 
-                    string responseAsJson = response.Content.ReadAsStringAsync().Result;
-
-                    dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
-
-                    var translatedText = (string)ExtractTranslatedText(responseBody);
+                    // Write the successful translation to our list
                     translation.Items.Add(
                         new TranslatedItem(
                             transcribedItem.StartTime,
                             transcribedItem.EndTime,
-                            MetadataCollection.CreateSimple(this.MetadataProduced, translatedText)));
-                    nbAdded++;
+                            MetadataCollection.CreateSimple(this.MetadataProduced, result.Text)));
 
-                    context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", translatedText);
+                    nbAdded++;
+                    context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", result.Text);
+
+                    // 3. Because we just finished one, start exactly ONE new task to replace it (if any are left)
+                    if (missingIndex < missingTranscriptions.Length)
+                    {
+                        var nextItem = missingTranscriptions[missingIndex++];
+                        runningTasks.Enqueue((nextItem, StartTask(nextItem)));
+                    }
                 }
 
                 translation.MarkAsFinished();
@@ -101,8 +153,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 context.WIP.Save();
             }
         }
-
-    public static Language DetectLanguage(IEnumerable<TranscribedItem> items, string metadataNeeded)
+        public static Language DetectLanguage(IEnumerable<TranscribedItem> items, string metadataNeeded)
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
@@ -120,7 +171,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                     $"&dt=t" +
                     $"&q={Uri.EscapeDataString(transcribedItem.Metadata.Get(metadataNeeded))}";
 
-                var response = client.GetAsync(apiUrl).Result;
+                // Call the API with Retry Logic
+                var response = GetWithRetry(client, apiUrl);
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new Exception($"Can't detect language using Google API. Error: {response.StatusCode} - {response.ReasonPhrase}");
@@ -150,13 +202,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             var bestGuess = guesses
                 .OrderByDescending(item => item.Value)
                 .Select(item => item.Key)
-                .FirstOrDefault() 
+                .FirstOrDefault()
                 ?? "ja";
             return Language.FromString(bestGuess);
         }
 
         public static string SimpleTranslate(
-            string originalText, 
+            string originalText,
             string shortOriginalLanguage,
             string shortTranslationLanguage)
         {
@@ -172,7 +224,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 $"&dt=t" +
                 $"&q={Uri.EscapeDataString(originalText)}";
 
-            var response = client.GetAsync(apiUrl).Result;
+            // Call the API with Retry Logic
+            var response = GetWithRetry(client, apiUrl);
             if (!response.IsSuccessStatusCode)
             {
                 throw new Exception($"Error: {response.StatusCode} - {response.ReasonPhrase}");
@@ -182,6 +235,43 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             dynamic responseBody = JsonConvert.DeserializeObject(responseAsJson);
 
             return (string)ExtractTranslatedText(responseBody);
+        }
+
+        private static HttpResponseMessage GetWithRetry(HttpClient client, string apiUrl, int maxRetries = 3)
+        {
+            int delayMs = 1000; // Start with a 1 second delay
+            int attempts = 0;
+
+            while (true)
+            {
+                attempts++;
+                try
+                {
+                    var response = client.GetAsync(apiUrl).Result;
+
+                    // If successful OR it's the very last attempt, return the response.
+                    // (If it failed on the last attempt, the caller will log the StatusCode)
+                    if (response.IsSuccessStatusCode || attempts == maxRetries)
+                    {
+                        return response;
+                    }
+
+                    // Dispose the failed response to prevent memory leaks before retrying
+                    response.Dispose();
+                }
+                catch (Exception)
+                {
+                    // If an actual network Exception occurs on the last attempt, re-throw the exact exception
+                    if (attempts >= maxRetries)
+                    {
+                        throw;
+                    }
+                }
+
+                // Pause thread before retrying (Exponential Backoff: 1s, 2s, 4s...)
+                Thread.Sleep(delayMs);
+                delayMs *= 2;
+            }
         }
 
         private static string ExtractTranslatedText(dynamic result)
