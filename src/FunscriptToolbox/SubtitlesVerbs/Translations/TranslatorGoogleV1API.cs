@@ -49,6 +49,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             var missingTranscriptions = transcription.Items
                 .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))
                 .ToArray();
+            var nbAlreadyDone = transcription.Items.Count - missingTranscriptions.Length;
 
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
@@ -133,7 +134,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                             MetadataCollection.CreateSimple(this.MetadataProduced, result.Text)));
 
                     nbAdded++;
-                    context.DefaultUpdateHandler(ToolName, $"{currentIndex++}/{missingTranscriptions.Length}", result.Text);
+                    context.DefaultUpdateHandler(ToolName, $"{nbAlreadyDone + currentIndex++}/{transcription.Items.Count}", result.Text);
 
                     // 3. Because we just finished one, start exactly ONE new task to replace it (if any are left)
                     if (missingIndex < missingTranscriptions.Length)
