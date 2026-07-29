@@ -233,6 +233,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BatchSize = 100,
                             BatchSplitWindows = 5,
+                            BatchKeepTogetherThreshold = TimeSpan.FromMilliseconds(30),
                             NbContextItems = 10,
                             NbItemsMinimumReceivedToContinue = 40,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
@@ -294,6 +295,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                             BatchSize = 16,
                             BatchSplitWindows = 2,
+                            BatchKeepTogetherThreshold = TimeSpan.FromMilliseconds(30),
                             NbContextItems = 100,
                             NbItemsMinimumReceivedToContinue = 8,
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime,

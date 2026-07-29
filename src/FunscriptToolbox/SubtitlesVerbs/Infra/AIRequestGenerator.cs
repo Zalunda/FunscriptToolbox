@@ -118,28 +118,45 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             userParts.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<AIRequestPart>());
 
             var optimalBatchSize = r_options.BatchSize;
+
+            // 1. Try to find an optimal split point by looking BACKWARD (shrinking the batch)
             if (itemsToDo.Length > optimalBatchSize && r_options.BatchSplitWindows > 0)
             {
-                // Define the window to search for the optimal split point.
-                // Example: BatchSize=1000, Window=20 -> Search starts at index 980.
                 int searchStartIndex = Math.Max(0, optimalBatchSize - r_options.BatchSplitWindows);
-
-                // We search for a gap up to the end of the ideal batch size.
-                // The loop limit must be one less than the item we are accessing.
                 int searchEndIndex = Math.Min(optimalBatchSize, itemsToDo.Length - 1);
-
-                // Loop from the start of the window up to the second-to-last item in the search range.
                 var largestGap = TimeSpan.MinValue;
                 for (int i = searchStartIndex; i < searchEndIndex; i++)
                 {
-                    // Calculate the gap between the current item and the next one.
                     var gap = itemsToDo[i + 1].StartTime - itemsToDo[i].EndTime;
-
                     if (gap > largestGap)
                     {
                         largestGap = gap;
-                        // The new batch size should be i + 1, as we want to include item 'i'.
                         optimalBatchSize = i + 1;
+                    }
+                }
+            }
+
+            // 2. Ensure we don't cut during overlapping/tight dialogue by looking FORWARD (growing the batch)
+             if (r_options.BatchKeepTogetherThreshold.HasValue && itemsToDo.Length > optimalBatchSize)
+            {
+                // Keep checking the gap between the last item in the proposed batch and the first item in the next batch
+                while (optimalBatchSize < itemsToDo.Length)
+                {
+                    var currentItem = itemsToDo[optimalBatchSize - 1];
+                    var nextItem = itemsToDo[optimalBatchSize];
+
+                    var gapToNext = nextItem.StartTime - currentItem.EndTime;
+
+                    // If the gap is smaller than the threshold (or negative due to overlap), it is unsafe to cut.
+                    if (gapToNext < r_options.BatchKeepTogetherThreshold.Value)
+                    {
+                        // Force the batch to include the next item, and loop again to check the new gap
+                        optimalBatchSize++;
+                    }
+                    else
+                    {
+                        // The gap is large enough, it is safe to split here
+                        break;
                     }
                 }
             }
@@ -207,7 +224,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         userParts.AddRange(
                             CreateContextOnlyNodeContents(
                                 AIRequestSection.ContextNodes,
-                                binaryDataExtractors,                                 
+                                binaryDataExtractors,
                                 new Timing(previousEndTime, item.StartTime),
                                 item.Metadata));
                         userParts.AddRange(
@@ -322,7 +339,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             return parts;
         }
-
 
         private static IEnumerable<AIRequestPart> CreateContextOnlyNodeContents(
             AIRequestSection section,
