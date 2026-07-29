@@ -5,7 +5,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIOptions
     {
-
         [JsonProperty(Order = 2)]
         public AIPrompt SystemPrompt { get; set; }
         [JsonProperty(Order = 3)]

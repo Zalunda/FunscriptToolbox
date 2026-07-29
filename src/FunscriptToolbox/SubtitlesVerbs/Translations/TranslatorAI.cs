@@ -1,7 +1,6 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
@@ -17,6 +16,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public string AutoMergeOn { get; set; }
         [JsonProperty(Order = 24)]
         public string AutoDeleteOn { get; set; }
+        [JsonProperty(Order = 25)]
+        public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
@@ -41,7 +42,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             var runner = new AIEngineRunner<TranslatedItem>(
                 context,
                 this.Engine,
-                translation);
+                translation,
+                this.PromptUserOnError);
 
             runner.Run(requestGenerator);
 

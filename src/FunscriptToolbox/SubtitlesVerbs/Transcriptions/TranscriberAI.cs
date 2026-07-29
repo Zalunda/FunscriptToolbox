@@ -20,6 +20,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         internal MetadataAggregator Metadatas { get; set; }
         [JsonProperty(Order = 32, Required = Required.Always)]
         public AIOptions Options { get; set; } = new AIOptions();
+        [JsonProperty(Order = 33)]
+        public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
 
@@ -55,7 +57,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
                 this.Engine,
-                transcription);
+                transcription,
+                this.PromptUserOnError);
 
             var (allItems, _, _, _) = requestGenerator.AnalyzeItemsState();
             allItems = allItems.OrderBy(f => f.StartTime).ToArray();

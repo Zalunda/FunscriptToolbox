@@ -2,6 +2,7 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
@@ -36,6 +37,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         [JsonProperty(Order = 33)]
         public TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
+
+        [JsonProperty(Order = 34)]
+        public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
@@ -191,43 +195,79 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private void HandleResponse(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            AIResponse response,
-            TimeSpan chunkStartTime,
-            TimeSpan chunkEndTime,
-            string prefix = "")
+                   SubtitleGeneratorContext context,
+                   Transcription transcription,
+                   AIResponse response,
+                   TimeSpan chunkStartTime,
+                   TimeSpan chunkEndTime,
+                   string prefix = "")
         {
             transcription.Costs.Add(response.Cost);
             transcription.Costs.AddRange(response.AdditionalCosts);
-            foreach (var node in JsonConvert.DeserializeObject<TranscriptionNode[]>(AIEngineRunner.TryToFixReceivedJson(
-                                    response.Request,
-                                    response.AssistantMessage,
-                                    tryToFixEnd: false)))
+
+            string textToParse = response.AssistantMessage;
+            while (true)
             {
-                var nodeStartTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
-                var nodeEndTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
-                var startTime = chunkStartTime + nodeStartTime;
-                var endTime = chunkStartTime + nodeEndTime;
-                var voiceText = node.VoiceText ?? string.Empty;
-                if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
+                string fixedJson = null;
+                try
                 {
-                    throw new Exception($"Received node with endtime {nodeEndTime} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(endTime)}] when audio chunk end is [context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunkEndTime)].");
+                    fixedJson = AIEngineRunner.TryToFixReceivedJson(response.Request, textToParse, tryToFixEnd: false);
+                    var nodes = JsonConvert.DeserializeObject<TranscriptionNode[]>(fixedJson);
+
+                    if (nodes == null) throw new Exception("Parsed JSON resulted in null.");
+
+                    var pendingItems = new List<TranscribedItem>();
+                    foreach (var node in nodes)
+                    {
+                        var nodeStartTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
+                        var nodeEndTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
+                        var startTime = chunkStartTime + nodeStartTime;
+                        var endTime = chunkStartTime + nodeEndTime;
+                        var voiceText = node.VoiceText ?? string.Empty;
+
+                        if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
+                        {
+                            throw new Exception($"Received node with endtime {nodeEndTime} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(endTime)}] when audio chunk end is [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunkEndTime)}].");
+                        }
+
+                        var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(p => p.Regex.IsMatch(voiceText));
+                        if (pattern == null)
+                        {
+                            pendingItems.Add(new TranscribedItem(
+                                startTime,
+                                endTime,
+                                MetadataCollection.CreateSimple(this.MetadataProduced, prefix + voiceText)));
+                        }
+                        else
+                        {
+                            context.WriteInfo($"Ignoring '{pattern.Name}' transcription at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(startTime)}]: {voiceText}");
+                        }
+                    }
+
+                    // --- SUCCESS --- 
+                    // Only commit to the main transcription if the entire chunk was parsed perfectly
+                    transcription.Items.AddRange(pendingItems);
+                    response.Cost.NbItemsInResponse += pendingItems.Count;
+
+                    break; // Exit the retry loop
                 }
-                var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(pattern => pattern.Regex.IsMatch(voiceText));
-                if (pattern == null)
+                catch (Exception ex)
                 {
-                    transcription.Items.Add(
-                        new TranscribedItem(
-                            startTime,
-                            endTime,
-                            MetadataCollection.CreateSimple(this.MetadataProduced, prefix + voiceText)));
+                    if (this.PromptUserOnError)
+                    {
+                        // Show the UI with the partially fixed JSON (if available) or the raw text
+                        string userFixedText = JsonCorrectionHelper.PromptForFix(ex.Message, fixedJson ?? textToParse);
+
+                        if (userFixedText != null)
+                        {
+                            textToParse = userFixedText;
+                            continue; // Restart the loop with the user's manual fix
+                        }
+                        // If they cancel, let it fall through
+                    }
+
+                    throw;
                 }
-                else
-                {
-                    context.WriteInfo($"Ignoring '{pattern.Name}' transcription at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(startTime)}]: {voiceText}");
-                }
-                response.Cost.NbItemsInResponse++;
             }
         }
 

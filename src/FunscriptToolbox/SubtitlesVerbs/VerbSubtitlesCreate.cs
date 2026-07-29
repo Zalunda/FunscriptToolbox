@@ -241,9 +241,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     context.ChangeCurrentFile(config, wipsub);
                     UpdateWipSubFileIfNeeded(context);
 
-                    foreach (var worker in context.Config.Workers)
+                    if (context.Config.Workers != null)
                     {
-                        worker.Execute(context);
+                        foreach (var worker in context.Config.Workers)
+                        {
+                            worker.Execute(context);
+                        }
                     }
 
                     context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");

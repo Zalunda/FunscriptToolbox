@@ -114,12 +114,6 @@
       "SourceId": "singlevad-ai-refined"
     },    
     // -----------------------------
-    // Use timings, manual-input and voice-texts to mergedvad, speaker, on-screen-texts, singlevad-ai-refined
-    {
-      "Id": "mergedvad",
-      "Enabled": false
-    },
-    // -----------------------------
     // Advanced step: Allowing the user to review and override AI generated metadatas
     {
       "Id": "metadatas-srt",
@@ -137,6 +131,7 @@
       "Id": "translated-texts_maverick",
       "Enabled": true,
       "ExportMetadataSrt": false,
+      "StopOnFirstExecution": false,
       "Metadatas": {
         "TextModificationRules": {
         // [OPTION] Uncomment line bellow to remove the options in the request (good when using Claude-Opus).

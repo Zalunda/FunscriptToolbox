@@ -177,15 +177,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
         private readonly TimedItemWithMetadataCollection<T> r_workingOnContainer;
+        private readonly bool r_promptUserOnError;
 
         public AIEngineRunner(
             SubtitleGeneratorContext context,
             AIEngine engine,
-            TimedItemWithMetadataCollection<T> workingOnContainer)
+            TimedItemWithMetadataCollection<T> workingOnContainer,
+            bool promptUserOnError)
         {
             r_context = context;
             r_engine = engine;
             r_workingOnContainer = workingOnContainer;
+            r_promptUserOnError = promptUserOnError;
         }
 
         public void Run(
@@ -311,104 +314,134 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         private List<T> ParseAssistantMessageAndAddItems(
-            ITiming[] timings,
-            string responseReceived,
-            AIRequest request,
-            Action increaseNbItemsInCostAction = null)
+                    ITiming[] timings,
+                    string responseReceived,
+                    AIRequest request,
+                    Action increaseNbItemsInCostAction = null)
         {
             static string GetSegmentInformation(JToken segment)
             {
                 var lineInfo = (IJsonLineInfo)segment;
                 return (lineInfo != null && lineInfo.HasLineInfo())
-                    ? $"Error is segment starting at line {lineInfo.LineNumber}, position {lineInfo.LinePosition}."
-                    : $"Error is segment at unknown location.";
+                    ? $"Error in segment starting at line {lineInfo.LineNumber}, position {lineInfo.LinePosition}."
+                    : $"Error in segment at unknown location.";
             }
 
-            string fixedJson = null;
-            JToken currentSegment = null;
-            try
+            string textToParse = responseReceived;
+
+            while (true)
             {
-                // Step 1: Get the cleaned-up JSON string from your fixing logic.
-                fixedJson = TryToFixReceivedJson(request, responseReceived);
-
-                // Step 2: Parse the cleaned string using a reader to preserve line info.
-                JArray responseArray;
-                using (var stringReader = new StringReader(fixedJson))
-                using (var jsonReader = new JsonTextReader(stringReader))
+                string fixedJson = null;
+                JToken currentSegment = null;
+                try
                 {
-                    // This will throw a detailed exception if the fixedJson is still invalid.
-                    responseArray = JArray.Load(jsonReader);
-                }
+                    // Step 1: Get the cleaned-up JSON string from your fixing logic.
+                    fixedJson = TryToFixReceivedJson(request, textToParse);
 
-                var itemsAdded = new List<T>();
-                foreach (var segment in responseArray)
-                {
-                    currentSegment = segment;
-                    var node = segment.ToObject<TranscriptionNode>();
-
-                    // Extract and remove known fields
-                    if (string.IsNullOrWhiteSpace(node.StartTime))
+                    // Step 2: Parse the cleaned string using a reader to preserve line info.
+                    JArray responseArray;
+                    using (var stringReader = new StringReader(fixedJson))
+                    using (var jsonReader = new JsonTextReader(stringReader))
                     {
-                        throw new Exception($"StartTime is missing or empty. {GetSegmentInformation(segment)}");
+                        // This will throw a detailed exception if the fixedJson is still invalid.
+                        responseArray = JArray.Load(jsonReader);
                     }
 
-                    var startTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
-                    TimeSpan endTime;
-                    if (!string.IsNullOrWhiteSpace(node.EndTime))
+                    // Temporary transactional list. Don't add to the main container until we know everything is valid.
+                    var pendingItems = new List<(TimeSpan StartTime, TimeSpan EndTime, MetadataCollection ExtraMetadatas)>();
+
+                    foreach (var segment in responseArray)
                     {
-                        endTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
-                    }
-                    else
-                    {
-                        var startTimeItem = timings.FirstOrDefault(i => i.StartTime == startTime);
-                        if (startTimeItem == null)
+                        currentSegment = segment;
+                        var node = segment.ToObject<TranscriptionNode>();
+
+                        // Extract and remove known fields
+                        if (string.IsNullOrWhiteSpace(node.StartTime))
                         {
-                            var closestTimeItem = timings.OrderBy(i => Math.Abs((i.StartTime - startTime).TotalMilliseconds)).FirstOrDefault();
-                            if (closestTimeItem != null && Math.Abs((closestTimeItem.StartTime - startTime).TotalMilliseconds) < 50)
-                            {
-                                startTimeItem = closestTimeItem;
-                            }
-                            else
-                            {
-                                throw new Exception($"EndTime not received and StartTime '{startTime:hh\\:mm\\:ss\\.fff}' cannot be matched to an existing item (closest time found:{closestTimeItem?.StartTime ?? TimeSpan.Zero:hh\\:mm\\:ss\\.fff}). {GetSegmentInformation(segment)}");
-                            }
+                            throw new Exception($"StartTime is missing or empty. {GetSegmentInformation(segment)}");
                         }
-                        endTime = startTimeItem.EndTime;
+
+                        var startTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
+                        TimeSpan endTime;
+                        if (!string.IsNullOrWhiteSpace(node.EndTime))
+                        {
+                            endTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
+                        }
+                        else
+                        {
+                            var startTimeItem = timings.FirstOrDefault(i => i.StartTime == startTime);
+                            if (startTimeItem == null)
+                            {
+                                var closestTimeItem = timings.OrderBy(i => Math.Abs((i.StartTime - startTime).TotalMilliseconds)).FirstOrDefault();
+                                if (closestTimeItem != null && Math.Abs((closestTimeItem.StartTime - startTime).TotalMilliseconds) < 50)
+                                {
+                                    startTimeItem = closestTimeItem;
+                                }
+                                else
+                                {
+                                    throw new Exception($"EndTime not received and StartTime '{startTime:hh\\:mm\\:ss\\.fff}' cannot be matched to an existing item (closest time found:{closestTimeItem?.StartTime ?? TimeSpan.Zero:hh\\:mm\\:ss\\.fff}). {GetSegmentInformation(segment)}");
+                                }
+                            }
+                            endTime = startTimeItem.EndTime;
+                        }
+
+                        // Everything left is metadata
+                        var extraMetadatas = new MetadataCollection();
+                        foreach (var prop in ((JObject)segment).Properties())
+                        {
+                            if (prop.Value != null
+                              && !string.Equals(prop.Name, nameof(TranscriptionNode.StartTime), StringComparison.OrdinalIgnoreCase)
+                              && !string.Equals(prop.Name, nameof(TranscriptionNode.EndTime), StringComparison.OrdinalIgnoreCase))
+                                extraMetadatas[prop.Name] = prop.Value.ToString();
+                        }
+
+                        if (!extraMetadatas.ContainsKey(request.MetadataAlwaysProduced))
+                        {
+                            throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present. {GetSegmentInformation(segment)}");
+                        }
+
+                        pendingItems.Add((startTime, endTime, extraMetadatas));
                     }
 
-                    // Everything left is metadata
-                    var extraMetadatas = new MetadataCollection();
-                    foreach (var prop in ((JObject)segment).Properties())
+                    // --- SUCCESS COMMIT ---
+                    // The entire JSON was flawless. Commit the pending items safely.
+                    var itemsAdded = new List<T>();
+                    foreach (var pendingItem in pendingItems)
                     {
-                        if (prop.Value != null 
-                          && !string.Equals(prop.Name, nameof(TranscriptionNode.StartTime), StringComparison.OrdinalIgnoreCase)
-                          && !string.Equals(prop.Name, nameof(TranscriptionNode.EndTime), StringComparison.OrdinalIgnoreCase))
-                            extraMetadatas[prop.Name] = prop.Value.ToString();
+                        // Add the item only if we don't already have it.
+                        if (!r_workingOnContainer.Items.Any(f => f.StartTime == pendingItem.StartTime))
+                        {
+                            itemsAdded.Add(r_workingOnContainer.AddNewItem(pendingItem.StartTime, pendingItem.EndTime, pendingItem.ExtraMetadatas));
+                            increaseNbItemsInCostAction?.Invoke();
+                        }
                     }
 
-                    if (!extraMetadatas.ContainsKey(request.MetadataAlwaysProduced))
-                    {
-                        throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present. {GetSegmentInformation(segment)}");
-                    }
-
-                    // Add the item only if we don't already have it.
-                    if (!r_workingOnContainer.Items.Any(f => f.StartTime == startTime))
-                    {
-                        itemsAdded.Add(r_workingOnContainer.AddNewItem(startTime, endTime, extraMetadatas));
-                        increaseNbItemsInCostAction?.Invoke();
-                    }
+                    return itemsAdded;
                 }
-                return itemsAdded;
-            }
-            catch (AIResponseException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // For any other exception, wrap it with the context of the fixed JSON.
-                // This is crucial for debugging parsing failures.
-                throw new AIResponseException(ex, request, ex.Message + $"\n{GetSegmentInformation(currentSegment)}", responseReceived, fixedJson);
+                catch (Exception ex)
+                {
+                    bool isAIResponseEx = ex is AIResponseException;
+                    string fullErrorMsg = ex.Message;
+
+                    if (!isAIResponseEx && currentSegment != null)
+                    {
+                        fullErrorMsg += $"\n{GetSegmentInformation(currentSegment)}";
+                    }
+
+                    if (r_promptUserOnError)
+                    {
+                        string userFixedText = JsonCorrectionHelper.PromptForFix(fullErrorMsg, fixedJson ?? textToParse);
+                        if (userFixedText != null)
+                        {
+                            textToParse = userFixedText;
+                            continue; // Retry loop with the newly typed text
+                        }
+                    }
+
+                    // If user canceled UI, or UI is disabled, throw normally
+                    if (isAIResponseEx) throw;
+                    throw new AIResponseException(ex, request, fullErrorMsg, responseReceived, fixedJson);
+                }
             }
         }
     }
