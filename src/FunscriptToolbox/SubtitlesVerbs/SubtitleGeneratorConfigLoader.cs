@@ -749,6 +749,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
             }
 
+            // 5.5 Clean up ExpandoObject metadata and unwrap $values collections
+            CleanDynamicAndCollectionTypes(rootConfig);
+
             // 6. Strip unreferenced IDs and rename the needed ones (and their references)
             CleanupAndRenameIds(rootConfig, neededIds, idMap);
 
@@ -829,6 +832,48 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 foreach (var item in arr)
                 {
                     CleanupAndRenameIds(item, neededIds, idMap);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively removes JSON.NET type metadata ($type and $values) from dynamic objects 
+        /// and generic collections to produce clean JSON output.
+        /// </summary>
+        private static void CleanDynamicAndCollectionTypes(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                // Process children bottom-up first so replacements don't break our traversal
+                foreach (var prop in obj.Properties().ToList())
+                {
+                    CleanDynamicAndCollectionTypes(prop.Value);
+                }
+
+                var typeToken = obj["$type"];
+                if (typeToken != null)
+                {
+                    string typeValue = typeToken.Value<string>();
+                    var valuesToken = obj["$values"];
+
+                    if (valuesToken != null && obj.Parent != null)
+                    {
+                        // It's a wrapped collection (e.g., List<object>). 
+                        // Replace the metadata wrapper object directly with the array.
+                        obj.Replace(valuesToken);
+                    }
+                    else if (typeValue != null && typeValue.Contains("System.Dynamic.ExpandoObject"))
+                    {
+                        // It's a dynamic dictionary. Just remove the type property.
+                        obj.Remove("$type");
+                    }
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr.ToList())
+                {
+                    CleanDynamicAndCollectionTypes(item);
                 }
             }
         }

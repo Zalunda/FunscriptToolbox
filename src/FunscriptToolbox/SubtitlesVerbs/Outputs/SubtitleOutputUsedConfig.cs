@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System.IO;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
@@ -34,7 +35,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
             // Write it to disk
             string targetPath = context.WIP.BaseFilePath + this.FileSuffix;
-            File.WriteAllText(targetPath, finalContent);
+            File.WriteAllText(targetPath, finalContent, Encoding.UTF8);
         }
     }
 }
