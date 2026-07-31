@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
@@ -139,7 +140,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 File.Delete(path);
             }
-            File.Move(path + ".temp", path);
+            try
+            {
+                File.Move(path + ".temp", path);
+            }
+            catch 
+            {
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+                File.Move(path + ".temp", path);
+            }
         }
     }
 }
