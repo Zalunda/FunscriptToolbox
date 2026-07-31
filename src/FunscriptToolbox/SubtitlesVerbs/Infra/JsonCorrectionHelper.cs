@@ -90,6 +90,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 form.Shown += (s, e) =>
                 {
+                    // Force the window to the front
+                    form.BringToFront();
+                    form.Activate();
+                    
                     int targetLine = -1;
                     int targetPos = -1;
 
