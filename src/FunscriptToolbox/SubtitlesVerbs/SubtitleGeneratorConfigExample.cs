@@ -365,7 +365,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             SystemPrompt = translatorSystemPrompt,
                             UserPrompt = translatorMaverickUserPrompt,
 
-                            MetadataNeeded = "VoiceText|OnScreenText",
+                            MetadataNeeded = "VoiceText|OnScreenText,!SkipMaverick",
                             MetadataAlwaysProduced = "TranslatedText",
 
                             BatchSize = 100,
