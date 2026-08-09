@@ -2,6 +2,7 @@
 using FunscriptToolbox.AudioSyncVerbs;
 using FunscriptToolbox.Core;
 using FunscriptToolbox.MotionVectorsVerbs;
+using FunscriptToolbox.RetimerVerbs;
 using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
 using log4net.Appender;
@@ -27,7 +28,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 50;
+            int test = 53;
 
             switch (test)
             {
@@ -179,9 +180,9 @@ namespace FunscriptToolbox
                 case 53:
                     args = new[]
                     {
-                        "subtitles.storyvideo",
-                        "--video", @"InstallationTest\frame_counter_5994fps.mp4",
-                        "--subtitles", @"InstallationTest\frame_counter_5994fps.srt"
+                        "retimer.rendervideo",
+                        "--video", @"InstallationTest\DSVR-1721-A.mp4",
+                        "--subtitles", @"InstallationTest\DSVR-1721-A.srt"
                     };
                     break;
             }
@@ -203,8 +204,9 @@ namespace FunscriptToolbox
                     VerbAudioSyncCreateFunscript.Options,
                     VerbAudioSyncVerifyFunscript.Options,
 
+                    VerbRetimerRenderVideo.Options,
+
                     VerbSubtitlesCreate.Options,
-                    // VerbSubtitlesStoryVideo.Options, Not ready yet
 
                     VerbMotionVectorsPrepareFiles.Options,
                     VerbMotionVectorsOFSPluginServer.Options
@@ -216,8 +218,9 @@ namespace FunscriptToolbox
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
 
+                          (VerbRetimerRenderVideo.Options options) => new VerbRetimerRenderVideo(options).Execute(),
+
                           (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
-                          // (VerbSubtitlesStoryVideo.Options options) => new VerbSubtitlesStoryVideo(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
                           (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),

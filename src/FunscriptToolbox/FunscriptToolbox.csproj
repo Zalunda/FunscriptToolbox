@@ -260,7 +260,7 @@
     <Compile Include="SubtitlesVerbs\Infra\AIEngine.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorSubtitleConformer.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorAI.cs" />
-    <Compile Include="SubtitlesVerbs\VerbSubtitlesStoryVideo.cs" />
+    <Compile Include="RetimerVerbs\VerbRetimerRenderVideo.cs" />
     <Compile Include="VerbContext.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutput.cs" />
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputCostReport.cs" />
@@ -361,6 +361,7 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>xcopy /y "$(SolutionDir)\..\lib\silero-vad\*.py" "PythonSource\"
