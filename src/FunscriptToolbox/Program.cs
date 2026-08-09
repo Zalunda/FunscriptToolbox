@@ -180,9 +180,8 @@ namespace FunscriptToolbox
                 case 53:
                     args = new[]
                     {
-                        "retimer.rendervideo",
-                        "--video", @"InstallationTest\DSVR-1721-A.mp4",
-                        "--subtitles", @"InstallationTest\DSVR-1721-A.srt"
+                        "retimer.generatecontrol",
+                        "--video", @"InstallationTest\3DSVR-0223.mp4"
                     };
                     break;
             }
@@ -204,6 +203,7 @@ namespace FunscriptToolbox
                     VerbAudioSyncCreateFunscript.Options,
                     VerbAudioSyncVerifyFunscript.Options,
 
+                    VerbRetimerGenerateControl.Options,
                     VerbRetimerRenderVideo.Options,
 
                     VerbSubtitlesCreate.Options,
@@ -218,6 +218,7 @@ namespace FunscriptToolbox
                           (VerbAudioSyncCreateFunscript.Options options) => new VerbAudioSyncCreateFunscript(options).Execute(),
                           (VerbAudioSyncVerifyFunscript.Options options) => new VerbAudioSyncVerifyFunscript(options).Execute(),
 
+                          (VerbRetimerGenerateControl.Options options) => new VerbRetimerGenerateControl(options).Execute(),
                           (VerbRetimerRenderVideo.Options options) => new VerbRetimerRenderVideo(options).Execute(),
 
                           (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
