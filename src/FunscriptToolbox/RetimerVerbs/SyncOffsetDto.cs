@@ -11,7 +11,5 @@ namespace FunscriptToolbox.RetimerVerbs
 
         public TimeSpan RetimerStartTime { get; set; }
         public TimeSpan RetimerEndTime { get; set; }
-
-        public TimeSpan Offset { get; set; }
     }
 }

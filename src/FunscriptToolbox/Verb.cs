@@ -156,16 +156,19 @@ namespace FunscriptToolbox
             var total = TimeSpan.Zero;
             conversion.OnProgress += (sender, args) =>
             {
-                var percent = args.Duration.TotalSeconds / args.TotalLength.TotalSeconds * 100;
-                if (percent > 0)
+                if (args.TotalLength.TotalSeconds > 0)
                 {
-                    var timeLeft = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds / percent * (100 - percent));
-                    if (!r_options.Verbose)
+                    var percent = args.Duration.TotalSeconds / args.TotalLength.TotalSeconds * 100;
+                    if (percent > 0)
                     {
-                        var line = $"[ffmpeg]   [{args.Duration} / {args.TotalLength}] {(int)(Math.Round(percent, 2))}% => elapsed : {stopwatch.Elapsed} left: {timeLeft}";
-                        WriteInfo($"{line}{new string(' ', Math.Max(0, Console.WindowWidth - line.Length - 1))}", isProgress: true);
+                        var timeLeft = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds / percent * (100 - percent));
+                        if (!r_options.Verbose)
+                        {
+                            var line = $"[ffmpeg]   [{args.Duration} / {args.TotalLength}] {(int)(Math.Round(percent, 2))}% => elapsed : {stopwatch.Elapsed} left: {timeLeft}";
+                            WriteInfo($"{line}{new string(' ', Math.Max(0, Console.WindowWidth - line.Length - 1))}", isProgress: true);
+                        }
+                        total = args.TotalLength;
                     }
-                    total = args.TotalLength;
                 }
             };
 

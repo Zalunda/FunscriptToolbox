@@ -45,7 +45,7 @@ namespace FunscriptToolbox.RetimerVerbs
             [Option("allow-overlaps", Default = false, HelpText = "If true, subtitles and funscript blocks can overlap in the timeline. If false, subtitles will be trimmed/removed to prevent overlapping with funscript actions.")]
             public bool AllowOverlaps { get; set; }
 
-            [Option("y", Default = false, HelpText = "If true, override .control.srt file if it exists.")]
+            [Option("override", Default = false, HelpText = "If true, override .control.srt file if it exists.")]
             public bool Override { get; set; }
         }
 

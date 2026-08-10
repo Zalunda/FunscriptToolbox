@@ -46,9 +46,6 @@ namespace FunscriptToolbox.RetimerVerbs
 
             [Option("encoding-audio", Default = "-c:a aac", HelpText = "FFmpeg parameters for audio encoding.")]
             public string EncodingAudio { get; set; }
-
-            [Option("debug", Default = false, HelpText = "If true, skip rendering. Generates a .bat file and a filter graph to preview the speedups directly in ffplay.")]
-            public bool Debug { get; set; }
         }
 
         private readonly Options r_options;
@@ -106,72 +103,7 @@ namespace FunscriptToolbox.RetimerVerbs
                 videoDuration,
                 fps);
 
-            if (r_options.Debug)
-            {
-                GenerateFfplayDebugScript(originalVideoFilePath, retimedVideoFilePath, segments, fps);
-            }
-            else
-            {
-                ProcessVideoPerfectSync(originalVideoFilePath, retimedVideoFilePath, segments, fps);
-            }
-        }
-
-        private void GenerateFfplayDebugScript(string originalVideo, string retimedVideo, List<SpeedSegment> segments, double fps)
-        {
-            WriteInfo($"Generating FFplay debug scripts for {segments.Count} segments...");
-
-            string basePath = Path.Combine(Path.GetDirectoryName(retimedVideo) ?? "", Path.GetFileNameWithoutExtension(retimedVideo));
-            string filterScriptPath = Path.ChangeExtension(retimedVideo, ".ffplay_filter.txt");
-            string batPath = Path.ChangeExtension(retimedVideo, ".debug_play.bat");
-            string fpsString = fps.ToString(CultureInfo.InvariantCulture);
-
-            var filterBuilder = new StringBuilder();
-            var concatBuilder = new StringBuilder();
-
-            int validSegments = 0;
-
-            for (int i = 0; i < segments.Count; i++)
-            {
-                var seg = segments[i];
-                if (seg.Duration <= TimeSpan.Zero) continue;
-
-                string startSec = seg.StartTime.TotalSeconds.ToString(CultureInfo.InvariantCulture);
-                string endSec = seg.EndTime.TotalSeconds.ToString(CultureInfo.InvariantCulture);
-
-                double speedFactor = seg.Speed;
-                double videoPtsFactor = 1.0 / speedFactor;
-                string vPtsStr = videoPtsFactor.ToString(CultureInfo.InvariantCulture);
-                string aFilter = GetAudioTempoFilter(speedFactor);
-
-                // Video trim and speed
-                filterBuilder.AppendLine($"[0:v]trim=start={startSec}:end={endSec},setpts={vPtsStr}*(PTS-STARTPTS),fps={fpsString}[v{validSegments}];");
-                // Audio trim and speed
-                filterBuilder.AppendLine($"[0:a]atrim=start={startSec}:end={endSec},asetpts=PTS-STARTPTS,{aFilter}[a{validSegments}];");
-
-                // Keep track of the streams to concatenate
-                concatBuilder.Append($"[v{validSegments}][a{validSegments}]");
-                validSegments++;
-            }
-
-            // Concat command at the very end combining all mapped streams
-            concatBuilder.Append($"concat=n={validSegments}:v=1:a=1[outv][outa]");
-            filterBuilder.AppendLine(concatBuilder.ToString());
-
-            // Write the complex filter graph to a text file to bypass the Windows command line length limit
-            File.WriteAllText(filterScriptPath, filterBuilder.ToString());
-
-            // Generate the .bat script
-            string batContent = $"@echo off\n" +
-                                $"echo Launching ffplay in debug mode...\n" +
-                                $"ffplay -i \"{Path.GetFileName(originalVideo)}\" -filter_complex_script \"{Path.GetFileName(filterScriptPath)}\" -map \"[outv]\" -map \"[outa]\" -autoexit -x 1280 -y 720\n" +
-                                $"pause";
-
-            File.WriteAllText(batPath, batContent);
-
-            WriteInfo($"Debug scripts generated successfully!");
-            WriteInfo($"--> Filter Graph: {filterScriptPath}");
-            WriteInfo($"--> Batch File:   {batPath}");
-            WriteInfo("Run the batch file to preview the timeline without rendering.");
+            ProcessVideoPerfectSync(originalVideoFilePath, retimedVideoFilePath, segments, fps);
         }
 
         private void ProcessVideoPerfectSync(string inputVideo, string outputVideo, List<SpeedSegment> segments, double fps)
