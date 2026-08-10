@@ -1,30 +1,50 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core;
+using FunscriptToolbox.Core.Infra;
 using log4net;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System;
 using System.Linq;
 using System.IO;
-using System.Diagnostics;
 using System.Globalization;
-using FunscriptToolbox.Core.Infra;
+using System.Text.RegularExpressions;
+using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.RetimerVerbs
 {
     [JsonObject(IsReference = false)]
-    class VerbRetimerRenderVideo : Verb
+    class VerbRetimerRenderVideo : VerbRetimerBase
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly Regex rs_speedRegex = new Regex(@"\{Speed:\s*([\d\.]+)\}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        [Verb("retimer.rendervideo", aliases: new[] { "retimer.render" }, HelpText = "Create a 'story only' video from a video.")]
+        [Verb("retimer.rendervideo", aliases: new[] { "retimer.render" }, HelpText = "Render a variable speed video based on a .control.srt blueprint.")]
         public class Options : OptionsBase
         {
-            [Option("subtitles", Required = true)]
-            public string SubtitleFile { get; set; }
+            [Option("video", Required = true, HelpText = "Original input video file.")]
+            public string InputVideo { get; set; }
 
-            [Option("video", Required = true)]
-            public string Video { get; set; }
+            [Option("output-video", Required = false, HelpText = "Output video file. Defaults to <input>.retimed.mp4 if not specified.")]
+            public string OutputVideo { get; set; }
+
+            [Option("default-speed-controlled", Default = 1.0, HelpText = "Speed multiplier for sections covered by the .control.srt (can be overridden by {Speed: X.X} in subs).")]
+            public double DefaultSpeedControlled { get; set; }
+
+            [Option("default-speed-uncontrolled", Default = 10.0, HelpText = "Base speed multiplier for sections NOT covered by subtitles.")]
+            public double DefaultSpeedUncontrolled { get; set; }
+
+            [Option("max-uncontrolled-duration", Default = 15.0, HelpText = "Maximum allowed output duration (in seconds) for a fast-forwarded section. If it would take longer, the speed is increased dynamically.")]
+            public double MaxUncontrolledDuration { get; set; }
+
+            [Option("micro-gap-threshold", Default = 0.05, HelpText = "Gaps smaller than this (in seconds) between controlled blocks are absorbed to prevent tiny framerate jumps (SubtitleEdit usually leaves 30ms gaps).")]
+            public double MicroGapThreshold { get; set; }
+
+            [Option("encoding-video", Default = "-c:v libx265 -crf 20 -tag:v hvc1", HelpText = "FFmpeg parameters for video encoding.")]
+            public string EncodingVideo { get; set; }
+
+            [Option("encoding-audio", Default = "-c:a aac", HelpText = "FFmpeg parameters for audio encoding.")]
+            public string EncodingAudio { get; set; }
         }
 
         private readonly Options r_options;
@@ -37,429 +57,351 @@ namespace FunscriptToolbox.RetimerVerbs
 
         public int Execute()
         {
-            ProcessVideoWithSubtitleSpeed(
-                r_options.SubtitleFile,
-                r_options.Video,
-                r_options.Video.Replace(".mp4", "-STORY.mp4"));
+            string inputVideo = r_options.InputVideo;
+            string basePath = Path.Combine(Path.GetDirectoryName(inputVideo) ?? "", Path.GetFileNameWithoutExtension(inputVideo));
+
+            string controlFile = basePath + ".control.srt";
+            string outputVideo = string.IsNullOrWhiteSpace(r_options.OutputVideo)
+                ? basePath + ".retimed.mp4"
+                : r_options.OutputVideo;
+
+            if (!File.Exists(inputVideo))
+            {
+                WriteError($"Input video not found: {inputVideo}");
+                return 1;
+            }
+
+            if (!File.Exists(controlFile))
+            {
+                WriteError($"Control blueprint not found: {controlFile}. Please run retimer.generatecontrol first.");
+                return 1;
+            }
+
+            ProcessVideoWithSubtitleSpeed(controlFile, inputVideo, outputVideo);
             return 0;
         }
 
-        public void ProcessVideoWithSubtitleSpeed(
-            string subtitleFilePath,
-            string videoFilePath,
-            string outputFilePath,
-            decimal bufferBeforeSubtitle = 0.5M,
-            decimal bufferAfterSubtitle = 0.5M,
-            decimal fastSpeed = 10.0M)
+        public void ProcessVideoWithSubtitleSpeed(string subtitleFilePath, string videoFilePath, string outputFilePath)
         {
-            // 1. Load subtitles
             var subtitleFile = SubtitleFile.FromSrtFile(subtitleFilePath);
 
-            // 2. Dynamically probe exact video framerate and duration
-            var (fpsString, fpsDouble) = GetExactFrameRate(videoFilePath);
-            var videoDuration = GetVideoDuration(videoFilePath);
+            // Get exact media info using Xabe.FFmpeg
+            var mediaInfo = GetMediaInfo(videoFilePath);
+            var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
 
-            WriteInfo($"Video loaded. Duration: {videoDuration}, Framerate: {fpsString} ({fpsDouble} fps)");
+            if (videoStream == null)
+            {
+                WriteError("No video stream found in the input file.");
+                return;
+            }
 
-            // 3. Generate logical speed segments (Time-based mapping)
+            TimeSpan videoDuration = videoStream.Duration;
+            double fps = videoStream.Framerate;
+
+            WriteInfo($"Video loaded. Duration: {videoDuration}, Framerate: {fps} fps");
+
             var segments = GenerateSpeedSegments(
                 subtitleFile.Subtitles,
                 videoDuration,
-                (decimal)fpsDouble,
-                bufferBeforeSubtitle,
-                bufferAfterSubtitle,
-                fastSpeed,
-                8);
+                fps);
 
-            // 4. Process video segments perfectly synchronizing via CFR, and output concatenated file + offsets
-            ProcessVideoPerfectSync(videoFilePath, outputFilePath, segments, fpsString, fpsDouble);
+            ProcessVideoPerfectSync(videoFilePath, outputFilePath, segments, fps);
         }
 
-        private void ProcessVideoPerfectSync(
-            string inputVideo,
-            string outputVideo,
-            List<SpeedSegment> segments,
-            string fpsString,
-            double fpsDouble)
+        private void ProcessVideoPerfectSync(string inputVideo, string outputVideo, List<SpeedSegment> segments, double fps)
         {
             var offsets = new List<SyncOffsetDto>();
             TimeSpan currentOutputTime = TimeSpan.Zero;
             List<string> tempFiles = new List<string>();
 
             WriteInfo($"Starting empirical segment extraction for {segments.Count} segments...");
-            WriteInfo($"Estimated final duration: {segments.Sum(f => f.EstimatedFinalDuration)}");
+            WriteInfo($"Estimated final duration: {segments.Sum(f => f.EstimatedFinalDuration)}s");
 
-            var guid = Guid.NewGuid();
+            string fpsString = fps.ToString(CultureInfo.InvariantCulture);
+
             for (int i = 0; i < segments.Count; i++)
             {
                 var segment = segments[i];
-                var segmentDuration = (segment.EndTime - segment.StartTime).TotalSeconds;
 
-                if (segmentDuration <= 0) continue;
+                if (segment.Duration <= TimeSpan.Zero) continue;
 
-                string tempFile = $"segment_{guid:N}_{i:D3}.mp4";
+                // Create segment file adjacent to the final output video
+                string tempFile = Path.ChangeExtension(outputVideo, $".segment_{i:D3}.mp4");
                 tempFiles.Add(tempFile);
 
-                double speedFactor = 1.0;
-                double videoPtsFactor = 1.0;
-                double audioSpeedFactor = 1.0;
+                double speedFactor = segment.Speed;
+                double videoPtsFactor = 1.0 / speedFactor;
 
-                // Determine speed multipliers matching original logic
-                switch (segment.SpeedType)
-                {
-                    case SpeedType.Normal:
-                        speedFactor = 1.0;
-                        videoPtsFactor = 1.0;
-                        audioSpeedFactor = 1.0;
-                        break;
-                    case SpeedType.Fast:
-                        speedFactor = (double)segment.Speed;
-                        videoPtsFactor = 1.0 / speedFactor;
-                        audioSpeedFactor = speedFactor;
-                        break;
-                }
-
-                // Force InvariantCulture to avoid comma/dot issues
                 string vPtsStr = videoPtsFactor.ToString(CultureInfo.InvariantCulture);
-                string aSpdStr = audioSpeedFactor.ToString(CultureInfo.InvariantCulture);
-                string startStr = segment.StartTime.TotalSeconds.ToString(CultureInfo.InvariantCulture);
 
-                // Use duration (-t) instead of end time (-to) when using input seeking (-ss)
-                string durationStr = segmentDuration.ToString(CultureInfo.InvariantCulture);
-
-                // Build strict CFR intra-frame filter
-                // Removed 'trim' and 'atrim' since the input -ss and -t parameters already do the cutting.
-                // Using (PTS-STARTPTS) ensures the timestamps start perfectly at 0 for the math.
                 string vFilter = $"[0:v]setpts={vPtsStr}*(PTS-STARTPTS),fps={fpsString}[v]";
-                string aFilter = $"[0:a]asetpts=PTS-STARTPTS,atempo={aSpdStr}[a]";
+                string aFilter = $"[0:a]asetpts=PTS-STARTPTS,{GetAudioTempoFilter(speedFactor)}[a]";
 
-                // -ss and -t placed BEFORE -i act as fast, frame-accurate input trimmers during a transcode
-                string cmd = $"-ss {startStr} -t {durationStr} -i \"{inputVideo}\" -filter_complex \"{vFilter};{aFilter}\" -map \"[v]\" -map \"[a]\" -c:v libx265 -crf 20 -tag:v hvc1 -c:a aac -avoid_negative_ts make_zero -video_track_times_scale 90000 -map_metadata -1 -y \"{tempFile}\"";
+                // Build the IConversion for Xabe using manual parameters
+                var conversion = FFmpeg.Conversions.New()
+                    .SetOverwriteOutput(true)
+                    .AddParameter($"-ss {segment.StartTime} -t {segment.Duration}") // Input seeking must come BEFORE input file
+                    .AddParameter($"-i \"{inputVideo}\"")
+                    .AddParameter($"-filter_complex \"{vFilter};{aFilter}\"")
+                    .AddParameter("-map \"[v]\" -map \"[a]\"")
+                    .AddParameter(r_options.EncodingVideo)
+                    .AddParameter(r_options.EncodingAudio);
+                    //.AddParameter("-avoid_negative_ts make_zero")
+                    //.AddParameter("-video_track_times_scale 90000")
+                    //.AddParameter("-map_metadata -1");
 
-                WriteInfo($"Encoding Segment {i + 1}/{segments.Count} [{segment.SpeedType}], {segment.StartTime} to {segment.EndTime}...");
-                RunProcess("ffmpeg", cmd);
+                WriteInfo($"Encoding Seg {i + 1}/{segments.Count} [Speed: {speedFactor:F2}x] {segment.StartTime:g} to {segment.EndTime:g}");
 
-                // Probe exact frame count of generated segment to eliminate mathematical drift
-                int exactFrames = GetExactFrameCount(tempFile);
-                TimeSpan actualOutputDuration = TimeSpan.FromSeconds(exactFrames / fpsDouble);
+                // Route through base class to handle progress monitoring and .temp moving automatically
+                StartAndHandleFfmpegProgress(conversion, tempFile);
 
-                // Record the actual offset based on reality
-                var offset = new SyncOffsetDto
+                // Use Xabe to probe the generated segment for its exact output duration
+                var tempInfo = GetMediaInfo(tempFile);
+                TimeSpan actualOutputDuration = tempInfo.Duration;
+
+                offsets.Add(new SyncOffsetDto
                 {
-                    InputStartTime = segment.StartTime,
-                    OutputStartTime = currentOutputTime,
-                    Duration = segment.EndTime - segment.StartTime,
-                    Offset = currentOutputTime - segment.StartTime
-                };
-                offsets.Add(offset);
+                    OriginalStartTime = segment.StartTime,
+                    OriginalEndTime = segment.EndTime,
+                    RetimerStartTime = currentOutputTime,
+                    RetimerEndTime = currentOutputTime + actualOutputDuration
+                });
 
-                // Advance output timeline by the EXACT duration measured
                 currentOutputTime += actualOutputDuration;
             }
 
-            // Concatenate all segments seamlessly
-            WriteInfo("Concatenating segments...");
-            string concatFilePath = $"concat_{Guid.NewGuid():N}.txt";
-            File.WriteAllLines(concatFilePath, tempFiles.Select(f => $"file '{f}'"));
-
-            string concatCmd = $"-f concat -safe 0 -i \"{concatFilePath}\" -c copy -y \"{outputVideo}\"";
-            RunProcess("ffmpeg", concatCmd);
-
-            // Write out the Offsets mapping file exactly matching the structure of VirtualMergedAudioOffset
             string offsetsJsonFile = outputVideo.Replace(".mp4", ".offsets.json");
             File.WriteAllText(
                 offsetsJsonFile,
                 JsonConvert.SerializeObject(
                     offsets,
                     Formatting.Indented,
-                    new JsonSerializerSettings
-                    {
-                        NullValueHandling = NullValueHandling.Ignore
-                    }));
+                    new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }
+                ));
+
             WriteInfo($"Wrote synchronization offsets to: {offsetsJsonFile}");
 
-            // Cleanup temp files
-            foreach (var f in tempFiles) { if (File.Exists(f)) File.Delete(f); }
-            if (File.Exists(concatFilePath)) File.Delete(concatFilePath);
+            WriteInfo("Concatenating segments...");
 
-            WriteInfo("Story mode video generation complete!");
-        }
+            var concatFilePath = Path.ChangeExtension(outputVideo, $".concat_{Guid.NewGuid():N}.txt");
+            var concatLines = tempFiles.Select(f => $"file '{Path.GetFileName(f)}'");
+            File.WriteAllLines(concatFilePath, concatLines);
+            tempFiles.Add(concatFilePath);
 
-        private (string FpsString, double FpsDouble) GetExactFrameRate(string videoPath)
-        {
-            // e.g. Output might be "30000/1001" or "25/1" or "60000/1001"
-            string cmd = $"-v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"";
-            string output = RunProcessAndReadOutput("ffprobe", cmd);
+            var concatConversion = FFmpeg.Conversions.New()
+                .AddParameter("-f concat")
+                .AddParameter("-safe 0")
+                .AddParameter($"-i \"{concatFilePath}\"")
+                .AddParameter("-c copy");
 
-            string fpsStr = output.Trim();
-            if (string.IsNullOrEmpty(fpsStr))
-                throw new Exception("Could not determine framerate from video.");
+            StartAndHandleFfmpegProgress(concatConversion, outputVideo);
 
-            var parts = fpsStr.Split('/');
-            double fpsDouble = 0;
-            if (parts.Length == 2 && double.TryParse(parts[0], out double num) && double.TryParse(parts[1], out double den))
+            WriteInfo("Variable speed video generation complete!");
+
+            foreach (var f in tempFiles)
             {
-                fpsDouble = num / den;
+                try { File.Delete(f); } catch { /* Ignore cleanup errors to allow full sweep */ }
             }
-            else if (double.TryParse(fpsStr, out double exact))
-            {
-                fpsDouble = exact;
-            }
-            else
-            {
-                throw new Exception($"Failed to parse framerate string: {fpsStr}");
-            }
-
-            return (fpsStr, fpsDouble);
         }
 
-        private int GetExactFrameCount(string filePath)
+        private List<SpeedSegment> GenerateSpeedSegments(List<Subtitle> subtitles, TimeSpan videoDuration, double videoFramerate)
         {
-            string cmd = $"-v error -select_streams v:0 -show_entries stream=nb_frames -of default=nokey=1:noprint_wrappers=1 \"{filePath}\"";
-            string output = RunProcessAndReadOutput("ffprobe", cmd);
-
-            if (int.TryParse(output.Trim(), out int frames))
-                return frames;
-
-            throw new Exception($"Could not read frame count from generated segment: {filePath}");
-        }
-
-        private TimeSpan GetVideoDuration(string videoPath)
-        {
-            string cmd = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"";
-            string output = RunProcessAndReadOutput("ffprobe", cmd);
-
-            if (double.TryParse(output.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out double durationSecs))
-                return TimeSpan.FromSeconds(durationSecs);
-
-            throw new Exception("Could not determine video duration.");
-        }
-
-        private void RunProcess(string fileName, string arguments)
-        {
-            var p = new Process
+            // 1. Parse subtitles into controlled blocks
+            var controlledBlocks = new List<ControlBlock>();
+            foreach (var sub in subtitles)
             {
-                StartInfo = new ProcessStartInfo
+                double speed = r_options.DefaultSpeedControlled;
+
+                var match = rs_speedRegex.Match(sub.Text);
+                if (match.Success && double.TryParse(match.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedSpeed))
                 {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
+                    speed = parsedSpeed;
                 }
-            };
-            p.Start();
-            p.WaitForExit();
-            if (p.ExitCode != 0)
-            {
-                throw new Exception($"Process '{fileName}' exited with code {p.ExitCode}. Args: {arguments}");
+
+                controlledBlocks.Add(new ControlBlock
+                {
+                    StartTime = sub.StartTime,
+                    EndTime = sub.EndTime,
+                    Speed = speed,
+                    OriginalDuration = sub.Duration
+                });
             }
+
+            // 2. Sweep the timeline to resolve overlaps (Longest Original Duration wins)
+            var rawSegments = BuildRawTimeline(controlledBlocks, videoDuration);
+
+            // 3. Eliminate Micro-Gaps & calculate Uncontrolled speeds
+            var processedSegments = ProcessGapsAndUncontrolledSpeeds(rawSegments);
+
+            // 4. Merge identical contiguous rules and snap to frames using the external SpeedSegment class
+            return MergeAndFrameAlignSegments(processedSegments, videoFramerate);
         }
 
-        private string RunProcessAndReadOutput(string fileName, string arguments)
+        private List<RawSegment> BuildRawTimeline(List<ControlBlock> blocks, TimeSpan videoDuration)
         {
-            var p = new Process
+            var events = new List<TimeEvent>();
+            foreach (var block in blocks)
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            p.Start();
-            string output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit();
-            if (p.ExitCode != 0)
-            {
-                throw new Exception($"Process '{fileName}' exited with code {p.ExitCode}. Args: {arguments}");
+                events.Add(new TimeEvent { Time = block.StartTime, IsStart = true, Block = block });
+                events.Add(new TimeEvent { Time = block.EndTime, IsStart = false, Block = block });
             }
-            return output;
-        }
 
-        private List<SpeedSegment> GenerateSpeedSegments(
-            List<Subtitle> subtitles,
-            TimeSpan videoDuration,
-            decimal videoFramerate,
-            decimal bufferBefore,
-            decimal bufferAfter,
-            decimal fastSpeed,
-            double minimalGapThreshold)
-        {
-            // 1. Calculate buffered subtitle blocks and MERGE OVERLAPS
-            // (This must happen first to figure out the true layout of the timeline)
-            var activeBlocks = new List<Tuple<TimeSpan, TimeSpan>>();
-            var sortedSubtitles = subtitles.OrderBy(s => s.StartTime).ToList();
+            events = events.OrderBy(e => e.Time).ThenBy(e => e.IsStart ? 1 : 0).ToList();
 
-            foreach (var sub in sortedSubtitles)
+            var rawSegments = new List<RawSegment>();
+            var activeBlocks = new HashSet<ControlBlock>();
+            TimeSpan currentTime = TimeSpan.Zero;
+
+            foreach (var ev in events)
             {
-                var start = sub.StartTime - TimeSpan.FromSeconds((double)bufferBefore);
-                var end = sub.EndTime + TimeSpan.FromSeconds((double)bufferAfter);
-
-                if (start < TimeSpan.Zero) start = TimeSpan.Zero;
-                if (end > videoDuration) end = videoDuration;
-
-                if (!activeBlocks.Any())
+                if (ev.Time > currentTime)
                 {
-                    activeBlocks.Add(Tuple.Create(start, end));
-                }
-                else
-                {
-                    var lastBlock = activeBlocks.Last();
-                    if (start <= lastBlock.Item2)
+                    var winningBlock = activeBlocks.OrderByDescending(b => b.OriginalDuration).FirstOrDefault();
+
+                    rawSegments.Add(new RawSegment
                     {
-                        var newEnd = end > lastBlock.Item2 ? end : lastBlock.Item2;
-                        activeBlocks[activeBlocks.Count - 1] = Tuple.Create(lastBlock.Item1, newEnd);
+                        StartTime = currentTime,
+                        EndTime = ev.Time,
+                        IsControlled = winningBlock != null,
+                        Speed = winningBlock?.Speed ?? r_options.DefaultSpeedUncontrolled
+                    });
+
+                    currentTime = ev.Time;
+                }
+
+                if (ev.IsStart) activeBlocks.Add(ev.Block);
+                else activeBlocks.Remove(ev.Block);
+            }
+
+            if (currentTime < videoDuration)
+            {
+                rawSegments.Add(new RawSegment
+                {
+                    StartTime = currentTime,
+                    EndTime = videoDuration,
+                    IsControlled = false,
+                    Speed = r_options.DefaultSpeedUncontrolled
+                });
+            }
+
+            return rawSegments;
+        }
+
+        private List<RawSegment> ProcessGapsAndUncontrolledSpeeds(List<RawSegment> segments)
+        {
+            var results = new List<RawSegment>();
+
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var seg = segments[i];
+
+                if (!seg.IsControlled)
+                {
+                    if (seg.Duration.TotalSeconds <= r_options.MicroGapThreshold)
+                    {
+                        seg.IsControlled = true;
+
+                        if (results.Count > 0) seg.Speed = results.Last().Speed;
+                        else if (i + 1 < segments.Count) seg.Speed = segments[i + 1].Speed;
+                        else seg.Speed = r_options.DefaultSpeedControlled;
                     }
                     else
                     {
-                        activeBlocks.Add(Tuple.Create(start, end));
+                        double minSpeedRequired = seg.Duration.TotalSeconds / r_options.MaxUncontrolledDuration;
+                        seg.Speed = Math.Max(r_options.DefaultSpeedUncontrolled, minSpeedRequired);
                     }
                 }
+                results.Add(seg);
             }
 
-            // 2. State Machine: Generate, Merge, and Frame-Align in a single pass
+            return results;
+        }
+
+        private List<SpeedSegment> MergeAndFrameAlignSegments(List<RawSegment> rawSegments, double videoFramerate)
+        {
             var finalSegments = new List<SpeedSegment>();
             SpeedSegment activeSegment = null;
-            decimal frameDuration = 1.0M / videoFramerate;
+            double frameDuration = 1.0 / videoFramerate;
 
-            // Local helper to handle the active segment state
-            void AddOrExtendSegment(TimeSpan targetEnd, SpeedType speedType, decimal speed)
+            foreach (var raw in rawSegments)
             {
-                if (targetEnd <= (activeSegment?.EndTime ?? TimeSpan.Zero))
-                    return; // Skip 0-length additions
+                if (raw.Duration.TotalSeconds <= 0) continue;
 
                 if (activeSegment == null)
                 {
-                    // First segment
-                    activeSegment = new SpeedSegment
-                    {
-                        StartTime = TimeSpan.Zero,
-                        EndTime = targetEnd,
-                        SpeedType = speedType,
-                        Speed = speed
-                    };
+                    activeSegment = new SpeedSegment { StartTime = raw.StartTime, EndTime = raw.EndTime, Speed = raw.Speed };
                 }
-                else if (activeSegment.SpeedType == speedType && activeSegment.Speed == speed)
+                else if (Math.Abs(activeSegment.Speed - raw.Speed) < 0.001) // Same rule, merge
                 {
-                    // MERGE: Same speed, so just stretch the current segment's end time
-                    activeSegment.EndTime = targetEnd;
+                    activeSegment.EndTime = raw.EndTime;
                 }
                 else
                 {
-                    // ALIGN: Speed is changing! Snap the boundary to the nearest frame
-                    decimal boundarySecs = (decimal)activeSegment.EndTime.TotalSeconds;
-                    decimal frames = Math.Round(boundarySecs / frameDuration);
-                    TimeSpan snappedBoundary = TimeSpan.FromSeconds((double)(frames * frameDuration));
+                    // Speed changing! Snap boundary to exact frame to prevent FFmpeg drift
+                    double boundarySecs = activeSegment.EndTime.TotalSeconds;
+                    double frames = Math.Round(boundarySecs / frameDuration);
+                    TimeSpan snappedBoundary = TimeSpan.FromSeconds(frames * frameDuration);
 
                     activeSegment.EndTime = snappedBoundary;
                     finalSegments.Add(activeSegment);
 
-                    // Start the next segment from the exact snapped boundary
-                    activeSegment = new SpeedSegment
-                    {
-                        StartTime = snappedBoundary,
-                        EndTime = targetEnd,
-                        SpeedType = speedType,
-                        Speed = speed
-                    };
+                    activeSegment = new SpeedSegment { StartTime = snappedBoundary, EndTime = raw.EndTime, Speed = raw.Speed };
                 }
             }
 
-            // 3. Process the timeline
-            TimeSpan currentTime = TimeSpan.Zero;
-
-            foreach (var block in activeBlocks)
-            {
-                var blockStart = block.Item1;
-                var blockEnd = block.Item2;
-
-                if (currentTime < blockStart)
-                {
-                    var gapDuration = (blockStart - currentTime).TotalSeconds;
-                    if (gapDuration > minimalGapThreshold)
-                        AddOrExtendSegment(blockStart, SpeedType.Fast, fastSpeed);
-                    else
-                        AddOrExtendSegment(blockStart, SpeedType.Normal, 1.0M);
-                }
-
-                AddOrExtendSegment(blockEnd, SpeedType.Normal, 1.0M);
-                currentTime = blockEnd;
-            }
-
-            // Handle remaining video tail
-            if (currentTime < videoDuration)
-            {
-                var remainingDuration = (videoDuration - currentTime).TotalSeconds;
-                if (remainingDuration > minimalGapThreshold)
-                    AddOrExtendSegment(videoDuration, SpeedType.Fast, fastSpeed);
-                else
-                    AddOrExtendSegment(videoDuration, SpeedType.Normal, 1.0M);
-            }
-
-            // Add the final segment and lock it to the end of the video
             if (activeSegment != null)
-            {
-                activeSegment.EndTime = videoDuration;
                 finalSegments.Add(activeSegment);
-            }
 
             return finalSegments;
         }
 
-        private class SpeedSegment
+        private string GetAudioTempoFilter(double speed)
+        {
+            if (speed <= 0) return "atempo=1.0";
+
+            var filters = new List<string>();
+            double currentSpeed = speed;
+
+            // FFmpeg atempo only supports values between 0.5 and 100.0. We chain them if necessary.
+            while (currentSpeed > 100.0)
+            {
+                filters.Add("atempo=100.0");
+                currentSpeed /= 100.0;
+            }
+            while (currentSpeed < 0.5 && currentSpeed > 0)
+            {
+                filters.Add("atempo=0.5");
+                currentSpeed /= 0.5;
+            }
+
+            filters.Add($"atempo={currentSpeed.ToString(CultureInfo.InvariantCulture)}");
+            return string.Join(",", filters);
+        }
+
+        // --- Helper Models only used internally for timeline mapping ---
+
+        private class ControlBlock
         {
             public TimeSpan StartTime { get; set; }
             public TimeSpan EndTime { get; set; }
-            public SpeedType SpeedType { get; set; }
-            public decimal Speed { get; set; }
-            public TimeSpan Duration => this.EndTime - this.StartTime;
-            public TimeSpan EstimatedFinalDuration => TimeSpan.FromMilliseconds(this.Duration.TotalMilliseconds / (double)this.Speed);
-
-            public override string ToString()
-            {
-                return $"Source: [{StartTime:g}-{EndTime:g}], Type: {SpeedType}, Speed: {Speed}";
-            }
-
-            internal void AdjustTime(decimal videoFramerate)
-            {
-                var x = 1M / videoFramerate;
-                var frameStartTime = Math.Ceiling((decimal)this.StartTime.TotalSeconds / x);
-                this.StartTime = TimeSpan.FromSeconds((double)(frameStartTime * x));
-                var frameEndTime = Math.Ceiling((decimal)this.EndTime.TotalSeconds / x);
-                this.EndTime = TimeSpan.FromSeconds((double)(frameEndTime * x));
-            }
+            public double Speed { get; set; }
+            public TimeSpan OriginalDuration { get; set; }
         }
 
-        private enum SpeedType
+        private class TimeEvent
         {
-            Normal,
-            Fast
+            public TimeSpan Time { get; set; }
+            public bool IsStart { get; set; }
+            public ControlBlock Block { get; set; }
         }
 
-        // This inner class is designed to perfectly mimic the structure of your VirtualMergedAudioOffset
-        // for serialization out to the offsets.json file without circular dependencies.
-        private class SyncOffsetDto
+        private class RawSegment
         {
-            [JsonProperty("InputFile")]
-            public string InputFilePath => null; // You indicated this was naturally null in your scenario for singular files
-
-            public TimeSpan? InputStartTime { get; set; }
-
-            [JsonProperty("OutputFile")]
-            public string OutputFilePath => null;
-
-            public TimeSpan? OutputStartTime { get; set; }
-            public TimeSpan Duration { get; set; }
-            public TimeSpan? Offset { get; set; }
-
-            public Dictionary<string, int> Usage { get; } = new Dictionary<string, int>
-            {
-                { "Actions", 0 },
-                { "Chapters", 0 },
-                { "Subtitles", 0 }
-            };
+            public TimeSpan StartTime { get; set; }
+            public TimeSpan EndTime { get; set; }
+            public double Speed { get; set; }
+            public bool IsControlled { get; set; }
+            public TimeSpan Duration => EndTime - StartTime;
         }
     }
 }
