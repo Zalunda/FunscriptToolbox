@@ -190,6 +190,7 @@
     <Compile Include="RetimerVerbs\VerbRetimerGenerateControl.cs" />
     <Compile Include="RetimerVerbs\SpeedSegment.cs" />
     <Compile Include="RetimerVerbs\SyncOffsetDto.cs" />
+    <Compile Include="RetimerVerbs\VerbRetimerSyncAssets.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtraction.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromPcm.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromVideo.cs" />

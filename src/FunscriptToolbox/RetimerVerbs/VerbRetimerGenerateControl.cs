@@ -44,6 +44,9 @@ namespace FunscriptToolbox.RetimerVerbs
 
             [Option("allow-overlaps", Default = false, HelpText = "If true, subtitles and funscript blocks can overlap in the timeline. If false, subtitles will be trimmed/removed to prevent overlapping with funscript actions.")]
             public bool AllowOverlaps { get; set; }
+
+            [Option("y", Default = false, HelpText = "If true, override .control.srt file if it exists.")]
+            public bool Override { get; set; }
         }
 
         private readonly Options r_options;
@@ -66,6 +69,12 @@ namespace FunscriptToolbox.RetimerVerbs
             if (!File.Exists(subtitlePath) && !File.Exists(funscriptPath))
             {
                 WriteError($"Could not find sidecar files automatically. Expected either {subtitlePath} or {funscriptPath} to exist.");
+                return 1;
+            }
+
+            if (!r_options.Override && File.Exists(outputControlPath))
+            {
+                WriteError($"File '{outputControlPath}' already exists.");
                 return 1;
             }
 
@@ -105,12 +114,14 @@ namespace FunscriptToolbox.RetimerVerbs
                 subBlocks = SubtractFunscriptsFromSubtitles(subBlocks, funBlocks);
             }
 
-            // 4. Combine, Sort, and Re-Number
-            var finalSubtitles = subBlocks.Concat(funBlocks)
+            // 4. Combine & Sort
+            var combinedSubtitles = subBlocks.Concat(funBlocks)
                 .OrderBy(s => s.StartTime)
                 .ThenBy(s => s.EndTime)
-                .Select((s, index) => new Subtitle(s.StartTime, s.EndTime, s.Lines, index + 1))
                 .ToList();
+
+            // Fill small gaps between any blocks
+            var finalSubtitles = FillSmallGaps(combinedSubtitles, Math.Min(r_options.SubGapThreshold, r_options.FunGapThreshold));
 
             var controlSubtitleFile = new SubtitleFile(outputControlPath, finalSubtitles);
             controlSubtitleFile.SaveSrt(outputControlPath);
@@ -119,6 +130,33 @@ namespace FunscriptToolbox.RetimerVerbs
             WriteInfo($"Saved to: {outputControlPath}");
 
             return 0;
+        }
+
+        private List<Subtitle> FillSmallGaps(List<Subtitle> blocks, double maxGapSeconds = 5.0)
+        {
+            var results = new List<Subtitle>();
+            if (blocks == null || !blocks.Any()) return results;
+
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                var current = blocks[i];
+                results.Add(current);
+
+                // Check the gap between the current block and the next one
+                if (i < blocks.Count - 1)
+                {
+                    var next = blocks[i + 1];
+                    var gap = (next.StartTime - current.EndTime).TotalSeconds;
+
+                    if (gap > 0 && gap <= maxGapSeconds)
+                    {
+                        // Create an empty bridging block
+                        results.Add(new Subtitle(current.EndTime, next.StartTime, "[FILLED GAP]"));
+                    }
+                }
+            }
+
+            return results;
         }
 
         private IEnumerable<Subtitle> ProcessSubtitles(List<Subtitle> originals, TimeSpan videoDuration)
@@ -157,9 +195,12 @@ namespace FunscriptToolbox.RetimerVerbs
                 }
             }
 
-            // Pass 3: Gather expanded text, inject {FILLED_GAP_SUBTITLE}, and Density check
+            // Pass 3: Density check and consecutive block compression
             TimeSpan currentTimeline = TimeSpan.Zero;
             TimeSpan halfWindow = TimeSpan.FromSeconds(r_options.SubDensityWindow);
+
+            Subtitle pendingBlock = null;
+            var pendingLines = new List<string>();
 
             for (int i = 0; i < expandedSubs.Count; i++)
             {
@@ -198,27 +239,50 @@ namespace FunscriptToolbox.RetimerVerbs
 
                 // Check gap before this subtitle
                 var gapDuration = (sub.StartTime - currentTimeline).TotalSeconds;
-                if (gapDuration > 0 && gapDuration < r_options.SubGapThreshold)
+                var subLines = sub.Lines.ToList();
+
+                if (isIsolated && subLines.Count > 0)
                 {
-                    results.Add(new Subtitle(currentTimeline, sub.StartTime, "{FILLED_GAP_SUBTITLE}"));
+                    subLines[0] = $"[ISOLATED ({Math.Round(density * 100)}%)] " + subLines[0];
                 }
 
-                var lines = sub.Lines.ToList();
-                if (isIsolated)
+                // --- Compression Logic ---
+                if (gapDuration < r_options.SubGapThreshold)
                 {
-                    // Add the density percentage, e.g., {ISOLATED_SUBTITLE (4%)}
-                    lines.Insert(0, $"==> ISOLATED_SUBTITLE ({Math.Round(density * 100)}%)");
+                    // Gaps touch or are small enough to bridge. Extend the current pending block.
+                    TimeSpan start = pendingBlock != null ? pendingBlock.StartTime : currentTimeline;
+                    pendingLines.AddRange(subLines);
+                    pendingBlock = new Subtitle(start, sub.EndTime, pendingLines.ToArray(), sub.Number);
+                }
+                else
+                {
+                    // Chain is broken by a true gap. Flush the pending block to results.
+                    if (pendingBlock != null)
+                    {
+                        results.Add(pendingBlock);
+                    }
+
+                    // Start a new block
+                    pendingLines.Clear();
+                    pendingLines.AddRange(subLines);
+                    pendingBlock = new Subtitle(sub.StartTime, sub.EndTime, pendingLines.ToArray(), sub.Number);
                 }
 
-                results.Add(new Subtitle(sub.StartTime, sub.EndTime, lines.ToArray(), sub.Number));
                 currentTimeline = sub.EndTime;
             }
 
-            // Check gap at the end of the video
+            // Pass 3 (Cleanup): Handle the final gap/block at the end of the video
             var tailDuration = (videoDuration - currentTimeline).TotalSeconds;
-            if (tailDuration > 0 && tailDuration < r_options.SubGapThreshold)
+            bool hasSmallTailGap = tailDuration > 0 && tailDuration < r_options.SubGapThreshold;
+
+            if (pendingBlock != null)
             {
-                results.Add(new Subtitle(currentTimeline, videoDuration, "{FILLED_GAP_SUBTITLE}"));
+                if (hasSmallTailGap)
+                {
+                    // Stretch the final block to the very end of the video
+                    pendingBlock = new Subtitle(pendingBlock.StartTime, videoDuration, pendingBlock.Lines, pendingBlock.Number);
+                }
+                results.Add(pendingBlock);
             }
 
             return results;
@@ -273,7 +337,7 @@ namespace FunscriptToolbox.RetimerVerbs
             // Pass 3: Emit FUNSCRIPT_ACTIONS blocks
             foreach (var block in mergedBlocks)
             {
-                results.Add(new Subtitle(block.Item1, block.Item2, "{FUNSCRIPT_ACTIONS}"));
+                results.Add(new Subtitle(block.Item1, block.Item2, "[FUNSCRIPT_ACTIONS]"));
             }
 
             return results;

@@ -28,7 +28,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 54;
+            int test = 55;
 
             switch (test)
             {
@@ -188,7 +188,14 @@ namespace FunscriptToolbox
                     args = new[]
                     {
                         "retimer.rendervideo",
-                        "--video", @"InstallationTest\3DSVR-0223.mp4"
+                        "--original-video", @"InstallationTest\3DSVR-0223.mp4"
+                    };
+                    break;
+                case 55:
+                    args = new[]
+                    {
+                        "retimer.syncassets",
+                        "--original-video", @"InstallationTest\3DSVR-0223.mp4"
                     };
                     break;
             }
@@ -212,6 +219,7 @@ namespace FunscriptToolbox
 
                     VerbRetimerGenerateControl.Options,
                     VerbRetimerRenderVideo.Options,
+                    VerbRetimerSyncAssets.Options,
 
                     VerbSubtitlesCreate.Options,
 
@@ -227,6 +235,7 @@ namespace FunscriptToolbox
 
                           (VerbRetimerGenerateControl.Options options) => new VerbRetimerGenerateControl(options).Execute(),
                           (VerbRetimerRenderVideo.Options options) => new VerbRetimerRenderVideo(options).Execute(),
+                          (VerbRetimerSyncAssets.Options options) => new VerbRetimerSyncAssets(options).Execute(),
 
                           (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
 
