@@ -35,10 +35,10 @@ namespace FunscriptToolbox.RetimerVerbs
             [Option("default-speed-uncontrolled", Default = 10.0, HelpText = "Base speed multiplier for sections NOT covered by subtitles.")]
             public double DefaultSpeedUncontrolled { get; set; }
 
-            [Option("max-uncontrolled-duration", Default = 15.0, HelpText = "Maximum allowed output duration (in seconds) for a fast-forwarded section. If it would take longer, the speed is increased dynamically.")]
+            [Option("max-uncontrolled-duration", Default = 30.0, HelpText = "Maximum allowed output duration (in seconds) for a fast-forwarded section. If it would take longer, the speed is increased dynamically.")]
             public double MaxUncontrolledDuration { get; set; }
 
-            [Option("micro-gap-threshold", Default = 0.05, HelpText = "Gaps smaller than this (in seconds) between controlled blocks are absorbed to prevent tiny framerate jumps (SubtitleEdit usually leaves 30ms gaps).")]
+            [Option("micro-gap-threshold", Default = 0.5, HelpText = "Gaps smaller than this (in seconds) between controlled blocks are absorbed to prevent tiny framerate jumps.")]
             public double MicroGapThreshold { get; set; }
 
             [Option("encoding-video", Default = "-c:v libx265 -crf 20 -tag:v hvc1", HelpText = "FFmpeg parameters for video encoding.")]
@@ -144,14 +144,14 @@ namespace FunscriptToolbox.RetimerVerbs
 
                 // -- PRESENTATION LOGIC --
                 double progressPercent = (segment.StartTime.TotalSeconds / totalVideoDuration) * 100.0;
-                string timeInfo = $"[{segment.StartTime:hh\\:mm\\:ss\\.fff} | {progressPercent,5:F1}%]";
+                string timeInfo = $"[{segment.StartTime:hh\\:mm\\:ss\\.fff} | {progressPercent:F1}%]";
 
                 bool isSpeedOne = Math.Abs(targetSpeed - 1.0) < 0.001;
                 if (isSpeedOne)
                 {
                     // Force exactly 1.0 math to prevent floating point noise on exact 1.0x segments
                     effectiveSpeedFactor = 1.0;
-                    WriteInfo($"Encoding Seg {i + 1,2}/{segments.Count} {timeInfo} [Speed: 1.00x] {exactInputFrameCount} frames");
+                    WriteInfo($"Encoding Seg {i + 1,2}/{segments.Count} {timeInfo} [Target: 1.00x] {exactInputFrameCount} frames");
                 }
                 else
                 {
