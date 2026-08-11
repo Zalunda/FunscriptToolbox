@@ -237,7 +237,7 @@ namespace FunscriptToolbox.RetimerVerbs
 
             foreach (var f in tempFiles)
             {
-                // try { File.Delete(f); } catch { /* Ignore cleanup errors to allow full sweep */ }
+                try { File.Delete(f); } catch { /* Ignore cleanup errors to allow full sweep */ }
             }
         }
 
