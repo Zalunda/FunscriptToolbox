@@ -117,52 +117,90 @@ namespace FunscriptToolbox.RetimerVerbs
 
             string fpsString = fps.ToString(CultureInfo.InvariantCulture);
 
+            // Grab the total timeline duration so we can calculate the percentage progress
+            double totalVideoDuration = segments.Count > 0 ? segments.Last().EndTime.TotalSeconds : 1.0;
+
             for (int i = 0; i < segments.Count; i++)
             {
                 var segment = segments[i];
-
                 if (segment.Duration <= TimeSpan.Zero) continue;
 
-                // Create segment file adjacent to the final output video
-                string tempFile = Path.ChangeExtension(outputVideo, $".segment_{i:D3}.mp4");
+                double inputDurationSecs = segment.Duration.TotalSeconds;
+                double targetSpeed = segment.Speed;
+
+                // Calculate Input Frames vs Output expectations
+                int exactInputFrameCount = (int)Math.Round(inputDurationSecs * fps);
+                double expectedOutputDurationSecs = inputDurationSecs / targetSpeed;
+                int exactOutputFrameCount = (int)Math.Round(expectedOutputDurationSecs * fps);
+
+                if (exactOutputFrameCount == 0)
+                {
+                    WriteError($"Skipping Seg {i + 1}/{segments.Count} - Too short to render at {targetSpeed:F2}x");
+                    continue;
+                }
+
+                double exactOutputDurationSecs = exactOutputFrameCount / fps;
+                double effectiveSpeedFactor = inputDurationSecs / exactOutputDurationSecs;
+
+                // -- PRESENTATION LOGIC --
+                double progressPercent = (segment.StartTime.TotalSeconds / totalVideoDuration) * 100.0;
+                string timeInfo = $"[{segment.StartTime:hh\\:mm\\:ss\\.fff} | {progressPercent,5:F1}%]";
+
+                bool isSpeedOne = Math.Abs(targetSpeed - 1.0) < 0.001;
+                if (isSpeedOne)
+                {
+                    // Force exactly 1.0 math to prevent floating point noise on exact 1.0x segments
+                    effectiveSpeedFactor = 1.0;
+                    WriteInfo($"Encoding Seg {i + 1,2}/{segments.Count} {timeInfo} [Speed: 1.00x] {exactInputFrameCount} frames");
+                }
+                else
+                {
+                    WriteInfo($"Encoding Seg {i + 1,2}/{segments.Count} {timeInfo} [Target: {targetSpeed:F2}x | Actual: {effectiveSpeedFactor:F2}x] {exactInputFrameCount} => {exactOutputFrameCount} frames");
+                }
+                // ------------------------
+
+                string tempFile = Path.ChangeExtension(outputVideo, $".segment_{i:D3}.mkv");
                 tempFiles.Add(tempFile);
 
-                double speedFactor = segment.Speed;
-                double videoPtsFactor = 1.0 / speedFactor;
-
+                double videoPtsFactor = 1.0 / effectiveSpeedFactor;
                 string vPtsStr = videoPtsFactor.ToString(CultureInfo.InvariantCulture);
 
-                string vFilter = $"[0:v]setpts={vPtsStr}*(PTS-STARTPTS),fps={fpsString}[v]";
-                string aFilter = $"[0:a]asetpts=PTS-STARTPTS,{GetAudioTempoFilter(speedFactor)}[a]";
+                string vFilter = $"[0:v]setpts={vPtsStr}*(PTS-STARTPTS),fps={fpsString}:round=down[v]";
+                string aFilter = $"[0:a]asetpts=PTS-STARTPTS,{GetAudioTempoFilter(effectiveSpeedFactor)}[a]";
 
-                // Build the IConversion for Xabe using manual parameters
                 var conversion = FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
-                    .AddParameter($"-ss {segment.StartTime} -t {segment.Duration}") // Input seeking must come BEFORE input file
+                    .AddParameter($"-ss {segment.StartTime}")
                     .AddParameter($"-i \"{inputVideo}\"")
                     .AddParameter($"-filter_complex \"{vFilter};{aFilter}\"")
                     .AddParameter("-map \"[v]\" -map \"[a]\"")
+                    .AddParameter($"-frames:v {exactOutputFrameCount}")
+                    .AddParameter($"-t {TimeSpan.FromSeconds(exactOutputDurationSecs)}")
                     .AddParameter(r_options.EncodingVideo)
-                    .AddParameter(r_options.EncodingAudio);
+                    .AddParameter("-c:a pcm_s16le");
 
-                WriteInfo($"Encoding Seg {i + 1}/{segments.Count} [Speed: {speedFactor:F2}x] {segment.StartTime:g} to {segment.EndTime:g}");
-
-                // Route through base class to handle progress monitoring and .temp moving automatically
                 StartAndHandleFfmpegProgress(conversion, tempFile);
 
-                // Use Xabe to probe the generated segment for its exact output duration
+                // -- VALIDATION CHECK --
                 var tempInfo = GetMediaInfo(tempFile);
-                TimeSpan actualOutputDuration = tempInfo.Duration;
 
+                // We check against a 5ms tolerance to account for Xabe.FFmpeg rounding the container duration
+                double diffSecs = Math.Abs(tempInfo.Duration.TotalSeconds - exactOutputDurationSecs);
+                if (diffSecs > 0.005)
+                {
+                    WriteError($"Segment {i + 1} Duration Mismatch! Expected: {exactOutputDurationSecs:F3}s, Actual File: {tempInfo.Duration.TotalSeconds:F3}s (Diff: {diffSecs:F3}s)");
+                }
+
+                TimeSpan actualVideoDuration = TimeSpan.FromSeconds(exactOutputDurationSecs);
                 offsets.Add(new SyncOffsetDto
                 {
                     OriginalStartTime = segment.StartTime,
                     OriginalEndTime = segment.EndTime,
                     RetimerStartTime = currentOutputTime,
-                    RetimerEndTime = currentOutputTime + actualOutputDuration
+                    RetimerEndTime = currentOutputTime + actualVideoDuration
                 });
 
-                currentOutputTime += actualOutputDuration;
+                currentOutputTime += actualVideoDuration;
             }
 
             string offsetsJsonFile = outputVideo.Replace(".mp4", ".offsets.json");
@@ -187,7 +225,8 @@ namespace FunscriptToolbox.RetimerVerbs
                 .AddParameter("-f concat")
                 .AddParameter("-safe 0")
                 .AddParameter($"-i \"{concatFilePath}\"")
-                .AddParameter("-c copy");
+                .AddParameter("-c:v copy")
+                .AddParameter(r_options.EncodingAudio);
 
             StartAndHandleFfmpegProgress(concatConversion, outputVideo);
 
@@ -198,7 +237,7 @@ namespace FunscriptToolbox.RetimerVerbs
 
             foreach (var f in tempFiles)
             {
-                try { File.Delete(f); } catch { /* Ignore cleanup errors to allow full sweep */ }
+                // try { File.Delete(f); } catch { /* Ignore cleanup errors to allow full sweep */ }
             }
         }
 
