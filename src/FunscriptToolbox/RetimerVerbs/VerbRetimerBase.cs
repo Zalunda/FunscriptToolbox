@@ -1,11 +1,11 @@
 ﻿using log4net;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
 using FunscriptToolbox.Core;
+using AudioSynchronization;
 
 namespace FunscriptToolbox.RetimerVerbs
 {
@@ -27,26 +27,13 @@ namespace FunscriptToolbox.RetimerVerbs
         /// Synchronizes sidecar files (.srt and .funscript) using the generated offsets map.
         /// Can be called standalone or immediately after rendering the video.
         /// </summary>
-        protected void SyncSidecarAssets(string originalVideoPath, string retimedVideoPath, string offsetsJsonPath)
+        protected void SyncSidecarAssets(string originalVideoPath, string retimedVideoPath, ICollection<RetimerSyncOffset> offsets)
         {
             string originalBasePath = Path.Combine(Path.GetDirectoryName(originalVideoPath) ?? "", Path.GetFileNameWithoutExtension(originalVideoPath));
             string retimedBasePath = Path.Combine(Path.GetDirectoryName(retimedVideoPath) ?? "", Path.GetFileNameWithoutExtension(retimedVideoPath));
 
             string originalSrt = originalBasePath + SubtitleFile.SrtExtension;
             string originalFunscript = originalBasePath + Funscript.FunscriptExtension;
-
-            if (!File.Exists(offsetsJsonPath))
-            {
-                WriteError($"Offsets map not found: {offsetsJsonPath}");
-                return;
-            }
-
-            var offsets = JsonConvert.DeserializeObject<List<SyncOffsetDto>>(File.ReadAllText(offsetsJsonPath));
-            if (offsets == null || !offsets.Any())
-            {
-                WriteError("Offsets map is empty or invalid.");
-                return;
-            }
 
             // Sync Subtitles
             if (File.Exists(originalSrt))
@@ -99,6 +86,9 @@ namespace FunscriptToolbox.RetimerVerbs
                 // Update internal duration metadata to match the new timeline length
                 funscript.Duration = (int)Math.Round(offsets.Last().RetimerEndTime.TotalMilliseconds);
 
+                // Update audio signature to match the new audio
+                funscript.AudioSignature = Convert(AudioTracksAnalyzer.ExtractSignature(retimedVideoPath));
+
                 // Attempt to map chapters if they exist (fallback to original if unmappable)
                 funscript.TransformChaptersTime(t => MapTime(t, offsets) ?? t);
                 funscript.AddNotes($"Retimed from original using Retimer Pipeline. Map points: {offsets.Count}");
@@ -117,7 +107,7 @@ namespace FunscriptToolbox.RetimerVerbs
         /// Projects an original timestamp onto the retimed timeline using linear interpolation.
         /// Returns null if the timestamp falls outside the mapped segments.
         /// </summary>
-        private TimeSpan? MapTime(TimeSpan originalTime, List<SyncOffsetDto> offsets)
+        private TimeSpan? MapTime(TimeSpan originalTime, ICollection<RetimerSyncOffset> offsets)
         {
             // Find the segment this timestamp belongs to.
             // Using < OriginalEndTime because the next segment handles exact boundaries.

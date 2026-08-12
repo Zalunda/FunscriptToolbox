@@ -1,6 +1,8 @@
 ﻿using CommandLine;
 using log4net;
+using Newtonsoft.Json;
 using System.IO;
+using System.Linq;
 
 namespace FunscriptToolbox.RetimerVerbs
 {
@@ -35,13 +37,20 @@ namespace FunscriptToolbox.RetimerVerbs
         {
             r_options.RetimedVideo ??= Path.ChangeExtension(r_options.OriginalVideo, ".retimed.mp4");
 
-            string offsetsFile = string.IsNullOrWhiteSpace(r_options.OffsetsMap)
+            string offsetsFilePath = string.IsNullOrWhiteSpace(r_options.OffsetsMap)
                 ? Path.ChangeExtension(r_options.RetimedVideo, ".offsets.json")
                 : r_options.OffsetsMap;
 
-            if (!File.Exists(offsetsFile))
+            if (!File.Exists(offsetsFilePath))
             {
-                WriteError($"Offsets map file not found: {offsetsFile}. Render video first to generate map.");
+                WriteError($"Offsets map file not found: {offsetsFilePath}. Render video first to generate map.");
+                return 1;
+            }
+
+            var offsetsFile = JsonConvert.DeserializeObject<RetimerSyncOffsetFile>(File.ReadAllText(offsetsFilePath));
+            if (offsetsFile.Offsets == null || !offsetsFile.Offsets.Any())
+            {
+                WriteError("Offsets map is empty or invalid.");
                 return 1;
             }
 
@@ -49,7 +58,7 @@ namespace FunscriptToolbox.RetimerVerbs
             WriteInfo($"Original: {r_options.OriginalVideo}");
             WriteInfo($"Retimed Output Target: {r_options.RetimedVideo}");
 
-            SyncSidecarAssets(r_options.OriginalVideo, r_options.RetimedVideo, offsetsFile);
+            SyncSidecarAssets(r_options.OriginalVideo, r_options.RetimedVideo, offsetsFile.Offsets);
 
             WriteInfo("Asset synchronization complete.");
             return 0;

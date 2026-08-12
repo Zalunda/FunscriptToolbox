@@ -186,10 +186,11 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="RetimerVerbs\RetimerSyncOffsetFile.cs" />
     <Compile Include="RetimerVerbs\VerbRetimerBase.cs" />
     <Compile Include="RetimerVerbs\VerbRetimerGenerateControl.cs" />
     <Compile Include="RetimerVerbs\SpeedSegment.cs" />
-    <Compile Include="RetimerVerbs\SyncOffsetDto.cs" />
+    <Compile Include="RetimerVerbs\RetimerSyncOffset.cs" />
     <Compile Include="RetimerVerbs\VerbRetimerSyncAssets.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtraction.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractorFromPcm.cs" />

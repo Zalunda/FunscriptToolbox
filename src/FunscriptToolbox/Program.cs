@@ -28,7 +28,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 55;
+            int test = 54;
 
             switch (test)
             {
@@ -181,21 +181,21 @@ namespace FunscriptToolbox
                     args = new[]
                     {
                         "retimer.generatecontrol",
-                        "--video", @"InstallationTest\3DSVR-0223.mp4"
+                        "--video", @"E:\3DSVR-0223.mp4"
                     };
                     break;
                 case 54:
                     args = new[]
                     {
                         "retimer.rendervideo",
-                        "--original-video", @"InstallationTest\3DSVR-0223.mp4"
+                        "--original-video", @"E:\3DSVR-0223.mp4"
                     };
                     break;
                 case 55:
                     args = new[]
                     {
                         "retimer.syncassets",
-                        "--original-video", @"InstallationTest\3DSVR-0223.mp4"
+                        "--original-video", @"E:\3DSVR-0223.mp4"
                     };
                     break;
             }

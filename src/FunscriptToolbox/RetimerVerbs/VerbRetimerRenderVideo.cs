@@ -8,9 +8,9 @@ using System;
 using System.Linq;
 using System.IO;
 using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 using Xabe.FFmpeg;
+using AudioSynchronization;
 
 namespace FunscriptToolbox.RetimerVerbs
 {
@@ -106,9 +106,9 @@ namespace FunscriptToolbox.RetimerVerbs
             ProcessVideoPerfectSync(originalVideoFilePath, retimedVideoFilePath, segments, fps);
         }
 
-        private void ProcessVideoPerfectSync(string inputVideo, string outputVideo, List<SpeedSegment> segments, double fps)
+        private void ProcessVideoPerfectSync(string originalVideo, string retimedVideo, List<SpeedSegment> segments, double fps)
         {
-            var offsets = new List<SyncOffsetDto>();
+            var offsets = new List<RetimerSyncOffset>();
             TimeSpan currentOutputTime = TimeSpan.Zero;
             List<string> tempFiles = new List<string>();
 
@@ -159,7 +159,7 @@ namespace FunscriptToolbox.RetimerVerbs
                 }
                 // ------------------------
 
-                string tempFile = Path.ChangeExtension(outputVideo, $".segment_{i:D3}.mkv");
+                string tempFile = Path.ChangeExtension(retimedVideo, $".segment_{i:D3}.mkv");
                 tempFiles.Add(tempFile);
 
                 double videoPtsFactor = 1.0 / effectiveSpeedFactor;
@@ -171,7 +171,7 @@ namespace FunscriptToolbox.RetimerVerbs
                 var conversion = FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
                     .AddParameter($"-ss {segment.StartTime}")
-                    .AddParameter($"-i \"{inputVideo}\"")
+                    .AddParameter($"-i \"{originalVideo}\"")
                     .AddParameter($"-filter_complex \"{vFilter};{aFilter}\"")
                     .AddParameter("-map \"[v]\" -map \"[a]\"")
                     .AddParameter($"-frames:v {exactOutputFrameCount}")
@@ -192,7 +192,7 @@ namespace FunscriptToolbox.RetimerVerbs
                 }
 
                 TimeSpan actualVideoDuration = TimeSpan.FromSeconds(exactOutputDurationSecs);
-                offsets.Add(new SyncOffsetDto
+                offsets.Add(new RetimerSyncOffset
                 {
                     OriginalStartTime = segment.StartTime,
                     OriginalEndTime = segment.EndTime,
@@ -203,11 +203,15 @@ namespace FunscriptToolbox.RetimerVerbs
                 currentOutputTime += actualVideoDuration;
             }
 
-            string offsetsJsonFile = outputVideo.Replace(".mp4", ".offsets.json");
+            string offsetsJsonFile = retimedVideo.Replace(".mp4", ".offsets.json");
             File.WriteAllText(
                 offsetsJsonFile,
                 JsonConvert.SerializeObject(
-                    offsets,
+                    new RetimerSyncOffsetFile
+                    {
+                        OriginalVideoSignature = Convert(AudioTracksAnalyzer.ExtractSignature(originalVideo)),
+                        Offsets = offsets.ToArray()
+                    },
                     Formatting.Indented,
                     new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }
                 ));
@@ -216,7 +220,7 @@ namespace FunscriptToolbox.RetimerVerbs
 
             WriteInfo("Concatenating segments...");
 
-            var concatFilePath = Path.ChangeExtension(outputVideo, $".concat_{Guid.NewGuid():N}.txt");
+            var concatFilePath = Path.ChangeExtension(retimedVideo, $".concat_{Guid.NewGuid():N}.txt");
             var concatLines = tempFiles.Select(f => $"file '{Path.GetFileName(f)}'");
             File.WriteAllLines(concatFilePath, concatLines);
             tempFiles.Add(concatFilePath);
@@ -228,12 +232,12 @@ namespace FunscriptToolbox.RetimerVerbs
                 .AddParameter("-c:v copy")
                 .AddParameter(r_options.EncodingAudio);
 
-            StartAndHandleFfmpegProgress(concatConversion, outputVideo);
+            StartAndHandleFfmpegProgress(concatConversion, retimedVideo);
 
             WriteInfo("Variable speed video generation complete!");
 
             // Auto-Sync Assets after render finishes
-            SyncSidecarAssets(inputVideo, outputVideo, offsetsJsonFile);
+            SyncSidecarAssets(originalVideo, retimedVideo, offsets);
 
             foreach (var f in tempFiles)
             {
