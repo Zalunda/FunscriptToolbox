@@ -18,7 +18,9 @@ namespace FunscriptToolbox.RetimerVerbs
     class VerbRetimerRenderVideo : VerbRetimerBase
     {
         private static readonly ILog rs_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        private static readonly Regex rs_speedRegex = new Regex(@"\{Speed:\s*([\d\.]+)\}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        // Updated to use the generic metadata extraction pattern
+        private static readonly Regex rs_metadataRegex = new Regex(@"\{(?<name>[^}:]*)(\:(?<value>[^}]*))?\}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         [Verb("retimer.rendervideo", aliases: new[] { "retimer.render" }, HelpText = "Render a variable speed video based on a .control.srt blueprint.")]
         public class Options : OptionsBase
@@ -157,7 +159,6 @@ namespace FunscriptToolbox.RetimerVerbs
                 {
                     WriteInfo($"Encoding Seg {i + 1,2}/{segments.Count} {timeInfo} [Target: {targetSpeed:F2}x | Actual: {effectiveSpeedFactor:F2}x] {exactInputFrameCount} => {exactOutputFrameCount} frames");
                 }
-                // ------------------------
 
                 string tempFile = Path.ChangeExtension(retimedVideo, $".segment_{i:D3}.mkv");
                 tempFiles.Add(tempFile);
@@ -217,7 +218,6 @@ namespace FunscriptToolbox.RetimerVerbs
                 ));
 
             WriteInfo($"Wrote synchronization offsets to: {offsetsJsonFile}");
-
             WriteInfo("Concatenating segments...");
 
             var concatFilePath = Path.ChangeExtension(retimedVideo, $".concat_{Guid.NewGuid():N}.txt");
@@ -233,7 +233,6 @@ namespace FunscriptToolbox.RetimerVerbs
                 .AddParameter(r_options.EncodingAudio);
 
             StartAndHandleFfmpegProgress(concatConversion, retimedVideo);
-
             WriteInfo("Variable speed video generation complete!");
 
             // Auto-Sync Assets after render finishes
@@ -247,16 +246,36 @@ namespace FunscriptToolbox.RetimerVerbs
 
         private List<SpeedSegment> GenerateSpeedSegments(List<Subtitle> subtitles, TimeSpan videoDuration, double videoFramerate)
         {
-            // 1. Parse subtitles into controlled blocks
             var controlledBlocks = new List<ControlBlock>();
             foreach (var sub in subtitles)
             {
                 double speed = r_options.DefaultSpeedControlled;
+                bool isCut = false;
 
-                var match = rs_speedRegex.Match(sub.Text);
-                if (match.Success && double.TryParse(match.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedSpeed))
+                // Extract all metadata using the generic pattern
+                var metadatas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (Match match in rs_metadataRegex.Matches(sub.Text))
                 {
-                    speed = parsedSpeed;
+                    string name = match.Groups["name"].Value.Trim();
+                    string val = match.Groups["value"].Success ? match.Groups["value"].Value.Trim() : string.Empty;
+                    metadatas[name] = val;
+                }
+
+                // Process Metadata Commands
+                foreach (var kvp in metadatas)
+                {
+                    switch (kvp.Key.ToLowerInvariant())
+                    {
+                        case "speed":
+                            if (double.TryParse(kvp.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedSpeed))
+                            {
+                                speed = parsedSpeed;
+                            }
+                            break;
+                        case "cut":
+                            isCut = true;
+                            break;
+                    }
                 }
 
                 controlledBlocks.Add(new ControlBlock
@@ -264,6 +283,7 @@ namespace FunscriptToolbox.RetimerVerbs
                     StartTime = sub.StartTime,
                     EndTime = sub.EndTime,
                     Speed = speed,
+                    IsCut = isCut,
                     OriginalDuration = sub.Duration
                 });
             }
@@ -304,7 +324,8 @@ namespace FunscriptToolbox.RetimerVerbs
                         StartTime = currentTime,
                         EndTime = ev.Time,
                         IsControlled = winningBlock != null,
-                        Speed = winningBlock?.Speed ?? r_options.DefaultSpeedUncontrolled
+                        Speed = winningBlock?.Speed ?? r_options.DefaultSpeedUncontrolled,
+                        IsCut = winningBlock?.IsCut ?? false
                     });
 
                     currentTime = ev.Time;
@@ -321,7 +342,8 @@ namespace FunscriptToolbox.RetimerVerbs
                     StartTime = currentTime,
                     EndTime = videoDuration,
                     IsControlled = false,
-                    Speed = r_options.DefaultSpeedUncontrolled
+                    Speed = r_options.DefaultSpeedUncontrolled,
+                    IsCut = false
                 });
             }
 
@@ -342,9 +364,21 @@ namespace FunscriptToolbox.RetimerVerbs
                     {
                         seg.IsControlled = true;
 
-                        if (results.Count > 0) seg.Speed = results.Last().Speed;
-                        else if (i + 1 < segments.Count) seg.Speed = segments[i + 1].Speed;
-                        else seg.Speed = r_options.DefaultSpeedControlled;
+                        if (results.Count > 0)
+                        {
+                            seg.Speed = results.Last().Speed;
+                            seg.IsCut = results.Last().IsCut;
+                        }
+                        else if (i + 1 < segments.Count)
+                        {
+                            seg.Speed = segments[i + 1].Speed;
+                            seg.IsCut = segments[i + 1].IsCut;
+                        }
+                        else
+                        {
+                            seg.Speed = r_options.DefaultSpeedControlled;
+                            seg.IsCut = false;
+                        }
                     }
                     else
                     {
@@ -364,38 +398,71 @@ namespace FunscriptToolbox.RetimerVerbs
             SpeedSegment activeSegment = null;
             double frameDuration = 1.0 / videoFramerate;
 
+            // Local function to align a TimeSpan to the nearest exact frame boundary
+            TimeSpan SnapToFrame(TimeSpan time)
+            {
+                double frames = Math.Round(time.TotalSeconds / frameDuration);
+                return TimeSpan.FromSeconds(frames * frameDuration);
+            }
+
             foreach (var raw in rawSegments)
             {
                 if (raw.Duration.TotalSeconds <= 0) continue;
 
+                // Handle CUT blocks: break the current chain and discard the segment.
+                if (raw.IsCut)
+                {
+                    if (activeSegment != null)
+                    {
+                        activeSegment.EndTime = SnapToFrame(activeSegment.EndTime);
+                        finalSegments.Add(activeSegment);
+                        activeSegment = null;
+                    }
+                    continue; // Do not add CUT segment to final pipeline
+                }
+
                 if (activeSegment == null)
                 {
-                    activeSegment = new SpeedSegment { StartTime = raw.StartTime, EndTime = raw.EndTime, Speed = raw.Speed };
+                    // Align the new block's start to the exact frame (crucial after a Cut jump)
+                    activeSegment = new SpeedSegment
+                    {
+                        StartTime = SnapToFrame(raw.StartTime),
+                        EndTime = raw.EndTime,
+                        Speed = raw.Speed
+                    };
                 }
-                else if (Math.Abs(activeSegment.Speed - raw.Speed) < 0.001) // Same rule, merge
+                else if (Math.Abs(activeSegment.Speed - raw.Speed) < 0.001)
                 {
+                    // Same rule, merge
                     activeSegment.EndTime = raw.EndTime;
                 }
                 else
                 {
                     // Speed changing! Snap boundary to exact frame to prevent FFmpeg drift
-                    double boundarySecs = activeSegment.EndTime.TotalSeconds;
-                    double frames = Math.Round(boundarySecs / frameDuration);
-                    TimeSpan snappedBoundary = TimeSpan.FromSeconds(frames * frameDuration);
+                    TimeSpan snappedBoundary = SnapToFrame(activeSegment.EndTime);
 
                     activeSegment.EndTime = snappedBoundary;
                     finalSegments.Add(activeSegment);
 
-                    activeSegment = new SpeedSegment { StartTime = snappedBoundary, EndTime = raw.EndTime, Speed = raw.Speed };
+                    activeSegment = new SpeedSegment
+                    {
+                        StartTime = snappedBoundary,
+                        EndTime = raw.EndTime,
+                        Speed = raw.Speed
+                    };
                 }
             }
 
             if (activeSegment != null)
+            {
+                // Optional: you can snap the very last frame of the video too, 
+                // though it's less critical since no segment follows it.
+                activeSegment.EndTime = SnapToFrame(activeSegment.EndTime);
                 finalSegments.Add(activeSegment);
+            }
 
             return finalSegments;
         }
-
         private string GetAudioTempoFilter(double speed)
         {
             if (speed <= 0) return "atempo=1.0";
@@ -419,13 +486,14 @@ namespace FunscriptToolbox.RetimerVerbs
             return string.Join(",", filters);
         }
 
-        // --- Helper Models only used internally for timeline mapping ---
+        // --- Helper Models ---
 
         private class ControlBlock
         {
             public TimeSpan StartTime { get; set; }
             public TimeSpan EndTime { get; set; }
             public double Speed { get; set; }
+            public bool IsCut { get; set; }
             public TimeSpan OriginalDuration { get; set; }
         }
 
@@ -441,6 +509,7 @@ namespace FunscriptToolbox.RetimerVerbs
             public TimeSpan StartTime { get; set; }
             public TimeSpan EndTime { get; set; }
             public double Speed { get; set; }
+            public bool IsCut { get; set; }
             public bool IsControlled { get; set; }
             public TimeSpan Duration => EndTime - StartTime;
         }
