@@ -1,4 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using Newtonsoft.Json;
 using System;
@@ -25,6 +25,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public string MetadataNeeded { get; set; }
         [JsonProperty(Order = 22, Required = Required.Always)]
         public string MetadataProduced { get; set; }
+        [JsonProperty(Order = 23)]
+        public int MaxConcurrency { get; set; } = 5;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
@@ -62,7 +64,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             {
                 var currentIndex = 1;
                 var sourceLanguage = transcription.Language?.ShortName ?? "auto";
-                int maxConcurrency = 5; // The maximum number of requests running at any given time
 
                 // Local helper method to start a background HTTP request task
                 Task<(bool IsSuccess, string Text, string Error)> StartTask(TranscribedItem transcribedItem)
@@ -103,7 +104,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 int missingIndex = 0;
 
                 // 1. Fill the initial pipeline with up to 'maxConcurrency' tasks
-                while (runningTasks.Count < maxConcurrency && missingIndex < missingTranscriptions.Length)
+                while (runningTasks.Count < this.MaxConcurrency && missingIndex < missingTranscriptions.Length)
                 {
                     var item = missingTranscriptions[missingIndex++];
                     runningTasks.Enqueue((item, StartTask(item)));
