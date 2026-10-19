@@ -1,4 +1,4 @@
-﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -73,31 +73,49 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         var fullPcmAudio = context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractorAudio.SourceAudioId && f.IsFinished)?.PcmAudio;
                         getDataFunc = (section, timing, _) =>
                         {
-                            context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
-                            var tempWavFile = Path.GetTempFileName() + ".wav";
-
                             var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
                             var expandEndBy = (gapDuration < extractorAudio.FillGapSmallerThen)
                                 ? TimeSpanExtensions.Max(gapDuration, this.ExpandEnd)
                                 : this.ExpandEnd;
-                            var snippet = fullPcmAudio.ExtractSnippet(
-                                    timing.StartTime - this.ExpandStart,
-                                    timing.EndTime + expandEndBy);
+                            var startTime = timing.StartTime - this.ExpandStart;
+                            var endTime = timing.EndTime + expandEndBy;
+
+                            var (_, filename, startTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(startTime);
+                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}.wav");
+                            if (File.Exists(backupFilePath))
+                            {
+                                var audioBytes = File.ReadAllBytes(backupFilePath);
+                                var duration = fullPcmAudio != null
+                                    ? (TimeSpanExtensions.Min(endTime, fullPcmAudio.EndTime) - TimeSpanExtensions.Max(startTime, TimeSpan.Zero))
+                                    : (endTime - startTime);
+                                return new[]
+                                {
+                                    new AIRequestPartAudio(
+                                        section,
+                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
+                                        audioBytes,
+                                        duration)
+                                };
+                            }
+
+                            context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
+                            var tempWavFile = Path.GetTempFileName() + ".wav";
+                            var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
                             context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
 
-                            var audioBytes = File.ReadAllBytes(tempWavFile);
+                            var audioBytesGenerated = File.ReadAllBytes(tempWavFile);
                             var data = new[]
                             {
                                 new AIRequestPartAudio(
                                     section,
                                     $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                    audioBytes,
+                                    audioBytesGenerated,
                                     snippet.Duration)
                             };
                             File.Delete(tempWavFile);
 
                             if (extractor.KeepTemporaryFiles)
-                                context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav", audioBytes, processStartTime);
+                                File.WriteAllBytes(backupFilePath, audioBytesGenerated);
                             return data;
                         };
                     }
@@ -108,6 +126,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
                             var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
+
+                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
+                            if (File.Exists(backupFilePath))
+                            {
+                                var image = File.ReadAllBytes(backupFilePath);
+                                return new[]
+                                {
+                                    new AIRequestPartImage(
+                                        section,
+                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
+                                        image,
+                                        timing.StartTime)
+                                };
+                            }
+
                             try
                             {
                                 var image = context.FfmpegHelper.TakeScreenshotAsBytes(
@@ -123,15 +156,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 else
                                 {
                                     var data = new[]
-                                            {
-                                            new AIRequestPartImage(
-                                                section,
-                                                $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
-                                                image,
-                                                timing.StartTime)
-                                            };
+                                    {
+                                        new AIRequestPartImage(
+                                            section,
+                                            $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
+                                            image,
+                                            timing.StartTime)
+                                    };
+
                                     if (extractor.KeepTemporaryFiles)
-                                        context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg", image, processStartTime);
+                                        File.WriteAllBytes(backupFilePath, image);
                                     return data;
                                 }
                             }
@@ -162,6 +196,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             {
                                 parts.AddText(AIRequestSection.Training, $"{text}\n");
                                 parts.AddRange(getDataFunc(AIRequestSection.Training, item, null));
+                                parts.AddText(AIRequestSection.Training, "\n---------------------\n");
                                 nbTrainingItems++;
                             }
                         }
