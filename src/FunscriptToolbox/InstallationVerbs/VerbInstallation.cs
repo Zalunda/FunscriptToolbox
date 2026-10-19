@@ -45,12 +45,14 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\Staging", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_Staging_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_override, Encoding.UTF8);
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow-G4", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\AutomaticHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override, Encoding.UTF8);
 
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", prefixExamples + "--FSTB-SubtitleGenerator", ".config", SubtitleGeneratorConfigExample.GetExample(), Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", prefixExamples + "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", prefixExamples + "--FSTB-SubtitleGenerator.Stagging", ".override.config", Resources.__FSTB_SubtitleGenerator_Staging_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", prefixExamples + "--FSTB-SubtitleGenerator.ManualHQWorkflow", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_override, Encoding.UTF8);
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025", prefixExamples + "--FSTB-SubtitleGenerator.ManualHQWorkflow-G4", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", prefixExamples + "--FSTB-SubtitleGenerator.AutomaticHQWorkflow", ".override.config", Resources.__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override, Encoding.UTF8);
 
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat, UTF8NoBOM);

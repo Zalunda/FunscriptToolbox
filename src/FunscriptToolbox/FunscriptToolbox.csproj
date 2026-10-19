@@ -338,6 +338,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.AutomaticHQWorkflow.override.txt" />
+    <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow-G4.override.txt" />
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow.override.txt" />
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.override.txt" />
     <Content Include="InstallationFiles\--FSTB-SubtitleGenerator.Staging.override.txt" />

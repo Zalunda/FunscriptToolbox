@@ -340,13 +340,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         WaitForFinished = true
                     },
-                    new TranscriberResetImportedMetadatas()
-                    {
-                        TranscriptionId = "metadatas-review",
-                        SourceFileSuffix = ".metadatas.srt",
-                        TranscriptionIdToBeUpdated = "manual-input",
-                        AddToFirstSubtitle = "[USER-REVISION-NEEDED] <= remove this line when revision is done"
-                    },
 
                     //---------------------------------------------------
                     // Use timings, manual-input, voice-texts and AI-generated metadatas to the translations and final arbitration

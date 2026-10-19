@@ -63,6 +63,10 @@ namespace FunscriptToolbox.Properties {
         /// <summary>
         ///   Looks up a localized string similar to {
         ///  &quot;Workers&quot;: [
+        ///    {
+        ///      &quot;Id&quot;: &quot;used-config&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
         ///    // -----------------------------
         ///    // Audio extraction
         ///    {
@@ -82,9 +86,7 @@ namespace FunscriptToolbox.Properties {
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
-        ///      &quot;MaxChunkDuration&quot;: &quot;00:05:00&quot;,
-        ///      &quot;ExportMetadataSrt&quot;: false,
-        ///      &quot;TranscriptionToI [rest of string was truncated]&quot;;.
+        ///      &quot;MaxChunkDuration&quot;: &quot;00:0 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override {
             get {
@@ -95,6 +97,10 @@ namespace FunscriptToolbox.Properties {
         /// <summary>
         ///   Looks up a localized string similar to {
         ///  &quot;Workers&quot;: [
+        ///    {
+        ///      &quot;Id&quot;: &quot;used-config&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
         ///    // -----------------------------
         ///    // Audio extraction
         ///    {
@@ -114,9 +120,41 @@ namespace FunscriptToolbox.Properties {
         ///    {
         ///      &quot;Id&quot;: &quot;full-ai&quot;,
         ///      &quot;Enabled&quot;: true,
-        ///      &quot;MaxChunkDuration&quot;: &quot;00:05:00&quot;,
-        ///      &quot;ExportMetadataSrt&quot;: false,
-        ///      &quot;TranscriptionToI [rest of string was truncated]&quot;;.
+        ///      &quot;MaxChunkDuration&quot;: &quot;00:0 [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override {
+            get {
+                return ResourceManager.GetString("__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;Workers&quot;: [
+        ///    {
+        ///      &quot;Id&quot;: &quot;used-config&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    // -----------------------------
+        ///    // Audio extraction
+        ///    {
+        ///      &quot;Id&quot;: &quot;audio&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    {
+        ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    {
+        ///      &quot;Id&quot;: &quot;asig&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
+        ///    // -----------------------------
+        ///    // Creating initial manual-input source 
+        ///    {
+        ///      &quot;Id&quot;: &quot;full-ai&quot;,
+        ///      &quot;Enabled&quot;: true,
+        ///      &quot;MaxChunkDuration&quot;: &quot;00:0 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_override {
             get {
@@ -147,6 +185,10 @@ namespace FunscriptToolbox.Properties {
         /// <summary>
         ///   Looks up a localized string similar to {
         ///  &quot;Workers&quot;: [
+        ///    {
+        ///      &quot;Id&quot;: &quot;used-config&quot;,
+        ///      &quot;Enabled&quot;: true
+        ///    },
         ///    // -----------------------------
         ///    // Audio extraction
         ///    {
@@ -164,9 +206,7 @@ namespace FunscriptToolbox.Properties {
         ///    // -----------------------------
         ///    // Transcription with Whisper with a basic google translation
         ///    {
-        ///      &quot;TranscriptionId&quot;: &quot;full-whisper&quot;,
-        ///      &quot;Enabled&quot;: true,
-        ///      &quot;ExportMetadataS [rest of string was truncated]&quot;;.
+        ///      &quot;TranscriptionId [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_Staging_override {
             get {
@@ -380,7 +420,7 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2025-11-25)
+        ///   Looks up a localized string similar to # TRANSCRIPTION ARBITRATION AND REFINEMENT MANDATE (version 2026-02-07)
         ///
         ///### Role
         ///You are a Transcription &amp; Acoustic Nuance Analyst. Your mission is to produce a hyper-accurate transcription (`VoiceText`) augmented with a critical contextual analysis (`TranslationAnalysis`). You serve as the eyes and ears for a human translator.
@@ -416,8 +456,7 @@ namespace FunscriptToolbox.Properties {
         ///### Role
         ///You are an advanced audio intelligence engine specializing in Japanese transcription. Your function is to process a sequential stream of data packets, each containing metadata and a corresponding audio chunk. You will deconstruct *what* is said with the highest possible fidelity. You are an expert in the vocabulary and cadence of Japanese adult media, understanding that this includes both explicit scenes and mundane, plot-building dialogue.
         ///
-        ///### Mission
-        /// [rest of string was truncated]&quot;;.
+        ///### Miss [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberAudioSingleVADSystemPrompt {
             get {
@@ -444,7 +483,7 @@ namespace FunscriptToolbox.Properties {
         ///### Role
         ///You are a specialized Optical Intelligence Operative. Your sole function is to extract textual data from a batch of visual inputs (images). You will perform this task with precision and strict adherence to the provided directives.
         ///### Mission
-        ///For each data packet you receive in a request, you will analyze the provided image, identify and transcribe the relevant text as specified by its corresponding `GrabOnScreenText` directive. You will  [rest of string was truncated]&quot;;.
+        ///For each data packet you receive in a request, you will analyze the provided image, identify and transcribe the relevant text as specified by its corresponding `GrabOnScreenText` directive. You w [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranscriberOnScreenTextSystemPrompt {
             get {
@@ -461,7 +500,7 @@ namespace FunscriptToolbox.Properties {
         ///
         ///### **Mission**
         ///
-        ///Your mission is to deliver the highest emotional and narrative impact possible by re-interpreting dialogue *within* a rhythmically mirrored structu [rest of string was truncated]&quot;;.
+        ///Your mission is to deliver the highest emotional and narrative impact possible by re-interpreting dialogue *within* a rhythmically mirrored [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranslatorMaverickUserPrompt {
             get {
@@ -478,7 +517,7 @@ namespace FunscriptToolbox.Properties {
         ///
         ///### **Mission**
         ///
-        ///Your mission is to receive a JSON data stream containing transcribed dialogue and a rich set of contextual metadata. You will process each node, synthesizing all available information to translate the origi [rest of string was truncated]&quot;;.
+        ///Your mission is to receive a JSON data stream containing transcribed dialogue and a rich set of contextual metadata. You will process each node, synthesizing all available information to translate t [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TranslatorSystemPrompt {
             get {
@@ -488,25 +527,21 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to {
-        ///  &quot;safetySettings&quot;: [
-        ///    {
-        ///      &quot;category&quot;: &quot;HARM_CATEGORY_SEXUALLY_EXPLICIT&quot;,
-        ///      &quot;threshold&quot;: &quot;OFF&quot;
-        ///    }
-        ///  ],
-        ///  &quot;generation_config&quot;: {
-        ///    &quot;mediaResolution&quot;: &quot;MEDIA_RESOLUTION_LOW&quot;
-        ///  },
         ///  &quot;contents&quot;: {
         ///    &quot;role&quot;: &quot;user&quot;,
         ///    &quot;parts&quot;: [
         ///      {
-        ///        &quot;text&quot;: &quot;Is this image prohibated?  Please respond with a simple \&quot;Yes\&quot; or \&quot;No\&quot;. I don&apos;t need an image description.&quot;
+        ///        &quot;text&quot;: &quot;Is this image prohibited?  Please respond with a simple \&quot;Yes\&quot; or \&quot;No\&quot;. I don&apos;t need an image description.&quot;
         ///      },
         ///      {
         ///        &quot;inlineData&quot;: {
         ///          &quot;mimeType&quot;: &quot;image/jpeg&quot;,
-        ///          &quot;data&quot;: &quot;[IMAGE_BASE64_D [rest of string was truncated]&quot;;.
+        ///          &quot;data&quot;: &quot;[IMAGE_BASE64_DATA]&quot;
+        ///        }
+        ///      }
+        ///    ]
+        ///  }
+        ///}.
         /// </summary>
         internal static string ValidateImageRequest {
             get {

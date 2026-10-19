@@ -21,7 +21,7 @@
       "SupportImage": true,
 
       // Note: "service_tier = flex" => 50% of the regular price, from 1.25 / 10
-      "EstimatedCostPerInputMillionTokens": 0.625, 
+      "EstimatedCostPerInputMillionTokens": 0.625,
       "EstimatedCostPerOutputMillionTokens": 5
     },
     {
@@ -39,7 +39,7 @@
       "SupportImage": true,
 
       // For Poe, it's hard to compute. I just put the number from the vendor.
-      "EstimatedCostPerInputMillionTokens": 1.25, 
+      "EstimatedCostPerInputMillionTokens": 1.25,
       "EstimatedCostPerOutputMillionTokens": 10
     },
     {
@@ -171,7 +171,7 @@
       "Model": "gemini-3-flash",
       "APIKeyName": "APIKeyPoe",
       "RequestBodyExtension": {
-        "extra_body": {          
+        "extra_body": {
           "thinking_level": "low"
         }
       },
@@ -185,7 +185,7 @@
       "$type": "AIEngineCollection",
       "$id": "AIEngineGemini3Flash",
       "Engines": [
-        // [OPTION] Change the order if you want to use your Poe points first. 
+        // [OPTION] Change the order if you want to use your Poe points first.
         { "$ref": "AIEngineGemini3FlashOnGoogle" },
         { "$ref": "AIEngineGemini3FlashOnPoe" }
       ],
@@ -245,7 +245,7 @@
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": true,
       "SupportImage": true,
-      
+
       "RequestBodyExtension": {
         "extra_body": {
           "thinking_level": "high"
@@ -267,6 +267,76 @@
       "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
+    {
+      "$type": "AIEngineAPIGoogle",
+      "$id": "AIEngineGemini4OnGoogle",
+      "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+      "Model": "gemini-4-argon",
+      "APIKeyName": "APIKeyGemini",
+      // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
+      "UseBatchMode": true,
+      "UseBatchModeSaving": 0.50,
+      "RequestBodyExtension": {
+        "safetySettings": [
+          {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "OFF"
+          },
+          {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "OFF"
+          }
+        ],
+        "generation_config": {
+          "thinkingConfig": {
+            // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
+            "includeThoughts": true
+          },
+          // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
+          // [OPTION] Change to MEDIUM/HIGH if you don't mind the higher cost. LOW seem to be a good enough job.
+          "mediaResolution": "MEDIA_RESOLUTION_MEDIUM"
+        }
+      },
+      "SupportAudio": true,
+      "SupportImage": true,
+
+      "EstimatedCostPerInputMillionTokens": 2,
+      "EstimatedCostPerOutputMillionTokens": 10,
+      "PauseBeforeSendingRequest": false,
+	  "PauseBeforeSavingResponse": false,
+    },
+    {
+      "$type": "AIEngineAPIPoe",
+      "$id": "AIEngineGemini4OnPoe",
+      "BaseAddress": "https://api.poe.com/v1",
+      "Model": "gemini-4-argon",
+      "APIKeyName": "APIKeyPoe",
+      "SupportAudio": true,
+      "SupportImage": true,
+
+      // For Poe, it's hard to compute. I just put the number from the vendor.
+      "EstimatedCostPerInputMillionTokens": 2,
+      "EstimatedCostPerOutputMillionTokens": 10,
+    },
+    {
+      "$type": "AIEngineCollection",
+      "$id": "AIEngineGemini4",
+      "Engines": [
+        // [OPTION] Change the order if you want to use your Poe points first.
+        { "$ref": "AIEngineGemini4OnGoogle" },
+        { "$ref": "AIEngineGemini4OnPoe" }
+      ],
+      "SkipOnQuotasUsed": true,
+      "SkipOnServiceUnavailable": false
+    },
 
     // AIEngines for Anthropic (Claude Opus) ----------------------------------------------------------
     {
@@ -278,7 +348,7 @@
       "RequestBodyExtension": {
 	    // Note: max_tokens is required for Anthropic API
 	    "max_tokens": 8192,
-		
+
 	    // [OPTION] Remove '//' for the following lines to activate thinking mode.
 		// "thinking": {
 		//  "type": "enabled",
@@ -399,7 +469,7 @@ _______________________________________="
     {
       "TranscriptionId": "full-ai",
       "Engine": {
-        // As of 2026/12, it seem like only gemini-2.5-pro and gemini-3-flash on Google API return good timings. 
+        // As of 2026/12, it seem like only gemini-2.5-pro and gemini-3-flash on Google API return good timings.
         // When using Poe or Gemini3.0 (on google or poe), the audio in 'shortened' (removing silence) before
         // sending it to the AI, so the AI response return timings based on the shortend audio.
         "$ref": "AIEngineGemini2.5ProOnGoogle"
@@ -414,7 +484,7 @@ _______________________________________="
     {
       "TranscriptionId": "singlevad-ai-refined",
       "Engine": {
-        // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images. 
+        // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images.
         "$ref": "AIEngineGemini3Pro"
       }
     },
