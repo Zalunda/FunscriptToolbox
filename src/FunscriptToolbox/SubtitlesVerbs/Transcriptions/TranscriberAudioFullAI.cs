@@ -1,6 +1,7 @@
-﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -191,7 +192,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             public string StartTime { get; set; }
             public string EndTime { get; set; }
-            public string VoiceText { get; set; }
         }
 
         private void HandleResponse(
@@ -205,6 +205,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Costs.Add(response.Cost);
             transcription.Costs.AddRange(response.AdditionalCosts);
 
+            static string GetSegmentInformation(JToken segment)
+            {
+                var lineInfo = (IJsonLineInfo)segment;
+                return (lineInfo != null && lineInfo.HasLineInfo())
+                    ? $"Error in segment starting at line {lineInfo.LineNumber}, position {lineInfo.LinePosition}."
+                    : $"Error in segment at unknown location.";
+            }
+
             string textToParse = response.AssistantMessage;
             while (true)
             {
@@ -212,23 +220,74 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 try
                 {
                     fixedJson = AIEngineRunner.TryToFixReceivedJson(response.Request, textToParse, tryToFixEnd: false);
-                    var nodes = JsonConvert.DeserializeObject<TranscriptionNode[]>(fixedJson);
+                    JArray responseArray;
+                    using (var stringReader = new StringReader(fixedJson))
+                    using (var jsonReader = new JsonTextReader(stringReader))
+                    {
+                        responseArray = JArray.Load(jsonReader);
+                    }
 
-                    if (nodes == null) throw new Exception("Parsed JSON resulted in null.");
+                    if (responseArray == null) throw new Exception("Parsed JSON resulted in null.");
 
                     var pendingItems = new List<TranscribedItem>();
-                    foreach (var node in nodes)
+                    foreach (var segment in responseArray)
                     {
+                        if (!(segment is JObject segmentObj))
+                        {
+                            throw new Exception($"Expected JSON object in array. {GetSegmentInformation(segment)}");
+                        }
+
+                        var node = segmentObj.ToObject<TranscriptionNode>();
+
+                        if (string.IsNullOrWhiteSpace(node.StartTime))
+                        {
+                            throw new Exception($"StartTime is missing or empty. {GetSegmentInformation(segment)}");
+                        }
+                        if (string.IsNullOrWhiteSpace(node.EndTime))
+                        {
+                            throw new Exception($"EndTime is missing or empty. {GetSegmentInformation(segment)}");
+                        }
+
                         var nodeStartTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.StartTime);
                         var nodeEndTime = TimeSpanExtensions.FlexibleTimeSpanParse(node.EndTime);
                         var startTime = chunkStartTime + nodeStartTime;
                         var endTime = chunkStartTime + nodeEndTime;
-                        var voiceText = node.VoiceText ?? string.Empty;
 
                         if (endTime > chunkEndTime + TimeSpan.FromSeconds(1))
                         {
-                            throw new Exception($"Received node with endtime {nodeEndTime} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(endTime)}] when audio chunk end is [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunkEndTime)}].");
+                            throw new Exception($"Received node with endtime {nodeEndTime} [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(endTime)}] when audio chunk end is [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunkEndTime)}]. {GetSegmentInformation(segment)}");
                         }
+
+                        // Everything left is metadata
+                        var extraMetadatas = new MetadataCollection();
+                        foreach (var prop in segmentObj.Properties())
+                        {
+                            if (prop.Value != null
+                              && !string.Equals(prop.Name, nameof(TranscriptionNode.StartTime), StringComparison.OrdinalIgnoreCase)
+                              && !string.Equals(prop.Name, nameof(TranscriptionNode.EndTime), StringComparison.OrdinalIgnoreCase))
+                            {
+                                extraMetadatas[prop.Name] = prop.Value.ToString();
+                            }
+                        }
+
+                        if (!extraMetadatas.ContainsKey(this.MetadataProduced))
+                        {
+                            if (extraMetadatas.TryGetValue(this.MetadataProduced, out var vt))
+                            {
+                                extraMetadatas[this.MetadataProduced] = vt;
+                            }
+                            else
+                            {
+                                throw new Exception($"Required metadata '{this.MetadataProduced}' is not present. {GetSegmentInformation(segment)}");
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(prefix))
+                        {
+                            extraMetadatas[this.MetadataProduced] = prefix + extraMetadatas[this.MetadataProduced];
+                        }
+
+                        var voiceText = extraMetadatas.Get(this.MetadataProduced) ?? string.Empty;
 
                         var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(p => p.Regex.IsMatch(voiceText));
                         if (pattern == null)
@@ -236,7 +295,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             pendingItems.Add(new TranscribedItem(
                                 startTime,
                                 endTime,
-                                MetadataCollection.CreateSimple(this.MetadataProduced, prefix + voiceText)));
+                                extraMetadatas));
                         }
                         else
                         {
