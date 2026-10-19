@@ -445,10 +445,7 @@
     },
     {
       "$id": "TranscriberAudioSingleVADRefinerUserPrompt",
-      "TextAfter": "
-=_______________________________________
-The usual rule is to provide 2 translation options but, for this one, I want 5 translation options.
-_______________________________________="
+      "TextAfter": ""
     },
     {
       "$id": "TranslatorMaverickUserPrompt",

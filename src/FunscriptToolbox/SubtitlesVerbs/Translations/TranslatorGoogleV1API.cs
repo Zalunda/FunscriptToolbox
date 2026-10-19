@@ -26,7 +26,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         [JsonProperty(Order = 22, Required = Required.Always)]
         public string MetadataProduced { get; set; }
         [JsonProperty(Order = 23)]
-        public int MaxConcurrency { get; set; } = 5;
+        public int MaxConcurrency { get; set; } = 2;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
