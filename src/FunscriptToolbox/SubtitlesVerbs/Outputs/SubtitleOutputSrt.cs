@@ -24,7 +24,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         [JsonProperty(Order = 15)]
         public MetadataAggregator Metadatas { get; set; }
+
         [JsonProperty(Order = 16)]
+        public bool UseBySourceMetadatas { get; set; } = true;
+
+        [JsonProperty(Order = 17)]
         public string TextSources { get; set; }
         public string WorkerId // For backward compatibility
         {
@@ -177,22 +181,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 }
 
                 // 2. Append Metadatas from all sources in the aggregator
-                if (metadataSources.Length > 0)
+                if (UseBySourceMetadatas)
                 {
-                    sb.AppendLine("------- Metadatas -------");
-
-                    foreach (var metadataSource in metadataSources)
+                    if (metadataSources.Length > 0)
                     {
-                        if (metadataSource.TimingsWithOverlapItems.TryGetValue(timing, out var overlaps))
+                        sb.AppendLine("------- Metadatas -------");
+
+                        foreach (var metadataSource in metadataSources)
                         {
-                            foreach (var overlap in overlaps)
+                            if (metadataSource.TimingsWithOverlapItems.TryGetValue(timing, out var overlaps))
                             {
-                                foreach (var metadata in overlap.Item.Metadata.OrderBy(kvp => kvp.Key))
+                                foreach (var overlap in overlaps)
                                 {
-                                    sb.AppendLine($"[{metadataSource.Container.Id}] {{{metadata.Key}:{metadata.Value}}}");
+                                    foreach (var metadata in overlap.Item.Metadata.OrderBy(kvp => kvp.Key))
+                                    {
+                                        sb.AppendLine($"[{metadataSource.Container.Id}] {{{metadata.Key}:{metadata.Value}}}");
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+                else
+                {
+                    foreach (var metadata in timing.Metadata)
+                    {
+                        sb.AppendLine($"{{{metadata.Key}:{metadata.Value}}}");
                     }
                 }
 
