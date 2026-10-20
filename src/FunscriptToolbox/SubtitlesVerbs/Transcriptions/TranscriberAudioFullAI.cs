@@ -68,7 +68,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     new BinaryDataExtractorExtended {
                         Extractor = new BinaryDataExtractorAudio() { OutputFieldName = "Audio" },
                         TrainingContentLists = null,
-                        GetData = (section, timing, _) =>
+                        GetData = (section, timing, _, __) =>
                         {
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                             var tempWavFile = Path.GetTempFileName() + ".wav";
@@ -131,22 +131,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     customInfos.Duration = $"{chunkTiming.Duration:hh\\:mm\\:ss\\.fff}";
                     response.Cost.CustomInfos = customInfos;
                 }
-                HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime);
-                context.WriteInfo($"Current number of subtitles: {transcription.Items.Count}");
-                nextStartTime = transcription.Items.LastOrDefault()?.EndTime ?? chunkStartTime;
+                var itemCountBeforeChunk = transcription.Items.Count;
+                HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime); 
 
-                var startOfBufferZone = chunkEndTime - TimeSpan.FromSeconds(10);
-                if (nextStartTime < startOfBufferZone)
+                // Items produced by THIS chunk only (don't rely on list order or on previous chunks' items)
+                var chunkItems = transcription.Items.Skip(itemCountBeforeChunk).ToList();
+                context.WriteInfo($"Current number of subtitles: {transcription.Items.Count}");
+                var isLastChunk = chunkEndTime >= fullPcmAudio.EndTime;
+                if (isLastChunk)
                 {
-                    nextStartTime = startOfBufferZone;
+                    nextStartTime = fullPcmAudio.EndTime;
                 }
                 else
                 {
-                    transcription.Items.Remove(transcription.Items.Last());
-                    var lastEndTime = transcription.Items.LastOrDefault()?.EndTime ?? startOfBufferZone;
-                    nextStartTime = lastEndTime > startOfBufferZone ? lastEndTime : startOfBufferZone;
-                }
+                    var startOfBufferZone = chunkEndTime - TimeSpan.FromSeconds(10);
 
+                    // Only items that START inside the buffer zone are suspect (possibly cut at the chunk end).
+                    // Anything starting before it is a complete subtitle (subtitles are assumed to be < 10s).
+                    var itemsToRedo = chunkItems.Where(i => i.StartTime >= startOfBufferZone).ToList();
+                    var itemsToKeep = chunkItems.Where(i => i.StartTime < startOfBufferZone).ToList();
+                    transcription.Items.RemoveAll(i => itemsToRedo.Contains(i));
+
+                    // 1) Never before the buffer zone (redo <= 10s) and never inside the audio of a kept subtitle
+                    var keptEnd = itemsToKeep.Count > 0 ? itemsToKeep.Max(i => i.EndTime) : chunkStartTime;
+                    nextStartTime = TimeSpanExtensions.Max(startOfBufferZone, keptEnd);
+                    // 2) Never skip the beginning of a subtitle we just removed (only matters with overlapping items)
+                    if (itemsToRedo.Count > 0)
+                    {
+                        nextStartTime = TimeSpanExtensions.Min(nextStartTime, itemsToRedo.Min(i => i.StartTime));
+                    }
+                    context.WriteInfo($"Buffer zone: kept {itemsToKeep.Count}, will redo {itemsToRedo.Count} item(s), next chunk starts at {nextStartTime:hh\\:mm\\:ss\\.fff}.");
+                }
                 jobState.NextStartTime = nextStartTime;
                 context.WIP.Save();
             }
@@ -184,7 +199,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 systemParts,
                 userParts,
                 this.MetadataProduced,
-                @$"{timing.StartTime:hh\:mm\:ss} to {timing.EndTime:hh\:mm\:ss} out of {context.WIP.TimelineMap.Duration:hh\:mm\:ss}",
+                @$"{timing.StartTime:hh\\:mm\\:ss\\.fff} to {timing.EndTime:hh\\:mm\\:ss\\.fff} out of {context.WIP.TimelineMap.Duration:hh\\:mm\\:ss\\.fff}",
                 timing.StartTime);
         }
 
