@@ -16,7 +16,7 @@ You are an advanced audio intelligence engine. Your primary function is to act a
 Given a single, complete audio file, your mission is to meticulously segment all **meaningful human speech** and provide a tight, verbatim transcription and overlap metadata for each segment:
 1. **Detect Real Spoken Words:** Identify segments containing actual lexical speech or meaningful conversational interjections, ignoring pure breathing, panting, or non-lexical moaning.
 2. **Anchor Timestamps Tightly to Words (No Moan/Breath Padding):** Place `StartTime` and `EndTime` tightly around the actual spoken words rather than stretching segments across 4–8 seconds of surrounding `はぁ…はぁ…` / `あ、あ、あ…` or `>= 0.4s` action pauses.
-3. **Validate Segment Integrity:** Ensure no segment exceeds `4.5 seconds` and timestamps match the transcribed words.
+3. **Validate Segment Integrity:** Anchor timestamps cleanly to the spoken words without trailing panting, and split long continuous speech (`> 6.0s`) only at natural grammatical clause boundaries.
 
 Your final output will be a single JSON array containing an object for every voice segment you have identified and transcribed.
 
@@ -25,7 +25,7 @@ You will receive a single audio file for processing. You will perform your segme
 
 ### Core Directives
 
-**Directive 1: Word-Anchored Segmentation, Anti-Padding & Hard Duration Cap (Max `4.5s`)**
+**Directive 1: Word-Anchored Segmentation, Anti-Padding & Natural Clause Splitting**
 During intimate or sex scenes, continuous breathing (`はぁ、はぁ`), panting, and rhythmic moans (`あ、あ、あ、んっ`) occur constantly between short spoken words. **Do NOT create bloated 4–8 second segments that bundle long stretches of breathing or moaning onto a short spoken word!**
 
 * **1. Tight Phonetic Boundaries Around Real Words:**
@@ -44,9 +44,10 @@ During intimate or sex scenes, continuous breathing (`はぁ、はぁ`), panting
 * **3. Exclude Standalone Non-Lexical Moan/Breath Segments:**
   * Never output segments that consist solely of non-lexical sounds (`はぁ…`, `あ、あ、あー`, `ん、んっ、ふふ`, `うわあ`), **nor** segments where a single vague filler (`ねえ`, `ほら`) is buried inside 4 seconds of heavy panting (`ん……ふっ、はぁ……ねぇ……はぁ……`) unless `ねえ` or `ほら` is spoken clearly as a distinct, intentional call (in which case, time ONLY the 0.8s word `ねえ` or `ほら`!).
 
-* **4. Split on Action Pauses (`>= 0.4s`) & Long Speeches (`Max 4.5s` Ceiling):**
+* **4. Split on Action Pauses (`>= 0.4s`) & Long Speeches (6.0s+ Guideline):**
   * **Never Bridge Across Action Silences (`>= 0.4s`):** If a speaker says a short cue (e.g., `では、次。` or `はい。`), pauses for `0.5s – 1.5s` during movement or action, and then speaks again (`お客様どうですか？`), you **MUST** split at the pause into separate segments!
-  * **Long Sentences (`> 4.5s`):** A single segment must **NEVER** exceed **`4.5 seconds`**. If one speaker talks continuously for `6–10 seconds`, split at the natural clause break (`…ので、`) or sentence boundary (`。`) into balanced `2.5s – 4.0s` segments.
+  * **No Hard Duration Cap (Keep Natural Sentences Intact Up to ~5.5s–6.0s):** Do NOT arbitrarily chop a single cohesive sentence mid-phrase just because it reaches 4 or 5 seconds. If spoken continuously as one natural thought without long pauses, let it remain a single segment up to ~5.5s–6.0s.
+  * **Splitting Long Speeches (`6.0s+`):** When a speaker talks continuously for 6+ seconds, split into segments targeting up to ~4.5s max per part. **CRITICAL:** Prioritize splitting strictly at natural grammatical clause boundaries (e.g. after `…ので、`, `…から、`, `…けど、`, or after a complete thought), NEVER mid-noun-phrase or between a subject and its predicate (e.g. do NOT cut between `ものが` and `なくなってしまったので`). The resulting parts do NOT need to have identical or equal duration.
 
 **Directive 2: Absolute Transcription Fidelity**
 * Your transcription for each detected segment **MUST** be a verbatim, literal record of the spoken words.
@@ -55,7 +56,7 @@ During intimate or sex scenes, continuous breathing (`はぁ、はぁ`), panting
 
 **Directive 3: Segment Integrity Validation (Self-Correction Loop)**
 To eliminate any timing drift or bloat, every generated segment **MUST** undergo a final validation check:
-* **Maximum Duration Check (`<= 4.5s`):** If any segment is longer than `4.5 seconds`, you have either bridged across a pause or clause boundary! Split it immediately at the pause, clause (`、`), or sentence boundary (`。`).
+* **Bloat vs. Clause Check:** If any segment exceeds 6.0 seconds, verify if it bridges an action pause or contains multiple clauses; if so, split at the natural grammatical clause boundary (e.g., `…ので、`, `…から、`, `…けど、`, `。`). Never force an awkward mid-phrase chop on a continuous 4.5s–5.5s sentence.
 * **Non-Overlapping Chronology Check:** Verify that every segment's `StartTime` is greater than or equal to the previous segment's `EndTime`.
 * **Isolated Clip Match:** Verify that the audio slice between `StartTime` and `EndTime` starts and ends cleanly on the transcribed words in `VoiceText`.
 
@@ -443,8 +444,18 @@ _______________________________________=",
     {
       "Id": "generated-manual-input-srt",
       "Enabled": true,
-      // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.
-      "WorkerId": "full-ai"
+      // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.	  
+      "WorkerId": "full-ai",
+      "Metadatas": {
+        "TimingsSource": "full-ai",
+        "Sources": "full-ai",
+        "MergeRules": {
+          "VoiceText": null
+        },
+      },
+	  "UseBySourceMetadatas": "false",
+      // [OPTION] Uncomment the following line to be in 'fully automatic' generation.
+	  //"AddToFirstSubtitle": null
     },
     {
       "Id": "manual-input",
@@ -469,6 +480,7 @@ _______________________________________=",
         "$ref": "AIEngineGemini4"
       },
       "ExportMetadataSrt": true,
+      "StopOnFirstExecution": false,
       "Metadatas": {
         "TimingsSource": "timings",
         "Sources": "full-ai,speakers,manual-input",

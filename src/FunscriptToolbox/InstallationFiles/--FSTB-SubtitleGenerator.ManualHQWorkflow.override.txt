@@ -87,6 +87,7 @@
       // [OPTION] Disable if you want to reduce the API cost.
       "Enabled": true,
       "ExportMetadataSrt": false,
+      "StopOnFirstExecution": false,
       "Options": {
         "BinaryDataExtractors": [
           {

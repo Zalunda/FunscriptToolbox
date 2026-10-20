@@ -1,7 +1,7 @@
 ﻿{
   "SharedObjects": [
     {
-      "Id": "TranscriberAudioFullSystemPromptForG4",
+      "$id": "TranscriberAudioFullSystemPromptForG4",
       "TextAfter": "
 =_______________________________________
 
@@ -64,7 +64,7 @@ When multiple speakers talk in a scene, keep timestamps strictly sequential (`En
 _______________________________________=",
     },
     {
-      "Id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
+      "$id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
       "TextAfter": "
 =_______________________________________
 
