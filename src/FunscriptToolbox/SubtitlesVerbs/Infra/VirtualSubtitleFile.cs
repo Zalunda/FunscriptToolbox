@@ -105,7 +105,7 @@ public class VirtualSubtitleFile : SubtitleFile
     {
         var firstSubtitleTime = file.Subtitles.FirstOrDefault()?.StartTime ?? TimeSpan.Zero;
         var lastSubtitleTime = file.Subtitles.LastOrDefault()?.EndTime ?? TimeSpan.MaxValue;
-        foreach (var injection in subtitlesToInject)
+        foreach (var injection in subtitlesToInject ?? Array.Empty<SubtitleToInject>())
         {
             if (injection.Origin == SubtitleToInjectOrigin.Start)
             {
