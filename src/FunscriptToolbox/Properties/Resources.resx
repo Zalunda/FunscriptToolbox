@@ -178,6 +178,9 @@
   <data name="__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-SubtitleGenerator.AutomaticHQWorkflow.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_MultiSpeakers_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow-G4-MultiSpeakers.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
   <data name="__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-SubtitleGenerator.ManualHQWorkflow-G4.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>

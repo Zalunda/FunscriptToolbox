@@ -96,31 +96,39 @@ namespace FunscriptToolbox.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to {
-        ///  &quot;Workers&quot;: [
+        ///  &quot;SharedObjects&quot;: [
         ///    {
-        ///      &quot;Id&quot;: &quot;used-config&quot;,
-        ///      &quot;Enabled&quot;: true
-        ///    },
-        ///    // -----------------------------
-        ///    // Audio extraction
+        ///      &quot;Id&quot;: &quot;TranscriberAudioFullSystemPromptForG4&quot;,
+        ///      &quot;TextAfter&quot;: &quot;
+        ///=_______________________________________
+        ///
+        ///# MULTI-SPEAKER &amp; OVERLAPPING DIALOGUE ADDENDUM
+        ///
+        ///### Multi-Speaker Segmentation &amp; Anti-Bundling Mandate
+        ///When multiple speakers talk in a scene, keep timestamps strictly sequential (`EndTime` of segment $N \le$ `StartTime` of segment $N+1$) and follow these strict rules to prevent lazy bundling:
+        ///
+        ///1. **Sequential Turn-Taking Where Each Speaker&apos;s Line is &gt; [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_MultiSpeakers_override {
+            get {
+                return ResourceManager.GetString("__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_MultiSpeakers_override", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///  &quot;SharedObjects&quot;: [
         ///    {
-        ///      &quot;Id&quot;: &quot;audio&quot;,
-        ///      &quot;Enabled&quot;: true
-        ///    },
-        ///    {
-        ///      &quot;Id&quot;: &quot;audio-clean-waveform&quot;,
-        ///      &quot;Enabled&quot;: true
-        ///    },
-        ///    {
-        ///      &quot;Id&quot;: &quot;asig&quot;,
-        ///      &quot;Enabled&quot;: true
-        ///    },
-        ///    // -----------------------------
-        ///    // Creating initial manual-input source 
-        ///    {
-        ///      &quot;Id&quot;: &quot;full-ai&quot;,
-        ///      &quot;Enabled&quot;: true,
-        ///      &quot;MaxChunkDuration&quot;: &quot;00:0 [rest of string was truncated]&quot;;.
+        ///      &quot;$id&quot;: &quot;TranscriberAudioFullSystemPromptForG4&quot;,
+        ///      &quot;$type&quot;: &quot;AIPrompt&quot;,
+        ///      &quot;TextBefore&quot;: null,
+        ///      &quot;Text&quot;: &quot;
+        ///=_______________________________________
+        ///
+        ///# TRANSCRIPTION AND VAD MANDATE FOR GEMINI 4 (version 2026-10-20)
+        ///
+        ///### Role
+        ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, word-anchored Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override {
             get {

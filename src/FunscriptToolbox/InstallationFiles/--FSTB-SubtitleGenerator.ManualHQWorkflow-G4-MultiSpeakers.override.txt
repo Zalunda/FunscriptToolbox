@@ -1,0 +1,110 @@
+﻿{
+  "SharedObjects": [
+    {
+      "Id": "TranscriberAudioFullSystemPromptForG4",
+      "TextAfter": "
+=_______________________________________
+
+# MULTI-SPEAKER & OVERLAPPING DIALOGUE ADDENDUM
+
+### Multi-Speaker Segmentation & Anti-Bundling Mandate
+When multiple speakers talk in a scene, keep timestamps strictly sequential (`EndTime` of segment $N \le$ `StartTime` of segment $N+1$) and follow these strict rules to prevent lazy bundling:
+
+1. **Sequential Turn-Taking Where Each Speaker's Line is >= 1.2s (MUST BE SPLIT into Separate Segments!):**
+   * Whenever Speaker A speaks a sentence (`>= 1.2s`) and Speaker B follows with her own sentence (`>= 1.2s`), you **MUST** output them as **separate sequential segments**—even if there is zero silence between them or their voices slightly overlap for `100–300ms` at the handoff!
+   * **Examples of Lazy Bundling (STRICTLY FORBIDDEN):**
+     * *Bad (4.5s bundled):* `- でも、私たちは負けませんよ。\n- ねっ。絶対勝ちます。` $\rightarrow$ **SPLIT** into Segment 1 (`1.8s`: `でも、私たちは負けませんよ。`) and Segment 2 (`2.0s`: `ねっ。絶対勝ちます。`)!
+     * *Bad (4.3s bundled):* `- ほんとにお強いですね。\n- 今回も一発です。` $\rightarrow$ **SPLIT** into Segment 1 (`1.9s`: `ほんとにお強いですね。`) and Segment 2 (`2.0s`: `今回も一発です。`)!
+     * *Bad (8.5s bundled group reaction + solo lines):* Bundling `はい、はい、はい` + `えっ、すごい！強い！` + `絶対勝てると思ったのに。` + `やりましたね。` into one 8.5s block $\rightarrow$ **SPLIT** into 4 separate segments (`1.5s`, `2.5s`, `1.9s`, `1.8s`)!
+     * *Bad (12.3s announcement + group cheer):* Bundling an announcement with other girls cheering `行きましょう！ / イエーイ！` $\rightarrow$ **SPLIT** the announcement into single-speaker segments (`<= 4.5s`), and put the girls' `行きましょう！ / イエーイ！` in its own `2.5s` segment at the end!
+
+2. **Directional Boundary Bleed Attributes (`"Overlap": "BleedLeft" | "BleedRight" | "BleedBoth"`):**
+   * When you slice sequential segments at a handoff point where two speakers' voices touch or overlap, add the `"Overlap"` attribute to indicate **which boundary** of the segment contains voice bleed from an adjacent or background speaker:
+     * **`"Overlap": "BleedLeft"`:** The previous speaker's trailing voice or laugh bleeds into the **start** (first `~100–400ms`) of this segment while the current speaker begins talking.
+     * **`"Overlap": "BleedRight"`:** The next speaker's voice (or a background reaction) bleeds into the **end** of this segment before the current speaker finishes.
+     * **`"Overlap": "BleedBoth"`:** Both the start (left edge) and end (right edge) of this segment have voice bleed from adjacent/background speakers (or voices overlap throughout a simultaneous `"Speaker": "Multiple"` segment).
+     * *(If a segment has clean boundaries with no other speaker bleeding in, omit the `"Overlap"` attribute.)*
+
+3. **When to Use `"Speaker": "Multiple"` (strictly `<= 3.5s` — Simultaneous Outbursts or `< 1.0s` Micro-Turns ONLY):**
+   * Only group two (or three) speakers into a single `"Speaker": "Multiple"` segment (formatted with `- Line 1\n- Line 2`) when:
+     1. **True Simultaneous Outburst (`1.5s – 3.0s`):** Multiple women exclaim **at the exact same time** on top of each other (e.g., all gasping `- えっ？えーっ！すごい！\n- 強い！` over the same `2.5s` window when cards are revealed—and then immediately cut a **new** segment when one girl speaks a full sentence like `こんなの初めて見ましたよ！` or `絶対勝てると思ったのに。`!).
+     2. **Sub-Second Rapid Turn-Taking (`< 1.0s`):** Two ultra-short interjections occur back-to-back where slicing them apart would create an unreadable `< 1.0s` micro-subtitle (e.g., `- ちょっと、どいてよ。\n- よいしょ。` in `2.5s`, or `- 行きましょう！\n- イエーイ！` in `2.2s`).
+   * **HARD DURATION CAP ON `"Speaker": "Multiple"`:** A `"Speaker": "Multiple"` segment must **NEVER exceed `3.5 seconds`**!
+
+4. **EXCLUDE Background Backchannel Hums & Trailing Giggles in Multi-Woman Scenes:**
+   * When one woman is speaking (or right as she finishes her sentence), other women in the background often murmur passive agreement (`うん、うーん`, `あー`, `えー`) or giggle (`ふふっ`, `あはは`). **NEVER** transcribe these background reactions as a second `- ` line and **NEVER** extend `EndTime` to include them!
+     * *Bad (5.2s bloated with background hum):* `- それにしても、さっきの3人に勝つなんて、ほんとすごいですね。\n- うん、うーん。`
+     * *Good (3.8s tight single-speaker line):* `それにしても、さっきの3人に勝つなんて、ほんとすごいですね。` (Cut `EndTime` right after `ね`, ignoring the background `うん、うーん`!)
+
+### Multi-Speaker JSON Output Examples
+```json
+[
+  {
+    "StartTime": "06:02.418",
+    "EndTime": "06:04.250",
+    "VoiceText": "でも、私たちは負けませんよ。",
+    "Overlap": "BleedRight"
+  },
+  {
+    "StartTime": "06:04.280",
+    "EndTime": "06:06.350",
+    "VoiceText": "ねっ。絶対勝ちます。",
+    "Overlap": "BleedLeft"
+  },
+  {
+    "StartTime": "06:32.500",
+    "EndTime": "06:35.200",
+    "VoiceText": "- えっ、すごい！\n- 強い！",
+    "Speaker": "Multiple",
+    "Overlap": "BleedBoth"
+  }
+]
+```
+
+_______________________________________=",
+    },
+    {
+      "Id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
+      "TextAfter": "
+=_______________________________________
+
+# MULTI-SPEAKER DIARIZATION, BLEED DEDUPLICATION & OVERLAP TRANSLATION ADDENDUM
+
+### Multi-Speaker Diarization & Bleed Protocol
+When `OngoingSpeakers` lists more than one character or multiple speakers interact in the scene:
+
+1. **Autonomous Multi-Woman Speaker Identification (`Speaker` Field Rules):**
+   * **If a specific character name IS provided in `Speaker`:** Trust and use that speaker's persona, unless the audio/visual evidence makes it 100% obvious that a different character is speaking (in which case, output `"Speaker": "<CorrectName>"` to fix it).
+   * **If `Speaker` is NOT set AND `OngoingSpeakers` has MORE than one name:**
+     * Act as an expert visual and acoustic speaker diarizer: cross-reference `Screenshot` (whose mouth is open/moving, who is leaning in or performing the action, matching clothing/hair/position against `Character Identification Reference` / `VisualTraining`), `AudioClip` (vocal pitch, timbre, speech style, pronouns, roleplay titles), and conversational turn-taking from preceding nodes (ignoring any `BleedLeft` / `BleedRight` from adjacent speakers) to output `"Speaker": "<IdentifiedName>"`.
+   * **Dual-Speaker Clips (`"Speaker": "Multiple"`):** If two women speak simultaneously or in rapid back-to-back succession inside the clip (and neither line was already transcribed in the preceding node), set `"Speaker": "Multiple"` and format both `VoiceText` and `TranslatedText` with dialogue dashes (`"- Line 1\n- Line 2"`).
+     * *(If `full-ai` mistakenly tagged `"Speaker": "Multiple"` only because of a background `うん、うーん` or `あー` reaction, drop the background hum, transcribe only the main speaker's line, and set `"Speaker"` to that single speaker's name!)*
+   * **Ambiguous Single Speaker with Divergent Translation (`"Speaker": "Ambiguous"`):** If only **one** woman is speaking, it is genuinely impossible to tell with confidence which woman it is from the audio and screenshot, **AND** the English translation or persona nuance would differ depending on who said it, set `"Speaker": "Ambiguous"` and provide the conditional translations in `TranslatedText` using the format:
+     `"[if SpeakerA] ...\n[if SpeakerB] ..."`
+     *(If the English translation would be identical regardless of which girl spoke, simply set `"Speaker"` to your best-guess character name and output a single clean `TranslatedText`—never output identical `[if X]` lines!)*
+
+2. **Directional Overlap Deduplication (`BleedLeft` / `BleedRight` / `BleedBoth`):**
+   * In multi-woman scenes where speakers talk over one another, timing cuts between sequential nodes are approximate and `AudioClip` will frequently contain **voice bleed** from adjacent or background speakers:
+     1. **`BleedLeft` & Preceding-Node Deduplication (Never Transcribe the Same Line Twice):** Always check the immediately preceding node's `VoiceText` in context (especially when `Overlap` is `"BleedLeft"` or `"BleedBoth"`). If a voice at the start of the current `AudioClip` is the tail or continuation of the line already transcribed in the preceding node, **ignore that voice completely** and transcribe only the **new** speaker's utterance!
+     2. **`BleedRight` & Background Backchannel Exclusion:** When `Overlap` is `"BleedRight"` or `"BleedBoth"`, or when another girl murmurs passive agreement (`うん、うーん`, `あー`, `えー`) or giggles in the background at the end of the clip, **ignore the trailing bleed/backchannel** and transcribe only the main speaker's sentence.
+     3. **Target Speaker Isolation:** When a specific `Speaker` name is set on the node (e.g., `"Speaker": "Jin"`), focus your ears on that specific character's voice/pitch and ignore overlapping background chatter from other girls.
+
+3. **Multi-Speaker Translation Formatting:**
+   * If `Speaker` is `"Multiple"` (or `"overlap"`), format `TranslatedText` with dialogue dashes separated by a newline (`"- Line 1\n- Line 2"`).
+   * Address Vector nuance: When speaking to another girl about the POV-man, use `Vector: To Girl/Self (Use 'He/His/It').`. When speaking on behalf of multiple girls to the man, use `Vector: To POV (Use 'We'/'You').`.
+
+### Multi-Speaker Example Node
+```json
+{
+  "StartTime": "00:14:02.160",
+  "VoiceText": "- ちょっと、どいてよ。\n- よいしょ。",
+  "Speaker": "Multiple",
+  "TranslationAnalysis": "Vector: To Girl/Self (Use 'You'/'I'). State: Playful / Competitive (Tier 1). Cadence: Dual-speaker rapid turn-taking.\nJostling for position in front of the POV-man, Hasumi (center-left, red bra strap) playfully tells Shinoda to move over, and Shinoda (center-right, pink bra) lets out a spirited 'yoisho' as she squeezes her hips in beside her. Because both lines occur back-to-back in a single clip, both are formatted with dialogue dashes.",
+  "TranslatedText": "- Hey, move over!\n- Out of the way."
+}
+```
+
+_______________________________________=",
+    },
+  ]
+}
