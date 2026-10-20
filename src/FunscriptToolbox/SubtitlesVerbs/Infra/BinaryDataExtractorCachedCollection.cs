@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,12 +6,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class BinaryDataExtractorCachedCollection
     {
-        private Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>> r_cache;
+        private readonly Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>> r_cache;
+        private readonly Dictionary<(TimeSpan, TimeSpan), (TimeSpan time, (string name, BinaryDataType dataType, AIRequestPart[] contentList)[] binaryItems)[]> r_contextNodesCache;
         private readonly Dictionary<string, BinaryDataExtractorExtended> r_extractors;
+
+        /// <summary>Called (when not silent) each time GetNamedContentListForItem is served from the in-memory cache.</summary>
+        public Action<ITiming> OnCacheHit { get; set; }
 
         public BinaryDataExtractorCachedCollection(params BinaryDataExtractorExtended[] extractors)
         {
             r_cache = new Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>>();
+            r_contextNodesCache = new Dictionary<(TimeSpan, TimeSpan), (TimeSpan time, (string name, BinaryDataType dataType, AIRequestPart[] contentList)[] binaryItems)[]>();
             r_extractors = extractors
                 .Where(extractor => extractor.Extractor.Enabled)
                 .ToDictionary(item => item.Extractor.OutputFieldName, item => item);
@@ -27,46 +32,100 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public Dictionary<string, AIRequestPart[]> GetNamedContentListForTiming(
             AIRequestSection section,
             ITiming timing, 
-            string text = null)
+            string text = null,
+            bool silent = false)
         {
-            if (!r_cache.TryGetValue(timing.StartTime, out var data))
+            lock (r_cache)
             {
-                data = r_extractors
-                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(section, timing, text) })
-                    .ToDictionary(item => item.field, item => item.data);
-                r_cache[timing.StartTime] = data;
+                if (r_cache.TryGetValue(timing.StartTime, out var cachedData))
+                {
+                    return cachedData;
+                }
             }
-            return data;
+
+            var data = r_extractors
+                .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(section, timing, text, silent) })
+                .ToDictionary(item => item.field, item => item.data);
+
+            lock (r_cache)
+            {
+                if (!r_cache.ContainsKey(timing.StartTime))
+                {
+                    r_cache[timing.StartTime] = data;
+                }
+                return r_cache[timing.StartTime];
+            }
         }
 
         public Dictionary<string, AIRequestPart[]> GetNamedContentListForItem(
             AIRequestSection section,
             TimedItemWithMetadata item, 
-            string text = null)
+            string text = null,
+            bool silent = false)
         {
-            if (!r_cache.TryGetValue(item.StartTime, out var data))
+            lock (r_cache)
             {
-                data = r_extractors
-                    .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !item.Metadata.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
-                    .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(section, item, text) })
-                    .ToDictionary(item => item.field, item => item.data);
-                r_cache[item.StartTime] = data;
+                if (r_cache.TryGetValue(item.StartTime, out var cachedData))
+                {
+                    if (!silent)
+                    {
+                        this.OnCacheHit?.Invoke(item);
+                    }
+                    return cachedData;
+                }
             }
-            return data;
+
+            var data = r_extractors
+                .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !item.Metadata.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
+                .Select(kvp => new { field = kvp.Key, data = kvp.Value.GetData(section, item, text, silent) })
+                .ToDictionary(item => item.field, item => item.data);
+
+            lock (r_cache)
+            {
+                if (!r_cache.ContainsKey(item.StartTime))
+                {
+                    r_cache[item.StartTime] = data;
+                }
+                return r_cache[item.StartTime];
+            }
         }
 
         public IEnumerable<(TimeSpan time, (string name, BinaryDataType dataType, AIRequestPart[] contentList)[] binaryItems)> GetContextOnlyNodes(
             AIRequestSection section,
             ITiming timing, 
             MetadataCollection metadatas,
-            Func<TimeSpan, string> getText)
+            Func<TimeSpan, string> getText,
+            bool silent = false)
         {
-            return r_extractors
+            var cacheKey = (timing.StartTime, timing.EndTime);
+            lock (r_contextNodesCache)
+            {
+                if (r_contextNodesCache.TryGetValue(cacheKey, out var cachedData))
+                {
+                    if (!silent && cachedData.Length > 0)
+                    {
+                        this.OnCacheHit?.Invoke(timing);
+                    }
+                    return cachedData;
+                }
+            }
+
+            var data = r_extractors
                 .Where(extractor => extractor.Value.Extractor.MetadataForSkipping == null || !metadatas.ContainsKey(extractor.Value.Extractor.MetadataForSkipping))
-                .SelectMany(bde => bde.Value.GetContextOnlyNodes(section, timing, getText))
+                .SelectMany(bde => bde.Value.GetContextOnlyNodes(section, timing, getText, silent))
                 .GroupBy(item => item.time)
                 .ToDictionary(item => item.Key, item => item.ToArray())
-                .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.dataType, x.contentList)).ToArray()));
+                .Select(kvp => (kvp.Key, kvp.Value.Select(x => (x.name, x.dataType, x.contentList)).ToArray()))
+                .ToArray();
+
+            lock (r_contextNodesCache)
+            {
+                if (!r_contextNodesCache.ContainsKey(cacheKey))
+                {
+                    r_contextNodesCache[cacheKey] = data;
+                }
+                return r_contextNodesCache[cacheKey];
+            }
         }
 
         internal IEnumerable<AIRequestPart> GetTrainingContentList()

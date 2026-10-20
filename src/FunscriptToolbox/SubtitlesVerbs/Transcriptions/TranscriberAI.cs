@@ -4,6 +4,8 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -60,18 +62,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription,
                 this.PromptUserOnError);
 
-            var (allItems, _, _, _) = requestGenerator.AnalyzeItemsState();
+            var (allItems, itemsToDo, _, _) = requestGenerator.AnalyzeItemsState();
             allItems = allItems.OrderBy(f => f.StartTime).ToArray();
 
-            var binaryDataGenerator = new BinaryDataExtractorCachedCollection(
+            var extractionLock = new object();
+
+            var binaryDataExtractors = new BinaryDataExtractorCachedCollection(
                 this.Options.BinaryDataExtractors.Select(extractor =>
                 {
-                    Func<AIRequestSection, ITiming, string, AIRequestPart[]> getDataFunc;
+                    Func<AIRequestSection, ITiming, string, bool, AIRequestPart[]> getDataFunc;
 
                     if (extractor is BinaryDataExtractorAudio extractorAudio)
                     {
                         var fullPcmAudio = context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractorAudio.SourceAudioId && f.IsFinished)?.PcmAudio;
-                        getDataFunc = (section, timing, _) =>
+                        getDataFunc = (section, timing, _, silent) =>
                         {
                             var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
                             var expandEndBy = (gapDuration < extractorAudio.FillGapSmallerThen)
@@ -84,6 +88,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}.wav");
                             if (File.Exists(backupFilePath))
                             {
+                                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
                                 var audioBytes = File.ReadAllBytes(backupFilePath);
                                 var duration = fullPcmAudio != null
                                     ? (TimeSpanExtensions.Min(endTime, fullPcmAudio.EndTime) - TimeSpanExtensions.Max(startTime, TimeSpan.Zero))
@@ -98,38 +103,58 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 };
                             }
 
-                            context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
-                            var tempWavFile = Path.GetTempFileName() + ".wav";
-                            var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
-                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
-
-                            var audioBytesGenerated = File.ReadAllBytes(tempWavFile);
-                            var data = new[]
+                            lock (extractionLock)
                             {
-                                new AIRequestPartAudio(
-                                    section,
-                                    $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                    audioBytesGenerated,
-                                    snippet.Duration)
-                            };
-                            File.Delete(tempWavFile);
+                                if (File.Exists(backupFilePath))
+                                {
+                                    if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
+                                    var audioBytes = File.ReadAllBytes(backupFilePath);
+                                    var duration = fullPcmAudio != null
+                                        ? (TimeSpanExtensions.Min(endTime, fullPcmAudio.EndTime) - TimeSpanExtensions.Max(startTime, TimeSpan.Zero))
+                                        : (endTime - startTime);
+                                    return new[]
+                                    {
+                                        new AIRequestPartAudio(
+                                            section,
+                                            $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
+                                            audioBytes,
+                                            duration)
+                                    };
+                                }
 
-                            if (extractor.KeepTemporaryFiles)
-                                File.WriteAllBytes(backupFilePath, audioBytesGenerated);
-                            return data;
+                                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
+                                var tempWavFile = Path.GetTempFileName() + ".wav";
+                                var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
+                                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
+
+                                var audioBytesGenerated = File.ReadAllBytes(tempWavFile);
+                                var data = new[]
+                                {
+                                    new AIRequestPartAudio(
+                                        section,
+                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
+                                        audioBytesGenerated,
+                                        snippet.Duration)
+                                };
+                                File.Delete(tempWavFile);
+
+                                if (extractor.KeepTemporaryFiles)
+                                    File.WriteAllBytes(backupFilePath, audioBytesGenerated);
+                                return data;
+                            }
                         };
                     }
                     else if (extractor is BinaryDataExtractorImage extractorImage)
                     {
-                        getDataFunc = (section, timing, text) =>
+                        getDataFunc = (section, timing, text, silent) =>
                         {
                             var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
-                            context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
                             var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
 
                             var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
                             if (File.Exists(backupFilePath))
                             {
+                                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached screenshot.");
                                 var image = File.ReadAllBytes(backupFilePath);
                                 return new[]
                                 {
@@ -141,21 +166,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 };
                             }
 
-                            try
+                            lock (extractionLock)
                             {
-                                var image = context.FfmpegHelper.TakeScreenshotAsBytes(
-                                    Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
-                                    middleTimeInRightFile,
-                                    ".jpg",
-                                    extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
-                                if (image == null)
+                                if (File.Exists(backupFilePath))
                                 {
-                                    context.WriteError($"Ffmpeg didn't extract a screenshot at {middleTimeInRightFile}.");
-                                    return new AIRequestPartImage[0];
-                                }
-                                else
-                                {
-                                    var data = new[]
+                                    if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached screenshot.");
+                                    var image = File.ReadAllBytes(backupFilePath);
+                                    return new[]
                                     {
                                         new AIRequestPartImage(
                                             section,
@@ -163,16 +180,42 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                             image,
                                             timing.StartTime)
                                     };
-
-                                    if (extractor.KeepTemporaryFiles)
-                                        File.WriteAllBytes(backupFilePath, image);
-                                    return data;
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                context.WriteError($"Unable to extract screenshot at {middleTimeInRightFile}, ffmpeg returned errors: {ex.Message}");
-                                return new AIRequestPartImage[0];
+
+                                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
+                                try
+                                {
+                                    var image = context.FfmpegHelper.TakeScreenshotAsBytes(
+                                        Path.GetFullPath(Path.Combine(context.WIP.ParentPath, filename)),
+                                        middleTimeInRightFile,
+                                        ".jpg",
+                                        extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
+                                    if (image == null)
+                                    {
+                                        context.WriteError($"Ffmpeg didn't extract a screenshot at {middleTimeInRightFile}.");
+                                        return new AIRequestPartImage[0];
+                                    }
+                                    else
+                                    {
+                                        var data = new[]
+                                        {
+                                            new AIRequestPartImage(
+                                                section,
+                                                $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
+                                                image,
+                                                timing.StartTime)
+                                        };
+
+                                        if (extractor.KeepTemporaryFiles)
+                                            File.WriteAllBytes(backupFilePath, image);
+                                        return data;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    context.WriteError($"Unable to extract screenshot at {middleTimeInRightFile}, ffmpeg returned errors: {ex.Message}");
+                                    return new AIRequestPartImage[0];
+                                }
                             }
                         };
                     }
@@ -195,7 +238,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             if (item.Metadata.TryGetValue(extractor.MetadataForTraining, out var text))
                             {
                                 parts.AddText(AIRequestSection.Training, $"{text}\n");
-                                parts.AddRange(getDataFunc(AIRequestSection.Training, item, null));
+                                parts.AddRange(getDataFunc(AIRequestSection.Training, item, null, false));
                                 parts.AddText(AIRequestSection.Training, "\n---------------------\n");
                                 nbTrainingItems++;
                             }
@@ -219,7 +262,64 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         GetData = getDataFunc
                     };
                 }).ToArray());
-            runner.Run(requestGenerator, binaryDataGenerator);
+
+            using var cts = new CancellationTokenSource();
+            var backgroundTask = Task.Run(() =>
+            {
+                try
+                {
+                    if (binaryDataExtractors != null)
+                    {
+                        var previousEndTime = TimeSpan.Zero;
+                        var todoStartTimes = new System.Collections.Generic.HashSet<TimeSpan>(itemsToDo.Select(f => f.StartTime));
+                        foreach (var itemTodo in allItems)
+                        {
+                            if (cts.IsCancellationRequested)
+                            {
+                                break;
+                            }
+
+                            var gapStartTime = previousEndTime;
+                            previousEndTime = itemTodo.EndTime;
+                            if (!todoStartTimes.Contains(itemTodo.StartTime))
+                            {
+                                continue;
+                            }
+
+                            // Same gap as AIRequestGenerator uses for the "context only" nodes.
+                            binaryDataExtractors.GetContextOnlyNodes(
+                                AIRequestSection.ContextNodes,
+                                new Timing(gapStartTime, itemTodo.StartTime),
+                                itemTodo.Metadata,
+                                t => t.ToString(@"hh\:mm\:ss\.fff"),
+                                silent: true).ToArray();
+
+                            // Force extraction and caching of future nodes.
+                            binaryDataExtractors.GetNamedContentListForItem(
+                                AIRequestSection.PrimaryNodes,
+                                itemTodo,
+                                itemTodo.StartTime.ToString(@"hh\:mm\:ss\.fff"),
+                                silent: true);
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    context.WriteInfo($"Background extraction error: {ex.Message}", ConsoleColor.Yellow);
+                }
+            }, cts.Token);
+
+            try
+            {
+                runner.Run(requestGenerator, binaryDataExtractors);
+            }
+            finally
+            {
+                cts.Cancel();
+            }
 
             if (requestGenerator.IsFinished())
             {
