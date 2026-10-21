@@ -389,7 +389,7 @@ _______________________________________=",
       "TextAfter": null,
       "Lines": null
     },
-	{
+    {
       "$id": "TranslatorUniversalSystemPrompt",
       "$type": "AIPrompt",
       "TextBefore": null,
@@ -460,7 +460,7 @@ Output a single, valid JSON array of objects. Extract only the `StartTime` from 
 _______________________________________=",
        "TextAfter": "The target Language is: [TranslationLanguage]",
       "Lines": null
-    }	
+    }    
   ],
   "Workers": [
     {
@@ -516,7 +516,7 @@ _______________________________________=",
     {
       "Id": "generated-manual-input-srt",
       "Enabled": true,
-      // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.	  
+      // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.      
       "WorkerId": "full-ai",
       "Metadatas": {
         "TimingsSource": "full-ai",
@@ -525,9 +525,9 @@ _______________________________________=",
           "VoiceText": null
         },
       },
-	  "UseBySourceMetadatas": "false",
+      "UseBySourceMetadatas": "false",
       // [OPTION] Uncomment the following line to be in 'fully automatic' generation.
-	  //"AddToFirstSubtitle": null
+      //"AddToFirstSubtitle": null
     },
     {
       "Id": "manual-input",
@@ -672,17 +672,17 @@ _______________________________________=",
       // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit) and output a subtitle that, maybe, could be used to help an AI learn your preference.
       "Enabled": false
     },
-	
+
     // =====================================================================
     // EXAMPLE MULTI-LANGUAGE TRANSLATION PIPELINE (Target: French)
     // To adapt for another language (Spanish, German, etc.):
     // 1. Search for "translated-texts_french" replace with "translated-texts_spanish"
     // 2. Search for "TargetLanguage": "French", replace "French" with "Spanish".
-	// 3. Search for "finalized_french", replace with "finalized_spanish".
-	// 4. Search for "final-ai-srt_french", replace with "final-ai-srt_spanish".
-	// 5. Search for ".fr.srt", replace with suffix ".es.srt".
+    // 3. Search for "finalized_french", replace with "finalized_spanish".
+    // 4. Search for "final-ai-srt_french", replace with "final-ai-srt_spanish".
+    // 5. Search for ".fr.srt", replace with suffix ".es.srt".
     // 4. Update the "SplitPatterns" in the SubtitleConformer to match the target language's logic connectors.
-	// 5. Change Enabled to true for the 3 tasks.
+    // 5. Change Enabled to true for the 3 tasks.
     // =====================================================================
     {
       "$type": "TranslatorAI",
@@ -701,7 +701,7 @@ _______________________________________=",
         "Sources": "singlevad-ai-refined,speakers,manual-input",
         "MergeRules": {
           "singlevad-ai-refined,TranslatedText": "englishTranslation"
-		},
+        },
         "ValueTransformationRules": null
       },
       "Options": {

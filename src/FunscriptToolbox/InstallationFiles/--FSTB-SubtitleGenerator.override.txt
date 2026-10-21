@@ -311,7 +311,7 @@
       "EstimatedCostPerInputMillionTokens": 2,
       "EstimatedCostPerOutputMillionTokens": 10,
       "PauseBeforeSendingRequest": false,
-	  "PauseBeforeSavingResponse": false,
+      "PauseBeforeSavingResponse": false,
     },
     {
       "$type": "AIEngineAPIPoe",
@@ -346,14 +346,14 @@
       "Model": "claude-opus-5",
       "APIKeyName": "APIKeyAnthropic",
       "RequestBodyExtension": {
-	    // Note: max_tokens is required for Anthropic API
-	    "max_tokens": 8192,
+        // Note: max_tokens is required for Anthropic API
+        "max_tokens": 8192,
 
-	    // [OPTION] Remove '//' for the following lines to activate thinking mode.
-		// "thinking": {
-		//  "type": "enabled",
-		//  "budget_tokens": 4196
-		//}
+        // [OPTION] Remove '//' for the following lines to activate thinking mode.
+        // "thinking": {
+        //  "type": "enabled",
+        //  "budget_tokens": 4196
+        //}
       },
       // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
       "UseBatchMode": true,
@@ -374,7 +374,7 @@
       "SupportImage": true,
       "RequestBodyExtension": {
         "extra_body": {
-			"output_effort": "none"
+            "output_effort": "none"
         }
       },
       "SupportAudio": false,
