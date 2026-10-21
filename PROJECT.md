@@ -13,7 +13,6 @@
 | **`AudioSynchronization`** | C# Class Library | Acoustic fingerprinting and waveform cross-correlation engine for timeline alignment. |
 | **`MotionVectorsExtractor`** | C++ Native Project | Native high-performance motion vector decoder/extractor interfacing with FFmpeg. |
 | **`FunscriptToolbox.UI`** | WPF Application / Library | Interactive UI utilities (Speaker Identification Correction UI, Motion Vectors Editor). |
-| **`CreateZipRelease`** | C# Console / Utility | Packaging tool to build distributable release archives with batch scripts. |
 
 ---
 
