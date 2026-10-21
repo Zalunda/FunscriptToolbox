@@ -199,7 +199,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 systemParts,
                 userParts,
                 this.MetadataProduced,
-                @$"{timing.StartTime:hh\\:mm\\:ss\\.fff} to {timing.EndTime:hh\\:mm\\:ss\\.fff} out of {context.WIP.TimelineMap.Duration:hh\\:mm\\:ss\\.fff}",
+                $"{timing.StartTime:hh\\:mm\\:ss\\.fff} to {timing.EndTime:hh\\:mm\\:ss\\.fff} out of {context.WIP.TimelineMap.Duration:hh\\:mm\\:ss\\.fff}",
                 timing.StartTime);
         }
 
