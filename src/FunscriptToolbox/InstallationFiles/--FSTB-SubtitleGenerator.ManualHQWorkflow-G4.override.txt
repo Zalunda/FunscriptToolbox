@@ -389,6 +389,78 @@ _______________________________________=",
       "TextAfter": null,
       "Lines": null
     },
+	{
+      "$id": "TranslatorUniversalSystemPrompt",
+      "$type": "AIPrompt",
+      "TextBefore": null,
+      "Text": "
+=_______________________________________
+
+# UNIVERSAL MAVERICK TRANSLATION MANDATE
+
+### Role
+You are 'The Maverick'—an elite linguistic craftsman of adult film subtitles. Your mission is to translate a structured sequence of Japanese dialogue (`VoiceText` or `OnScreenText`) into the requested Target Language. 
+
+You will receive detailed `TranslationAnalysis` for each node. Use this analysis to understand the scene's emotional core, physical state, and speaker address vector.
+
+### The Universal Template Rule
+**CRITICAL:** The structural rules and examples below are demonstrated using **English**. You must understand the underlying logic (rhythm, formatting, syntax shattering, tone) and apply it natively and naturally to your **TARGET LANGUAGE**. Do not output English unless English is the requested Target Language.
+
+---
+
+### THE MAVERICK PROTOCOL
+
+**1. The Doctrine of Rhythmic Mirroring & Multi-Part Order Lock**
+Your translation is an acoustic map of the original audio flow.
+* **1:1 Structural Part-Count:**
+  * If the Japanese `VoiceText` is 1 continuous part without structural pauses, output 1 smooth sentence.
+  * If the Japanese has distinct pauses (`…`), output the matching number of balanced chunks separated by `...`.
+* **The Multi-Part Order Lock:**
+  * On a single-part line, use natural syntax for your target language.
+  * On a multi-part line divided by pauses (`…`), you MUST preserve the exact semantic sequence of the spoken chunks. (e.g., If the taboo reveal comes after the pause in Japanese, keep it after the pause in your target language).
+* **Mid-Line Breath Integration:** Reflect vocalized breaths at the exact break (e.g., `\"[Phrase 1]-- ahh... [Phrase 2]\"`).
+
+**2. The Doctrine of Visceral Fragmentation (Arousal Syntax)**
+Adapt your syntax directly to the Arousal Tier indicated in the `TranslationAnalysis`:
+* **Muffled Speech (Mouth Full):** If the analysis states her mouth is full (Fellatio), soften the sibilants and dentals to reflect the physical obstruction (e.g., English \"this is\" -> \"thith ith\"). Apply equivalent phonetic slurring in your target language.
+* **Tier 1 (Normal/Conversational):** Clean sentences. Use `-` only for actual stutters (`U-Um...`).
+* **Tier 2 (Breathless):** Use breathless openings (`Ah...`, `Haa...`) and `...` between halting clauses.
+* **Tier 3 (Frantic/Climaxing - SHATTER THE SYNTAX):** Clean grammar is FORBIDDEN. Translate the physical struggle.
+  * **Double-Hyphen (`--`) for Breaks:** Use ASCII `--` to sever words or clauses when the voice cracks or gets cut off (e.g., `I'm c-- cumm--!`).
+  * **Single-Hyphen (`-`) for Stutters:** Use ASCII `-` for trembling consonants.
+  * **Avoid Robotic Repetition:** If Japanese repeats a word 6 times (`イク、イク、イク...`), capture the escalating momentum in 2-3 frantic fragments rather than a robotic 1:1 repetition.
+
+**3. Idiomatic Erotic Potency & Tone**
+* **Scenario Metaphors:** Translate the erotic *reality*, not the literal textbook definition. If the context is an office roleplay, use office metaphors if they fit the visual timing.
+* **Playful Personification:** Pair the male anatomy with playful human attitudes (e.g., \"refusing to sleep,\" \"so eager,\" \"greedy\") when the tone is teasing.
+* **The Antinomy of Denial:** Negative commands (`だめ`, `無理`) during high arousal are admissions of sensory overload, not literal refusals. Translate as \"I can't\" or \"It's too much\" rather than \"Don't.\"
+
+**4. The Razor of Economy**
+* Compress clunky tag questions (e.g., instead of \"..., isn't it?\", make it a direct statement or direct question).
+* Strip out grammatical filler padding that dilutes the emotional impact. Make the dialogue punchy.
+* **Zero Parentheticals:** Stage directions (`(sighs)`, `[moans]`) are strictly forbidden in your final text.
+
+---
+
+### Output Format
+Output a single, valid JSON array of objects. Extract only the `StartTime` from the input and generate the `TranslatedText` in the target language. If the input text is empty (`\"\"`), output `\"TranslatedText\": \"\"`.
+
+```json
+[
+  {
+    \"StartTime\": \"00:00:32.150\",
+    \"TranslatedText\": \"<Translation in [TranslationLanguage]>\"
+  },
+  {
+    \"StartTime\": \"00:09:42.800\",
+    \"TranslatedText\": \"<Translation in [TranslationLanguage]>\"
+  }
+]
+```
+_______________________________________=",
+       "TextAfter": "The target Language is: [TranslationLanguage]",
+      "Lines": null
+    }	
   ],
   "Workers": [
     {
@@ -599,6 +671,142 @@ _______________________________________=",
       "OutputId": "learning-srt",
       // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit) and output a subtitle that, maybe, could be used to help an AI learn your preference.
       "Enabled": false
+    },
+	
+    // =====================================================================
+    // EXAMPLE MULTI-LANGUAGE TRANSLATION PIPELINE (Target: French)
+    // To adapt for another language (Spanish, German, etc.):
+    // 1. Search for "translated-texts_french" replace with "translated-texts_spanish"
+    // 2. Search for "TargetLanguage": "French", replace "French" with "Spanish".
+	// 3. Search for "finalized_french", replace with "finalized_spanish".
+	// 4. Search for "final-ai-srt_french", replace with "final-ai-srt_spanish".
+	// 5. Search for ".fr.srt", replace with suffix ".es.srt".
+    // 4. Update the "SplitPatterns" in the SubtitleConformer to match the target language's logic connectors.
+	// 5. Change Enabled to true for the 3 tasks.
+    // =====================================================================
+    {
+      "$type": "TranslatorAI",
+      "TranslationId": "translated-texts_french",
+      "Enabled": false,
+      "TargetLanguage": "French",
+      "CanBeUpdated": false,
+      "PrivateMetadataNames": null,
+      "ExportMetadataSrt": false,
+      "StopOnFirstExecution": false,
+      "Engine": {
+        "$ref": "AIEngineGemini4"
+      },
+      "Metadatas": {
+        "TimingsSource": "timings",
+        "Sources": "singlevad-ai-refined,speakers,manual-input",
+        "MergeRules": {
+          "singlevad-ai-refined,TranslatedText": "englishTranslation"
+		},
+        "ValueTransformationRules": null
+      },
+      "Options": {
+        "SystemPrompt": {
+          "$ref": "TranslatorUniversalSystemPrompt"
+        },
+        "UserPrompt": null,
+        "MetadataNeeded": "VoiceText|OnScreenText,!SkipTranslation",
+        "MetadataAlwaysProduced": "TranslatedText",
+        "PrivateMetadataNames": null,
+        "BinaryDataExtractors": null,
+        "BatchSize": 200,
+        "BatchSplitWindows": 10,
+        "BatchKeepTogetherThreshold": null,
+        "NbContextItems": 10000,
+        "NbItemsMinimumReceivedToContinue": 50,
+        "FieldsToInclude": "StartTime, EndTime",
+        "MetadataInContextLimits": {
+          "StartTime": 50,
+          "EndTime": 50,
+          "TranslationAnalysis": 10,
+          "VoiceText": 10,
+          "OnScreenText": 10
+        },
+        "TextBeforeContextData": "Context from preceding nodes:",
+        "TextAfterContextData": "--------------------------------------------------",
+        "TextBeforeAnalysis": "Begin Node Analysis:",
+        "TextAfterAnalysis": null
+      },
+      "AutoMergeOn": null,
+      "AutoDeleteOn": null,
+      "PromptUserOnError": true
+    },
+    {
+      "$type": "TranslatorSubtitleConformer",
+      "TranslationId": "finalized_french",
+      "Enabled": false,
+      "TargetLanguage": "French",
+      "CanBeUpdated": false,
+      "PrivateMetadataNames": null,
+      "ExportMetadataSrt": false,
+      "StopOnFirstExecution": false,
+      "Metadatas": {
+        "TimingsSource": "timings",
+        "Sources": "translated-texts_french,speakers,manual-input",
+        "MergeRules": {
+          "TranslatedText": "OriginalTranslatedText"
+        },
+        "ValueTransformationRules": null
+      },
+      "Options": {
+        "SystemPrompt": null,
+        "UserPrompt": null,
+        "MetadataNeeded": "OriginalTranslatedText",
+        "MetadataAlwaysProduced": "TranslatedText",
+        "PrivateMetadataNames": null,
+        "BinaryDataExtractors": null,
+        "BatchSize": 100000,
+        "BatchSplitWindows": 0,
+        "BatchKeepTogetherThreshold": null,
+        "NbContextItems": 100000,
+        "NbItemsMinimumReceivedToContinue": 50,
+        "FieldsToInclude": "StartTime, EndTime",
+        "MetadataInContextLimits": null,
+        "TextBeforeContextData": "Context from preceding nodes:",
+        "TextAfterContextData": "--------------------------------------------------",
+        "TextBeforeAnalysis": "Begin Node Analysis:",
+        "TextAfterAnalysis": null
+      },
+      "MetadataSpeaker": "Speaker",
+      "MaxLineLength": 50,
+      "MaxMergeGapSameSpeaker": "00:00:00",
+      "MaxMergeGapDialogue": "00:00:00.5",
+      "MaxMergeDuration": "00:00:02",
+      "RemoveMissing": false,
+      "AddReviewIfTooLong": true,
+      "SplitPatterns": [
+        // 1. Strong Punctuation (End of sentence)
+        { "CutWhere": "After", "Pattern": "(?<!\\.)\\.(?![\\d\\.])|[?!…]+" },
+        // 2. Weak Punctuation (Commas, colons, dashes)
+        { "CutWhere": "After", "Pattern": "\\.{3}|[,:：]+|\\s*[-]+\\s*" },
+        // 3. Logical/Casual Connectors (FRENCH SPECIFIC)
+        { "CutWhere": "Before", "Pattern": "\\b(parce que|puisque|pendant que|bien que|jusqu'à|à moins que|alors|donc|car|mais|et|ou|si)\\b" },
+        // 4. "Wh-" Clause Connectors (FRENCH SPECIFIC)
+        { "CutWhere": "Before", "Pattern": "\\b(quoi|quand|où|comment|pourquoi|qui|que)\\b" },
+        // 5. Prepositions (Fallback for long sentences - FRENCH SPECIFIC)
+        { "CutWhere": "Before", "Pattern": "\\b(avec|sur|pour|depuis|dans|vers)\\b" },
+        // 6. Last Resort: Split on any space
+        { "CutWhere": "Before", "Pattern": "\\s" }
+      ]
+    },
+    {
+      "$type": "SubtitleOutputSrt",
+      "OutputId": "final-ai-srt_french",
+      "Enabled": false,
+      "FileSuffix": ".fr.srt",
+      "CanBeUpdated": false,
+      "WaitForFinished": false,
+      "Metadatas": null,
+      "TextSources": "finalized_french",
+      "MinimumSubtitleDuration": "00:00:01.0000000",
+      "ExpandSubtileDuration": "00:00:00.3000000",
+      "SubtitlesToInject": null,
+      "SkipWhenTextSourcesAreIdentical": null,
+      "SaveFullFileToo": true
     },
   ]
 }
