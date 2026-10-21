@@ -29,6 +29,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 33)]
         public bool DebugBatchPollingResponse { get; set; }
 
+        private bool _stopWorkerRequested = false;
+
         protected override double CostSaving => UseBatchMode ? UseBatchModeSaving : 1.0;
         public override string EngineIdentifier => base.EngineIdentifier + (UseBatchMode ? "+Batch" : "+Stream");
 
@@ -36,6 +38,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             AIRequest request)
         {
+            if (this._stopWorkerRequested)
+            {
+                this._stopWorkerRequested = false;
+                throw new UserStoppedWorkerException();
+            }
+
             try
             {
                 using var client = new HttpClient();
@@ -182,20 +190,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 // Start a timer that will print waiting messages
                 GoogleOperation operation = null;
-                bool canCancel = false;
                 var startTime = DateTime.Now;
                 int? lastErrorCodeReceived = null;
                 string lastErrorMessageReceived = null;
                 DateTime? firstTimeLastCodeReceived = null;
                 var pendingWatch = Stopwatch.StartNew();
+                bool stopAfterResponse = false;
+                bool cancelRequestedWhileQueuing = false;
+
                 waitingTimer = new Timer(_ =>
                 {
-                    var cancellationText = lastErrorCodeReceived != null
+                    var cancellationText = stopAfterResponse
+                        ? " (STOPPING AFTER ANSWER RECEIVED, PRESS Q TO CANCEL NOW)"
+                        : lastErrorCodeReceived != null
                         ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\" for {DateTime.Now - firstTimeLastCodeReceived}, PRESS Q TO CANCEL)"
-                        : operation?.GetState() == "BATCH_STATE_PENDING"
-                        ? " (PRESS Q TO CANCEL)"
-                        : null;
-                    canCancel = cancellationText != null;
+                        : operation?.GetState() == "BATCH_STATE_RUNNING"
+                        ? " (PRESS Q TO STOP AFTER ANSWER)"
+                        : " (PRESS Q TO CANCEL)";
                     var duration = DateTime.Now - startTime;
 
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")
@@ -235,22 +246,75 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var operationUrl = $"{operation.Name}?key={context.GetValidatedPrivateConfig(this.APIKeyName)}";
                 var cancelOperationUrl = $"{operation.Name}:cancel?key={context.GetValidatedPrivateConfig(this.APIKeyName)}";
 
+                void CancelBatchOnServerAndThrow()
+                {
+                    waitingTimer?.Dispose();
+                    waitingTimer = null;
+
+                    context.DefaultProgressUpdateHandler(ToolName, requestId, "Cancelling batch on Google servers...");
+
+                    try
+                    {
+                        var cancelUri = new Uri(client.BaseAddress, cancelOperationUrl);
+
+                        var cancelRequest = new HttpRequestMessage(HttpMethod.Post, cancelUri);
+                        cancelRequest.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+
+                        var cancelResponse = client.SendAsync(cancelRequest).Result;
+
+                        if (cancelResponse.IsSuccessStatusCode)
+                        {
+                            context.WriteLog($"Batch {operation?.Name} cancelled successfully.");
+                            context.WriteInfo($"Batch cancelled successfully.");
+                        }
+                        else
+                        {
+                            var errorContent = cancelResponse.Content.ReadAsStringAsync().Result;
+                            context.WriteError($"Warning: Failed to cancel batch. Status: {cancelResponse.StatusCode}. Details: {errorContent}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        context.WriteError($"Error trying to cancel batch: {ex.Message}");
+                    }
+
+                    throw new UserStoppedWorkerException();
+                }
+
                 while (true)
                 {
                     var waitStart = DateTime.Now;
                     var waitDuration = TimeSpan.FromSeconds(10);
-                    var delayedCancel = false;
 
                     while (DateTime.Now - waitStart < waitDuration)
                     {
                         if (Console.KeyAvailable)
                         {
                             var keyInfo = Console.ReadKey(intercept: true);
-                            if (canCancel && keyInfo.Key == ConsoleKey.Q)
+                            if (keyInfo.Key == ConsoleKey.Q)
                             {
-                                // We do one last update before cancelling.
-                                waitDuration = TimeSpan.Zero;
-                                delayedCancel = true;
+                                var isCurrentlyQueuing = operation?.GetState() != "BATCH_STATE_RUNNING";
+                                if (isCurrentlyQueuing)
+                                {
+                                    // Still queuing: stop right now. Break out of wait to do final poll & cancel on server.
+                                    cancelRequestedWhileQueuing = true;
+                                    waitDuration = TimeSpan.Zero;
+                                }
+                                else
+                                {
+                                    // Not queuing (currently running)
+                                    if (!stopAfterResponse)
+                                    {
+                                        // 1st press while running: stop after answer has been received
+                                        stopAfterResponse = true;
+                                        context.DefaultProgressUpdateHandler(ToolName, requestId, "Stop requested: will stop after current answer is received. (PRESS Q TO CANCEL NOW)");
+                                    }
+                                    else
+                                    {
+                                        // 2nd press while running: not waiting for answer anymore, quit right now!
+                                        CancelBatchOnServerAndThrow();
+                                    }
+                                }
                             }
                         }
 
@@ -259,9 +323,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
 
                     var pollResponse = client.GetAsync(operationUrl).Result;
-                    if (!response.IsSuccessStatusCode)
+                    if (!pollResponse.IsSuccessStatusCode)
                     {
-                        throw AIEngineAPIException.FromHttpStatusCode(response, this.EngineIdentifier);
+                        throw AIEngineAPIException.FromHttpStatusCode(pollResponse, this.EngineIdentifier);
                     }
 
                     pollJson = pollResponse.Content.ReadAsStringAsync().Result;
@@ -287,7 +351,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             firstTimeLastCodeReceived = DateTime.Now;
                         }
                         lastErrorCodeReceived = error.Code;
-                        lastErrorMessageReceived = error.Message; ;
+                        lastErrorMessageReceived = error.Message;
+                    }
+
+                    // Check cancellation requested while queuing
+                    if (cancelRequestedWhileQueuing)
+                    {
+                        if (error == null && state == "BATCH_STATE_SUCCEEDED")
+                        {
+                            finalResult = operation.GetResultItem();
+                            stopAfterResponse = true;
+                            break;
+                        }
+
+                        if (error == null && state == "BATCH_STATE_RUNNING")
+                        {
+                            cancelRequestedWhileQueuing = false;
+                            stopAfterResponse = true;
+                        }
+                        else
+                        {
+                            CancelBatchOnServerAndThrow();
+                        }
                     }
 
                     if (error != null)
@@ -302,40 +387,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     else if (!(state == "BATCH_STATE_PENDING" || state == "BATCH_STATE_RUNNING"))
                     {
                         throw new AIResponseException(request, $"Batch API returned state: {state}. Expecting: BATCH_STATE_SUCCEEDED, BATCH_STATE_PENDING or BATCH_STATE_RUNNING");
-                    }
-                    else if ((state == "BATCH_STATE_PENDING" || lastErrorCodeReceived != null) && delayedCancel)
-                    {
-                        waitingTimer?.Dispose();
-                        waitingTimer = null;
-
-                        context.DefaultProgressUpdateHandler(ToolName, requestId, "Cancelling batch on Google servers...");
-
-                        try
-                        {
-                            var cancelUri = new Uri(client.BaseAddress, cancelOperationUrl);
-
-                            var cancelRequest = new HttpRequestMessage(HttpMethod.Post, cancelUri);
-                            cancelRequest.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-
-                            var cancelResponse = client.SendAsync(cancelRequest).Result;
-
-                            if (cancelResponse.IsSuccessStatusCode)
-                            {
-                                context.WriteLog($"Batch {operation.Name} cancelled successfully.");
-                                context.WriteInfo($"Batch cancelled successfully.");
-                            }
-                            else
-                            {
-                                var errorContent = cancelResponse.Content.ReadAsStringAsync().Result;
-                                context.WriteError($"Warning: Failed to cancel batch. Status: {cancelResponse.StatusCode}. Details: {errorContent}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            context.WriteError($"Error trying to cancel batch: {ex.Message}");
-                        }
-
-                        throw new UserStoppedWorkerException();
                     }
 
                     // we loop...
@@ -461,6 +512,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
                         return filteredResponse;
                     }
+                }
+
+                if (stopAfterResponse)
+                {
+                    this._stopWorkerRequested = true;
+                    context.WriteInfo("Stop requested: current batch answer processed. Worker will stop before processing the next request.");
                 }
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
