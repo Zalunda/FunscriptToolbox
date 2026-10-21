@@ -91,25 +91,16 @@ if (Test-Path $runtimesDir) {
     Copy-Item -Path "$runtimesDir\*" -Destination $destRuntimes -Recurse -Force
 }
 
-# 5. Compress staging directory to zip
-$mainZip = Join-Path $distPath "FunscriptToolbox.zip"
-if (Test-Path $mainZip) {
-    Remove-Item -Path $mainZip -Force
-}
+# 5. Compress staging directory to a single zip
+$cleanVer = if ($Version) { $Version.Trim() -replace '^[vV]', '' } else { "" }
+$zipName = if ($cleanVer) { "FunscriptToolbox-$cleanVer.zip" } else { "FunscriptToolbox.zip" }
+$mainZip = Join-Path $distPath $zipName
+
+# Clean previous zips in dist to ensure only one release zip exists
+Get-ChildItem -Path $distPath -Filter "*.zip" -File | Remove-Item -Force
 
 Write-Host "Creating zip package at '$mainZip'..." -ForegroundColor Cyan
 Compress-Archive -Path "$stagingDir\*" -DestinationPath $mainZip -Force
-
-if ($Version) {
-    $cleanVer = $Version.Trim() -replace '^[vV]', ''
-    $versionZip = Join-Path $distPath "FunscriptToolbox-$cleanVer.zip"
-    Copy-Item -Path $mainZip -Destination $versionZip -Force
-    Write-Host "Created versioned zip package at '$versionZip'" -ForegroundColor Green
-
-    $versionZipV = Join-Path $distPath "FunscriptToolbox-v$cleanVer.zip"
-    Copy-Item -Path $mainZip -Destination $versionZipV -Force
-    Write-Host "Created versioned zip package at '$versionZipV'" -ForegroundColor Green
-}
 
 # Clean staging directory
 Remove-Item -Path $stagingDir -Recurse -Force
