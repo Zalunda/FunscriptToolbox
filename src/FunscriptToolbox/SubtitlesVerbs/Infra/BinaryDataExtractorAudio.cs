@@ -11,6 +11,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public string SourceAudioId { get; internal set; }
 
         [JsonProperty(Order = 11)]
+        public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
+        [JsonProperty(Order = 12)]
+        public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
+
+        [JsonProperty(Order = 13)]
         public TimeSpan FillGapSmallerThen { get; set; } = TimeSpan.Zero;
     }
 }

@@ -12,6 +12,9 @@ Please read PROJECT.md for more information.
 
 ## 2. Golden Rules & Hard Constraints
 
+- Do not attempt to fix, rewrite, or normalize line endings (LF/CRLF).
+- Ignore any linter warnings related to end-of-line (EOL) characters.
+- Do not write scripts to modify file formatting or text encoding.
 * **GIT RULE**: **NEVER run `git add` under any circumstance.** The user inspects and stages changes manually.
 * **DOCUMENTATION INTEGRITY**: Preserve existing comments, docstrings, and formatting unrelated to current edits.
 * **FILE LINKS**: When referencing code files in responses, use clickable Markdown links with `file:///` and forward slashes.

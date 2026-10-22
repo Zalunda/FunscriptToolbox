@@ -11,11 +11,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAI : Transcriber
     {
-        [JsonProperty(Order = 20)]
-        public TimeSpan ExpandStart { get; set; } = TimeSpan.Zero;
-        [JsonProperty(Order = 21)]
-        public TimeSpan ExpandEnd { get; set; } = TimeSpan.Zero;
-
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngine Engine { get; set; }
         [JsonProperty(Order = 31, Required = Required.Always)]
@@ -79,13 +74,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         {
                             var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
                             var expandEndBy = (gapDuration < extractorAudio.FillGapSmallerThen)
-                                ? TimeSpanExtensions.Max(gapDuration, this.ExpandEnd)
-                                : this.ExpandEnd;
-                            var startTime = timing.StartTime - this.ExpandStart;
+                                ? TimeSpanExtensions.Max(gapDuration, extractorAudio.ExpandEnd)
+                                : extractorAudio.ExpandEnd;
+                            var startTime = timing.StartTime - extractorAudio.ExpandStart;
                             var endTime = timing.EndTime + expandEndBy;
 
                             var (_, filename, startTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(startTime);
-                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}.wav");
+                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}.wav");
                             if (File.Exists(backupFilePath))
                             {
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
@@ -151,7 +146,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
                             var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
 
-                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
+                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorImage.OutputFieldName}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
                             if (File.Exists(backupFilePath))
                             {
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached screenshot.");
