@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
@@ -26,15 +26,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int BatchSplitWindows { get; set; } = 0;
         [JsonProperty(Order = 12)]
         public TimeSpan? BatchKeepTogetherThreshold { get; set; }
-
-
         [JsonProperty(Order = 13)]
-        public int? NbContextItems { get; set; } = 100000;
+        public int? BatchMaxImages { get; set; }
         [JsonProperty(Order = 14)]
-        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        public TimeSpan? BatchMaxAudioDuration { get; set; }
+
+
         [JsonProperty(Order = 15)]
-        public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        public int? NbContextItems { get; set; } = 100000;
         [JsonProperty(Order = 16)]
+        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        [JsonProperty(Order = 17)]
+        public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        [JsonProperty(Order = 18)]
         public Dictionary<string, int> MetadataInContextLimits { get; set; }
 
         [JsonProperty(Order = 22)]

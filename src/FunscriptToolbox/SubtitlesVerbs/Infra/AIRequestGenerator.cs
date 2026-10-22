@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -166,6 +166,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var metadataOngoing = new MetadataCollection();
             var contentBefore = new Queue<TimedItemWithMetadata>();
             var previousEndTime = TimeSpan.Zero;
+            var nbImagesInBatch = 0;
+            var audioSecondsInBatch = 0.0;
             foreach (var item in allItems)
             {
                 if (waitingForFirstToDo)
@@ -221,18 +223,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             metadataOngoing = null;
                         }
 
-                        userParts.AddRange(
+                        var itemParts = new List<AIRequestPart>();
+                        itemParts.AddRange(
                             CreateContextOnlyNodeContents(
                                 AIRequestSection.ContextNodes,
                                 binaryDataExtractors,
                                 new Timing(previousEndTime, item.StartTime),
                                 item.Metadata));
-                        userParts.AddRange(
+                        itemParts.AddRange(
                             CreateNodeContents(
                                 AIRequestSection.PrimaryNodes,
                                 item,
                                 binaryDataExtractors,
                                 metadataForThisItem));
+
+                        nbImagesInBatch += itemParts.OfType<AIRequestPartImage>().Count();
+                        audioSecondsInBatch += itemParts.OfType<AIRequestPartAudio>().Sum(a => a.Duration.TotalSeconds);
+                        // Always include at least the minimum items received to continue.
+                        if (itemsInBatch.Count > r_options.NbItemsMinimumReceivedToContinue
+                            && ((r_options.BatchMaxImages.HasValue && nbImagesInBatch > r_options.BatchMaxImages.Value)
+                                || (r_options.BatchMaxAudioDuration.HasValue && audioSecondsInBatch > r_options.BatchMaxAudioDuration.Value.TotalSeconds)))
+                        {
+                            break;
+                        }
+
+                        userParts.AddRange(itemParts);
                         itemsInBatch.Add(item);
                     }
                 }
