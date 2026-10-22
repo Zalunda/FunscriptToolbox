@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.props" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -76,8 +77,14 @@
     <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions, Version=6.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.6.0.0\lib\net461\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.ML.OnnxRuntime, Version=1.31.0.0, Culture=neutral, PublicKeyToken=f27f157f0a5b7bb6, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.ML.OnnxRuntime.Managed.1.31.0\lib\netstandard2.0\Microsoft.ML.OnnxRuntime.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="sherpa-onnx, Version=1.13.8.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\org.k2fsa.sherpa.onnx.1.13.8\lib\net45\sherpa-onnx.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -244,6 +251,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigLoader.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAIRefineTiming.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberResetImportedMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberClone.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberImportText.cs" />
@@ -372,7 +380,8 @@
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy /y "$(SolutionDir)\..\lib\silero-vad\*.py" "PythonSource\"
+    <PostBuildEvent>xcopy /y "$(SolutionDir)\..\lib\silero-vad\files\*.onnx" ".\"
+xcopy /y "$(SolutionDir)\packages\Microsoft.ML.OnnxRuntime.1.31.0\runtimes\win-x64\native\*.dll" ".\"
 xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.dll" MotionVectorsExtractor\
 xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.exe" MotionVectorsExtractor\</PostBuildEvent>
   </PropertyGroup>
@@ -382,5 +391,10 @@ xcopy /y "$(SolutionDir)\x64\$(ConfigurationName)\*.exe" MotionVectorsExtractor\
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\Whisper.net.Runtime.Cublas.1.5.0\build\Whisper.net.Runtime.Cublas.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.Cublas.1.5.0\build\Whisper.net.Runtime.Cublas.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.Managed.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.Managed.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.targets'))" />
   </Target>
+  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Managed.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.Managed.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.Managed.targets')" />
+  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.1.31.0\build\netstandard2.0\Microsoft.ML.OnnxRuntime.targets')" />
 </Project>

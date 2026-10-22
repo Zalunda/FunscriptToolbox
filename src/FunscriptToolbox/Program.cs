@@ -28,7 +28,7 @@ namespace FunscriptToolbox
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 54;
+            int test = 50;
 
             switch (test)
             {
@@ -114,7 +114,7 @@ namespace FunscriptToolbox
 
                 case 50:
                     // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";                    
-                    var prefix = "*";
+                    var prefix = "*mdvr00375*";
                     args = new[]
                     {
                         "subtitles.create",

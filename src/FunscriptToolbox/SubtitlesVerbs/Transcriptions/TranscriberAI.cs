@@ -46,17 +46,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var processStartTime = DateTime.Now;
+            var requestGenerator = ExecuteRequests(context, transcription);
+            if (requestGenerator.IsFinished())
+            {
+                transcription.MarkAsFinished();
+                context.WIP.Save();
+            }
+        }
 
-            var requestGenerator = this.Metadatas
-                .Aggregate(context)
-                .CreateRequestGenerator(transcription, this.Options, transcription.Language);
+        protected AIRequestGenerator ExecuteRequests(SubtitleGeneratorContext context, Transcription transcription)
+        {
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
                 this.Engine,
                 transcription,
                 this.PromptUserOnError);
 
+            var requestGenerator = this.Metadatas
+                .Aggregate(context)
+                .CreateRequestGenerator(transcription, this.Options, transcription.Language);
             var (allItems, itemsToDo, _, _) = requestGenerator.AnalyzeItemsState();
             allItems = allItems.OrderBy(f => f.StartTime).ToArray();
 
@@ -258,7 +266,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     };
                 }).ToArray());
 
-            using var cts = new CancellationTokenSource();
+            var cts = new CancellationTokenSource();
             var backgroundTask = Task.Run(() =>
             {
                 try
@@ -316,11 +324,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 cts.Cancel();
             }
 
-            if (requestGenerator.IsFinished())
-            {
-                transcription.MarkAsFinished();
-                context.WIP.Save();
-            }
+            return requestGenerator;
         }
     }
 }
