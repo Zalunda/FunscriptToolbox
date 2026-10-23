@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -12,9 +13,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 41)]
         public bool SupportImage { get; set; } = false;
 
-        public abstract AIResponse Execute(
+        public AIResponse Execute(
             SubtitleGeneratorContext context,
-            AIRequest request);
+            AIRequest request)
+        {
+            return Execute(context, new[] { request }).First();
+        }
+
+        public abstract AIResponse[] Execute(
+            SubtitleGeneratorContext context,
+            AIRequest[] requests);
 
         protected bool IsSupported(AIRequestPart part)
         {

@@ -17,10 +17,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 30)]
         public bool UseStreaming { get; set; } = true;
 
-        public override AIResponse Execute(
+        public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest request)
+            AIRequest[] requests)
         {
+            if (requests.Length > 1)
+            {
+                throw new Exception($"This engine does not support batching multiple request.");
+            }
+            var request = requests.First();
             try
             {
                 using var client = new HttpClient();
@@ -44,11 +49,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
 
-                var response = UseStreaming == true
-                    ? ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix)
-                    : ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix);
+                var responses = UseStreaming == true
+                    ? new[] { (AIResponse) ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix) }
+                    : new[] { (AIResponse) ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix) };
 
-                return response;
+                return responses;
             }
             catch (AggregateException ex)
             {

@@ -180,11 +180,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 // 3. Build the input reference timings manually
                 var referenceList = new List<TimedItemWithMetadata>();
-                var i = 0;
                 foreach (var cand in batchToTest)
                 {
                     var meta = new MetadataCollection();
-                    meta["Index"] = (++i).ToString();
                     meta["CandidateText"] = cand.CandidateText;
                     referenceList.Add(new TimedItemWithMetadata(cand.CurrentTestStart, cand.CurrentTestEnd, meta));
                 }

@@ -26,9 +26,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 14)]
         public TimeSpan QuotasUsedRetryDelay { get; set; } = TimeSpan.FromHours(1);
 
-        public override AIResponse Execute(
+        public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest request)
+            AIRequest[] requests)
         {
             if (Engines == null || Engines.Count == 0)
             {
@@ -74,12 +74,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 try
                 {
                     context.WriteInfo($"Attempting to use engine: {engine.BaseAddress}, Model: {engine.Model}");
-                    var response = engine.Execute(context, request);
+                    var responses = engine.Execute(context, requests);
 
                     // Success - make sure engine is not in skipped list
                     s_skippedEngines.TryRemove(engineId, out _);
 
-                    return response;
+                    return responses;
                 }
                 catch (AIEngineAPIException ex)
                 {

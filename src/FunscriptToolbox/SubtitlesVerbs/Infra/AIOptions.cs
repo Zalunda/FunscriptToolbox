@@ -20,6 +20,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 7)]
         public BinaryDataExtractor[] BinaryDataExtractors { get; set; }
 
+        [JsonProperty(Order = 9)]
+        public int MaximumRequestsInBatch { get; set; } = 1;
+
         [JsonProperty(Order = 10)]
         public int BatchSize { get; set; } = 100000;
         [JsonProperty(Order = 11)]
@@ -30,7 +33,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int? BatchMaxImages { get; set; }
         [JsonProperty(Order = 14)]
         public TimeSpan? BatchMaxAudioDuration { get; set; }
-
 
         [JsonProperty(Order = 15)]
         public int? NbContextItems { get; set; } = 100000;

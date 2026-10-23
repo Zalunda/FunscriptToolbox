@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public static string TryToFixReceivedJson(
             AIRequest request,
-            string json, 
+            string json,
             bool tryToFixEnd = true)
         {
             var jsonOriginal = json;
@@ -163,7 +163,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (!rs_lookLikeItsJson.IsMatch(json))
             {
                 throw new AIResponseException(
-                    request, 
+                    request,
                     "The answer received from the AI doesn't look like JSON:",
                     jsonOriginal);
             }
@@ -172,7 +172,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
     }
 
-    public class AIEngineRunner<T> : AIEngineRunner where T: TimedItemWithMetadata
+    public class AIEngineRunner<T> : AIEngineRunner where T : TimedItemWithMetadata
     {
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
@@ -192,68 +192,83 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public void Run(
-            AIRequestGenerator requestsGenerator, 
+            AIRequestGenerator requestsGenerator,
             BinaryDataExtractorCachedCollection binaryDataExtractors = null)
         {
             var nbErrors = HandlePreviousFiles(requestsGenerator);
             if (nbErrors == 0)
             {
-                try
+                AIRequest[] requests = null;
+                AIResponse[] lastResponsesReceived = null;
+                int requestNumber = 1;
+                do
                 {
-                    AIRequest request = null;
-                    AIResponse lastResponseReceived = null;
-                    int requestNumber = 1;
-                    do
+                    requests = requestsGenerator.CreateNextRequests(r_context, ref requestNumber, lastResponsesReceived, binaryDataExtractors);
+                    if (requests != null && requests.Length > 0)
                     {
-                        request = requestsGenerator.CreateNextRequest(r_context, requestNumber++, lastResponseReceived, binaryDataExtractors);
-                        if (request != null)
-                        {
-                            var watch = Stopwatch.StartNew();
-                            var response = r_engine.Execute(r_context, request);
-                            watch.Stop();
+                        var watch = Stopwatch.StartNew();
+                        var responses = r_engine.Execute(r_context, requests);
+                        watch.Stop();
 
-                            lastResponseReceived = response;
+                        lastResponsesReceived = responses;
+                        var capturedExceptions = new List<AIResponseException>();
+
+                        foreach (var response in responses)
+                        {
                             r_workingOnContainer.Costs.Add(response.Cost);
                             r_workingOnContainer.Costs.AddRange(response.AdditionalCosts);
 
                             if (response.AssistantMessage != null)
                             {
-                                var itemsAdded = ParseAssistantMessageAndAddItems(
-                                    requestsGenerator.GetTimings(), 
-                                    response.AssistantMessage, 
-                                    request, 
-                                    () => response.Cost.NbItemsInResponse++);
-                                r_context.WIP.Save();
+                                try
+                                {
+                                    var itemsAdded = ParseAssistantMessageAndAddItems(
+                                        requestsGenerator.GetTimings(),
+                                        response.AssistantMessage,
+                                        response.Request,
+                                        () => response.Cost.NbItemsInResponse++);
+                                    r_context.WIP.Save();
+                                }
+                                catch (AIResponseException ex)
+                                {
+                                    SaveErrorAndCreateTodo(ex);
+                                    capturedExceptions.Add(ex);
+                                }
                             }
                         }
-                    } while (request != null);
-                }
-                catch (AIResponseException ex)
-                {
-                    // ParseAssistantMessageAndAddItems might have added some of the items before throwing.
-                    r_context.WIP.Save();
 
-                    var todoFilepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
-                    var errorFilePath = todoFilepath.Replace("TODO_", "TODO_E_");
-                    if (ex.ResponseBodyPartiallyFixed == null)
-                    {
-                        r_context.SoftDelete(errorFilePath);
-                        File.WriteAllText(
-                            errorFilePath,
-                            $"{ex.Message}\n\n{ex.ResponseBody}", 
-                            Encoding.UTF8);
+                        if (capturedExceptions.Count > 0)
+                        {
+                            throw capturedExceptions[0];
+                        }
                     }
-                    else
-                    {
-                        r_context.SoftDelete(todoFilepath);
-                        File.WriteAllText(
-                            todoFilepath,
-                            $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}",
-                            Encoding.UTF8);
-                        r_context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(todoFilepath)}':\n{ex.Message}");
-                    }
-                    throw;
-                }
+                } while (requests != null && requests.Length > 0);
+            }
+        }
+
+        private void SaveErrorAndCreateTodo(AIResponseException ex)
+        {
+            // ParseAssistantMessageAndAddItems might have added some of the items before throwing.
+            r_context.WIP.Save();
+
+            var todoFilepath = ex.Request.GetFilenamePattern(r_context.WIP.BaseFilePath);
+            var errorFilePath = todoFilepath.Replace("TODO_", "TODO_E_");
+            if (ex.ResponseBodyPartiallyFixed == null)
+            {
+                r_context.SoftDelete(errorFilePath);
+                File.WriteAllText(
+                    errorFilePath,
+                    $"{ex.Message}\n\n{ex.ResponseBody}",
+                    Encoding.UTF8);
+            }
+            else
+            {
+                r_context.SoftDelete(todoFilepath);
+                File.WriteAllText(
+                    todoFilepath,
+                    $"{ex.Message.Replace("[", "(").Replace("]", ")")}\n\n{ex.ResponseBodyPartiallyFixed}",
+                    Encoding.UTF8);
+                r_context.AddUserTodo($"Manually fix the following error in file '{Path.GetFileName(todoFilepath)}':\n{ex.Message}");
             }
         }
 
@@ -314,10 +329,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         private List<T> ParseAssistantMessageAndAddItems(
-                    ITiming[] timings,
-                    string responseReceived,
-                    AIRequest request,
-                    Action increaseNbItemsInCostAction = null)
+            ITiming[] timings,
+            string responseReceived,
+            AIRequest request,
+            Action increaseNbItemsInCostAction = null)
         {
             static string GetSegmentInformation(JToken segment)
             {

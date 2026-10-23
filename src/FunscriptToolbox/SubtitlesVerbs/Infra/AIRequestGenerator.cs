@@ -28,6 +28,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             options = options ?? new AIOptions();
 
+            if (options.MaximumRequestsInBatch > 1 && (options.NbContextItems ?? 0) > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Configuration error on '{workingOnContainer?.Id}': MaximumRequestsInBatch be > 1 when NbContextItems > 0 (current value: {options.NbContextItems}). Set NbContextItems to 0 or null when using MaximumRequestsInBatch > 1.");
+            }
+
             r_referenceTimings = referenceTimings ?? Array.Empty<TimedItemWithMetadata>();
             r_workingOnContainer = workingOnContainer;
 
@@ -40,7 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_processStartTime = DateTime.Now;
         }
 
-        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[]itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState(
+        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[] itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState(
             TimeSpan? assumeAllItemsFinishedBefore = null)
         {
             var allItems = new List<TimedItemWithMetadataTagged>();
@@ -80,201 +86,241 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return allItems.Cast<ITiming>().ToArray();
         }
 
-        public AIRequest CreateNextRequest(
+        public AIRequest[] CreateNextRequests(
             SubtitleGeneratorContext context,
-            int requestNumber,
-            AIResponse lastResponseReceived,
+            ref int requestNumber,
+            AIResponse[] lastResponsesReceived,
             BinaryDataExtractorCachedCollection binaryDataExtractors = null)
         {
+            var lastResponse = lastResponsesReceived?.LastOrDefault();
+
             // If no assistant message => Chatbot => assume all items were processed
-            var assumeAllItemsFinishedBefore = (lastResponseReceived?.AssistantMessage == null)
-                ? lastResponseReceived?.Request.ItemsIncluded.Last().EndTime
-                : null;
+            var assumeAllItemsFinishedBefore = (lastResponse != null && lastResponse.AssistantMessage == null)
+                ? lastResponse.Request.ItemsIncluded.Last().EndTime
+                : (TimeSpan?)null;
 
             var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState(assumeAllItemsFinishedBefore);
+            itemsToDo = itemsToDo.Take(160).ToArray();
 
             if (itemsToDo.Length == 0)
-                return null;
+                return Array.Empty<AIRequest>();
 
-            var nbItemsDoneInLastRequest = lastResponseReceived?.Request.ItemsIncluded.Count(item => itemsAlreadyDone.Any(f => f.StartTime == item.StartTime && f.EndTime == item.EndTime));
-            if (nbItemsDoneInLastRequest < r_options.NbItemsMinimumReceivedToContinue)
+            // Check that every individual request in the previous execution met NbItemsMinimumReceivedToContinue
+            // Check that the aggregated responses from the previous execution met the minimum required items
+            if (lastResponsesReceived != null && lastResponsesReceived.Length > 0)
             {
-                context.WriteError($"Last response only contained {nbItemsDoneInLastRequest} items when minimum to continue is {r_options.NbItemsMinimumReceivedToContinue}.");
-                return null;
-            }
+                int totalItemsIncluded = 0;
+                int totalRequiredMinimum = 0;
+                int totalItemsDone = 0;
 
-            var systemParts = new AIRequestPartCollection();
-            var userParts = new AIRequestPartCollection();
-            if (r_systemPrompt != null)
-            {
-                systemParts.AddText(AIRequestSection.SystemPrompt, r_systemPrompt);
-            }
-
-            if (r_userPrompt != null)
-            {
-                userParts.AddText(AIRequestSection.SystemValidation, r_userPrompt);
-            }
-
-            userParts.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<AIRequestPart>());
-
-            var optimalBatchSize = r_options.BatchSize;
-
-            // 1. Try to find an optimal split point by looking BACKWARD (shrinking the batch)
-            if (itemsToDo.Length > optimalBatchSize && r_options.BatchSplitWindows > 0)
-            {
-                int searchStartIndex = Math.Max(0, optimalBatchSize - r_options.BatchSplitWindows);
-                int searchEndIndex = Math.Min(optimalBatchSize, itemsToDo.Length - 1);
-                var largestGap = TimeSpan.MinValue;
-                for (int i = searchStartIndex; i < searchEndIndex; i++)
+                foreach (var response in lastResponsesReceived)
                 {
-                    var gap = itemsToDo[i + 1].StartTime - itemsToDo[i].EndTime;
-                    if (gap > largestGap)
-                    {
-                        largestGap = gap;
-                        optimalBatchSize = i + 1;
-                    }
+                    var itemsIncludedCount = response.Request.ItemsIncluded?.Length ?? 0;
+                    totalItemsIncluded += itemsIncludedCount;
+                    totalRequiredMinimum += Math.Min(itemsIncludedCount, r_options.NbItemsMinimumReceivedToContinue);
+                    // Count how many items from this request were successfully processed
+                    totalItemsDone += response.Request.ItemsIncluded.Count(
+                        item => itemsAlreadyDone.Any(f => f.StartTime == item.StartTime && f.EndTime == item.EndTime));
+                }
+
+                // Evaluate the aggregate totals
+                if (totalItemsDone < totalRequiredMinimum)
+                {
+                    context.WriteError($"The last execution only returned {totalItemsDone}/{totalItemsIncluded} items across {lastResponsesReceived.Length} requests, when the aggregated minimum to continue is {totalRequiredMinimum}.");
+                    return Array.Empty<AIRequest>();
                 }
             }
 
-            // 2. Ensure we don't cut during overlapping/tight dialogue by looking FORWARD (growing the batch)
-             if (r_options.BatchKeepTogetherThreshold.HasValue && itemsToDo.Length > optimalBatchSize)
+            var requests = new List<AIRequest>();
+            var scheduledInThisPass = new HashSet<TimedItemWithMetadataTagged>();
+            int totalItemsCount = itemsAlreadyDone.Length + itemsToDo.Length;
+
+            do
             {
-                // Keep checking the gap between the last item in the proposed batch and the first item in the next batch
-                while (optimalBatchSize < itemsToDo.Length)
+                var remainingToDo = itemsToDo.Where(i => !scheduledInThisPass.Contains(i)).ToArray();
+                if (remainingToDo.Length == 0)
+                    break;
+
+                var systemParts = new AIRequestPartCollection();
+                var userParts = new AIRequestPartCollection();
+                if (r_systemPrompt != null)
                 {
-                    var currentItem = itemsToDo[optimalBatchSize - 1];
-                    var nextItem = itemsToDo[optimalBatchSize];
-
-                    var gapToNext = nextItem.StartTime - currentItem.EndTime;
-
-                    // If the gap is smaller than the threshold (or negative due to overlap), it is unsafe to cut.
-                    if (gapToNext < r_options.BatchKeepTogetherThreshold.Value)
-                    {
-                        // Force the batch to include the next item, and loop again to check the new gap
-                        optimalBatchSize++;
-                    }
-                    else
-                    {
-                        // The gap is large enough, it is safe to split here
-                        break;
-                    }
+                    systemParts.AddText(AIRequestSection.SystemPrompt, r_systemPrompt);
                 }
-            }
 
-            var waitingForFirstToDo = true;
-            var itemsInBatch = new List<TimedItemWithMetadata>();
-            var metadataOngoing = new MetadataCollection();
-            var contentBefore = new Queue<TimedItemWithMetadata>();
-            var previousEndTime = TimeSpan.Zero;
-            var nbImagesInBatch = 0;
-            var audioSecondsInBatch = 0.0;
-            foreach (var item in allItems)
-            {
-                if (waitingForFirstToDo)
+                if (r_userPrompt != null)
                 {
-                    if (!itemsToDo.Contains(item))
+                    userParts.AddText(AIRequestSection.SystemValidation, r_userPrompt);
+                }
+
+                userParts.AddRange(binaryDataExtractors?.GetTrainingContentList() ?? Array.Empty<AIRequestPart>());
+
+                var optimalBatchSize = r_options.BatchSize;
+
+                // 1. Try to find an optimal split point by looking BACKWARD (shrinking the batch)
+                if (remainingToDo.Length > optimalBatchSize && r_options.BatchSplitWindows > 0)
+                {
+                    int searchStartIndex = Math.Max(0, optimalBatchSize - r_options.BatchSplitWindows);
+                    int searchEndIndex = Math.Min(optimalBatchSize, remainingToDo.Length - 1);
+                    var largestGap = TimeSpan.MinValue;
+                    for (int i = searchStartIndex; i < searchEndIndex; i++)
                     {
-                        if (r_options.NbContextItems != null)
+                        var gap = remainingToDo[i + 1].StartTime - remainingToDo[i].EndTime;
+                        if (gap > largestGap)
                         {
-                            contentBefore.Enqueue(item);
-                            if (contentBefore.Count > r_options.NbContextItems)
-                            {
-                                contentBefore.Dequeue();
-                            }
+                            largestGap = gap;
+                            optimalBatchSize = i + 1;
                         }
-
-                        metadataOngoing.Merge(item.Metadata);
-                    }
-                    else
-                    {
-                        waitingForFirstToDo = false;
-                        if (contentBefore.Count > 0)
-                        {
-                            userParts.AddText(AIRequestSection.ContextNodes, $"{r_options.TextBeforeContextData}\n[\n");
-
-                            for (var index = 0; index < contentBefore.Count; index++)
-                            {
-                                var current = contentBefore.ElementAt(index);
-                                var contextNumber = contentBefore.Count - index;
-                                var overrides = (index == 0) ? AddOngoingMetadata(current.Metadata, metadataOngoing) : null;
-                                metadataOngoing = null;
-                                userParts.AddRange(
-                                    CreateNodeContents(
-                                        AIRequestSection.ContextNodes,
-                                        current,
-                                        overrides: overrides,
-                                        contextNumber: contextNumber));
-                            }
-                            userParts.AddText(AIRequestSection.ContextNodes, $"]\n{r_options.TextAfterContextData}\n");
-                        }
-
-                        userParts.AddText(AIRequestSection.ContextNodes, r_options.TextBeforeAnalysis + "\n\n[\n");
                     }
                 }
 
-                if (!waitingForFirstToDo)
+                // 2. Ensure we don't cut during overlapping/tight dialogue by looking FORWARD (growing the batch)
+                if (r_options.BatchKeepTogetherThreshold.HasValue && remainingToDo.Length > optimalBatchSize)
                 {
-                    if (itemsToDo.Contains(item))
+                    while (optimalBatchSize < remainingToDo.Length)
                     {
-                        var metadataForThisItem = item.Metadata;
-                        if (metadataOngoing != null)
+                        var currentItem = remainingToDo[optimalBatchSize - 1];
+                        var nextItem = remainingToDo[optimalBatchSize];
+
+                        var gapToNext = nextItem.StartTime - currentItem.EndTime;
+
+                        if (gapToNext < r_options.BatchKeepTogetherThreshold.Value)
                         {
-                            metadataForThisItem = AddOngoingMetadata(item.Metadata, metadataOngoing);
-                            metadataOngoing = null;
+                            optimalBatchSize++;
                         }
-
-                        var itemParts = new List<AIRequestPart>();
-                        itemParts.AddRange(
-                            CreateContextOnlyNodeContents(
-                                AIRequestSection.ContextNodes,
-                                binaryDataExtractors,
-                                new Timing(previousEndTime, item.StartTime),
-                                item.Metadata));
-                        itemParts.AddRange(
-                            CreateNodeContents(
-                                AIRequestSection.PrimaryNodes,
-                                item,
-                                binaryDataExtractors,
-                                metadataForThisItem));
-
-                        nbImagesInBatch += itemParts.OfType<AIRequestPartImage>().Count();
-                        audioSecondsInBatch += itemParts.OfType<AIRequestPartAudio>().Sum(a => a.Duration.TotalSeconds);
-                        // Always include at least the minimum items received to continue.
-                        if (itemsInBatch.Count > r_options.NbItemsMinimumReceivedToContinue
-                            && ((r_options.BatchMaxImages.HasValue && nbImagesInBatch > r_options.BatchMaxImages.Value)
-                                || (r_options.BatchMaxAudioDuration.HasValue && audioSecondsInBatch > r_options.BatchMaxAudioDuration.Value.TotalSeconds)))
+                        else
                         {
                             break;
                         }
-
-                        userParts.AddRange(itemParts);
-                        itemsInBatch.Add(item);
                     }
                 }
 
-                previousEndTime = item.EndTime;
+                var waitingForFirstToDo = true;
+                var itemsInBatch = new List<TimedItemWithMetadata>();
+                var metadataOngoing = new MetadataCollection();
+                var contentBefore = new Queue<TimedItemWithMetadata>();
+                var previousEndTime = TimeSpan.Zero;
+                var nbImagesInBatch = 0;
+                var audioSecondsInBatch = 0.0;
 
-                if (itemsInBatch.Count >= optimalBatchSize)
+                foreach (var item in allItems)
                 {
-                    break;
+                    bool isItemToDoNow = remainingToDo.Contains(item);
+
+                    if (waitingForFirstToDo)
+                    {
+                        if (!isItemToDoNow)
+                        {
+                            if (r_options.NbContextItems != null && r_options.NbContextItems > 0)
+                            {
+                                contentBefore.Enqueue(item);
+                                if (contentBefore.Count > r_options.NbContextItems)
+                                {
+                                    contentBefore.Dequeue();
+                                }
+                            }
+
+                            metadataOngoing.Merge(item.Metadata);
+                        }
+                        else
+                        {
+                            waitingForFirstToDo = false;
+                            if (contentBefore.Count > 0)
+                            {
+                                userParts.AddText(AIRequestSection.ContextNodes, $"{r_options.TextBeforeContextData}\n[\n");
+
+                                for (var index = 0; index < contentBefore.Count; index++)
+                                {
+                                    var current = contentBefore.ElementAt(index);
+                                    var contextNumber = contentBefore.Count - index;
+                                    var overrides = (index == 0) ? AddOngoingMetadata(current.Metadata, metadataOngoing) : null;
+                                    metadataOngoing = null;
+                                    userParts.AddRange(
+                                        CreateNodeContents(
+                                            AIRequestSection.ContextNodes,
+                                            current,
+                                            overrides: overrides,
+                                            contextNumber: contextNumber));
+                                }
+                                userParts.AddText(AIRequestSection.ContextNodes, $"]\n{r_options.TextAfterContextData}\n");
+                            }
+
+                            userParts.AddText(AIRequestSection.ContextNodes, r_options.TextBeforeAnalysis + "\n\n[\n");
+                        }
+                    }
+
+                    if (!waitingForFirstToDo)
+                    {
+                        if (isItemToDoNow)
+                        {
+                            var metadataForThisItem = item.Metadata;
+                            if (metadataOngoing != null)
+                            {
+                                metadataForThisItem = AddOngoingMetadata(item.Metadata, metadataOngoing);
+                                metadataOngoing = null;
+                            }
+
+                            var itemParts = new List<AIRequestPart>();
+                            itemParts.AddRange(
+                                CreateContextOnlyNodeContents(
+                                    AIRequestSection.ContextNodes,
+                                    binaryDataExtractors,
+                                    new Timing(previousEndTime, item.StartTime),
+                                    item.Metadata));
+                            itemParts.AddRange(
+                                CreateNodeContents(
+                                    AIRequestSection.PrimaryNodes,
+                                    item,
+                                    binaryDataExtractors,
+                                    metadataForThisItem));
+
+                            nbImagesInBatch += itemParts.OfType<AIRequestPartImage>().Count();
+                            audioSecondsInBatch += itemParts.OfType<AIRequestPartAudio>().Sum(a => a.Duration.TotalSeconds);
+                            // Always include at least the minimum items received to continue.
+                            if (itemsInBatch.Count > r_options.NbItemsMinimumReceivedToContinue
+                                && ((r_options.BatchMaxImages.HasValue && nbImagesInBatch > r_options.BatchMaxImages.Value)
+                                    || (r_options.BatchMaxAudioDuration.HasValue && audioSecondsInBatch > r_options.BatchMaxAudioDuration.Value.TotalSeconds)))
+                            {
+                                break;
+                            }
+
+                            userParts.AddRange(itemParts);
+                            itemsInBatch.Add(item);
+                            scheduledInThisPass.Add(item);
+                        }
+                    }
+
+                    previousEndTime = item.EndTime;
+
+                    if (itemsInBatch.Count >= optimalBatchSize)
+                    {
+                        break;
+                    }
                 }
-            }
-            userParts.AddText(AIRequestSection.PrimaryNodes, "]\n");
 
-            if (r_options.TextAfterAnalysis != null)
-            {
-                userParts.AddText(AIRequestSection.PrimaryNodes, r_options.TextAfterAnalysis);
-            }
+                userParts.AddText(AIRequestSection.PrimaryNodes, "]\n");
 
-            return new AIRequest(
-                r_processStartTime,
-                requestNumber,
-                r_workingOnContainer.Id,
-                itemsInBatch.ToArray(),
-                systemParts,
-                userParts,
-                r_options.MetadataAlwaysProduced,
-                $"Items {itemsAlreadyDone.Length + 1} to {itemsAlreadyDone.Length + itemsInBatch.Count} out of {itemsAlreadyDone.Length + itemsToDo.Length}");
+                if (r_options.TextAfterAnalysis != null)
+                {
+                    userParts.AddText(AIRequestSection.PrimaryNodes, r_options.TextAfterAnalysis);
+                }
+
+                int startItemNumber = itemsAlreadyDone.Length + scheduledInThisPass.Count - itemsInBatch.Count + 1;
+                int endItemNumber = itemsAlreadyDone.Length + scheduledInThisPass.Count;
+
+                requests.Add(new AIRequest(
+                    r_processStartTime,
+                    requestNumber++,
+                    r_workingOnContainer.Id,
+                    itemsInBatch.ToArray(),
+                    systemParts,
+                    userParts,
+                    r_options.MetadataAlwaysProduced,
+                    $"Items {startItemNumber} to {endItemNumber} out of {totalItemsCount}"));
+
+            } while (r_options.MaximumRequestsInBatch > 1);
+
+            return requests.ToArray();
         }
 
         private static MetadataCollection AddOngoingMetadata(MetadataCollection metadataForItem, MetadataCollection metadataOngoing)
@@ -284,7 +330,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             foreach (var kvp in metadataOngoing.ToArray())
             {
-                if (!kvp.Key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase) 
+                if (!kvp.Key.StartsWith("Ongoing", StringComparison.OrdinalIgnoreCase)
                     || string.IsNullOrWhiteSpace(kvp.Value))
                 {
                     metadataOngoing.Remove(kvp.Key);
@@ -394,12 +440,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
-
         internal AIRequest CreateEmptyRequest()
         {
             return new AIRequest(
                 r_processStartTime,
-                1, 
+                1,
                 r_workingOnContainer.Id,
                 null,
                 null,

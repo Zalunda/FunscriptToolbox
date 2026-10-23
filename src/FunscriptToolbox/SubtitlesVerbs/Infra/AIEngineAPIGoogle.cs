@@ -34,10 +34,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         protected override double CostSaving => UseBatchMode ? UseBatchModeSaving : 1.0;
         public override string EngineIdentifier => base.EngineIdentifier + (UseBatchMode ? "+Batch" : "+Stream");
 
-        public override AIResponse Execute(
+        public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest request)
+            AIRequest[] requests)
         {
+            if (requests == null || requests.Length == 0)
+            {
+                return Array.Empty<AIResponse>();
+            }
+
+            if (!this.UseBatchMode && requests.Length > 1)
+            {
+                throw new NotSupportedException("Multiple requests in IndependentMode are only supported when UseBatchMode is true.");
+            }
+
             if (this._stopWorkerRequested)
             {
                 this._stopWorkerRequested = false;
@@ -53,14 +63,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 client.BaseAddress = new Uri(this.BaseAddress.EndsWith("/") ? this.BaseAddress : this.BaseAddress + "/");
                 client.Timeout = this.TimeOut;
 
-                var verbosePrefix = request.GetVerbosePrefix();
-                context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", $"Base Adress: {this.BaseAddress}\nModel: {this.Model}\n\n{request.FullPrompt}", request.ProcessStartTime);
-
-                PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
+                foreach (var req in requests)
+                {
+                    var reqPrefix = req.GetVerbosePrefix();
+                    context.CreateVerboseTextFile($"{reqPrefix}-Req.txt", $"Base Adress: {this.BaseAddress}\nModel: {this.Model}\n\n{req.FullPrompt}", req.ProcessStartTime);
+                    PauseIfEnabled(this.PauseBeforeSendingRequest, req.FullPrompt);
+                }
 
                 return this.UseBatchMode
-                    ? ProcessBatchResponse(context, client, request, verbosePrefix)
-                    : ProcessStreamingResponse(context, client, request, verbosePrefix);
+                    ? ProcessBatchResponses(context, client, requests)
+                    : new[] { ProcessStreamingResponse(context, client, requests[0], requests[0].GetVerbosePrefix()) };
             }
             catch (AggregateException ex)
             {
@@ -133,11 +145,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
-        private AIResponse ProcessBatchResponse(
+        private AIResponse[] ProcessBatchResponses(
             SubtitleGeneratorContext context,
             HttpClient client,
-            AIRequest request,
-            string verbosePrefix,
+            AIRequest[] requests,
+            string jsonSuffix = "",
             bool isFirstCall = true)
         {
             Timer waitingTimer = null;
@@ -145,8 +157,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             try
             {
                 var watch = Stopwatch.StartNew();
-
-                dynamic innerRequestBody = CreateRequestBody(request);
+                var firstRequest = requests[0];
+                var batchJsonPrefix = (requests.Length == 1 ? firstRequest.GetVerbosePrefix() : firstRequest.TaskId) + jsonSuffix;
 
                 dynamic batchRequest = new ExpandoObject();
                 batchRequest.batch = new
@@ -156,24 +168,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         requests = new
                         {
-                            requests = new dynamic[]
+                            requests = requests.Select((req, idx) => (dynamic)new
                             {
-                                new
+                                request = CreateRequestBody(req),
+                                metadata = new
                                 {
-                                    request = innerRequestBody,
-                                    metadata = new {
-                                        key = "request-1"
-                                    }
+                                    key = $"request-{DateTime.Now:yyyyMMdd-HHmmss}-{idx + 1}"
                                 }
-                            }
+                            }).ToArray()
                         }
-                    } 
+                    }
                 };
 
                 var batchRequestAsJson = JsonConvert.SerializeObject(batchRequest, Formatting.Indented);
-                context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", batchRequestAsJson, request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{batchJsonPrefix}-Req.json", batchRequestAsJson, firstRequest.ProcessStartTime);
 
-                var requestId = $"{request.TaskId}, #{request.Number}: {request.UpdateMessage}";
+                var requestId = requests.Length == 1
+                    ? $"{firstRequest.TaskId}, #{firstRequest.Number}: {firstRequest.UpdateMessage}"
+                    : $"{firstRequest.TaskId}, Batch of {requests.Length} requests (#{firstRequest.Number}..#{requests.Last().Number})";
+
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:batchGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
@@ -224,22 +237,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 string initialResponseAsJson = response.Content.ReadAsStringAsync().Result;
 
-                // 1. Parse the Initial Operation Response
                 operation = JsonConvert.DeserializeObject<GoogleOperation>(initialResponseAsJson);
 
                 if (string.IsNullOrEmpty(operation.Name))
                 {
-                    throw new AIResponseException(request, "Batch API returned an empty operation name.");
+                    throw new AIResponseException(firstRequest, "Batch API returned an empty operation name.");
                 }
 
                 if (this.DebugBatchPollingResponse)
                 {
-                    context.CreateVerboseTextFile($"{verbosePrefix}-Batch-Init-Resp.json", initialResponseAsJson, request.ProcessStartTime);
+                    context.CreateVerboseTextFile($"{batchJsonPrefix}-Batch-Init-Resp.json", initialResponseAsJson, firstRequest.ProcessStartTime);
                 }
 
-                // 2. Poll for Completion
                 string pollJson = null;
-                GoogleResultItem finalResult = null;
+                GoogleInlinedResponseLayer2[] inlinedResponses = null;
                 int pollNumber = 1;
 
                 // We use the 'name' property (e.g., "batches/zoop...") directly on the BaseAddress
@@ -331,7 +342,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     pollJson = pollResponse.Content.ReadAsStringAsync().Result;
                     if (this.DebugBatchPollingResponse)
                     {
-                        context.CreateVerboseTextFile($"{verbosePrefix}-Batch-Polling-{pollNumber++}-Resp.json", pollJson, request.ProcessStartTime);
+                        context.CreateVerboseTextFile($"{batchJsonPrefix}-Batch-Polling-{pollNumber++}-Resp.json", pollJson, firstRequest.ProcessStartTime);
                     }
 
                     operation = JsonConvert.DeserializeObject<GoogleOperation>(pollJson);
@@ -359,7 +370,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         if (error == null && state == "BATCH_STATE_SUCCEEDED")
                         {
-                            finalResult = operation.GetResultItem();
+                            inlinedResponses = operation.GetInlinedResponses();
                             stopAfterResponse = true;
                             break;
                         }
@@ -381,99 +392,110 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                     else if (state == "BATCH_STATE_SUCCEEDED")
                     {
-                        finalResult = operation.GetResultItem();
+                        inlinedResponses = operation.GetInlinedResponses();
                         break;
                     }
                     else if (!(state == "BATCH_STATE_PENDING" || state == "BATCH_STATE_RUNNING"))
                     {
-                        throw new AIResponseException(request, $"Batch API returned state: {state}. Expecting: BATCH_STATE_SUCCEEDED, BATCH_STATE_PENDING or BATCH_STATE_RUNNING");
+                        throw new AIResponseException(firstRequest, $"Batch API returned state: {state}. Expecting: BATCH_STATE_SUCCEEDED, BATCH_STATE_PENDING or BATCH_STATE_RUNNING");
                     }
-
-                    // we loop...
                 }
 
                 waitingTimer?.Dispose();
                 waitingTimer = null;
 
-                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", pollJson, request.ProcessStartTime);
+                context.CreateVerboseTextFile($"{batchJsonPrefix}-Resp.json", pollJson, firstRequest.ProcessStartTime);
 
-                // 3. Process the Result
-
-                if (finalResult == null)
+                if (inlinedResponses == null || inlinedResponses.Length == 0)
                 {
-                    throw new AIResponseException(request, $"Batch API returned {operation.GetState()} but it didn't include the AI response.");
+                    throw new AIResponseException(firstRequest, $"Batch API returned {operation.GetState()} but it didn't include any AI responses.");
                 }
-
-                // Reuse your existing builders
-                var candidates = new StringBuilder();
-                var thoughtContent = new StringBuilder();
-                var extraContent = new StringBuilder();
-                GoogleUsageMetadata googleUsageMetadata = finalResult.UsageMetadata;
-
-                // Map the Batch Candidates to your logic
-                if (finalResult.PromptFeedback != null)
-                {
-                    extraContent.AppendLine();
-                    extraContent.AppendLine($"PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}");
-                }
-                foreach (var candidate in finalResult.Candidates ?? Array.Empty<GoogleCandidate>())
-                {
-                    foreach (var part in candidate.Content?.Parts ?? Array.Empty<GooglePart>())
-                    {
-                        if (part.Thought == true)
-                        {
-                            thoughtContent.Append(part.Text);
-                        }
-                        else
-                        {
-                            candidates.Append(part.Text);
-                        }
-                    }
-
-                    if (candidate.FinishReason != null)
-                    {
-                        extraContent.AppendLine();
-                        extraContent.AppendLine($"FinishReason: {candidate.FinishReason}");
-                    }
-                }
-
-                // Print to console to mimic streaming feedback (all at once now)
-                Console.WriteLine();
-                Console.WriteLine(thoughtContent.ToString());
-                Console.WriteLine(AddRealTime(context, request.StartOffset, candidates.ToString()));
 
                 var runningTime = watch.Elapsed - pendingWatch.Elapsed;
-                extraContent.AppendLine($"PendingTime: {pendingWatch.Elapsed}");
-                extraContent.AppendLine($"RunningTime: {runningTime}");
-                dynamic customInfos = new ExpandoObject();
-                customInfos.PendingTime = $"{pendingWatch.Elapsed:hh\\:mm\\:ss\\.fff}";
-                customInfos.RunningTime = $"{runningTime:hh\\:mm\\:ss\\.fff}";
+                var results = new List<AIResponse>(requests.Length);
 
-                // 4. Calculate Usage and Costs
-                if (googleUsageMetadata != null)
+                for (int idx = 0; idx < requests.Length; idx++)
                 {
-                    extraContent.AppendLine($"InputTokensByModality:     {googleUsageMetadata.PromptTokenCount,7}, {GetInputCost(googleUsageMetadata.PromptTokenCount):C}");
-                    foreach (var item in googleUsageMetadata.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
+                    var req = requests[idx];
+                    var expectedKey = $"request-{idx + 1}";
+                    var inlinedItem = inlinedResponses.FirstOrDefault(r => r.Metadata?.Key == expectedKey)
+                        ?? (idx < inlinedResponses.Length ? inlinedResponses[idx] : null);
+
+                    var finalResult = inlinedItem?.Response;
+                    if (finalResult == null)
                     {
-                        extraContent.AppendLine($"   {item.Modality,10}: {item.TokenCount,7}");
+                        var errMsg = inlinedItem?.Error != null
+                            ? $"Sub-request {expectedKey} failed with error {inlinedItem.Error.Code}: {inlinedItem.Error.Message}"
+                            : $"Batch API did not return a response for {expectedKey}.";
+                        throw new AIResponseException(req, errMsg);
                     }
-                    var totalOutputTokens = googleUsageMetadata.ThoughtsTokenCount + googleUsageMetadata.CandidatesTokenCount;
-                    extraContent.AppendLine($"OutputTextTokensBySection: {totalOutputTokens,7}, {GetOutputCost(totalOutputTokens):C}");
-                    extraContent.AppendLine($"     Thoughts: {googleUsageMetadata.ThoughtsTokenCount,7}");
-                    extraContent.AppendLine($"   Candidates: {googleUsageMetadata.CandidatesTokenCount,7}");
-                }
 
-                Console.WriteLine(extraContent.ToString());
+                    var candidates = new StringBuilder();
+                    var thoughtContent = new StringBuilder();
+                    var extraContent = new StringBuilder();
+                    GoogleUsageMetadata googleUsageMetadata = finalResult.UsageMetadata;
 
-                string assistantMessageExtended = candidates.ToString() + extraContent.ToString();
-                context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, request.ProcessStartTime);
+                    if (finalResult.PromptFeedback != null)
+                    {
+                        extraContent.AppendLine();
+                        extraContent.AppendLine($"PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}");
+                    }
+                    foreach (var candidate in finalResult.Candidates ?? Array.Empty<GoogleCandidate>())
+                    {
+                        foreach (var part in candidate.Content?.Parts ?? Array.Empty<GooglePart>())
+                        {
+                            if (part.Thought == true)
+                            {
+                                thoughtContent.Append(part.Text);
+                            }
+                            else
+                            {
+                                candidates.Append(part.Text);
+                            }
+                        }
 
-                var unfilteredResponseCost = Cost.Create(
-                        request.TaskId,
+                        if (candidate.FinishReason != null)
+                        {
+                            extraContent.AppendLine();
+                            extraContent.AppendLine($"FinishReason: {candidate.FinishReason}");
+                        }
+                    }
+
+                    Console.WriteLine();
+                    Console.WriteLine(thoughtContent.ToString());
+                    Console.WriteLine(AddRealTime(context, req.StartOffset, candidates.ToString()));
+
+                    extraContent.AppendLine($"PendingTime: {pendingWatch.Elapsed}");
+                    extraContent.AppendLine($"RunningTime: {runningTime}");
+                    dynamic customInfos = new ExpandoObject();
+                    customInfos.PendingTime = $"{pendingWatch.Elapsed:hh\\:mm\\:ss\\.fff}";
+                    customInfos.RunningTime = $"{runningTime:hh\\:mm\\:ss\\.fff}";
+
+                    if (googleUsageMetadata != null)
+                    {
+                        extraContent.AppendLine($"InputTokensByModality:     {googleUsageMetadata.PromptTokenCount,7}, {GetInputCost(googleUsageMetadata.PromptTokenCount):C}");
+                        foreach (var item in googleUsageMetadata.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
+                        {
+                            extraContent.AppendLine($"   {item.Modality,10}: {item.TokenCount,7}");
+                        }
+                        var totalOutputTokens = googleUsageMetadata.ThoughtsTokenCount + googleUsageMetadata.CandidatesTokenCount;
+                        extraContent.AppendLine($"OutputTextTokensBySection: {totalOutputTokens,7}, {GetOutputCost(totalOutputTokens):C}");
+                        extraContent.AppendLine($"     Thoughts: {googleUsageMetadata.ThoughtsTokenCount,7}");
+                        extraContent.AppendLine($"   Candidates: {googleUsageMetadata.CandidatesTokenCount,7}");
+                    }
+
+                    Console.WriteLine(extraContent.ToString());
+
+                    string assistantMessageExtended = candidates.ToString() + extraContent.ToString();
+                    var reqVerbosePrefix = req.GetVerbosePrefix() + jsonSuffix;
+                    context.CreateVerboseTextFile($"{reqVerbosePrefix}-Resp.txt", thoughtContent.ToString() + "\n" + new string('*', 80) + "\n" + assistantMessageExtended, req.ProcessStartTime);
+
+                    var unfilteredResponseCost = Cost.Create(
+                        req.TaskId,
                         this.EngineIdentifier,
-                        request.SystemParts.Concat(request.UserParts).ToArray(),
-                        watch.Elapsed,
-                        request.ItemsIncluded?.Length ?? 1,
+                        req.SystemParts.Concat(req.UserParts).ToArray(),
+                        TimeSpan.FromTicks(watch.Elapsed.Ticks / requests.Length),
+                        req.ItemsIncluded?.Length ?? 1,
                         0,
                         this.EstimatedCostPerInputMillionTokens,
                         this.EstimatedCostPerOutputMillionTokens,
@@ -485,33 +507,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         rawUsageInput: (googleUsageMetadata?.PromptTokensDetails ?? Array.Empty<GooglePromptTokensDetails>())
                             .ToDictionary(item => item.Modality, item => item.TokenCount),
                         customInfos: customInfos);
-                var additionalCostsForImageValidation = new List<Cost>();
+                    var additionalCostsForImageValidation = new List<Cost>();
 
-                if (isFirstCall
-                    && this.ValidateImagesOnProbititedResponse 
-                    && finalResult.PromptFeedback?.BlockReason == PROHIBITED_CONTENT
-                    && batchRequestAsJson.IndexOf("image/jpeg", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    context.WriteInfo($"Received 'PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}', validating image one by one...");
-                    var nbImagesRemoved = 0;
-                    var filteredRequest = new AIRequest(
-                        request.ProcessStartTime,
-                        request.Number,
-                        request.TaskId,
-                        request.ItemsIncluded,
-                        request.SystemParts.Select(part => ReplaceProhibitedImage(context, client, request, verbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
-                        request.UserParts.Select(part => ReplaceProhibitedImage(context, client, request, verbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
-                        request.MetadataAlwaysProduced,
-                        request.UpdateMessage,
-                        request.StartOffset);
-                    if (nbImagesRemoved > 0)
+                    if (isFirstCall
+                        && this.ValidateImagesOnProbititedResponse
+                        && finalResult.PromptFeedback?.BlockReason == PROHIBITED_CONTENT
+                        && batchRequestAsJson.IndexOf("image/jpeg", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        context.WriteInfo($"Processing filtered request...");
-                        var filteredResponse = ProcessBatchResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false);
-                        filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
-                        filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
-                        return filteredResponse;
+                        context.WriteInfo($"Received 'PromptFeedback.BlockReason: {finalResult.PromptFeedback.BlockReason}' on request #{req.Number}, validating image one by one...");
+                        var nbImagesRemoved = 0;
+                        var filteredRequest = new AIRequest(
+                            req.ProcessStartTime,
+                            req.Number,
+                            req.TaskId,
+                            req.ItemsIncluded,
+                            req.SystemParts.Select(part => ReplaceProhibitedImage(context, client, req, reqVerbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
+                            req.UserParts.Select(part => ReplaceProhibitedImage(context, client, req, reqVerbosePrefix, part, additionalCostsForImageValidation, ref nbImagesRemoved)),
+                            req.MetadataAlwaysProduced,
+                            req.UpdateMessage,
+                            req.StartOffset);
+                        if (nbImagesRemoved > 0)
+                        {
+                            context.WriteInfo($"Processing filtered request #{req.Number}...");
+                            var filteredResponse = ProcessBatchResponses(context, client, new[] { filteredRequest }, "-filtered", isFirstCall: false)[0];
+                            filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
+                            filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
+                            results.Add(filteredResponse);
+                            continue;
+                        }
                     }
+
+                    results.Add(new AIResponse(req, assistantMessageExtended, unfilteredResponseCost, additionalCostsForImageValidation));
                 }
 
                 if (stopAfterResponse)
@@ -522,14 +548,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 PauseIfEnabled(this.PauseBeforeSavingResponse);
 
-                return new AIResponse(request, assistantMessageExtended, unfilteredResponseCost, additionalCostsForImageValidation);
+                return results.ToArray();
             }
             finally
             {
                 waitingTimer?.Dispose();
             }
         }
-
 
         private AIResponse ProcessStreamingResponse(
             SubtitleGeneratorContext context,
@@ -555,7 +580,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
                 };
 
-                // Start a timer that will print waiting messages
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
@@ -766,7 +790,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     Cost.Create(
                         request.TaskId,
                         this.EngineIdentifier + "+ValidateImage",
-                        new AIRequestPart[] { 
+                        new AIRequestPart[] {
                             new AIRequestPartText(part.Section, "X"),
                             part
                         },
@@ -809,8 +833,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             public GoogleError Error { get; set; }
 
             public string GetState() => Metadata?.State;
-            public GoogleError GetError() => this.Error ?? this?.Response?.InlinedResponses?.InlinedResponses?.FirstOrDefault()?.Error;
-            public GoogleResultItem GetResultItem() => this?.Response?.InlinedResponses?.InlinedResponses?.FirstOrDefault()?.Response;
+            public GoogleError GetError() => this.Error;
+            public GoogleInlinedResponseLayer2[] GetInlinedResponses() => this?.Response?.InlinedResponses?.InlinedResponses;
         }
 
         private class GoogleBatchMetadata
@@ -832,6 +856,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             public GoogleResultItem Response { get; set; }
             public GoogleError Error { get; set; }
+            public GoogleRequestMetadata Metadata { get; set; }
+        }
+
+        private class GoogleRequestMetadata
+        {
+            public string Key { get; set; }
         }
 
         private class GoogleError
@@ -874,8 +904,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             public int CandidatesTokenCount { get; set; }
             public int ThoughtsTokenCount { get; set; }
 
-            // Do something with this??
-            public int CachedContentTokenCount { get; set; } 
+            public int CachedContentTokenCount { get; set; }
             public GooglePromptTokensDetails[] CacheTokensDetails { get; set; }
         }
 
@@ -884,8 +913,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             public string BlockReason { get; set; }
         }
 
-        public class GooglePromptTokensDetails 
-        { 
+        public class GooglePromptTokensDetails
+        {
             public string Modality { get; set; }
             public int TokenCount { get; set; }
         }

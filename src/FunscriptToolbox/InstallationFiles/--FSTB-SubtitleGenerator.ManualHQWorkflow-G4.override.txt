@@ -96,132 +96,6 @@ _______________________________________=",
       "Lines": null
     },
     {
-      "$id": "TranscriberAudioTimingRefinerSystemPromptForG4",
-      "$type": "AIPrompt",
-      "TextBefore": null,
-      "Text": "
-=_______________________________________
-
-# AUDIO BOUNDARY & CLIPPING AUDITOR FOR GEMINI 4 (version 2026-10-23)
-
-### Role
-You are a precision Japanese acoustic boundary auditor. You receive a numbered batch of candidate speech segments (`Index: 1 .. N`). Each node contains its sequential `Index`, a `StartTime` identifier, the expected `CandidateText`, and the unpadded `AudioClip` slice (`[StartTime .. EndTime]`).
-
-Your mission is to audit every single `AudioClip` in strict 1-by-1 sequential order by matching each input `Index`, verify whether the time slice captured the full `CandidateText`, and classify whether the boundaries are intact (`"Y"`) or clipped at the start (`"S"`), the end (`"E"`), or both/missing (`"SE"`).
-
----
-
-### Input Protocol
-You will receive a JSON array of objects, each containing:
-1. `Index`: The 1-based sequential integer (`1, 2, 3...`). Copy this back verbatim to lock alignment.
-2. `StartTime`: The node's unique timestamp string. Copy this back verbatim.
-3. `CandidateText`: The target Japanese phrase expected inside this time slice.
-4. `AudioClip`: The audio slice extracted from `[StartTime .. EndTime]`.
-
----
-
-### Step-by-Step Auditing Protocol (Per Node)
-
-Each object in the input array is an **independent, isolated acoustic test**. Do not let the audio, text, or `Status` of previous nodes bias your evaluation of the current node. 
-
-To guarantee zero skipped nodes and 100% phonetic accuracy, you MUST generate these six fields in exact order for every input node:
-
-1. **`"Index"`:** Copy the input `Index` integer (`1`, `2`, `3`, ...). Must increment by `+1` without ever skipping a number.
-2. **`"StartTime"`:** Copy the input `StartTime` string of that exact `Index` byte-for-byte.
-3. **`"Expected"`:** Copy the input `CandidateText` of that exact `Index` verbatim.
-4. **`"Audit"`:** Listen closely to `AudioClip` and write an ultra-brief note (4–8 words) checking the **start onset** and **end decay** of `Expected`:
-   * Listen carefully to short (`0.5s`) or soft clips—do not dismiss quiet speech as silence if the syllables are audible.
-   * Note if the full phrase is clear, which initial syllable(s) were sliced off at the start, which final syllable(s) were cut off at the end, or if the clip is only noise/breath.
-5. **`"Heard"`:** Based on your `Audit`, transcribe ONLY the exact Japanese characters/syllables of `Expected` physically audible inside `AudioClip`:
-   * If intact, `"Heard"` matches `"Expected"`.
-   * If the start is clipped, omit the missing opening syllable(s) from `"Heard"`.
-   * If the end is clipped, omit the missing closing syllable(s) from `"Heard"`.
-   * If zero syllables of `Expected` are audible, set `"Heard": ""`.
-6. **`"Status"`:** Output strictly one of these four boundary codes based on `"Audit"` and `"Heard"`:
-   * **`"Y"` (Intact):** Every syllable of `Expected` from start to finish is audible inside `AudioClip`.
-   * **`"S"` (Start Clipped):** Initial syllable(s) (or initial consonant/vowel onset) are cut off at the start of `AudioClip`, while the ending is intact.
-   * **`"E"` (End Clipped):** The start of the phrase is intact, but final syllable(s) are cut off at the end of `AudioClip`.
-   * **`"SE"` (Both Ends Clipped OR Speech Absent):** Both the start AND end of `Expected` are cut off (only middle syllables heard), **OR** `Expected` is completely absent (`"Heard": ""`).
-
----
-
-### Output Mandate
-Return a single, valid JSON array inside a ````json```` codeblock containing one object for every node in the input array, matching `Index: 1` through the final `Index`:
-
-```json
-[
-  {
-    "Index": 1,
-    "StartTime": "00:00:03.428",
-    "Expected": "すごいで。",
-    "Audit": "Start 'す' cut; end ok.",
-    "Heard": "ごいで。",
-    "Status": "S"
-  },
-  {
-    "Index": 2,
-    "StartTime": "00:00:05.542",
-    "Expected": "え、すごない？",
-    "Audit": "Full phrase audible.",
-    "Heard": "え、すごない？",
-    "Status": "Y"
-  },
-  {
-    "Index": 3,
-    "StartTime": "00:01:12.100",
-    "Expected": "あー、やばい。",
-    "Audit": "Start ok; end 'い' cut.",
-    "Heard": "あー、やば",
-    "Status": "E"
-  },
-  {
-    "Index": 4,
-    "StartTime": "00:01:45.600",
-    "Expected": "ちょっと私のこと見てて。",
-    "Audit": "Start 'ちょっと' and end 'て' cut.",
-    "Heard": "私のこと見て",
-    "Status": "SE"
-  },
-  {
-    "Index": 5,
-    "StartTime": "00:02:23.226",
-    "Expected": "おいしい。",
-    "Audit": "Only breath/noise; no speech.",
-    "Heard": "",
-    "Status": "SE"
-  }
-]
-```
-_______________________________________=",
-      "TextAfter": null,
-      "Lines": null
-    },
-    {
-      "$id": "TranscriberAudioTimingRefinerUserPromptForG4",
-      "$type": "AIPrompt",
-      "TextBefore": null,
-      "Text": "
-=_______________________________________
-### BATCH EXECUTION MANDATE
-
-1. **Strict 1:1 `Index` Lock (Zero Skipped Nodes):**
-   * Every input node has a sequential `"Index"` (`1, 2, 3...`).
-   * You MUST output every `"Index"` in unbroken sequential order (`1, 2, 3...` up to the final input `"Index"`), matching each `"Index"` to its exact `"StartTime"`, `"Expected"`, and `"AudioClip"`. Never skip an `"Index"`.
-2. **Audit Before Classifying (`Audit` -> `Heard` -> `Status`):**
-   * Keep `"Audit"` concise (4–8 words) noting what is cut at the start or end.
-   * Listen carefully to `0.5s` clips: soft or breathy dialogue is valid speech (`"Y"`) if the syllables are present.
-3. **Strict Boundary Codes:**
-   * `"Y"`: Full `Expected` phrase is audible.
-   * `"S"`: Start is cut off; end is intact (`Heard` omits missing start).
-   * `"E"`: Start is intact; end is cut off (`Heard` omits missing end).
-   * `"SE"`: Both start and end are cut off, OR `Heard` is `""`.
-
-*Context: Japanese adult media dialogue. Audit the acoustic boundaries objectively and return the complete JSON array.*
-_______________________________________=",
-      "TextAfter": null,
-      "Lines": null
-    },
-    {
       "$id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
       "$type": "AIPrompt",
       "TextBefore": null,
@@ -643,7 +517,65 @@ _______________________________________=",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
       "Engine": {
-        "$ref": "AIEngineGemini4"
+		  "$type": "AIEngineAPIGoogle",
+		  "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+		  "Model": "gemini-4-argon",
+		  "APIKeyName": "APIKeyGemini",
+		  "UseBatchMode": true,
+		  "UseBatchModeSaving": 0.50,
+		  "RequestBodyExtension": {
+			"safetySettings": [
+			  {
+				"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+				"threshold": "OFF"
+			  },
+			  {
+				"category": "HARM_CATEGORY_HARASSMENT",
+				"threshold": "OFF"
+			  },
+			  {
+				"category": "HARM_CATEGORY_HATE_SPEECH",
+				"threshold": "OFF"
+			  },
+			  {
+				"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+				"threshold": "OFF"
+			  }
+			],
+			"generationConfig": {
+			  "temperature": 0.0,
+			  "mediaResolution": "MEDIA_RESOLUTION_MEDIUM",
+			  "maxOutputTokens": 1024,
+			  "thinkingConfig": {
+				"thinkingLevel": "LOW"
+			  },
+			  "response_mime_type": "application/json",
+			  "response_schema": {
+				"type": "ARRAY",
+				"items": {
+				  "type": "OBJECT",
+				  "properties": {
+					"StartTime": {
+					  "type": "STRING"
+					},
+					"Status": {
+					  "type": "STRING",
+					  "enum": ["Y", "S", "E", "SE", "SK"]
+					}
+				  },
+				  "required": ["StartTime", "Status"],
+				  "propertyOrdering": ["StartTime", "Status"]
+				}
+			  }
+			}
+		  },
+		  "SupportAudio": true,
+		  "SupportImage": true,
+
+		  "EstimatedCostPerInputMillionTokens": 2,
+		  "EstimatedCostPerOutputMillionTokens": 10,
+		  "PauseBeforeSendingRequest": false,
+		  "PauseBeforeSavingResponse": false,
       },
       "Metadatas": {
         "TimingsSource": "full-ai",
@@ -654,10 +586,33 @@ _______________________________________=",
       },
       "Options": {
         "SystemPrompt": {
-          "$ref": "TranscriberAudioTimingRefinerSystemPromptForG4"
-        },
-        "UserPrompt": {
-          "$ref": "TranscriberAudioTimingRefinerUserPromptForG4"
+          "$type": "AIPrompt",
+          "Text": "
+=_______________________________________
+
+# JAPANESE AUDIO BOUNDARY AUDITOR
+
+### Role & Objective
+You are a precision audio-alignment auditor for Japanese subtitles.
+You will receive a JSON array of nodes. Each node contains:
+- `StartTime`: A subtitle timecode in `HH:MM:SS.mmm` format (e.g., `"00:12:43.713"`).
+- `CandidateText`: The expected Japanese phrase spoken in that subtitle.
+- `AudioClip`: The extracted audio slice for that subtitle's current timing window.
+
+Your task is to listen carefully to the start and end boundaries of each `AudioClip` and determine whether the spoken Japanese phrase in `CandidateText` is fully captured or if the audio boundaries cut into the speech.
+
+### Evaluation Criteria (`Status`)
+- `"Y"` (Yes / Clean): The entire `CandidateText` is clearly audible from the first mora/syllable to the final mora/syllable, with clean boundaries.
+- `"S"` (Start Clipped): The beginning of the phrase is cut off (starts mid-word or misses the initial syllable), but the ending is complete and clean.
+- `"E"` (End Clipped): The beginning of the phrase is clean, but the ending is cut off prematurely before the speaker finishes the final syllable of `CandidateText`.
+- `"SE"` (Both Clipped): Both the start and end of the phrase are cut off.
+- `"SK"` (Skip / Unusable): The audio is pure silence, background noise/music only, or the speech does not match `CandidateText` at all.
+
+### Strict Output Rules
+1. **1-to-1 Node Mapping**: If the input contains N nodes, your output JSON array MUST contain exactly N objects in the exact same sequential order. Never merge, skip, or omit nodes.
+2. **Exact Timecode Copy**: Copy the `StartTime` string character-for-character from the corresponding input node (format `HH:MM:SS.mmm`). NEVER output dates (like `2020-...` or `2023-...`), never alter digits, and never invent timecodes.
+3. **Direct Classification**: Evaluate each clip independently based on its acoustic boundaries and output ONLY the JSON array.
+_______________________________________="
         },
         "MetadataNeeded": "CandidateText",
         "MetadataAlwaysProduced": "Status",
@@ -668,23 +623,26 @@ _______________________________________=",
             "Enabled": true,
 			"ExpandStart": "00:00:00",
 			"ExpandEnd": "00:00:00",
-            "KeepTemporaryFiles": false,
+            "KeepTemporaryFiles": true,
             "SourceAudioId": "audio"
           },
         ],
-        "BatchSize": 50,
+        "MaximumRequestsInBatch": 25,
+        "BatchSize": 20,
         "BatchSplitWindows": 0,
         "BatchKeepTogetherThreshold": "00:00:00.0000000",
         "NbContextItems": 0,
-        "NbItemsMinimumReceivedToContinue": 30,
+        "NbItemsMinimumReceivedToContinue": 12,
         "FieldsToInclude": "StartTime",
+		"TextAfterAnalysis": "Audit the clips above and output the evaluation array now:"
       },
       "MaxRetriesPerNode": 4,
       "MaxBudgetRatio": 2.5,
       "MaxDriftSeconds": 0.5,
       "ShrinkStepSeconds": 0.2,
       "ValleySearchSeconds": 0.1,
-      "MinSubtitleDurationSeconds": 0.5
+      "MinSubtitleDurationSeconds": 0.5,
+      "PromptUserOnError": false
     },
     {
       "Id": "full-ai_google",
@@ -894,8 +852,6 @@ _______________________________________=",
         "UserPrompt": null,
         "MetadataNeeded": "VoiceText|OnScreenText,!SkipTranslation",
         "MetadataAlwaysProduced": "TranslatedText",
-        "PrivateMetadataNames": null,
-        "BinaryDataExtractors": null,
         "BatchSize": 200,
         "BatchSplitWindows": 10,
         "BatchKeepTogetherThreshold": null,
@@ -908,11 +864,7 @@ _______________________________________=",
           "TranslationAnalysis": 10,
           "VoiceText": 10,
           "OnScreenText": 10
-        },
-        "TextBeforeContextData": "Context from preceding nodes:",
-        "TextAfterContextData": "--------------------------------------------------",
-        "TextBeforeAnalysis": "Begin Node Analysis:",
-        "TextAfterAnalysis": null
+        }
       },
       "AutoMergeOn": null,
       "AutoDeleteOn": null,
@@ -936,23 +888,8 @@ _______________________________________=",
         "ValueTransformationRules": null
       },
       "Options": {
-        "SystemPrompt": null,
-        "UserPrompt": null,
         "MetadataNeeded": "OriginalTranslatedText",
-        "MetadataAlwaysProduced": "TranslatedText",
-        "PrivateMetadataNames": null,
-        "BinaryDataExtractors": null,
-        "BatchSize": 100000,
-        "BatchSplitWindows": 0,
-        "BatchKeepTogetherThreshold": null,
-        "NbContextItems": 100000,
-        "NbItemsMinimumReceivedToContinue": 50,
-        "FieldsToInclude": "StartTime, EndTime",
-        "MetadataInContextLimits": null,
-        "TextBeforeContextData": "Context from preceding nodes:",
-        "TextAfterContextData": "--------------------------------------------------",
-        "TextBeforeAnalysis": "Begin Node Analysis:",
-        "TextAfterAnalysis": null
+        "MetadataAlwaysProduced": "TranslatedText"
       },
       "MetadataSpeaker": "Speaker",
       "MaxLineLength": 50,

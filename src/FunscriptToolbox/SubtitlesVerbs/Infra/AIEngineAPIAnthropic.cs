@@ -31,10 +31,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         protected override double CostSaving => UseBatchMode ? UseBatchModeSaving : 1.0;
         public override string EngineIdentifier => base.EngineIdentifier + (UseBatchMode ? "+Batch" : "+Stream");
 
-        public override AIResponse Execute(
+        public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest request)
+            AIRequest[] requests)
         {
+            if (requests.Length > 1)
+            {
+                throw new Exception($"This engine does not support batching multiple request.");
+            }
+            var request = requests.First();
             try
             {
                 using var client = new HttpClient();
@@ -53,8 +58,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
 
                 return this.UseBatchMode
-                    ? ProcessBatchResponse(context, client, request, verbosePrefix)
-                    : ProcessStreamingResponse(context, client, request, verbosePrefix);
+                    ? new[] { ProcessBatchResponse(context, client, request, verbosePrefix) }
+                    : new[] { ProcessStreamingResponse(context, client, request, verbosePrefix) };
             }
             catch (AggregateException ex)
             {
