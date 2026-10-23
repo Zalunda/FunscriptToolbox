@@ -38,6 +38,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public bool IsStartLocked { get; set; }
             public bool IsEndLocked { get; set; }
 
+            // State machine trackers for the AI feedback loop
+            public bool HasFoundGoodStart { get; set; }
+            public bool HasFoundGoodEnd { get; set; }
+
             [JsonIgnore]
             public bool IsFullyLocked => IsStartLocked && IsEndLocked;
 
@@ -64,10 +68,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 47)]
         public double ValleySearchSeconds { get; set; } = 0.1;
 
+        [JsonProperty(Order = 48)]
+        public double MinSubtitleDurationSeconds { get; set; } = 0.5;
+
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
             var jobState = transcription.CurrentJobState as JobState;
-            if (jobState == null || true)
+            if (jobState == null)
             {
                 jobState = new JobState();
                 transcription.CurrentJobState = jobState;
@@ -110,7 +117,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var debugEnergyPath = context.WIP.BaseFilePath.Replace("__", "_1_") + ".DEBUG-NEW.srt";
             debugEnergyFile.SaveSrt(debugEnergyPath);
 
-
             // Save state immediately after initialization
             context.WIP.Save();
 
@@ -127,6 +133,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 jobState.Iteration++;
                 context.WriteInfo($"[RefineTiming] Iteration {jobState.Iteration}: Testing {pendingCandidates.Count} candidate timings (Tests run: {jobState.TotalTestsRun}/{totalAllowedTests})...");
+                int lockedNodes = candidates.Count(c => c.IsFullyLocked);
+                int lockedSides = candidates.Sum(c => (c.IsStartLocked ? 1 : 0) + (c.IsEndLocked ? 1 : 0));
+                context.WriteInfo($"               Progress: {lockedNodes}/{candidates.Count} nodes finished | {lockedSides}/{candidates.Count * 2} boundary sides locked.");
 
                 var batchToTest = SelectCandidatesForBatch(pendingCandidates);
                 if (batchToTest.Count == 0)
@@ -200,6 +209,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         CurrentTestEnd = safeEnd,
                         LastGoodStart = safeStart,
                         LastGoodEnd = safeEnd,
+
+                        HasFoundGoodStart = false,
+                        HasFoundGoodEnd = false,
                         HasSuccessfulY = false,
                         IsStartLocked = false,
                         IsEndLocked = false,
@@ -212,10 +224,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     double endDiff = (safeEnd - item.EndTime).TotalSeconds;
 
                     if (Math.Abs(startDiff) > 0.005)
-                        cand.AddTrace($"Phase 1 Padding: Start {(startDiff >= 0 ? "retract" : "expand")} {startDiff:F3}s");
+                        cand.AddTrace($"Phase 1 Padding: {(startDiff >= 0 ? "Retract" : "Expand")} Start {startDiff:F3}s");
 
                     if (Math.Abs(endDiff) > 0.005)
-                        cand.AddTrace($"Phase 1 Padding: End {(endDiff >= 0 ? "expand" : "retract")} {endDiff:F3}s");
+                        cand.AddTrace($"Phase 1 Padding: {(endDiff >= 0 ? "Expand" : "Retract")} End {endDiff:F3}s");
 
                     cand.AddTrace($"Test Bounds: [{cand.CurrentTestStart:mm\\:ss\\.fff} .. {cand.CurrentTestEnd:mm\\:ss\\.fff}]");
 
@@ -229,9 +241,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private (TimeSpan start, TimeSpan end) GetSafePaddedBounds(
-            TimeSpan padStart, TimeSpan padEnd,
-            TimeSpan origStart, TimeSpan origEnd,
-            PcmAudio fullAudio)
+                    TimeSpan padStart, TimeSpan padEnd,
+                    TimeSpan origStart, TimeSpan origEnd,
+                    PcmAudio fullAudio)
         {
             var snippet = fullAudio.ExtractSnippet(padStart, padEnd);
             float[] samples = ConvertPcmToFloat16K(snippet);
@@ -243,49 +255,57 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             origStartFrame = Math.Max(0, Math.Min(rms.Length - 1, origStartFrame));
             origEndFrame = Math.Max(0, Math.Min(rms.Length - 1, origEndFrame));
 
-            // 1. Calculate "Movement" (Max - Min) for a 150ms rolling window
-            int windowRadius = 7; // +/- 7 frames = 15 frames = 150ms
-            float[] movement = new float[rms.Length];
-
-            for (int i = 0; i < rms.Length; i++)
+            // Helper for directional/symmetrical variance checks
+            float GetVariance(int left, int right)
             {
-                int wStart = Math.Max(0, i - windowRadius);
-                int wEnd = Math.Min(rms.Length - 1, i + windowRadius);
-                float wMin = float.MaxValue;
-                float wMax = float.MinValue;
-                for (int k = wStart; k <= wEnd; k++)
+                int start = Math.Max(0, left);
+                int end = Math.Min(rms.Length - 1, right);
+                if (start > end) return 0;
+                float vMin = float.MaxValue;
+                float vMax = float.MinValue;
+                for (int k = start; k <= end; k++)
                 {
-                    if (rms[k] < wMin) wMin = rms[k];
-                    if (rms[k] > wMax) wMax = rms[k];
+                    if (rms[k] < vMin) vMin = rms[k];
+                    if (rms[k] > vMax) vMax = rms[k];
                 }
-                // Movement is the delta (variance) in this local window
-                movement[i] = wMax - wMin;
+                return vMax - vMin;
             }
 
-            // 2. Define "Stability" relative to the snippet's actual dynamic range
-            float maxMovement = movement.Length > 0 ? movement.Max() : 0;
-            float minMovement = movement.Length > 0 ? movement.Min() : 0;
+            // 1. Calculate dynamic stability limit based on the snippet's actual range
+            float maxMovement = 0;
+            float minMovement = float.MaxValue;
+            for (int i = 0; i < rms.Length; i++)
+            {
+                float v = GetVariance(i - 7, i + 7);
+                if (v > maxMovement) maxMovement = v;
+                if (v < minMovement) minMovement = v;
+            }
+            if (minMovement == float.MaxValue) minMovement = 0;
 
-            // "Stable" is any point that sits in the bottom 5% of this specific snippet's movement range.
-            // This entirely replaces volume-based magic numbers. Loud hums will have low movement!
-            float stableLimit = minMovement + (maxMovement - minMovement) * 0.05f;
+            // Using 8% and a 0.002f floor to prevent runaway expansion on pure flatlines
+            float stableLimit = Math.Max(minMovement + (maxMovement - minMovement) * 0.08f, 0.002f);
 
             // -------------------------------------------------------------
             // EVALUATE START BOUNDARY
             // -------------------------------------------------------------
             int bestStartFrame = origStartFrame;
-            bool startIsStable = movement[origStartFrame] <= stableLimit;
+            // Directional Check: Only look 70ms forward
+            bool startIsStable = GetVariance(origStartFrame, origStartFrame + 7) <= stableLimit;
 
             if (startIsStable)
             {
-                // Move RIGHT (inward) across the flatline until we hit the wall of movement
-                for (int i = origStartFrame; i < origEndFrame; i++)
+                // Fast-forward jump 7 frames since we already verified they are stable
+                int startIndex = Math.Min(origEndFrame, origStartFrame + 7);
+
+                // Move RIGHT (inward) using the asymmetrical window
+                for (int i = startIndex; i < origEndFrame; i++)
                 {
-                    if (movement[i] > stableLimit)
+                    // Check: 70ms tail behind us (i - 7), 30ms short bumper ahead of us (i + 3)
+                    if (GetVariance(i - 7, i + 3) > stableLimit)
                     {
-                        // The window sensed movement ahead. Step back by the window radius 
-                        // to park exactly at the edge where stability ended.
-                        bestStartFrame = Math.Max(origStartFrame, i - windowRadius);
+                        // The +3 bumper hit the speech mountain. We park exactly at 'i', 
+                        // leaving a perfect 30ms gap before the sound starts.
+                        bestStartFrame = i;
                         break;
                     }
                     bestStartFrame = i;
@@ -304,7 +324,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
 
                     // If we successfully found a stable flatline, stop wandering left
-                    if (movement[i] <= stableLimit)
+                    if (GetVariance(i - 7, i + 7) <= stableLimit)
                     {
                         bestStartFrame = i;
                         break;
@@ -316,18 +336,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             // EVALUATE END BOUNDARY
             // -------------------------------------------------------------
             int bestEndFrame = origEndFrame;
-            bool endIsStable = movement[origEndFrame] <= stableLimit;
+            // Directional Check: Only look 70ms backward
+            bool endIsStable = GetVariance(origEndFrame - 7, origEndFrame) <= stableLimit;
 
             if (endIsStable)
             {
-                // Move LEFT (inward) across the flatline until we hit the wall of movement
-                for (int i = origEndFrame; i > bestStartFrame; i--)
+                // Fast-forward jump 7 frames since we already verified they are stable
+                int startIndex = Math.Max(bestStartFrame, origEndFrame - 7);
+
+                // Move LEFT (inward) using the asymmetrical window
+                for (int i = startIndex; i > bestStartFrame; i--)
                 {
-                    if (movement[i] > stableLimit)
+                    // Check: 30ms short bumper ahead of us (i - 3), 70ms tail behind us (i + 7)
+                    if (GetVariance(i - 3, i + 7) > stableLimit)
                     {
-                        // The window sensed movement behind. Step forward by the window radius 
-                        // to park exactly at the edge where stability ended.
-                        bestEndFrame = Math.Min(origEndFrame, i + windowRadius);
+                        // The -3 bumper hit the speech mountain. We park exactly at 'i', 
+                        // leaving a perfect 30ms trailing gap after the sound ends.
+                        bestEndFrame = i;
                         break;
                     }
                     bestEndFrame = i;
@@ -346,11 +371,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
 
                     // If we successfully found a stable flatline, stop wandering right
-                    if (movement[i] <= stableLimit)
+                    if (GetVariance(i - 7, i + 7) <= stableLimit)
                     {
                         bestEndFrame = i;
                         break;
                     }
+                }
+            }
+
+            // Minimum Duration Safeguard
+            int minFrames = (int)(MinSubtitleDurationSeconds * 1000 / 10.0);
+            if (bestEndFrame - bestStartFrame < minFrames)
+            {
+                int midPoint = (bestStartFrame + bestEndFrame) / 2;
+                int half = minFrames / 2;
+
+                // Expand outward from the midpoint to guarantee the minimum duration
+                bestStartFrame = Math.Max(0, midPoint - half);
+                bestEndFrame = Math.Min(rms.Length - 1, bestStartFrame + minFrames);
+
+                // If it hit the right wall, push the left side further back
+                if (bestEndFrame - bestStartFrame < minFrames)
+                {
+                    bestStartFrame = Math.Max(0, bestEndFrame - minFrames);
                 }
             }
 
@@ -380,116 +423,237 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.WriteInfo($"[RefineTiming] Node #{cand.Index} [{cand.CurrentTestStart:mm\\:ss\\.fff}..{cand.CurrentTestEnd:mm\\:ss\\.fff}] Status='{status}' Heard='{heard}'");
                 cand.AddTrace($"Test #{cand.RetryCount}: AI=[{status}] Heard='{heard}'");
 
-                if (status == "Y")
+                bool startClipped = status.Contains("S");
+                bool endClipped = status.Contains("E");
+                if (status == "Y") cand.HasSuccessfulY = true;
+
+                // These track what the NEXT test boundaries will be
+                TimeSpan nextTestStart = cand.CurrentTestStart;
+                TimeSpan nextTestEnd = cand.CurrentTestEnd;
+
+                // -------------------------------------------------------------
+                // 1. EVALUATE START
+                // -------------------------------------------------------------
+                if (startClipped)
                 {
-                    cand.HasSuccessfulY = true;
-
-                    // 1. Mark current bounds as safe
-                    cand.LastGoodStart = cand.CurrentTestStart;
-                    cand.LastGoodEnd = cand.CurrentTestEnd;
-
-                    // 2. Aggressively shrink START (if not locked)
-                    if (!cand.IsStartLocked)
+                    if (cand.HasFoundGoodStart)
                     {
-                        var oldStart = cand.CurrentTestStart;
-                        cand.CurrentTestStart = GetNextStartViaValley(cand.CurrentTestStart, fullPcmAudio, cand.HardMaxEnd);
-
-                        if (cand.CurrentTestStart != oldStart)
-                            cand.AddTrace($" -> Shrink Start (Valley): {oldStart:ss\\.fff} -> {cand.CurrentTestStart:ss\\.fff}");
-
-                        if (cand.CurrentTestStart >= cand.CurrentTestEnd)
-                        {
-                            cand.IsStartLocked = true;
-                            cand.AddTrace(" -> Start locked (Hit opposite boundary)");
-                        }
+                        nextTestStart = cand.LastGoodStart;
+                        cand.IsStartLocked = true;
+                        cand.AddTrace($" -> Locked Start at {cand.LastGoodStart:ss\\.fff} (Reverted)");
                     }
-
-                    // 3. Aggressively shrink END (if not locked)
-                    if (!cand.IsEndLocked)
+                    else
                     {
-                        var oldEnd = cand.CurrentTestEnd;
-                        cand.CurrentTestEnd = GetNextEndViaValley(cand.CurrentTestEnd, fullPcmAudio, cand.HardMinStart);
-
-                        if (cand.CurrentTestEnd != oldEnd)
-                            cand.AddTrace($" -> Shrink End (Valley): {oldEnd:ss\\.fff} -> {cand.CurrentTestEnd:ss\\.fff}");
-
-                        if (cand.CurrentTestEnd <= cand.CurrentTestStart)
-                        {
-                            cand.IsEndLocked = true;
-                            cand.AddTrace(" -> End locked (Hit opposite boundary)");
-                        }
+                        nextTestStart = ExpandBoundary(cand.CurrentTestStart, true, fullPcmAudio, cand.HardMinStart);
+                        cand.AddTrace($" -> Expand Start: {cand.CurrentTestStart:ss\\.fff} -> {nextTestStart:ss\\.fff}");
                     }
                 }
                 else
                 {
-                    // AI reported clipping! We shrank too far into the actual words.
-                    bool startClipped = status.Contains("S");
-                    bool endClipped = status.Contains("E");
+                    cand.HasFoundGoodStart = true;
+                    cand.LastGoodStart = cand.CurrentTestStart;
 
-                    if (startClipped)
+                    if (!cand.IsStartLocked)
                     {
-                        cand.CurrentTestStart = cand.LastGoodStart;
-                        cand.IsStartLocked = true;
-                        cand.AddTrace($" -> Rolled back & Locked Start at {cand.LastGoodStart:mm\\:ss\\.fff}");
-                    }
-                    if (endClipped)
-                    {
-                        cand.CurrentTestEnd = cand.LastGoodEnd;
-                        cand.IsEndLocked = true;
-                        cand.AddTrace($" -> Rolled back & Locked End at {cand.LastGoodEnd:mm\\:ss\\.fff}");
+                        TimeSpan proposedStart = ShrinkBoundary(cand.CurrentTestStart, true, fullPcmAudio, cand.HardMaxEnd);
+
+                        if (cand.CurrentTestEnd - proposedStart < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
+                        {
+                            nextTestStart = cand.LastGoodStart;
+                            cand.IsStartLocked = true;
+                            cand.AddTrace(" -> Start locked (Hit minimum duration limit)");
+                        }
+                        else
+                        {
+                            nextTestStart = proposedStart;
+                            cand.AddTrace($" -> Shrink Start: {cand.CurrentTestStart:ss\\.fff} -> {nextTestStart:ss\\.fff}");
+                        }
                     }
                 }
 
-                // Failsafe: Prevent inversion
-                if (cand.CurrentTestStart >= cand.CurrentTestEnd)
+                // -------------------------------------------------------------
+                // 2. EVALUATE END
+                // -------------------------------------------------------------
+                if (endClipped)
                 {
-                    cand.CurrentTestStart = cand.LastGoodStart;
-                    cand.CurrentTestEnd = cand.LastGoodEnd;
-                    cand.IsStartLocked = cand.IsEndLocked = true;
-                    cand.AddTrace(" -> Failsafe: Reverted boundaries due to overlap.");
+                    if (cand.HasFoundGoodEnd)
+                    {
+                        nextTestEnd = cand.LastGoodEnd;
+                        cand.IsEndLocked = true;
+                        cand.AddTrace($" -> Locked End at {cand.LastGoodEnd:ss\\.fff} (Reverted)");
+                    }
+                    else
+                    {
+                        nextTestEnd = ExpandBoundary(cand.CurrentTestEnd, false, fullPcmAudio, cand.HardMaxEnd);
+                        cand.AddTrace($" -> Expand End: {cand.CurrentTestEnd:ss\\.fff} -> {nextTestEnd:ss\\.fff}");
+                    }
+                }
+                else
+                {
+                    cand.HasFoundGoodEnd = true;
+                    cand.LastGoodEnd = cand.CurrentTestEnd;
+
+                    if (!cand.IsEndLocked)
+                    {
+                        TimeSpan proposedEnd = ShrinkBoundary(cand.CurrentTestEnd, false, fullPcmAudio, cand.HardMinStart);
+
+                        if (proposedEnd - cand.CurrentTestStart < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
+                        {
+                            nextTestEnd = cand.LastGoodEnd;
+                            cand.IsEndLocked = true;
+                            cand.AddTrace(" -> End locked (Hit minimum duration limit)");
+                        }
+                        else
+                        {
+                            nextTestEnd = proposedEnd;
+                            cand.AddTrace($" -> Shrink End: {cand.CurrentTestEnd:ss\\.fff} -> {nextTestEnd:ss\\.fff}");
+                        }
+                    }
                 }
 
+                // -------------------------------------------------------------
+                // 3. APPLY AND CLAMP NEW BOUNDARIES
+                // -------------------------------------------------------------
+                if (nextTestStart >= nextTestEnd || (nextTestEnd - nextTestStart) < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
+                {
+                    // Failsafe overlap. Stick to the widest valid bounds.
+                    cand.CurrentTestStart = cand.HasFoundGoodStart ? cand.LastGoodStart : cand.CurrentTestStart;
+                    cand.CurrentTestEnd = cand.HasFoundGoodEnd ? cand.LastGoodEnd : cand.CurrentTestEnd;
+                    cand.IsStartLocked = cand.IsEndLocked = true;
+                    cand.AddTrace(" -> Failsafe: Locked boundaries due to overlap or minimum duration limit.");
+                }
+                else
+                {
+                    cand.CurrentTestStart = nextTestStart;
+                    cand.CurrentTestEnd = nextTestEnd;
+                }
+
+                // If max retries hit, lock in the best known state to prevent infinite loops
                 if (cand.IsFullyLocked || cand.RetryCount >= MaxRetriesPerNode)
                 {
-                    // Ensure final state rests on known good bounds
-                    cand.CurrentTestStart = cand.LastGoodStart;
-                    cand.CurrentTestEnd = cand.LastGoodEnd;
-                    cand.AddTrace(" -> Candidate Finalized.");
+                    if (cand.HasFoundGoodStart) cand.CurrentTestStart = cand.LastGoodStart;
+                    if (cand.HasFoundGoodEnd) cand.CurrentTestEnd = cand.LastGoodEnd;
                 }
             }
         }
 
-        private TimeSpan GetNextStartViaValley(TimeSpan currentStart, PcmAudio fullAudio, TimeSpan maxLimit)
+        /// <summary>
+        /// Expands the boundary outward by AT LEAST ShrinkStepSeconds. 
+        /// Uses variance to crawl over small speech bumps until a stable valley is reached.
+        /// </summary>
+        private TimeSpan ExpandBoundary(TimeSpan currentTime, bool isStart, PcmAudio fullAudio, TimeSpan hardLimit)
         {
-            TimeSpan proposed = currentStart + TimeSpan.FromSeconds(ShrinkStepSeconds);
-            if (proposed >= maxLimit) return maxLimit;
+            TimeSpan minJump = TimeSpan.FromSeconds(ShrinkStepSeconds);
+            TimeSpan proposedTime = isStart ? currentTime - minJump : currentTime + minJump;
 
-            TimeSpan searchEnd = proposed + TimeSpan.FromSeconds(ValleySearchSeconds);
-            if (searchEnd > maxLimit) searchEnd = maxLimit;
+            if (isStart && proposedTime <= hardLimit) return hardLimit;
+            if (!isStart && proposedTime >= hardLimit) return hardLimit;
 
-            return FindLowestRmsTime(fullAudio, proposed, searchEnd);
-        }
+            // Extract a larger window to analyze the terrain we are expanding into
+            TimeSpan snippetStart = isStart ? proposedTime - TimeSpan.FromSeconds(1.0) : proposedTime - TimeSpan.FromSeconds(0.1);
+            TimeSpan snippetEnd = isStart ? proposedTime + TimeSpan.FromSeconds(0.1) : proposedTime + TimeSpan.FromSeconds(1.0);
 
-        private TimeSpan GetNextEndViaValley(TimeSpan currentEnd, PcmAudio fullAudio, TimeSpan minLimit)
-        {
-            TimeSpan proposed = currentEnd - TimeSpan.FromSeconds(ShrinkStepSeconds);
-            if (proposed <= minLimit) return minLimit;
+            if (snippetStart < TimeSpan.Zero) snippetStart = TimeSpan.Zero;
 
-            TimeSpan searchStart = proposed - TimeSpan.FromSeconds(ValleySearchSeconds);
-            if (searchStart < minLimit) searchStart = minLimit;
-
-            return FindLowestRmsTime(fullAudio, searchStart, proposed);
-        }
-
-        private TimeSpan FindLowestRmsTime(PcmAudio fullAudio, TimeSpan start, TimeSpan end)
-        {
-            if (start >= end) return start;
-
-            var snippet = fullAudio.ExtractSnippet(start, end);
+            var snippet = fullAudio.ExtractSnippet(snippetStart, snippetEnd);
             float[] samples = ConvertPcmToFloat16K(snippet);
             var rms = GetRmsArray(samples);
+            if (rms.Length == 0) return proposedTime;
 
-            if (rms.Length == 0) return start;
+            float GetVariance(int left, int right)
+            {
+                int start = Math.Max(0, left);
+                int end = Math.Min(rms.Length - 1, right);
+                if (start > end) return 0;
+                float vMin = float.MaxValue, vMax = float.MinValue;
+                for (int k = start; k <= end; k++)
+                {
+                    if (rms[k] < vMin) vMin = rms[k];
+                    if (rms[k] > vMax) vMax = rms[k];
+                }
+                return vMax - vMin;
+            }
+
+            float maxMovement = 0; float minMovement = float.MaxValue;
+            for (int i = 0; i < rms.Length; i++)
+            {
+                float v = GetVariance(i - 7, i + 7);
+                if (v > maxMovement) maxMovement = v;
+                if (v < minMovement) minMovement = v;
+            }
+            if (minMovement == float.MaxValue) minMovement = 0;
+            float stableLimit = Math.Max(minMovement + (maxMovement - minMovement) * 0.08f, 0.002f);
+
+            int proposedFrame = (int)((proposedTime - snippetStart).TotalMilliseconds / 10.0);
+            proposedFrame = Math.Max(0, Math.Min(rms.Length - 1, proposedFrame));
+
+            int bestFrame = proposedFrame;
+
+            if (isStart)
+            {
+                for (int i = proposedFrame; i >= 0; i--)
+                {
+                    if (GetVariance(i - 7, i + 7) <= stableLimit)
+                    {
+                        bestFrame = i;
+                        break;
+                    }
+                    bestFrame = i;
+                }
+            }
+            else
+            {
+                for (int i = proposedFrame; i < rms.Length; i++)
+                {
+                    if (GetVariance(i - 7, i + 7) <= stableLimit)
+                    {
+                        bestFrame = i;
+                        break;
+                    }
+                    bestFrame = i;
+                }
+            }
+
+            TimeSpan finalTime = snippetStart + TimeSpan.FromMilliseconds(bestFrame * 10);
+
+            if (isStart && finalTime < hardLimit) return hardLimit;
+            if (!isStart && finalTime > hardLimit) return hardLimit;
+
+            return finalTime;
+        }
+
+        /// <summary>
+        /// Shrinks the boundary inward by EXACTLY ShrinkStepSeconds, then looks forward 
+        /// to snap into the lowest RMS valley. Guarantees a minimum step distance.
+        /// </summary>
+        private TimeSpan ShrinkBoundary(TimeSpan currentTime, bool isStart, PcmAudio fullAudio, TimeSpan hardLimit)
+        {
+            TimeSpan minStep = TimeSpan.FromSeconds(ShrinkStepSeconds);
+            TimeSpan searchRadius = TimeSpan.FromSeconds(ValleySearchSeconds);
+
+            TimeSpan snippetStart, snippetEnd;
+
+            if (isStart)
+            {
+                // Must jump inward by AT LEAST minStep (e.g. 0.2s)
+                snippetStart = currentTime + minStep;
+                snippetEnd = snippetStart + searchRadius; // Look forward up to 0.1s to find a valley
+                if (snippetStart > hardLimit) return hardLimit;
+                if (snippetEnd > hardLimit) snippetEnd = hardLimit;
+            }
+            else
+            {
+                // Must jump inward by AT LEAST minStep (e.g. 0.2s)
+                snippetEnd = currentTime - minStep;
+                snippetStart = snippetEnd - searchRadius; // Look backward up to 0.1s to find a valley
+                if (snippetEnd < hardLimit) return hardLimit;
+                if (snippetStart < hardLimit) snippetStart = hardLimit;
+            }
+
+            var snippet = fullAudio.ExtractSnippet(snippetStart, snippetEnd);
+            float[] samples = ConvertPcmToFloat16K(snippet);
+            var rms = GetRmsArray(samples);
+            if (rms.Length == 0) return isStart ? snippetStart : snippetEnd;
 
             int minFrame = 0;
             float minRms = float.MaxValue;
@@ -502,7 +666,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
             }
 
-            return start + TimeSpan.FromMilliseconds(minFrame * 10);
+            return snippetStart + TimeSpan.FromMilliseconds(minFrame * 10);
         }
 
         private float[] GetRmsArray(float[] samples, int frameSize = 160 /* 10ms at 16kHz */)
@@ -587,8 +751,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             foreach (var cand in candidates)
             {
-                TimeSpan finalStart = cand.HasSuccessfulY ? cand.LastGoodStart : cand.OriginalItem.StartTime;
-                TimeSpan finalEnd = cand.HasSuccessfulY ? cand.LastGoodEnd : cand.OriginalItem.EndTime;
+                // Prefer LastGood limits if we found them.
+                // If we didn't (because we kept expanding and ran out of tests), we DO NOT revert to the Original clipped bounds.
+                // We keep the CurrentTest (expanded) bounds to guarantee the audio is fully covered!
+                TimeSpan finalStart = cand.HasFoundGoodStart ? cand.LastGoodStart : cand.CurrentTestStart;
+                TimeSpan finalEnd = cand.HasFoundGoodEnd ? cand.LastGoodEnd : cand.CurrentTestEnd;
 
                 var meta = new MetadataCollection();
                 foreach (var kvp in cand.OriginalItem.Metadata)
@@ -600,7 +767,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     meta["Status"] = "Not cleaned";
                     meta["TimingTrace"] = string.Join(" | ", cand.Trace);
-                    context.WriteInfo($"[RefineTiming] Node #{cand.Index} never verified as Y. Retaining original bounds.");
+                    context.WriteInfo($"[RefineTiming] Node #{cand.Index} never verified as Y. Keeping widest tested bounds.");
                 }
                 else
                 {
