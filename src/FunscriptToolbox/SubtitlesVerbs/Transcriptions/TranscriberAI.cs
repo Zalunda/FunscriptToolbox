@@ -46,7 +46,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var requestGenerator = ExecuteRequests(context, transcription);
+            var requestGenerator = this.Metadatas
+                .Aggregate(context)
+                .CreateRequestGenerator(transcription, this.Options, transcription.Language);
+            ExecuteRequests(context, transcription, requestGenerator);
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
@@ -54,7 +57,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        protected AIRequestGenerator ExecuteRequests(SubtitleGeneratorContext context, Transcription transcription)
+        protected AIRequestGenerator ExecuteRequests(SubtitleGeneratorContext context, Transcription transcription, AIRequestGenerator requestGenerator)
         {
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
@@ -62,9 +65,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription,
                 this.PromptUserOnError);
 
-            var requestGenerator = this.Metadatas
-                .Aggregate(context)
-                .CreateRequestGenerator(transcription, this.Options, transcription.Language);
             var (allItems, itemsToDo, _, _) = requestGenerator.AnalyzeItemsState();
             allItems = allItems.OrderBy(f => f.StartTime).ToArray();
 

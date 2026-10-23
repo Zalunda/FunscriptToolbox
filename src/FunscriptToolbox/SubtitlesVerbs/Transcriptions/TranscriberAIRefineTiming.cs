@@ -17,12 +17,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public int TotalTestsRun { get; set; }
 
             public List<TimingCandidate> Candidates { get; set; } = new List<TimingCandidate>();
+
+            // Tracks the inputs via their immutable primary key
+            public List<TimeSpan> ActiveBatchStartTimes { get; set; }
+
+            // Holds the active AI test batch so the framework can auto-save micro-progress
+            public Transcription PendingBatch { get; set; }
         }
 
         public class TimingCandidate
         {
-            [JsonIgnore] public int Index { get; set; }
-
             public TimeSpan OriginalStartTime { get; set; }
 
             [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
@@ -38,7 +42,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public bool IsStartLocked { get; set; }
             public bool IsEndLocked { get; set; }
 
-            // State machine trackers for the AI feedback loop
             public bool HasFoundGoodStart { get; set; }
             public bool HasFoundGoodEnd { get; set; }
 
@@ -101,61 +104,129 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return;
             }
 
-            context.WriteInfo($"[RefineTiming] Initializing Phase 1 (Valley-Seeking Padded Bounds) on {originalItems.Count} candidates...");
-            var candidates = InitializeCandidates(originalItems, fullPcmAudio, jobState);
-
-            var debugEnergyFile = new SubtitleFile();
-            for (int i = 0; i < candidates.Count; i++)
+            if (jobState.Candidates.Count == 0)
             {
-                var cand = candidates[i];
-                debugEnergyFile.Subtitles.Add(new Subtitle(
-                    cand.CurrentTestStart,
-                    cand.CurrentTestEnd,
-                    cand.Trace.ToArray(),
-                    i + 1));
+                context.WriteInfo($"[RefineTiming] Initializing Phase 1 (Valley-Seeking Padded Bounds) on {originalItems.Count} candidates...");
+                jobState.Candidates = InitializeCandidates(originalItems, fullPcmAudio, jobState);
+                DoExportTraceSrt(context, transcription, jobState.Candidates);
+                context.WIP.Save();
             }
-            var debugEnergyPath = context.WIP.BaseFilePath.Replace("__", "_1_") + ".DEBUG-NEW.srt";
-            debugEnergyFile.SaveSrt(debugEnergyPath);
+            else
+            {
+                // Re-link ignored properties on resume
+                for (int i = 0; i < originalItems.Count; i++)
+                {
+                    var item = originalItems[i];
+                    var prevItem = i > 0 ? originalItems[i - 1] : null;
+                    var nextItem = i < originalItems.Count - 1 ? originalItems[i + 1] : null;
 
-            // Save state immediately after initialization
-            context.WIP.Save();
+                    var cand = jobState.Candidates.FirstOrDefault(c => c.OriginalStartTime == item.StartTime);
+                    if (cand != null)
+                    {
+                        cand.OriginalItem = item;
+                        cand.CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty;
+                        cand.HardMinStart = prevItem != null ? TimeSpanExtensions.Min(prevItem.EndTime, item.StartTime) : TimeSpan.Zero;
+                        cand.HardMaxEnd = nextItem != null ? TimeSpanExtensions.Max(nextItem.StartTime, item.EndTime) : TimeSpan.FromHours(10);
+                    }
+                }
+            }
 
+            DoExportTraceSrt(context, transcription, jobState.Candidates);
             int totalAllowedTests = Math.Max(50, (int)(originalItems.Count * MaxBudgetRatio));
 
             while (jobState.TotalTestsRun < totalAllowedTests)
             {
-                var pendingCandidates = candidates
+                var pendingCandidates = jobState.Candidates
                     .Where(c => !c.IsFullyLocked && c.RetryCount < MaxRetriesPerNode)
                     .ToList();
 
-                if (pendingCandidates.Count == 0)
+                if (pendingCandidates.Count == 0 && jobState.PendingBatch == null)
                     break;
 
-                jobState.Iteration++;
-                context.WriteInfo($"[RefineTiming] Iteration {jobState.Iteration}: Testing {pendingCandidates.Count} candidate timings (Tests run: {jobState.TotalTestsRun}/{totalAllowedTests})...");
-                int lockedNodes = candidates.Count(c => c.IsFullyLocked);
-                int lockedSides = candidates.Sum(c => (c.IsStartLocked ? 1 : 0) + (c.IsEndLocked ? 1 : 0));
-                context.WriteInfo($"               Progress: {lockedNodes}/{candidates.Count} nodes finished | {lockedSides}/{candidates.Count * 2} boundary sides locked.");
+                List<TimingCandidate> batchToTest;
 
-                var batchToTest = SelectCandidatesForBatch(pendingCandidates);
-                if (batchToTest.Count == 0)
-                    break;
+                if (jobState.PendingBatch == null)
+                {
+                    jobState.Iteration++;
+                    context.WriteInfo($"[RefineTiming] Iteration {jobState.Iteration}: Testing {pendingCandidates.Count} candidate timings (Tests run: {jobState.TotalTestsRun}/{totalAllowedTests})...");
 
-                var fakeTranscription = CreateFakeTranscription(transcription, batchToTest);
+                    batchToTest = SelectCandidatesForBatch(pendingCandidates);
+                    if (batchToTest.Count == 0)
+                        break;
 
-                var requestGenerator = ExecuteRequests(context, fakeTranscription);
+                    // 1. Save the inputs using OriginalStartTime so we can reconstruct on crash
+                    jobState.ActiveBatchStartTimes = batchToTest.Select(c => c.OriginalStartTime).ToList();
 
-                jobState.TotalTestsRun += batchToTest.Count;
-                ProcessBatchResults(context, batchToTest, fakeTranscription, fullPcmAudio);
+                    // 2. Create the EMPTY output container for the framework
+                    string fakeId = $"{transcription.Id}_refine_iter_{jobState.Iteration}";
+                    jobState.PendingBatch = new Transcription(
+                        id: fakeId,
+                        metadataAlwaysProduced: this.Options.MetadataAlwaysProduced,
+                        privateMetadataNames: transcription.PrivateMetadataNames,
+                        language: transcription.Language,
+                        isFinished: false);
 
+                    context.WIP.Save();
+                }
+                else
+                {
+                    context.WriteInfo($"[RefineTiming] Resuming interrupted Iteration {jobState.Iteration}...");
+
+                    // Reconstruct the full input batch from the saved OriginalStartTimes
+                    batchToTest = jobState.ActiveBatchStartTimes
+                        .Select(origStart => jobState.Candidates.First(c => c.OriginalStartTime == origStart))
+                        .ToList();
+                }
+
+                // 3. Build the input reference timings manually
+                var referenceList = new List<TimedItemWithMetadata>();
+                var i = 0;
+                foreach (var cand in batchToTest)
+                {
+                    var meta = new MetadataCollection();
+                    meta["Index"] = (++i).ToString();
+                    meta["CandidateText"] = cand.CandidateText;
+                    referenceList.Add(new TimedItemWithMetadata(cand.CurrentTestStart, cand.CurrentTestEnd, meta));
+                }
+
+                var requestGenerator = new AIRequestGenerator(
+                    referenceList.ToArray(),
+                    jobState.PendingBatch,
+                    transcription.Language,
+                    transcription.Language,
+                    this.Options);
+
+                ExecuteRequests(context, jobState.PendingBatch, requestGenerator);
+
+                if (!requestGenerator.IsFinished())
+                {
+                    // Job stopped short
+                    return;
+                }
+
+                // We only increment TotalTests for items that actually got a response
+                jobState.TotalTestsRun += jobState.PendingBatch.Items.Count;
+
+                ProcessBatchResults(context, batchToTest, jobState.PendingBatch, fullPcmAudio);
+
+                // Clean up state for the next iteration
+                jobState.PendingBatch = null;
+                jobState.ActiveBatchStartTimes = null;
                 context.WIP.Save();
+
+                DoExportTraceSrt(context, transcription, jobState.Candidates);
+
+                int lockedNodes = jobState.Candidates.Count(c => c.IsFullyLocked);
+                int lockedSides = jobState.Candidates.Sum(c => (c.IsStartLocked ? 1 : 0) + (c.IsEndLocked ? 1 : 0));
+                context.WriteInfo($"[RefineTiming] Progress: {lockedNodes}/{jobState.Candidates.Count} nodes finished | {lockedSides}/{jobState.Candidates.Count * 2} boundary sides locked.");
+
             }
 
-            FinalizeTranscription(context, transcription, candidates);
+            FinalizeTranscription(context, transcription, jobState.Candidates);
 
             transcription.MarkAsFinished();
             context.WIP.Save();
-            context.WriteInfo($"[RefineTiming] Finished timing refinement. Processed {candidates.Count} nodes in {jobState.Iteration} iterations ({jobState.TotalTestsRun} tests total).");
+            context.WriteInfo($"[RefineTiming] Finished timing refinement. Processed {jobState.Candidates.Count} nodes in {jobState.Iteration} iterations ({jobState.TotalTestsRun} tests total).");
         }
 
         private List<TimingCandidate> InitializeCandidates(List<TimedItemWithMetadata> originalItems, PcmAudio fullPcmAudio, JobState jobState)
@@ -180,59 +251,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     padEnd = item.EndTime;
                 }
 
-                var cand = jobState.Candidates.FirstOrDefault(c => c.OriginalStartTime == item.StartTime);
+                var (safeStart, safeEnd) = GetSafePaddedBounds(padStart, padEnd, item.StartTime, item.EndTime, fullPcmAudio);
 
-                if (cand != null)
+                var cand = new TimingCandidate
                 {
-                    // Re-link the ignored runtime properties
-                    cand.Index = i;
-                    cand.OriginalItem = item;
-                    cand.CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty;
-                    cand.HardMinStart = hardMinStart;
-                    cand.HardMaxEnd = hardMaxEnd;
-                }
-                else
-                {
-                    // Phase 1: Inside-Out Valley Seeking
-                    var (safeStart, safeEnd) = GetSafePaddedBounds(padStart, padEnd, item.StartTime, item.EndTime, fullPcmAudio);
+                    OriginalStartTime = item.StartTime,
+                    OriginalItem = item,
+                    CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty,
+                    HardMinStart = hardMinStart,
+                    HardMaxEnd = hardMaxEnd,
 
-                    cand = new TimingCandidate
-                    {
-                        Index = i,
-                        OriginalStartTime = item.StartTime,
-                        OriginalItem = item,
-                        CandidateText = item.Metadata.TryGetValue("CandidateText", out var ctNew) ? ctNew : string.Empty,
-                        HardMinStart = hardMinStart,
-                        HardMaxEnd = hardMaxEnd,
+                    CurrentTestStart = safeStart,
+                    CurrentTestEnd = safeEnd,
+                    LastGoodStart = safeStart,
+                    LastGoodEnd = safeEnd,
 
-                        CurrentTestStart = safeStart,
-                        CurrentTestEnd = safeEnd,
-                        LastGoodStart = safeStart,
-                        LastGoodEnd = safeEnd,
+                    HasFoundGoodStart = false,
+                    HasFoundGoodEnd = false,
+                    HasSuccessfulY = false,
+                    IsStartLocked = false,
+                    IsEndLocked = false,
+                    RetryCount = 0
+                };
 
-                        HasFoundGoodStart = false,
-                        HasFoundGoodEnd = false,
-                        HasSuccessfulY = false,
-                        IsStartLocked = false,
-                        IsEndLocked = false,
-                        RetryCount = 0
-                    };
+                cand.AddTrace($"Original: [{item.StartTime:mm\\:ss\\.fff} .. {item.EndTime:mm\\:ss\\.fff}]");
 
-                    cand.AddTrace($"Original: [{item.StartTime:mm\\:ss\\.fff} .. {item.EndTime:mm\\:ss\\.fff}]");
+                double startDiff = (safeStart - item.StartTime).TotalSeconds;
+                double endDiff = (safeEnd - item.EndTime).TotalSeconds;
 
-                    double startDiff = (safeStart - item.StartTime).TotalSeconds;
-                    double endDiff = (safeEnd - item.EndTime).TotalSeconds;
-
-                    if (Math.Abs(startDiff) > 0.005)
-                        cand.AddTrace($"Phase 1 Padding: {(startDiff >= 0 ? "Retract" : "Expand")} Start {startDiff:F3}s");
-
-                    if (Math.Abs(endDiff) > 0.005)
-                        cand.AddTrace($"Phase 1 Padding: {(endDiff >= 0 ? "Expand" : "Retract")} End {endDiff:F3}s");
-
-                    cand.AddTrace($"Test Bounds: [{cand.CurrentTestStart:mm\\:ss\\.fff} .. {cand.CurrentTestEnd:mm\\:ss\\.fff}]");
-
-                    jobState.Candidates.Add(cand);
-                }
+                if (Math.Abs(startDiff) > 0.005) 
+                    cand.AddTrace($"Phase 1 Padding: {(startDiff >= 0 ? "Retract" : "Expand")} Start {startDiff:F3}s");
+                if (Math.Abs(endDiff) > 0.005) 
+                    cand.AddTrace($"Phase 1 Padding: {(endDiff >= 0 ? "Expand" : "Retract")} End {endDiff:F3}s");
+                cand.AddTrace($"Test Bounds: [{cand.CurrentTestStart:mm\\:ss\\.fff} .. {cand.CurrentTestEnd:mm\\:ss\\.fff}]");
 
                 candidates.Add(cand);
             }
@@ -300,8 +351,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 // Move RIGHT (inward) using the asymmetrical window
                 for (int i = startIndex; i < origEndFrame; i++)
                 {
-                    // Check: 70ms tail behind us (i - 7), 30ms short bumper ahead of us (i + 3)
-                    if (GetVariance(i - 7, i + 3) > stableLimit)
+                    // Check: 70ms tail behind us (i - 7), 30ms short bumper ahead of us (i + 5)
+                    if (GetVariance(i - 7, i + 5) > stableLimit)
                     {
                         // The +3 bumper hit the speech mountain. We park exactly at 'i', 
                         // leaving a perfect 30ms gap before the sound starts.
@@ -347,8 +398,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 // Move LEFT (inward) using the asymmetrical window
                 for (int i = startIndex; i > bestStartFrame; i--)
                 {
-                    // Check: 30ms short bumper ahead of us (i - 3), 70ms tail behind us (i + 7)
-                    if (GetVariance(i - 3, i + 7) > stableLimit)
+                    // Check: 30ms short bumper ahead of us (i - 5), 70ms tail behind us (i + 7)
+                    if (GetVariance(i - 5, i + 7) > stableLimit)
                     {
                         // The -3 bumper hit the speech mountain. We park exactly at 'i', 
                         // leaving a perfect 30ms trailing gap after the sound ends.
@@ -404,24 +455,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private void ProcessBatchResults(
-            SubtitleGeneratorContext context,
-            List<TimingCandidate> batch,
-            Transcription fakeTranscription,
-            PcmAudio fullPcmAudio)
+                    SubtitleGeneratorContext context,
+                    List<TimingCandidate> batch,
+                    Transcription fakeTranscription,
+                    PcmAudio fullPcmAudio)
         {
-            var fakeItems = fakeTranscription.Items.ToList();
-
-            for (int i = 0; i < batch.Count && i < fakeItems.Count; i++)
+            foreach (var fakeItem in fakeTranscription.Items)
             {
-                var cand = batch[i];
-                var fakeItem = fakeItems[i];
+                // 1. Safely find the matching candidate using the StartTime key
+                var cand = batch.FirstOrDefault(c => c.CurrentTestStart == fakeItem.StartTime);
+                if (cand == null) continue; // Ghost item from AI hallucination? Ignore it.
+
+                // 2. Check if the AI actually returned data for this node
+                if (!fakeItem.Metadata.TryGetValue("Status", out var s))
+                {
+                    context.WriteInfo($"[RefineTiming] Node #{cand.OriginalStartTime} [{cand.CurrentTestStart:mm\\:ss\\.fff}] received no Status from AI. Skipping to retry next iteration.");
+                    continue;
+                }
+
                 cand.RetryCount++;
 
-                string status = fakeItem.Metadata.TryGetValue("Status", out var s) ? s?.Trim().ToUpperInvariant() : "Y";
+                string status = s.Trim().ToUpperInvariant();
                 string heard = fakeItem.Metadata.TryGetValue("Heard", out var h) ? h : string.Empty;
+                string audit = fakeItem.Metadata.TryGetValue("Audit", out var a) ? a : string.Empty;
 
-                context.WriteInfo($"[RefineTiming] Node #{cand.Index} [{cand.CurrentTestStart:mm\\:ss\\.fff}..{cand.CurrentTestEnd:mm\\:ss\\.fff}] Status='{status}' Heard='{heard}'");
-                cand.AddTrace($"Test #{cand.RetryCount}: AI=[{status}] Heard='{heard}'");
+                cand.AddTrace($"Test #{cand.RetryCount}: AI=[{status}] Heard='{heard}', Audio='{audit}'");
 
                 bool startClipped = status.Contains("S");
                 bool endClipped = status.Contains("E");
@@ -456,7 +514,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (!cand.IsStartLocked)
                     {
                         TimeSpan proposedStart = ShrinkBoundary(cand.CurrentTestStart, true, fullPcmAudio, cand.HardMaxEnd);
-
                         if (cand.CurrentTestEnd - proposedStart < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
                         {
                             nextTestStart = cand.LastGoodStart;
@@ -496,7 +553,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (!cand.IsEndLocked)
                     {
                         TimeSpan proposedEnd = ShrinkBoundary(cand.CurrentTestEnd, false, fullPcmAudio, cand.HardMinStart);
-
                         if (proposedEnd - cand.CurrentTestStart < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
                         {
                             nextTestEnd = cand.LastGoodEnd;
@@ -593,10 +649,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 for (int i = proposedFrame; i >= 0; i--)
                 {
-                    if (GetVariance(i - 7, i + 7) <= stableLimit)
-                    {
-                        bestFrame = i;
-                        break;
+                    if (GetVariance(i - 7, i + 7) <= stableLimit) 
+                    { 
+                        bestFrame = i; 
+                        break; 
                     }
                     bestFrame = i;
                 }
@@ -721,27 +777,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return batch;
         }
 
-        private Transcription CreateFakeTranscription(Transcription template, List<TimingCandidate> batch)
-        {
-            var fake = new Transcription(
-                id: template.Id + "_refine_fake2",
-                metadataAlwaysProduced: this.Options.MetadataAlwaysProduced,
-                privateMetadataNames: template.PrivateMetadataNames,
-                language: template.Language,
-                isFinished: false);
-
-            foreach (var cand in batch)
-            {
-                var meta = new MetadataCollection();
-                meta["CandidateText"] = cand.CandidateText;
-                meta["CandidateIndex"] = cand.Index.ToString();
-
-                fake.AddNewItem(cand.CurrentTestStart, cand.CurrentTestEnd, meta);
-            }
-
-            return fake;
-        }
-
         private void FinalizeTranscription(
             SubtitleGeneratorContext context,
             Transcription transcription,
@@ -767,7 +802,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     meta["Status"] = "Not cleaned";
                     meta["TimingTrace"] = string.Join(" | ", cand.Trace);
-                    context.WriteInfo($"[RefineTiming] Node #{cand.Index} never verified as Y. Keeping widest tested bounds.");
+                    context.WriteInfo($"[RefineTiming] Node #{cand.OriginalStartTime} never verified as Y. Keeping widest tested bounds.");
                 }
                 else
                 {
@@ -787,6 +822,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             transcription.Items.Clear();
             transcription.Items.AddRange(newItems);
+        }
+
+        private void DoExportTraceSrt(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            IEnumerable<TimingCandidate> candidates)
+        {
+            if (this.ExportMetadataSrt)
+            {
+                var extension = $".Worker.{transcription.Id}.TRACE.srt";
+
+                var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
+                virtualSubtitleFile.Subtitles.AddRange(candidates.Select(cand => new Subtitle(cand.CurrentTestStart, cand.CurrentTestEnd, cand.Trace.ToArray())));
+                virtualSubtitleFile.Save(context.WIP.ParentPath, extension, context.SoftDelete);
+
+                var fullfilePath = context.WIP.BaseFilePath + extension;
+                if (context.WIP.TimelineMap.IsMultipart)
+                {
+                    var newFullFile = new SubtitleFile();
+                    newFullFile.Subtitles.AddRange(
+                        virtualSubtitleFile.Subtitles.Select(item =>
+                            new Subtitle(item.StartTime, item.EndTime, item.Text)));
+                    newFullFile.SaveSrt(fullfilePath);
+                }
+            }
         }
     }
 }
