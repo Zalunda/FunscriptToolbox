@@ -107,9 +107,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (jobState.Candidates.Count == 0)
             {
                 context.WriteInfo($"[RefineTiming] Initializing Phase 1 (Valley-Seeking Padded Bounds) on {originalItems.Count} candidates...");
-                jobState.Candidates = InitializeCandidates(originalItems, fullPcmAudio, jobState);
+                jobState.Candidates = InitializeCandidates(fullPcmAudio, originalItems, jobState);
                 DoExportTraceSrt(context, transcription, jobState.Candidates, "FIRST-INIT");
-                context.WIP.Save();
             }
             else
             {
@@ -227,42 +226,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             context.WriteInfo($"[RefineTiming] Finished timing refinement. Processed {jobState.Candidates.Count} nodes in {jobState.Iteration} iterations ({jobState.TotalTestsRun} tests total).");
         }
 
-        private List<TimingCandidate> InitializeCandidates(List<TimedItemWithMetadata> originalItems, PcmAudio fullPcmAudio, JobState jobState)
+        private List<TimingCandidate> InitializeCandidates(PcmAudio fullPcmAudio, List<TimedItemWithMetadata> originalItems, JobState jobState)
         {
             var candidates = new List<TimingCandidate>();
 
-            for (int i = 0; i < originalItems.Count; i++)
+            foreach (var item in originalItems)
             {
-                var item = originalItems[i];
-                var prevItem = i > 0 ? originalItems[i - 1] : null;
-                var nextItem = i < originalItems.Count - 1 ? originalItems[i + 1] : null;
-
-                TimeSpan hardMinStart = prevItem != null ? TimeSpanExtensions.Min(prevItem.EndTime, item.StartTime) : TimeSpan.Zero;
-                TimeSpan hardMaxEnd = nextItem != null ? TimeSpanExtensions.Max(nextItem.StartTime, item.EndTime) : TimeSpan.FromHours(10);
-
-                TimeSpan padStart = TimeSpanExtensions.Max(hardMinStart, item.StartTime - TimeSpan.FromSeconds(MaxDriftSeconds));
-                TimeSpan padEnd = TimeSpanExtensions.Min(hardMaxEnd, item.EndTime + TimeSpan.FromSeconds(MaxDriftSeconds));
-
-                if (padEnd <= padStart)
-                {
-                    padStart = item.StartTime;
-                    padEnd = item.EndTime;
-                }
-
-                var (safeStart, safeEnd) = GetSafePaddedBounds(padStart, padEnd, item.StartTime, item.EndTime, fullPcmAudio);
-
                 var cand = new TimingCandidate
                 {
                     OriginalStartTime = item.StartTime,
                     OriginalItem = item,
                     CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty,
-                    HardMinStart = hardMinStart,
-                    HardMaxEnd = hardMaxEnd,
 
-                    CurrentTestStart = safeStart,
-                    CurrentTestEnd = safeEnd,
-                    LastGoodStart = safeStart,
-                    LastGoodEnd = safeEnd,
+                    CurrentTestStart = item.StartTime,
+                    CurrentTestEnd = item.EndTime,
+                    LastGoodStart = item.StartTime,
+                    LastGoodEnd = item.EndTime,
 
                     HasFoundGoodStart = false,
                     HasFoundGoodEnd = false,
@@ -271,6 +250,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     IsEndLocked = false,
                     RetryCount = 0
                 };
+
+                var terrain = CreateCandidateTerrain(fullPcmAudio, cand);
+                var (safeStart, safeEnd) = GetSafePaddedBounds(terrain, cand);
+                cand.CurrentTestStart = safeStart;
+                cand.CurrentTestEnd = safeEnd;
+                cand.LastGoodStart = safeStart;
+                cand.LastGoodEnd = safeEnd;
 
                 cand.AddTrace($"Original: [{item.StartTime:mm\\:ss\\.fff} .. {item.EndTime:mm\\:ss\\.fff}]");
 
@@ -500,7 +486,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                     else
                     {
-                        nextTestStart = ExpandBoundary(cand.CurrentTestStart, true, fullPcmAudio, cand.HardMinStart);
+                        nextTestStart = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.Start);
                         cand.AddTrace($" -> Expand Start: {cand.CurrentTestStart:ss\\.fff} -> {nextTestStart:ss\\.fff}");
                     }
                 }
@@ -511,7 +497,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     if (!cand.IsStartLocked)
                     {
-                        TimeSpan proposedStart = ShrinkBoundary(cand.CurrentTestStart, true, fullPcmAudio, cand.HardMaxEnd);
+                        TimeSpan proposedStart = ShrinkBoundary(fullPcmAudio, cand, BoundaryPointType.Start);
                         if (cand.CurrentTestEnd - proposedStart < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
                         {
                             nextTestStart = cand.LastGoodStart;
@@ -539,7 +525,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                     else
                     {
-                        nextTestEnd = ExpandBoundary(cand.CurrentTestEnd, false, fullPcmAudio, cand.HardMaxEnd);
+                        nextTestEnd = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.End);
                         cand.AddTrace($" -> Expand End: {cand.CurrentTestEnd:ss\\.fff} -> {nextTestEnd:ss\\.fff}");
                     }
                 }
@@ -550,7 +536,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     if (!cand.IsEndLocked)
                     {
-                        TimeSpan proposedEnd = ShrinkBoundary(cand.CurrentTestEnd, false, fullPcmAudio, cand.HardMinStart);
+                        TimeSpan proposedEnd = ShrinkBoundary(fullPcmAudio, cand, BoundaryPointType.End);
                         if (proposedEnd - cand.CurrentTestStart < TimeSpan.FromSeconds(MinSubtitleDurationSeconds))
                         {
                             nextTestEnd = cand.LastGoodEnd;
@@ -591,168 +577,71 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        /// <summary>
-        /// Expands the boundary outward by AT LEAST ShrinkStepSeconds. 
-        /// Uses variance to crawl over small speech bumps until a stable valley is reached.
-        /// </summary>
-        private TimeSpan ExpandBoundary(TimeSpan currentTime, bool isStart, PcmAudio fullAudio, TimeSpan hardLimit)
+        private AudioTerrain CreateCandidateTerrain(PcmAudio fullAudio, TimingCandidate cand)
         {
-            TimeSpan minJump = TimeSpan.FromSeconds(ShrinkStepSeconds);
-            TimeSpan proposedTime = isStart ? currentTime - minJump : currentTime + minJump;
+            var maxDrift = TimeSpan.FromSeconds(MaxDriftSeconds);
+            var orig = cand.OriginalItem;
 
-            if (isStart && proposedTime <= hardLimit) return hardLimit;
-            if (!isStart && proposedTime >= hardLimit) return hardLimit;
+            TimeSpan padStart = cand.OriginalStartTime - maxDrift;
+            TimeSpan padEnd = orig.EndTime + maxDrift;
 
-            // Extract a larger window to analyze the terrain we are expanding into
-            TimeSpan snippetStart = isStart ? proposedTime - TimeSpan.FromSeconds(1.0) : proposedTime - TimeSpan.FromSeconds(0.1);
-            TimeSpan snippetEnd = isStart ? proposedTime + TimeSpan.FromSeconds(0.1) : proposedTime + TimeSpan.FromSeconds(1.0);
-
-            if (snippetStart < TimeSpan.Zero) snippetStart = TimeSpan.Zero;
-
-            var snippet = fullAudio.ExtractSnippet(snippetStart, snippetEnd);
-            float[] samples = ConvertPcmToFloat16K(snippet);
-            var rms = GetRmsArray(samples);
-            if (rms.Length == 0) return proposedTime;
-
-            float GetVariance(int left, int right)
-            {
-                int start = Math.Max(0, left);
-                int end = Math.Min(rms.Length - 1, right);
-                if (start > end) return 0;
-                float vMin = float.MaxValue, vMax = float.MinValue;
-                for (int k = start; k <= end; k++)
-                {
-                    if (rms[k] < vMin) vMin = rms[k];
-                    if (rms[k] > vMax) vMax = rms[k];
+            return new AudioTerrain(fullAudio, cand.OriginalStartTime, orig.EndTime, padStart, padEnd);
                 }
-                return vMax - vMin;
-            }
 
-            float maxMovement = 0; float minMovement = float.MaxValue;
-            for (int i = 0; i < rms.Length; i++)
+        private (TimeSpan start, TimeSpan end) GetSafePaddedBounds(
+            AudioTerrain terrain,
+            TimingCandidate cand)
             {
-                float v = GetVariance(i - 7, i + 7);
-                if (v > maxMovement) maxMovement = v;
-                if (v < minMovement) minMovement = v;
-            }
-            if (minMovement == float.MaxValue) minMovement = 0;
-            float stableLimit = Math.Max(minMovement + (maxMovement - minMovement) * 0.08f, 0.002f);
+            var cursor = terrain.From(cand.OriginalItem.StartTime, cand.OriginalItem.EndTime);
 
-            int proposedFrame = (int)((proposedTime - snippetStart).TotalMilliseconds / 10.0);
-            proposedFrame = Math.Max(0, Math.Min(rms.Length - 1, proposedFrame));
-
-            int bestFrame = proposedFrame;
-
-            if (isStart)
+            // 1. Refine Start Boundary
+            if (cursor.Start.MoveIfSilent(BoundaryDirection.Inward))
             {
-                for (int i = proposedFrame; i >= 0; i--)
-                {
-                    if (GetVariance(i - 7, i + 7) <= stableLimit) 
-                    { 
-                        bestFrame = i; 
-                        break; 
+                cursor.Start.MoveTowardSpeech(BoundaryDirection.Inward);
                     }
-                    bestFrame = i;
-                }
+            else
+            {
+                cursor.Start.SlideDownSlopeToStableValley(BoundaryDirection.Outward);
+                    }
+
+            // 2. Refine End Boundary
+            if (cursor.End.MoveIfSilent(BoundaryDirection.Inward))
+        {
+                cursor.End.MoveTowardSpeech(BoundaryDirection.Inward);
             }
             else
             {
-                for (int i = proposedFrame; i < rms.Length; i++)
-                {
-                    if (GetVariance(i - 7, i + 7) <= stableLimit)
-                    {
-                        bestFrame = i;
-                        break;
-                    }
-                    bestFrame = i;
-                }
+                cursor.End.SlideDownSlopeToStableValley(BoundaryDirection.Outward);
             }
 
-            TimeSpan finalTime = snippetStart + TimeSpan.FromMilliseconds(bestFrame * 10);
+            // 3. Enforce minimum duration & boundary validity
+            cursor.EnforceMinimumDuration(TimeSpan.FromSeconds(MinSubtitleDurationSeconds));
 
-            if (isStart && finalTime < hardLimit) return hardLimit;
-            if (!isStart && finalTime > hardLimit) return hardLimit;
-
-            return finalTime;
+            return (cursor.Start.Position, cursor.End.Position);
         }
 
-        /// <summary>
-        /// Shrinks the boundary inward by EXACTLY ShrinkStepSeconds, then looks forward 
-        /// to snap into the lowest RMS valley. Guarantees a minimum step distance.
-        /// </summary>
-        private TimeSpan ShrinkBoundary(TimeSpan currentTime, bool isStart, PcmAudio fullAudio, TimeSpan hardLimit)
-        {
-            TimeSpan minStep = TimeSpan.FromSeconds(ShrinkStepSeconds);
-            TimeSpan searchRadius = TimeSpan.FromSeconds(ValleySearchSeconds);
-
-            TimeSpan snippetStart, snippetEnd;
-
-            if (isStart)
-            {
-                // Must jump inward by AT LEAST minStep (e.g. 0.2s)
-                snippetStart = currentTime + minStep;
-                snippetEnd = snippetStart + searchRadius; // Look forward up to 0.1s to find a valley
-                if (snippetStart > hardLimit) return hardLimit;
-                if (snippetEnd > hardLimit) snippetEnd = hardLimit;
-            }
-            else
-            {
-                // Must jump inward by AT LEAST minStep (e.g. 0.2s)
-                snippetEnd = currentTime - minStep;
-                snippetStart = snippetEnd - searchRadius; // Look backward up to 0.1s to find a valley
-                if (snippetEnd < hardLimit) return hardLimit;
-                if (snippetStart < hardLimit) snippetStart = hardLimit;
-            }
-
-            var snippet = fullAudio.ExtractSnippet(snippetStart, snippetEnd);
-            float[] samples = ConvertPcmToFloat16K(snippet);
-            var rms = GetRmsArray(samples);
-            if (rms.Length == 0) return isStart ? snippetStart : snippetEnd;
-
-            int minFrame = 0;
-            float minRms = float.MaxValue;
-            for (int i = 0; i < rms.Length; i++)
-            {
-                if (rms[i] < minRms)
+        private TimeSpan ShrinkBoundary(PcmAudio fullAudio, TimingCandidate cand, BoundaryPointType pointType)
                 {
-                    minRms = rms[i];
-                    minFrame = i;
-                }
-            }
+            var terrain = CreateCandidateTerrain(fullAudio, cand);
+            var endpoint = terrain.From(cand.CurrentTestStart, cand.CurrentTestEnd)[pointType];
 
-            return snippetStart + TimeSpan.FromMilliseconds(minFrame * 10);
+            // Shrink inward (naturally bounded so it can never cross the opposite side)
+            endpoint.Step(BoundaryDirection.Inward, TimeSpan.FromSeconds(ShrinkStepSeconds));
+            endpoint.SnapToLowestValley(BoundaryDirection.Inward, TimeSpan.FromSeconds(ValleySearchSeconds));
+
+            return endpoint.Position;
         }
 
-        private float[] GetRmsArray(float[] samples, int frameSize = 160 /* 10ms at 16kHz */)
+        private TimeSpan ExpandBoundary(PcmAudio fullAudio, TimingCandidate cand, BoundaryPointType pointType)
         {
-            int n = samples.Length / frameSize;
-            float[] rms = new float[n];
-            for (int i = 0; i < n; i++)
-            {
-                float sumSq = 0;
-                int offset = i * frameSize;
-                for (int j = 0; j < frameSize; j++)
-                {
-                    sumSq += samples[offset + j] * samples[offset + j];
-                }
-                rms[i] = (float)Math.Sqrt(sumSq / frameSize);
-            }
-            return rms;
-        }
+            var terrain = CreateCandidateTerrain(fullAudio, cand);
+            var endpoint = terrain.From(cand.CurrentTestStart, cand.CurrentTestEnd)[pointType];
 
-        private float[] ConvertPcmToFloat16K(PcmAudio pcmAudio)
-        {
-            byte[] bytes = pcmAudio.Data;
-            int numSamples = bytes.Length / 2;
-            float[] samples = new float[numSamples];
+            // Expand outward (naturally bounded by the terrain's MaxDrift wall)
+            endpoint.Step(BoundaryDirection.Outward, TimeSpan.FromSeconds(ShrinkStepSeconds));
+            endpoint.SeekStableGround(BoundaryDirection.Outward);
 
-            for (int i = 0; i < numSamples; i++)
-            {
-                short sample = (short)(bytes[i * 2] | (bytes[i * 2 + 1] << 8));
-                samples[i] = sample / 32768.0f;
-            }
-
-            return samples;
+            return endpoint.Position;
         }
 
         private List<TimingCandidate> SelectCandidatesForBatch(List<TimingCandidate> pendingCandidates)

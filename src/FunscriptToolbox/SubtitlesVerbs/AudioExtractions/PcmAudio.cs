@@ -84,6 +84,41 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             return new PcmAudio(SamplingRate, data);
         }
 
+        public float[] ToFloat()
+        {
+            byte[] bytes = this.Data;
+            int numSamples = bytes.Length / 2;
+            float[] samples = new float[numSamples];
+
+            for (int i = 0; i < numSamples; i++)
+            {
+                short sample = (short)(bytes[i * 2] | (bytes[i * 2 + 1] << 8));
+                samples[i] = sample / 32768.0f;
+            }
+
+            return samples;
+        }
+
+
+        public float[] ToRms(int frameSizeInMs)
+        {
+            var samples = this.ToFloat();
+            int frameSize = (SamplingRate * frameSizeInMs) / 1000;
+            int n = samples.Length / frameSize;
+            float[] rms = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                float sumSq = 0;
+                int offset = i * frameSize;
+                for (int j = 0; j < frameSize; j++)
+                {
+                    sumSq += samples[offset + j] * samples[offset + j];
+                }
+                rms[i] = (float)Math.Sqrt(sumSq / frameSize);
+            }
+            return rms;
+        }
+
         private static TimeSpan IndexToTimeSpan(int index, int samplingRate) => TimeSpan.FromSeconds((double)index / samplingRate / NbBytesPerSamples);
         private int TimeSpanToIndex(TimeSpan index) => (int)(index.TotalSeconds * SamplingRate) * NbBytesPerSamples;
     }

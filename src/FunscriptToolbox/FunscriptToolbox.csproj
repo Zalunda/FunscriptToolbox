@@ -244,6 +244,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigLoader.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\AudioTerrain.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAIRefineTiming.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberResetImportedMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberClone.cs" />
@@ -347,6 +348,7 @@
     <None Include="--FSTB-Installation.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="SubtitlesVerbs\Prompts\ValidateAudioRequest.json" />
     <None Include="SubtitlesVerbs\Prompts\ValidateImageRequest.json" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPrompt.txt" />
