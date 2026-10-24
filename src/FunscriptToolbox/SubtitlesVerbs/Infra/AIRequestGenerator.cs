@@ -100,7 +100,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 : (TimeSpan?)null;
 
             var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState(assumeAllItemsFinishedBefore);
-            itemsToDo = itemsToDo.Take(160).ToArray();
 
             if (itemsToDo.Length == 0)
                 return Array.Empty<AIRequest>();

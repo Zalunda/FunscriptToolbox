@@ -82,7 +82,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     section,
                                     $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
                                     audioBytes,
-                                    snippet.Duration)
+                                    snippet.Duration,
+                                    timing.StartTime)
                             };
                             File.Delete(tempWavFile);
 

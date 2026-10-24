@@ -102,7 +102,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         section,
                                         $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
                                         audioBytes,
-                                        duration)
+                                        duration,
+                                        timing.StartTime)
                                 };
                             }
 
@@ -121,7 +122,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                             section,
                                             $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
                                             audioBytes,
-                                            duration)
+                                            duration,
+                                            timing.StartTime)
                                     };
                                 }
 
@@ -137,7 +139,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         section,
                                         $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
                                         audioBytesGenerated,
-                                        snippet.Duration)
+                                        snippet.Duration,
+                                        timing.StartTime)
                                 };
                                 File.Delete(tempWavFile);
 

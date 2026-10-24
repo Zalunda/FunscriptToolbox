@@ -7,17 +7,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public override string Modality { get; } = "AUDIO";
         public override BinaryDataType? AssociatedDataType => BinaryDataType.Audio;
 
-        public AIRequestPartAudio(AIRequestSection section, string filename, byte[] content, TimeSpan duration)
+        public AIRequestPartAudio(AIRequestSection section, string filename, byte[] content, TimeSpan duration, TimeSpan extractTime)
             : base(section)
         {
             this.FileName = filename;
             this.Content = content;
             this.Duration = duration;
+            this.ExtractTime = extractTime;
         }
 
         public string FileName { get; }
         public byte[] Content { get; }
         public TimeSpan Duration { get; }
+        public TimeSpan ExtractTime { get; }
 
         public override string ForSimplifiedFullPrompt() => $"[Audio, {Duration.TotalSeconds}]";
         public override double Units => this.Duration.TotalSeconds;

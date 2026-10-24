@@ -108,7 +108,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 context.WriteInfo($"[RefineTiming] Initializing Phase 1 (Valley-Seeking Padded Bounds) on {originalItems.Count} candidates...");
                 jobState.Candidates = InitializeCandidates(originalItems, fullPcmAudio, jobState);
-                DoExportTraceSrt(context, transcription, jobState.Candidates);
+                DoExportTraceSrt(context, transcription, jobState.Candidates, "FIRST-INIT");
                 context.WIP.Save();
             }
             else
@@ -212,7 +212,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 jobState.ActiveBatchStartTimes = null;
                 context.WIP.Save();
 
-                DoExportTraceSrt(context, transcription, jobState.Candidates);
+                DoExportTraceSrt(context, transcription, jobState.Candidates, "TRACE");
 
                 int lockedNodes = jobState.Candidates.Count(c => c.IsFullyLocked);
                 int lockedSides = jobState.Candidates.Sum(c => (c.IsStartLocked ? 1 : 0) + (c.IsEndLocked ? 1 : 0));
@@ -825,11 +825,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private void DoExportTraceSrt(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            IEnumerable<TimingCandidate> candidates)
+            IEnumerable<TimingCandidate> candidates,
+            string name)
         {
             if (this.ExportMetadataSrt)
             {
-                var extension = $".Worker.{transcription.Id}.TRACE.srt";
+                var extension = $".Worker.{transcription.Id}.{name}.srt";
 
                 var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
                 virtualSubtitleFile.Subtitles.AddRange(candidates.Select(cand => new Subtitle(cand.CurrentTestStart, cand.CurrentTestEnd, cand.Trace.ToArray())));

@@ -590,28 +590,29 @@ _______________________________________=",
           "Text": "
 =_______________________________________
 
-# JAPANESE AUDIO BOUNDARY AUDITOR
+# AUTOMATED ACOUSTIC BOUNDARY DETECTOR
 
-### Role & Objective
-You are a precision audio-alignment auditor for Japanese subtitles.
-You will receive a JSON array of nodes. Each node contains:
-- `StartTime`: A subtitle timecode in `HH:MM:SS.mmm` format (e.g., `"00:12:43.713"`).
-- `CandidateText`: The expected Japanese phrase spoken in that subtitle.
-- `AudioClip`: The extracted audio slice for that subtitle's current timing window.
+### System Role
+You are an automated phonetic boundary-check process. You receive a JSON array of subtitle nodes and output a JSON status array.
 
-Your task is to listen carefully to the start and end boundaries of each `AudioClip` and determine whether the spoken Japanese phrase in `CandidateText` is fully captured or if the audio boundaries cut into the speech.
+Each input node has:
+- `StartTime`: A unique node identifier string (format `HH:MM:SS.mmm`).
+- `CandidateText`: Target [TranscriptionLanguage] phonetic string.
+- `AudioClip`: Short audio sample.
 
-### Evaluation Criteria (`Status`)
-- `"Y"` (Yes / Clean): The entire `CandidateText` is clearly audible from the first mora/syllable to the final mora/syllable, with clean boundaries.
-- `"S"` (Start Clipped): The beginning of the phrase is cut off (starts mid-word or misses the initial syllable), but the ending is complete and clean.
-- `"E"` (End Clipped): The beginning of the phrase is clean, but the ending is cut off prematurely before the speaker finishes the final syllable of `CandidateText`.
-- `"SE"` (Both Clipped): Both the start and end of the phrase are cut off.
-- `"SK"` (Skip / Unusable): The audio is pure silence, background noise/music only, or the speech does not match `CandidateText` at all.
+### Classification Codes (`Status`)
+For each node, check whether the target speech in `CandidateText` is cut off by the start or end edges of `AudioClip`:
+- `"Y"`: Complete. Both start and end of the speech are inside the clip.
+- `"S"`: Start clipped. The beginning of the speech is cut off; the end is complete.
+- `"E"`: End clipped. The beginning is complete; the end of the speech is cut off.
+- `"SE"`: Both start and end are cut off.
+- `"SK"`: Unclear. Non-speech, moan/breath only, silence, noise, or does not match `CandidateText`.
 
-### Strict Output Rules
-1. **1-to-1 Node Mapping**: If the input contains N nodes, your output JSON array MUST contain exactly N objects in the exact same sequential order. Never merge, skip, or omit nodes.
-2. **Exact Timecode Copy**: Copy the `StartTime` string character-for-character from the corresponding input node (format `HH:MM:SS.mmm`). NEVER output dates (like `2020-...` or `2023-...`), never alter digits, and never invent timecodes.
-3. **Direct Classification**: Evaluate each clip independently based on its acoustic boundaries and output ONLY the JSON array.
+### Mandatory Invariants
+1. ** Exact Array Length**: If there are 20 input nodes, output”,
+   exactly 20 JSON objects in the same order.
+2. **`StartTime` is a String ID**: You MUST copy the exact `StartTime` string from each input node. NEVER generate relative audio timestamps.
+3. **0.5s Clips & Breaths**: If a clip is very short (0.5s) or contains only breath/moans where boundaries cannot be distinguished, immediately output `"SK"` and continue to the next node.
 _______________________________________="
         },
         "MetadataNeeded": "CandidateText",
@@ -632,9 +633,9 @@ _______________________________________="
         "BatchSplitWindows": 0,
         "BatchKeepTogetherThreshold": "00:00:00.0000000",
         "NbContextItems": 0,
-        "NbItemsMinimumReceivedToContinue": 12,
+        "NbItemsMinimumReceivedToContinue": 3,
         "FieldsToInclude": "StartTime",
-		"TextAfterAnalysis": "Audit the clips above and output the evaluation array now:"
+		"TextAfterAnalysis": "\n---\n return the JSON array for all nodes above. CRITICAL: `StartTime` is a string ID—copy the exact `StartTime` string from each input object (e.g. \"01:...\")."
       },
       "MaxRetriesPerNode": 4,
       "MaxBudgetRatio": 2.5,
