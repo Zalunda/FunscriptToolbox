@@ -46,8 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             r_processStartTime = DateTime.Now;
         }
 
-        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[] itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState(
-            TimeSpan? assumeAllItemsFinishedBefore = null)
+        public (TimedItemWithMetadataTagged[] allItems, TimedItemWithMetadataTagged[] itemsToDo, TimedItemWithMetadataTagged[] itemAlreadyDone, TimedItemWithMetadataTagged[] itemsForTraining) AnalyzeItemsState()
         {
             var allItems = new List<TimedItemWithMetadataTagged>();
             var itemsToDo = new List<TimedItemWithMetadataTagged>();
@@ -63,8 +62,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 allItems.Add(item);
 
                 var isItemNeeded = r_metadataNeededRules == null ? true : IsRulesRespected(r_metadataNeededRules, referenceTiming.Metadata);
-                var isItemAlreadyDone = (workingOnItem != null && IsRulesRespected(r_metadataProducedRule, workingOnItem.Metadata))
-                    || (referenceTiming.StartTime < assumeAllItemsFinishedBefore);
+                var isItemAlreadyDone = workingOnItem != null && IsRulesRespected(r_metadataProducedRule, workingOnItem.Metadata);
 
                 if (isItemNeeded && isItemAlreadyDone)
                 {
@@ -94,12 +92,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
             var lastResponse = lastResponsesReceived?.LastOrDefault();
 
-            // If no assistant message => Chatbot => assume all items were processed
-            var assumeAllItemsFinishedBefore = (lastResponse != null && lastResponse.AssistantMessage == null)
-                ? lastResponse.Request.ItemsIncluded.Last().EndTime
-                : (TimeSpan?)null;
-
-            var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState(assumeAllItemsFinishedBefore);
+            var (allItems, itemsToDo, itemsAlreadyDone, itemsForTraining) = this.AnalyzeItemsState();
 
             if (itemsToDo.Length == 0)
                 return Array.Empty<AIRequest>();
