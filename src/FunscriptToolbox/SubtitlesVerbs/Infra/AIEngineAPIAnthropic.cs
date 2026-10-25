@@ -33,7 +33,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest[] requests)
+            AIRequest[] requests,
+            AIEngineConfigOverride configOverride)
         {
             if (requests.Length > 1)
             {
@@ -58,8 +59,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
 
                 return this.UseBatchMode
-                    ? new[] { ProcessBatchResponse(context, client, request, verbosePrefix) }
-                    : new[] { ProcessStreamingResponse(context, client, request, verbosePrefix) };
+                    ? new[] { ProcessBatchResponse(context, client, request, verbosePrefix, configOverride) }
+                    : new[] { ProcessStreamingResponse(context, client, request, verbosePrefix, configOverride) };
             }
             catch (AggregateException ex)
             {
@@ -76,9 +77,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         // ─────────────────────────────────────────────────────────────
         //  Request body helpers
         // ─────────────────────────────────────────────────────────────
-        private dynamic CreateRequestBody(AIRequest request)
+        private dynamic CreateRequestBody(AIRequest request, AIEngineConfigOverride configOverride)
         {
-            dynamic body = base.CreateRequestBodyWithExtension();
+            dynamic body = base.CreateRequestBodyWithExtension(configOverride);
             body.model = this.Model;
 
             // System prompt — Anthropic uses a top-level "system" string
@@ -143,7 +144,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             HttpClient client,
             AIRequest request,
-            string verbosePrefix)
+            string verbosePrefix,
+            AIEngineConfigOverride configOverride)
         {
             Timer waitingTimer = null;
 
@@ -152,7 +154,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var watch = Stopwatch.StartNew();
 
                 // Build the batch payload: a single-item batch wrapping the normal request.
-                dynamic innerRequest = CreateRequestBody(request);
+                dynamic innerRequest = CreateRequestBody(request, configOverride);
                 var batchPayload = new
                 {
                     requests = new[]
@@ -371,7 +373,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             SubtitleGeneratorContext context,
             HttpClient client,
             AIRequest request,
-            string verbosePrefix)
+            string verbosePrefix,
+            AIEngineConfigOverride configOverride)
         {
             Timer waitingTimer = null;
 
@@ -379,7 +382,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 var watch = Stopwatch.StartNew();
 
-                dynamic requestBody = CreateRequestBody(request);
+                dynamic requestBody = CreateRequestBody(request, configOverride);
                 requestBody.stream = true;
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);

@@ -176,17 +176,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         private readonly SubtitleGeneratorContext r_context;
         private readonly AIEngine r_engine;
+        private readonly AIEngineConfigOverride r_engineConfigOverride;
         private readonly TimedItemWithMetadataCollection<T> r_workingOnContainer;
         private readonly bool r_promptUserOnError;
 
         public AIEngineRunner(
             SubtitleGeneratorContext context,
             AIEngine engine,
+            AIEngineConfigOverride engineConfigOverride,
             TimedItemWithMetadataCollection<T> workingOnContainer,
             bool promptUserOnError)
         {
             r_context = context;
             r_engine = engine;
+            r_engineConfigOverride = engineConfigOverride;
             r_workingOnContainer = workingOnContainer;
             r_promptUserOnError = promptUserOnError;
         }
@@ -207,7 +210,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (requests != null && requests.Length > 0)
                     {
                         var watch = Stopwatch.StartNew();
-                        var responses = r_engine.Execute(r_context, requests);
+                        var responses = r_engine.Execute(r_context, requests, r_engineConfigOverride);
                         watch.Stop();
 
                         lastResponsesReceived = responses;

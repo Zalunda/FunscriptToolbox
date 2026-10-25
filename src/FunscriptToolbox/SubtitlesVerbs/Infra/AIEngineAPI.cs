@@ -54,17 +54,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public virtual string EngineIdentifier => $"{EngineIdentifierWithoutModel}|{Model}";
 
-        protected dynamic CreateRequestBodyWithExtension()
+        protected dynamic CreateRequestBodyWithExtension(AIEngineConfigOverride configOverride)
         {
             dynamic requestBody = new ExpandoObject();
             requestBody = Merge(requestBody, this.RequestBodyExtension);
+
+            if (configOverride?.RequestBodyExtension != null)
+            {
+                requestBody = Merge(requestBody, configOverride.RequestBodyExtension);
+            }
+
             return requestBody;
         }
 
         private static dynamic Merge(ExpandoObject item1, ExpandoObject item2)
         {
-            if (item2 == null)
-                return item1;
+            if (item2 == null) return item1 ?? new ExpandoObject();
+            if (item1 == null) return item2;
 
             var result = new ExpandoObject();
             var d = result as IDictionary<string, object>;
@@ -75,7 +81,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             foreach (var pair in (IDictionary<string, object>)item2)
             {
-                d[pair.Key] = pair.Value;
+                // Recursive merge for nested objects (e.g. generationConfig)
+                if (d.TryGetValue(pair.Key, out var existingVal)
+                    && existingVal is ExpandoObject expando1
+                    && pair.Value is ExpandoObject expando2)
+                {
+                    d[pair.Key] = Merge(expando1, expando2);
+                }
+                else
+                {
+                    d[pair.Key] = pair.Value;
+                }
             }
 
             return result;

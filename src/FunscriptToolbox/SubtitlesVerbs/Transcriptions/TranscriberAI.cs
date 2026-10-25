@@ -13,11 +13,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     {
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngine Engine { get; set; }
-        [JsonProperty(Order = 31, Required = Required.Always)]
-        internal MetadataAggregator Metadatas { get; set; }
+        [JsonProperty(Order = 31)]
+        public AIEngineConfigOverride EngineConfigOverride { get; set; }
         [JsonProperty(Order = 32, Required = Required.Always)]
+        internal MetadataAggregator Metadatas { get; set; }
+        [JsonProperty(Order = 33, Required = Required.Always)]
         public AIOptions Options { get; set; } = new AIOptions();
-        [JsonProperty(Order = 33)]
+        [JsonProperty(Order = 34)]
         public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
@@ -62,6 +64,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
                 this.Engine,
+                this.EngineConfigOverride,
                 transcription,
                 this.PromptUserOnError);
 

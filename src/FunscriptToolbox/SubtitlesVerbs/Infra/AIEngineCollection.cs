@@ -28,7 +28,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest[] requests)
+            AIRequest[] requests,
+            AIEngineConfigOverride configOverride)
         {
             if (Engines == null || Engines.Count == 0)
             {
@@ -74,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 try
                 {
                     context.WriteInfo($"Attempting to use engine: {engine.BaseAddress}, Model: {engine.Model}");
-                    var responses = engine.Execute(context, requests);
+                    var responses = engine.Execute(context, requests, configOverride);
 
                     // Success - make sure engine is not in skipped list
                     s_skippedEngines.TryRemove(engineId, out _);

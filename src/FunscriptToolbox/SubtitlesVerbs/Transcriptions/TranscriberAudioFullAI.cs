@@ -31,15 +31,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public AIEngine Engine { get; set; }
 
         [JsonProperty(Order = 31)]
-        public AIPrompt SystemPrompt { get; set; }
+        public AIEngineConfigOverride EngineConfigOverride { get; set; }
 
         [JsonProperty(Order = 32)]
-        public AIPrompt UserPrompt { get; set; }
+        public AIPrompt SystemPrompt { get; set; }
 
         [JsonProperty(Order = 33)]
-        public TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
+        public AIPrompt UserPrompt { get; set; }
 
         [JsonProperty(Order = 34)]
+        public TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
+
+        [JsonProperty(Order = 35)]
         public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
@@ -119,7 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     requestNumber++,
                     chunkTiming,
                     binaryDataExtractors);
-                var response = this.Engine.Execute(context, request);
+                var response = this.Engine.Execute(context, request, this.EngineConfigOverride);
                 if (response.AssistantMessage == null)
                 {
                     throw new Exception($"'{this.GetType().Name}' does not support AIEngine type '{this.Engine.GetType().Name}'.");

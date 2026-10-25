@@ -199,7 +199,9 @@
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIAnthropic.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIGoogle.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIPoe.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineChatBot.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineCollection.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineConfigOverride.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineErrorType.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineRunner.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIOptions.cs" />
@@ -285,7 +287,6 @@
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberToolAudioPurfviewWhisper.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIPrompt.cs" />
     <Compile Include="SubtitlesVerbs\Translations\TranslatorGoogleV1API.cs" />
-    <Compile Include="SubtitlesVerbs\Infra\AIEngineChatBot.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineAPIOpenAICompatible.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translation.cs" />
     <Compile Include="SubtitlesVerbs\Translations\Translator.cs" />
