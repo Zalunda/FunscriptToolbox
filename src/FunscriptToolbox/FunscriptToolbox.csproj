@@ -349,7 +349,6 @@
     <None Include="--FSTB-Installation.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="SubtitlesVerbs\Prompts\ValidateAudioRequest.json" />
     <None Include="SubtitlesVerbs\Prompts\ValidateImageRequest.json" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt" />
     <Content Include="SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPrompt.txt" />

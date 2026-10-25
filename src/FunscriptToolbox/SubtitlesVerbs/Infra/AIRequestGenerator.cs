@@ -310,7 +310,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     r_options.MetadataAlwaysProduced,
                     $"Items {startItemNumber} to {endItemNumber} out of {totalItemsCount}"));
 
-            } while (r_options.MaximumRequestsInBatch > 1);
+            } while (requests.Count < r_options.MaximumRequestsInBatch);
 
             return requests.ToArray();
         }

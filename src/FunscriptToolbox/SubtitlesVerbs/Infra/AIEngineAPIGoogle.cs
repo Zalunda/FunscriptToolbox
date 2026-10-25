@@ -429,7 +429,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         var errMsg = inlinedItem?.Error != null
                             ? $"Sub-request {expectedKey} failed with error {inlinedItem.Error.Code}: {inlinedItem.Error.Message}"
                             : $"Batch API did not return a response for {expectedKey}.";
-                        throw new AIResponseException(req, errMsg);
+                        results.Add(new AIResponse(req, errMsg, Cost.Create(
+                            req.TaskId,
+                            this.EngineIdentifier,
+                            req.SystemParts.Concat(req.UserParts).ToArray(),
+                            TimeSpan.FromTicks(watch.Elapsed.Ticks / requests.Length),
+                            req.ItemsIncluded?.Length ?? 1,
+                            0,
+                            this.EstimatedCostPerInputMillionTokens,
+                            this.EstimatedCostPerOutputMillionTokens,
+                            0, 0, 0, 0, 0)));
+                        continue;
                     }
 
                     var candidates = new StringBuilder();

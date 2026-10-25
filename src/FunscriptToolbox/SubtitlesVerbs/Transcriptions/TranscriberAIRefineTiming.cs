@@ -31,8 +31,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
             [JsonIgnore] public string CandidateText { get; set; }
-            [JsonIgnore] public TimeSpan HardMinStart { get; set; }
-            [JsonIgnore] public TimeSpan HardMaxEnd { get; set; }
 
             public TimeSpan LastGoodStart { get; set; }
             public TimeSpan LastGoodEnd { get; set; }
@@ -106,8 +104,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (jobState.Candidates.Count == 0)
             {
-                context.WriteInfo($"[RefineTiming] Initializing Phase 1 (Valley-Seeking Padded Bounds) on {originalItems.Count} candidates...");
-                jobState.Candidates = InitializeCandidates(fullPcmAudio, originalItems, jobState);
+                context.WriteInfo($"[RefineTiming] Phase 1: Initializing (Valley-Seeking Padded Bounds) on {originalItems.Count} candidates...");
+                jobState.Candidates = InitializeCandidates(fullPcmAudio, originalItems);
                 DoExportTraceSrt(context, transcription, jobState.Candidates, "FIRST-INIT");
             }
             else
@@ -124,13 +122,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         cand.OriginalItem = item;
                         cand.CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty;
-                        cand.HardMinStart = prevItem != null ? TimeSpanExtensions.Min(prevItem.EndTime, item.StartTime) : TimeSpan.Zero;
-                        cand.HardMaxEnd = nextItem != null ? TimeSpanExtensions.Max(nextItem.StartTime, item.EndTime) : TimeSpan.FromHours(10);
                     }
                 }
             }
 
-            DoExportTraceSrt(context, transcription, jobState.Candidates);
             int totalAllowedTests = Math.Max(50, (int)(originalItems.Count * MaxBudgetRatio));
 
             while (jobState.TotalTestsRun < totalAllowedTests)
@@ -178,40 +173,44 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
 
                 // 3. Build the input reference timings manually
-                var referenceList = new List<TimedItemWithMetadata>();
-                foreach (var cand in batchToTest)
+                if (batchToTest.Count > 0)
                 {
-                    var meta = new MetadataCollection();
-                    meta["CandidateText"] = cand.CandidateText;
-                    referenceList.Add(new TimedItemWithMetadata(cand.CurrentTestStart, cand.CurrentTestEnd, meta));
-                }
+                    var referenceList = new List<TimedItemWithMetadata>();
+                    foreach (var cand in batchToTest)
+                    {
+                        var meta = new MetadataCollection();
+                        meta["CandidateText"] = cand.CandidateText;
+                        referenceList.Add(new TimedItemWithMetadata(cand.CurrentTestStart, cand.CurrentTestEnd, meta));
+                    }
 
-                var requestGenerator = new AIRequestGenerator(
-                    referenceList.ToArray(),
-                    jobState.PendingBatch,
-                    transcription.Language,
-                    transcription.Language,
-                    this.Options);
+                    var requestGenerator = new AIRequestGenerator(
+                        referenceList.ToArray(),
+                        jobState.PendingBatch,
+                        transcription.Language,
+                        transcription.Language,
+                        this.Options);
 
-                ExecuteRequests(context, jobState.PendingBatch, requestGenerator);
+                    ExecuteRequests(context, jobState.PendingBatch, requestGenerator);
 
-                if (!requestGenerator.IsFinished())
-                {
-                    // Job stopped short
-                    return;
+                    if (!requestGenerator.IsFinished())
+                    {
+                        // Job stopped short
+                        return;
+                    }
                 }
 
                 // We only increment TotalTests for items that actually got a response
                 jobState.TotalTestsRun += jobState.PendingBatch.Items.Count;
 
                 ProcessBatchResults(context, batchToTest, jobState.PendingBatch, fullPcmAudio);
+                DoExportTraceSrt(context, transcription, jobState.Candidates, "TRACE");
 
                 // Clean up state for the next iteration
+                transcription.Costs.AddRange(jobState.PendingBatch.Costs);
                 jobState.PendingBatch = null;
                 jobState.ActiveBatchStartTimes = null;
                 context.WIP.Save();
 
-                DoExportTraceSrt(context, transcription, jobState.Candidates, "TRACE");
 
                 int lockedNodes = jobState.Candidates.Count(c => c.IsFullyLocked);
                 int lockedSides = jobState.Candidates.Sum(c => (c.IsStartLocked ? 1 : 0) + (c.IsEndLocked ? 1 : 0));
@@ -226,7 +225,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             context.WriteInfo($"[RefineTiming] Finished timing refinement. Processed {jobState.Candidates.Count} nodes in {jobState.Iteration} iterations ({jobState.TotalTestsRun} tests total).");
         }
 
-        private List<TimingCandidate> InitializeCandidates(PcmAudio fullPcmAudio, List<TimedItemWithMetadata> originalItems, JobState jobState)
+        private List<TimingCandidate> InitializeCandidates(PcmAudio fullPcmAudio, List<TimedItemWithMetadata> originalItems)
         {
             var candidates = new List<TimingCandidate>();
 
@@ -258,7 +257,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 cand.LastGoodStart = safeStart;
                 cand.LastGoodEnd = safeEnd;
 
-                cand.AddTrace($"Original: [{item.StartTime:mm\\:ss\\.fff} .. {item.EndTime:mm\\:ss\\.fff}]");
+                cand.AddTrace($"Original: [{item.StartTime:hh\\:mm\\:ss\\.fff} .. {item.EndTime:hh\\:mm\\:ss\\.fff}]");
 
                 double startDiff = (safeStart - item.StartTime).TotalSeconds;
                 double endDiff = (safeEnd - item.EndTime).TotalSeconds;
@@ -267,7 +266,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     cand.AddTrace($"Phase 1 Padding: {(startDiff >= 0 ? "Retract" : "Expand")} Start {startDiff:F3}s");
                 if (Math.Abs(endDiff) > 0.005) 
                     cand.AddTrace($"Phase 1 Padding: {(endDiff >= 0 ? "Expand" : "Retract")} End {endDiff:F3}s");
-                cand.AddTrace($"Test Bounds: [{cand.CurrentTestStart:mm\\:ss\\.fff} .. {cand.CurrentTestEnd:mm\\:ss\\.fff}]");
+                cand.AddTrace($"Test Bounds: [{cand.CurrentTestStart:hh\\:mm\\:ss\\.fff} .. {cand.CurrentTestEnd:hh\\:mm\\:ss\\.fff}]");
 
                 candidates.Add(cand);
             }
@@ -275,168 +274,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return candidates;
         }
 
-        private (TimeSpan start, TimeSpan end) GetSafePaddedBounds(
-                    TimeSpan padStart, TimeSpan padEnd,
-                    TimeSpan origStart, TimeSpan origEnd,
-                    PcmAudio fullAudio)
-        {
-            var snippet = fullAudio.ExtractSnippet(padStart, padEnd);
-            float[] samples = ConvertPcmToFloat16K(snippet);
-            var rms = GetRmsArray(samples);
-            if (rms.Length == 0) return (origStart, origEnd);
-
-            int origStartFrame = (int)((origStart - padStart).TotalMilliseconds / 10.0);
-            int origEndFrame = (int)((origEnd - padStart).TotalMilliseconds / 10.0);
-            origStartFrame = Math.Max(0, Math.Min(rms.Length - 1, origStartFrame));
-            origEndFrame = Math.Max(0, Math.Min(rms.Length - 1, origEndFrame));
-
-            // Helper for directional/symmetrical variance checks
-            float GetVariance(int left, int right)
-            {
-                int start = Math.Max(0, left);
-                int end = Math.Min(rms.Length - 1, right);
-                if (start > end) return 0;
-                float vMin = float.MaxValue;
-                float vMax = float.MinValue;
-                for (int k = start; k <= end; k++)
-                {
-                    if (rms[k] < vMin) vMin = rms[k];
-                    if (rms[k] > vMax) vMax = rms[k];
-                }
-                return vMax - vMin;
-            }
-
-            // 1. Calculate dynamic stability limit based on the snippet's actual range
-            float maxMovement = 0;
-            float minMovement = float.MaxValue;
-            for (int i = 0; i < rms.Length; i++)
-            {
-                float v = GetVariance(i - 7, i + 7);
-                if (v > maxMovement) maxMovement = v;
-                if (v < minMovement) minMovement = v;
-            }
-            if (minMovement == float.MaxValue) minMovement = 0;
-
-            // Using 8% and a 0.002f floor to prevent runaway expansion on pure flatlines
-            float stableLimit = Math.Max(minMovement + (maxMovement - minMovement) * 0.08f, 0.002f);
-
-            // -------------------------------------------------------------
-            // EVALUATE START BOUNDARY
-            // -------------------------------------------------------------
-            int bestStartFrame = origStartFrame;
-            // Directional Check: Only look 70ms forward
-            bool startIsStable = GetVariance(origStartFrame, origStartFrame + 7) <= stableLimit;
-
-            if (startIsStable)
-            {
-                // Fast-forward jump 7 frames since we already verified they are stable
-                int startIndex = Math.Min(origEndFrame, origStartFrame + 7);
-
-                // Move RIGHT (inward) using the asymmetrical window
-                for (int i = startIndex; i < origEndFrame; i++)
-                {
-                    // Check: 70ms tail behind us (i - 7), 30ms short bumper ahead of us (i + 5)
-                    if (GetVariance(i - 7, i + 5) > stableLimit)
-                    {
-                        // The +3 bumper hit the speech mountain. We park exactly at 'i', 
-                        // leaving a perfect 30ms gap before the sound starts.
-                        bestStartFrame = i;
-                        break;
-                    }
-                    bestStartFrame = i;
-                }
-            }
-            else
-            {
-                // Move LEFT (outward) sliding down the slope to find a flatline or lowest valley
-                float lowestRms = rms[origStartFrame];
-                for (int i = origStartFrame; i >= 0; i--)
-                {
-                    if (rms[i] < lowestRms)
-                    {
-                        lowestRms = rms[i];
-                        bestStartFrame = i;
-                    }
-
-                    // If we successfully found a stable flatline, stop wandering left
-                    if (GetVariance(i - 7, i + 7) <= stableLimit)
-                    {
-                        bestStartFrame = i;
-                        break;
-                    }
-                }
-            }
-
-            // -------------------------------------------------------------
-            // EVALUATE END BOUNDARY
-            // -------------------------------------------------------------
-            int bestEndFrame = origEndFrame;
-            // Directional Check: Only look 70ms backward
-            bool endIsStable = GetVariance(origEndFrame - 7, origEndFrame) <= stableLimit;
-
-            if (endIsStable)
-            {
-                // Fast-forward jump 7 frames since we already verified they are stable
-                int startIndex = Math.Max(bestStartFrame, origEndFrame - 7);
-
-                // Move LEFT (inward) using the asymmetrical window
-                for (int i = startIndex; i > bestStartFrame; i--)
-                {
-                    // Check: 30ms short bumper ahead of us (i - 5), 70ms tail behind us (i + 7)
-                    if (GetVariance(i - 5, i + 7) > stableLimit)
-                    {
-                        // The -3 bumper hit the speech mountain. We park exactly at 'i', 
-                        // leaving a perfect 30ms trailing gap after the sound ends.
-                        bestEndFrame = i;
-                        break;
-                    }
-                    bestEndFrame = i;
-                }
-            }
-            else
-            {
-                // Move RIGHT (outward) sliding down the slope to find a flatline or lowest valley
-                float lowestRms = rms[origEndFrame];
-                for (int i = origEndFrame; i < rms.Length; i++)
-                {
-                    if (rms[i] < lowestRms)
-                    {
-                        lowestRms = rms[i];
-                        bestEndFrame = i;
-                    }
-
-                    // If we successfully found a stable flatline, stop wandering right
-                    if (GetVariance(i - 7, i + 7) <= stableLimit)
-                    {
-                        bestEndFrame = i;
-                        break;
-                    }
-                }
-            }
-
-            // Minimum Duration Safeguard
-            int minFrames = (int)(MinSubtitleDurationSeconds * 1000 / 10.0);
-            if (bestEndFrame - bestStartFrame < minFrames)
-            {
-                int midPoint = (bestStartFrame + bestEndFrame) / 2;
-                int half = minFrames / 2;
-
-                // Expand outward from the midpoint to guarantee the minimum duration
-                bestStartFrame = Math.Max(0, midPoint - half);
-                bestEndFrame = Math.Min(rms.Length - 1, bestStartFrame + minFrames);
-
-                // If it hit the right wall, push the left side further back
-                if (bestEndFrame - bestStartFrame < minFrames)
-                {
-                    bestStartFrame = Math.Max(0, bestEndFrame - minFrames);
-                }
-            }
-
-            return (
-                padStart + TimeSpan.FromMilliseconds(bestStartFrame * 10),
-                padStart + TimeSpan.FromMilliseconds(bestEndFrame * 10)
-            );
-        }
 
         private void ProcessBatchResults(
                     SubtitleGeneratorContext context,
@@ -453,7 +290,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 // 2. Check if the AI actually returned data for this node
                 if (!fakeItem.Metadata.TryGetValue("Status", out var s))
                 {
-                    context.WriteInfo($"[RefineTiming] Node #{cand.OriginalStartTime} [{cand.CurrentTestStart:mm\\:ss\\.fff}] received no Status from AI. Skipping to retry next iteration.");
+                    context.WriteInfo($"[RefineTiming] Node #{cand.OriginalStartTime} [{cand.CurrentTestStart:hh\\:mm\\:ss\\.fff}] received no Status from AI. Skipping to retry next iteration.");
                     continue;
                 }
 
@@ -482,12 +319,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         nextTestStart = cand.LastGoodStart;
                         cand.IsStartLocked = true;
-                        cand.AddTrace($" -> Locked Start at {cand.LastGoodStart:ss\\.fff} (Reverted)");
+                        cand.AddTrace($" -> Locked Start at {cand.LastGoodStart:hh\\:mm\\:ss\\.fff} (Reverted)");
                     }
                     else
                     {
                         nextTestStart = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.Start);
-                        cand.AddTrace($" -> Expand Start: {cand.CurrentTestStart:ss\\.fff} -> {nextTestStart:ss\\.fff}");
+                        cand.AddTrace($" -> Expand Start: {cand.CurrentTestStart:hh\\:mm\\:ss\\.fff} -> {nextTestStart:hh\\:mm\\:ss\\.fff}");
                     }
                 }
                 else
@@ -507,7 +344,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         else
                         {
                             nextTestStart = proposedStart;
-                            cand.AddTrace($" -> Shrink Start: {cand.CurrentTestStart:ss\\.fff} -> {nextTestStart:ss\\.fff}");
+                            cand.AddTrace($" -> Shrink Start: {cand.CurrentTestStart:hh\\:mm\\:ss\\.fff} -> {nextTestStart:hh\\:mm\\:ss\\.fff}");
                         }
                     }
                 }
@@ -521,12 +358,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         nextTestEnd = cand.LastGoodEnd;
                         cand.IsEndLocked = true;
-                        cand.AddTrace($" -> Locked End at {cand.LastGoodEnd:ss\\.fff} (Reverted)");
+                        cand.AddTrace($" -> Locked End at {cand.LastGoodEnd:hh\\:mm\\:ss\\.fff} (Reverted)");
                     }
                     else
                     {
                         nextTestEnd = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.End);
-                        cand.AddTrace($" -> Expand End: {cand.CurrentTestEnd:ss\\.fff} -> {nextTestEnd:ss\\.fff}");
+                        cand.AddTrace($" -> Expand End: {cand.CurrentTestEnd:hh\\:mm\\:ss\\.fff} -> {nextTestEnd:hh\\:mm\\:ss\\.fff}");
                     }
                 }
                 else
@@ -546,7 +383,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         else
                         {
                             nextTestEnd = proposedEnd;
-                            cand.AddTrace($" -> Shrink End: {cand.CurrentTestEnd:ss\\.fff} -> {nextTestEnd:ss\\.fff}");
+                            cand.AddTrace($" -> Shrink End: {cand.CurrentTestEnd:hh\\:mm\\:ss\\.fff} -> {nextTestEnd:hh\\:mm\\:ss\\.fff}");
                         }
                     }
                 }
@@ -586,27 +423,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TimeSpan padEnd = orig.EndTime + maxDrift;
 
             return new AudioTerrain(fullAudio, cand.OriginalStartTime, orig.EndTime, padStart, padEnd);
-                }
+        }
 
         private (TimeSpan start, TimeSpan end) GetSafePaddedBounds(
             AudioTerrain terrain,
             TimingCandidate cand)
-            {
+        {
             var cursor = terrain.From(cand.OriginalItem.StartTime, cand.OriginalItem.EndTime);
 
             // 1. Refine Start Boundary
             if (cursor.Start.MoveIfSilent(BoundaryDirection.Inward))
             {
                 cursor.Start.MoveTowardSpeech(BoundaryDirection.Inward);
-                    }
+            }
             else
             {
                 cursor.Start.SlideDownSlopeToStableValley(BoundaryDirection.Outward);
-                    }
+            }
 
             // 2. Refine End Boundary
             if (cursor.End.MoveIfSilent(BoundaryDirection.Inward))
-        {
+            {
                 cursor.End.MoveTowardSpeech(BoundaryDirection.Inward);
             }
             else
@@ -621,7 +458,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private TimeSpan ShrinkBoundary(PcmAudio fullAudio, TimingCandidate cand, BoundaryPointType pointType)
-                {
+        {
             var terrain = CreateCandidateTerrain(fullAudio, cand);
             var endpoint = terrain.From(cand.CurrentTestStart, cand.CurrentTestEnd)[pointType];
 
@@ -653,7 +490,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 if (lastSelected != null && (cand.OriginalItem.StartTime - lastSelected.OriginalItem.EndTime).TotalMilliseconds < 300)
                 {
-                    if (!lastSelected.IsFullyLocked)
+                    if (lastSelected.IsFullyLocked)
                         continue;
                 }
 
