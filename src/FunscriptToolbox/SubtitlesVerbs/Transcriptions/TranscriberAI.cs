@@ -91,7 +91,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var endTime = timing.EndTime + expandEndBy;
 
                             var (_, filename, startTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(startTime);
-                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}.wav");
+                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}_{startTimeInRightFile + timing.Duration:hh\\-mm\\-ss\\-fff}.wav");
                             if (File.Exists(backupFilePath))
                             {
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
@@ -131,7 +131,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 }
 
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
-                                var tempWavFile = Path.GetTempFileName() + ".wav";
+                                var tempWavFile = PathExtension.GetTempFileName(".wav");
                                 var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
                                 context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
 

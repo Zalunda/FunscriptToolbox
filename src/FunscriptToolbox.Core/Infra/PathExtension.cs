@@ -34,5 +34,11 @@ namespace FunscriptToolbox.Core.Infra
             // 4. Fix separators (Uri uses '/', Windows uses '\')
             return relativePath.Replace('/', Path.DirectorySeparatorChar);
         }
+        
+        public static string GetTempFileName(string extension)
+        {
+            return Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.{extension}");
+        }
+
     }
 }

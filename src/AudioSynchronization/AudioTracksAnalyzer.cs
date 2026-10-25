@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FunscriptToolbox.Core.Infra;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,7 +18,7 @@ namespace AudioSynchronization
 
         private static IEnumerable<ushort> ExtractSamples(string filename, int nbSamplesPerSeconds)
         {
-            var tempFile = Path.GetTempFileName() + ".raw";
+            var tempFile = PathExtension.GetTempFileName(".raw");
             File.Delete(tempFile);
 
             //create a command adding a video file

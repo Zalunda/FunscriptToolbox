@@ -71,5 +71,11 @@
   <ItemGroup>
     <Content Include="SamplesComparer-Cleanup-Representation.png" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FunscriptToolbox.Core\FunscriptToolbox.Core.csproj">
+      <Project>{6C1D2FAE-5F3D-495A-A8EB-12D258C1E866}</Project>
+      <Name>FunscriptToolbox.Core</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.Core.MotionVectors;
 using FunscriptToolbox.Core.MotionVectors.PluginMessages;
 using FunscriptToolbox.InstallationFiles;
@@ -218,7 +219,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         private async Task<byte[]> TakeSnapshot(string mvsFullPath, string videoFullPath, TimeSpan time)
         {
-            var tempFile = Path.GetTempFileName() + ".png";
+            var tempFile = PathExtension.GetTempFileName(".png");
             try
             {
                 var mvsVisualFullPath = mvsFullPath.Replace(".mvs", ".mvs-visual.mp4");

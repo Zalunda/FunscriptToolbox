@@ -1,5 +1,6 @@
 ﻿using AudioSynchronization;
 using FunscriptToolbox.Core;
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using Newtonsoft.Json;
 using System.IO;
@@ -59,7 +60,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         {
             void SaveAsigFile(string asigPath, PcmAudio audio)
             {
-                var tempFile = Path.GetTempFileName() + ".wav";
+                var tempFile = PathExtension.GetTempFileName(".wav");
                 context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
                 var signature = AudioTracksAnalyzer.ExtractSignature(tempFile);
                 File.Delete(tempFile);

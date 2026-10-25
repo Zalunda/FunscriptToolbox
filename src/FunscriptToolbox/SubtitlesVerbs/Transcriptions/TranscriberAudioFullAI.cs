@@ -74,7 +74,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         GetData = (section, timing, _, __) =>
                         {
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
-                            var tempWavFile = Path.GetTempFileName() + ".wav";
+                            var tempWavFile = PathExtension.GetTempFileName(".wav");
                             var snippet = fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime);
                             context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
 

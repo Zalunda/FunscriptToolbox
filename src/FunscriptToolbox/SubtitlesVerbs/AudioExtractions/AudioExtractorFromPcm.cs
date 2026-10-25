@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.Core.Infra;
+using Newtonsoft.Json;
 using System.IO;
 using System.Linq;
 
@@ -39,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 
             context.WriteInfo($"   Transforming PCM audio from '{this.SourceAudioId}'...");
 
-            var tempPcmFile = Path.GetTempFileName() + ".pcm";
+            var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
                 var originalPcmAudio = GetPcmAudio(context);

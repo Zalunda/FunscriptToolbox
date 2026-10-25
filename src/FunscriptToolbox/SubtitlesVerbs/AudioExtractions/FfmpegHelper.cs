@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FunscriptToolbox.Core.Infra;
+using System;
 using System.IO;
 using System.Linq;
 using Xabe.FFmpeg;
@@ -33,7 +34,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 throw new ArgumentException($"File '{inputPath}' doesn't exists.");
             }
 
-            var tempPcmFile = Path.GetTempFileName() + ".pcm";
+            var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
                 IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(inputPath).GetAwaiter().GetResult();
@@ -58,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             string outputFilepath,
             string ffmpegParameters = null)
         {
-            var tempPcmFile = Path.GetTempFileName() + ".pcm";
+            var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
                 using (var writer = File.Create(tempPcmFile))
@@ -82,8 +83,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             PcmAudio pcmAudio, 
             string ffmpegParameters)
         {
-            var tempPcmSourceFile = Path.GetTempFileName() + ".pcm";
-            var tempPcmDestinationFile = Path.GetTempFileName() + ".pcm";
+            var tempPcmSourceFile = PathExtension.GetTempFileName(".pcm");
+            var tempPcmDestinationFile = PathExtension.GetTempFileName(".pcm");
             try
             {
                 using (var writer = File.Create(tempPcmSourceFile))
@@ -108,7 +109,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 
         internal byte[] TakeScreenshotAsBytes(string videoPath, TimeSpan time, string extension = ".jpg", string filter = null)
         {
-            var tempFile = Path.GetTempFileName() + extension;
+            var tempFile = PathExtension.GetTempFileName(extension);
             try
             {
                 var filterAddon = filter == null ? string.Empty : $"-vf \"{filter}\"";
