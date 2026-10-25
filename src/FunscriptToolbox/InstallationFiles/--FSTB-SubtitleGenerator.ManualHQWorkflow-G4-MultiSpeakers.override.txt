@@ -13,10 +13,10 @@ When multiple speakers talk in a scene, keep timestamps strictly sequential (`En
 1. **Sequential Turn-Taking Where Each Speaker's Line is >= 1.2s (MUST BE SPLIT into Separate Segments!):**
    * Whenever Speaker A speaks a sentence (`>= 1.2s`) and Speaker B follows with her own sentence (`>= 1.2s`), you **MUST** output them as **separate sequential segments**—even if there is zero silence between them or their voices slightly overlap for `100–300ms` at the handoff!
    * **Examples of Lazy Bundling (STRICTLY FORBIDDEN):**
-     * *Bad (4.5s bundled):* `- でも、私たちは負けませんよ。\n- ねっ。絶対勝ちます。` $\rightarrow$ **SPLIT** into Segment 1 (`1.8s`: `でも、私たちは負けませんよ。`) and Segment 2 (`2.0s`: `ねっ。絶対勝ちます。`)!
-     * *Bad (4.3s bundled):* `- ほんとにお強いですね。\n- 今回も一発です。` $\rightarrow$ **SPLIT** into Segment 1 (`1.9s`: `ほんとにお強いですね。`) and Segment 2 (`2.0s`: `今回も一発です。`)!
-     * *Bad (8.5s bundled group reaction + solo lines):* Bundling `はい、はい、はい` + `えっ、すごい！強い！` + `絶対勝てると思ったのに。` + `やりましたね。` into one 8.5s block $\rightarrow$ **SPLIT** into 4 separate segments (`1.5s`, `2.5s`, `1.9s`, `1.8s`)!
-     * *Bad (12.3s announcement + group cheer):* Bundling an announcement with other girls cheering `行きましょう！ / イエーイ！` $\rightarrow$ **SPLIT** the announcement into single-speaker segments (`<= 4.5s`), and put the girls' `行きましょう！ / イエーイ！` in its own `2.5s` segment at the end!
+     * *Bad (4.5s bundled):* `- Demo, watashitachi wa makemasen yo.\n- Ne. Zettai kachimasu.` $\rightarrow$ **SPLIT** into Segment 1 (`1.8s`: `Demo, watashitachi wa makemasen yo.`) and Segment 2 (`2.0s`: `Ne. Zettai kachimasu.`)!
+     * *Bad (4.3s bundled):* `- Hontou ni otsuyoi desu ne.\n- Konkai mo ippatsu desu.` $\rightarrow$ **SPLIT** into Segment 1 (`1.9s`: `Hontou ni otsuyoi desu ne.`) and Segment 2 (`2.0s`: `Konkai mo ippatsu desu.`)!
+     * *Bad (8.5s bundled group reaction + solo lines):* Bundling `Hai, hai, hai` + `E, sugoi! Tsuyoi!` + `Zettai kateru to omotta noni.` + `Yarimashita ne.` into one 8.5s block $\rightarrow$ **SPLIT** into 4 separate segments (`1.5s`, `2.5s`, `1.9s`, `1.8s`)!
+     * *Bad (12.3s announcement + group cheer):* Bundling an announcement with other girls cheering `Ikimashou! / Ieei!` $\rightarrow$ **SPLIT** the announcement into single-speaker segments (`<= 4.5s`), and put the girls' `Ikimashou! / Ieei!` in its own `2.5s` segment at the end!
 
 2. **Directional Boundary Bleed Attributes (`"Overlap": "BleedLeft" | "BleedRight" | "BleedBoth"`):**
    * When you slice sequential segments at a handoff point where two speakers' voices touch or overlap, add the `"Overlap"` attribute to indicate **which boundary** of the segment contains voice bleed from an adjacent or background speaker:
@@ -27,39 +27,37 @@ When multiple speakers talk in a scene, keep timestamps strictly sequential (`En
 
 3. **When to Use `"Speaker": "Multiple"` (strictly `<= 3.5s` — Simultaneous Outbursts or `< 1.0s` Micro-Turns ONLY):**
    * Only group two (or three) speakers into a single `"Speaker": "Multiple"` segment (formatted with `- Line 1\n- Line 2`) when:
-     1. **True Simultaneous Outburst (`1.5s – 3.0s`):** Multiple women exclaim **at the exact same time** on top of each other (e.g., all gasping `- えっ？えーっ！すごい！\n- 強い！` over the same `2.5s` window when cards are revealed—and then immediately cut a **new** segment when one girl speaks a full sentence like `こんなの初めて見ましたよ！` or `絶対勝てると思ったのに。`!).
-     2. **Sub-Second Rapid Turn-Taking (`< 1.0s`):** Two ultra-short interjections occur back-to-back where slicing them apart would create an unreadable `< 1.0s` micro-subtitle (e.g., `- ちょっと、どいてよ。\n- よいしょ。` in `2.5s`, or `- 行きましょう！\n- イエーイ！` in `2.2s`).
+     1. **True Simultaneous Outburst (`1.5s – 3.0s`):** Multiple women exclaim **at the exact same time** on top of each other (e.g., all gasping `- E? Ee! Sugoi!\n- Tsuyoi!` over the same `2.5s` window when cards are revealed—and then immediately cut a **new** segment when one girl speaks a full sentence like `Konna no hajimete mimashita yo!` or `Zettai kateru to omotta noni.`!).
+     2. **Sub-Second Rapid Turn-Taking (`< 1.0s`):** Two ultra-short interjections occur back-to-back where slicing them apart would create an unreadable `< 1.0s` micro-subtitle (e.g., `- Chotto, doite yo.\n- Yoisho.` in `2.5s`, or `- Ikimashou!\n- Ieei!` in `2.2s`).
    * **HARD DURATION CAP ON `"Speaker": "Multiple"`:** A `"Speaker": "Multiple"` segment must **NEVER exceed `3.5 seconds`**!
 
 4. **EXCLUDE Background Backchannel Hums & Trailing Giggles in Multi-Woman Scenes:**
-   * When one woman is speaking (or right as she finishes her sentence), other women in the background often murmur passive agreement (`うん、うーん`, `あー`, `えー`) or giggle (`ふふっ`, `あはは`). **NEVER** transcribe these background reactions as a second `- ` line and **NEVER** extend `EndTime` to include them!
-     * *Bad (5.2s bloated with background hum):* `- それにしても、さっきの3人に勝つなんて、ほんとすごいですね。\n- うん、うーん。`
-     * *Good (3.8s tight single-speaker line):* `それにしても、さっきの3人に勝つなんて、ほんとすごいですね。` (Cut `EndTime` right after `ね`, ignoring the background `うん、うーん`!)
+   * When one woman is speaking (or right as she finishes her sentence), other women in the background often murmur passive agreement (`un, uun`, `aa`, `ee`) or giggle (`fufu`, `ahaha`). **NEVER** transcribe these background reactions as a second `- ` line and **NEVER** extend `EndTime` to include them!
+     * *Bad (5.2s bloated with background hum):* `- Sore ni shitemo, sakki no sannin ni katsu nante, honto sugoi desu ne.\n- Un, uun.`
+     * *Good (3.8s tight single-speaker line):* `Sore ni shitemo, sakki no sannin ni katsu nante, honto sugoi desu ne.` (Cut `EndTime` right after `ne`, ignoring the background `un, uun`!)
 
 ### Multi-Speaker JSON Output Examples
-```json
 [
   {
     "StartTime": "06:02.418",
     "EndTime": "06:04.250",
-    "VoiceText": "でも、私たちは負けませんよ。",
+    "VoiceText": "Demo, watashitachi wa makemasen yo.",
     "Overlap": "BleedRight"
   },
   {
     "StartTime": "06:04.280",
     "EndTime": "06:06.350",
-    "VoiceText": "ねっ。絶対勝ちます。",
+    "VoiceText": "Ne. Zettai kachimasu.",
     "Overlap": "BleedLeft"
   },
   {
     "StartTime": "06:32.500",
     "EndTime": "06:35.200",
-    "VoiceText": "- えっ、すごい！\n- 強い！",
+    "VoiceText": "- E, sugoi!\n- Tsuyoi!",
     "Speaker": "Multiple",
     "Overlap": "BleedBoth"
   }
 ]
-```
 
 _______________________________________=",
     },

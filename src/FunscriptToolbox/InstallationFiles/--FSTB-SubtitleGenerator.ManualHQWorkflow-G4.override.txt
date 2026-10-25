@@ -6,17 +6,22 @@
       "TextBefore": null,
       "Text": "
 =_______________________________________
-
-# TRANSCRIPTION AND VAD MANDATE FOR GEMINI 4 (version 2026-10-20)
+# TRANSCRIPTION AND VAD MANDATE FOR GEMINI 4 (version 2026-10-25)
 
 ### Role
-You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, word-anchored Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of Japanese adult media, capable of isolating real spoken dialogue from surrounding breathing, panting, and ambient moans.
+You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, word-anchored Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of [TranscriptionLanguage] adult media, capable of isolating real spoken dialogue from surrounding breathing, panting, and ambient moans.
+
+### Language & Script Mandate
+* **Source Language:** [TranscriptionLanguage]
+* **CRITICAL SCRIPT RULE:**
+  * **If [TranscriptionLanguage] is Japanese:** You **MUST** write all `VoiceText` in **plain ASCII Hepburn Romaji** (Latin alphabet only, e.g., `Senpai, kyou mo otsukaresama deshita.`). Do **NOT** use Kanji, Hiragana, Katakana, or macron characters (`ō`, `ū`). Use standard ASCII punctuation (`.`, `,`, `?`, `!`, `...`).
+  * **If [TranscriptionLanguage] is any other language:** Write `VoiceText` in the standard native script and orthography of [TranscriptionLanguage].
 
 ### Mission
 Given a single, complete audio file, your mission is to meticulously segment all **meaningful human speech** and provide a tight, verbatim transcription and overlap metadata for each segment:
 1. **Detect Real Spoken Words:** Identify segments containing actual lexical speech or meaningful conversational interjections, ignoring pure breathing, panting, or non-lexical moaning.
-2. **Anchor Timestamps Tightly to Words (No Moan/Breath Padding):** Place `StartTime` and `EndTime` tightly around the actual spoken words rather than stretching segments across 4–8 seconds of surrounding `はぁ…はぁ…` / `あ、あ、あ…` or `>= 0.4s` action pauses.
-3. **Mandatory Sentence & Punctuation Splitting** You MUST create a new segment after major punctuation breaks in speech (corresponding to characters like 。, ！, ？).
+2. **Anchor Timestamps Tightly to Words (No Moan/Breath Padding):** Place `StartTime` and `EndTime` tightly around the actual spoken words rather than stretching segments across 4–8 seconds of surrounding `haa... haa...` / `a, a, a...` or `>= 0.4s` action pauses.
+3. **Mandatory Sentence & Punctuation Splitting:** You MUST create a new segment after major punctuation breaks in speech (`.`, `!`, `?`).
 4. **Validate Segment Integrity:** Anchor timestamps cleanly to the spoken words without trailing panting, and split long continuous speech (`> 6.0s`) only at natural grammatical clause boundaries.
 
 Your final output will be a single JSON array containing an object for every voice segment you have identified and transcribed.
@@ -27,43 +32,43 @@ You will receive a single audio file for processing. You will perform your segme
 ### Core Directives
 
 **Directive 1: Word-Anchored Segmentation, Anti-Padding & Natural Clause Splitting**
-During intimate or sex scenes, continuous breathing (`はぁ、はぁ`), panting, and rhythmic moans (`あ、あ、あ、んっ`) occur constantly between short spoken words. **Do NOT create bloated 4–8 second segments that bundle long stretches of breathing or moaning onto a short spoken word!**
+During intimate or sex scenes, continuous breathing (`haa, haa`), panting, and rhythmic moans (`a, a, a, nn`) occur constantly between short spoken words. **Do NOT create bloated 4–8 second segments that bundle long stretches of breathing or moaning onto a short spoken word!**
 
 * **1. Tight Phonetic Boundaries Around Real Words:**
-  * **`StartTime`:** Place `StartTime` at the onset of the **actual spoken phrase** (or a single, immediately attached expressive vocalization). If she pants `はぁ…はぁ…んっ…` for 3 seconds and then says `気持ちいい` in the final 1.2 seconds, `StartTime` **MUST** start right when `気持ちいい` begins—NOT 3 seconds earlier at the start of her panting!
-  * **`EndTime`:** Place `EndTime` immediately after the final spoken word decays. If she says `大好き` (1.2s) and then continues panting `…はぁ…はぁ…あ…` for another 3 seconds, `EndTime` **MUST** end right after `大好き`—cut off the trailing breaths!
+  * **`StartTime`:** Place `StartTime` at the onset of the **actual spoken phrase** (or a single, immediately attached expressive vocalization). If she pants `haa... haa... nn...` for 3 seconds and then says `Kimochii` in the final 1.2 seconds, `StartTime` **MUST** start right when `Kimochii` begins—NOT 3 seconds earlier at the start of her panting!
+  * **`EndTime`:** Place `EndTime` immediately after the final spoken word decays. If she says `Daisuki` (1.2s) and then continues panting `...haa... haa... a...` for another 3 seconds, `EndTime` **MUST** end right after `Daisuki`—cut off the trailing breaths!
 
-* **2. When to Keep vs. Exclude `あ` / `はぁ` / `ん` / `ふふ` Around Real Words:**
-  * **EXCLUDE Incidental Panting & Rhythmic Thrust Moans:** Drop routine breathing (`はぁ、はぁ`), filler grunts (`ん、んっ`), and repetitive rhythmic moans (`あ、あ、あ、あ`) before or after a word so the segment stays short and focused on the dialogue:
-    * *Bad (Bloated 6s segment):* `"00:38:55.047" --> "00:39:02.393"` `はぁ、気持ちいい……はぁ……はぁ……はぁ……はぁ……`
-    * *Good (Tight 1.5s segment):* `"00:38:55.600" --> "00:38:57.100"` `気持ちいい。`
-  * **KEEP Expressive Vocalizations ONLY When Emotionally Relevant:** Keep a leading or trailing `あぁっ！`, `あっ`, `はぁ`, or `ふふっ` **only** when it is tightly attached to the word and adds genuine meaning or emotional impact to the line:
-    * *Climax / Intense Release:* Keep the climax cry attached to the word (`いく、いく、あぁっ！` or `あ、いく、いく！`).
-    * *Sudden Gasp / Attention Call / Realization:* Keep a sharp intake or call directly attached to the word (`あ、ほら、入れて。`, `あっ、そこ、そこ気持ちいい！`, `あぁ、すごい！`, `ん？どうしたの？`).
-    * *Playful Giggle:* Keep a giggle when it is part of a teasing sentence (`乳首気持ちいい？ふふっ。`), but **exclude** standalone `ふふっ、ん…` or `ふふっ、はぁ…` clips that contain no actual words.
+* **2. When to Keep vs. Exclude `a` / `haa` / `nn` / `fufu` Around Real Words:**
+  * **EXCLUDE Incidental Panting & Rhythmic Thrust Moans:** Drop routine breathing (`haa, haa`), filler grunts (`nn, nn`), and repetitive rhythmic moans (`a, a, a, a`) before or after a word so the segment stays short and focused on the dialogue:
+    * *Bad (Bloated 6s segment):* `"00:38:55.047" --> "00:39:02.393"` `Haa, kimochii... haa... haa... haa... haa...`
+    * *Good (Tight 1.5s segment):* `"00:38:55.600" --> "00:38:57.100"` `Kimochii.`
+  * **KEEP Expressive Vocalizations ONLY When Emotionally Relevant:** Keep a leading or trailing `aa!`, `a`, `haa`, or `fufu` **only** when it is tightly attached to the word and adds genuine meaning or emotional impact to the line:
+    * *Climax / Intense Release:* Keep the climax cry attached to the word (`Iku, iku, aa!` or `A, iku, iku!`).
+    * *Sudden Gasp / Attention Call / Realization:* Keep a sharp intake or call directly attached to the word (`A, hora, irete.`, `A, soko, soko kimochii!`, `Aa, sugoi!`, `Nn? Doushita no?`).
+    * *Playful Giggle:* Keep a giggle when it is part of a teasing sentence (`Chikubi kimochii? Fufu.`), but **exclude** standalone `fufu, nn...` or `fufu, haa...` clips that contain no actual words.
 
 * **3. Exclude Standalone Non-Lexical Moan/Breath Segments:**
-  * Never output segments that consist solely of non-lexical sounds (`はぁ…`, `あ、あ、あー`, `ん、んっ、ふふ`, `うわあ`), **nor** segments where a single vague filler (`ねえ`, `ほら`) is buried inside 4 seconds of heavy panting (`ん……ふっ、はぁ……ねぇ……はぁ……`) unless `ねえ` or `ほら` is spoken clearly as a distinct, intentional call (in which case, time ONLY the 0.8s word `ねえ` or `ほら`!).
+  * Never output segments that consist solely of non-lexical sounds (`haa...`, `a, a, aa`, `nn, nn, fufu`, `uwaa`), **nor** segments where a single vague filler (`nee`, `hora`) is buried inside 4 seconds of heavy panting (`nn... fu, haa... nee... haa...`) unless `nee` or `hora` is spoken clearly as a distinct, intentional call (in which case, time ONLY the 0.8s word `Nee.` or `Hora.`!).
 
 * **4. Split on Action Pauses (`>= 0.4s`) & Long Speeches (6.0s+ Guideline):**
-  * **Never Bridge Across Action Silences (`>= 0.4s`):** If a speaker says a short cue (e.g., `では、次。` or `はい。`), pauses for `0.5s – 1.5s` during movement or action, and then speaks again (`お客様どうですか？`), you **MUST** split at the pause into separate segments!
+  * **Never Bridge Across Action Silences (`>= 0.4s`):** If a speaker says a short cue (e.g., `Dewa, tsugi.` or `Hai.`), pauses for `0.5s – 1.5s` during movement or action, and then speaks again (`Okyakusama dou desu ka?`), you **MUST** split at the pause into separate segments!
   * **No Hard Duration Cap (Keep Natural Sentences Intact Up to ~5.5s–6.0s):** Do NOT arbitrarily chop a single cohesive sentence mid-phrase just because it reaches 4 or 5 seconds. If spoken continuously as one natural thought without long pauses, let it remain a single segment up to ~5.5s–6.0s.
-  * **Splitting Long Speeches (`6.0s+`):** When a speaker talks continuously for 6+ seconds, split into segments targeting up to ~4.5s max per part. **CRITICAL:** Prioritize splitting strictly at natural grammatical clause boundaries (e.g. after `…ので、`, `…から、`, `…けど、`, or after a complete thought), NEVER mid-noun-phrase or between a subject and its predicate (e.g. do NOT cut between `ものが` and `なくなってしまったので`). The resulting parts do NOT need to have identical or equal duration.
+  * **Splitting Long Speeches (`6.0s+`):** When a speaker talks continuously for 6+ seconds, split into segments targeting up to ~4.5s max per part. **CRITICAL:** Prioritize splitting strictly at natural grammatical clause boundaries (e.g. after `...node,`, `...kara,`, `...kedo,`, or after a complete thought), NEVER mid-noun-phrase or between a subject and its predicate (e.g. do NOT cut between `mono ga` and `nakunatte shimatta node`). The resulting parts do NOT need to have identical or equal duration.
 
 **Directive 2: Absolute Transcription Fidelity**
-* Your transcription for each detected segment **MUST** be a verbatim, literal record of the spoken words.
-* Apply standard Japanese punctuation (。、！？) at the end of a transcribed segment to reflect vocal inflection. Avoid littering the text with endless chains of `……はぁ……はぁ……`.
+* Your transcription for each detected segment **MUST** be a verbatim, literal phonetic record of the spoken words (in ASCII Hepburn Romaji if Japanese, or native script for other languages).
+* Apply standard ASCII punctuation (`.`, `,`, `!`, `?`) at the end of a transcribed segment to reflect vocal inflection. Avoid littering the text with endless chains of `...haa... haa...`.
 * You are strictly forbidden from inventing, summarizing, or altering dialogue. The audio data is the absolute source of truth.
 
-**Directive 3. Mandatory Sentence & Punctuation Splitting (`。`, `？`, `！`):**
-* **One Sentence / Question Per Segment (Punctuation Lock):** You **MUST** create a new segment after each complete sentence, question, or exclamation marked by terminal punctuation (`。`, `？`, `！`).
+**Directive 3: Mandatory Sentence & Punctuation Splitting (`.`, `?`, `!`):**
+* **One Sentence / Question Per Segment (Punctuation Lock):** You **MUST** create a new segment after each complete sentence, question, or exclamation marked by terminal punctuation (`.`, `?`, `!`).
 * **Never Bundle Multiple Sentences / Questions:** Do NOT bundle multiple distinct sentences, questions, or rapid back-and-forth conversational exchanges into a single segment—even if there is little or no pause between them!
-* *Bad (Bundled dialogue):* `飲めないの？酒飲む？めっちゃ飲む。めっちゃ飲むの？めっちゃ飲む。え、それも意外じゃない？`
-* *Short Connected Interjections (< 0.8s):* A brief conversational call or filler immediately attached to the start of a sentence (e.g., `ねえ、見て。` or `あ、本当だ。`) may remain together in one segment if delivered in a single breath. But once that sentence ends, the next sentence **MUST** begin in a new segment.
+* *Bad (Bundled dialogue):* `Nomenai no? Sake nomu? Meccha nomu. Meccha nomu no? Meccha nomu. E, sore mo igai janai?`
+* *Short Connected Interjections (< 0.8s):* A brief conversational call or filler immediately attached to the start of a sentence (e.g., `Nee, mite.` or `A, hontou da.`) may remain together in one segment if delivered in a single breath. But once that sentence ends, the next sentence **MUST** begin in a new segment.
 
 **Directive 4: Segment Integrity Validation (Self-Correction Loop)**
 To eliminate any timing drift or bloat, every generated segment **MUST** undergo a final validation check:
-* **Bloat vs. Clause Check:** If any segment exceeds 6.0 seconds, verify if it bridges an action pause or contains multiple clauses; if so, split at the natural grammatical clause boundary (e.g., `…ので、`, `…から、`, `…けど、`, `。`). Never force an awkward mid-phrase chop on a continuous 4.5s–5.5s sentence.
+* **Bloat vs. Clause Check:** If any segment exceeds 6.0 seconds, verify if it bridges an action pause or contains multiple clauses; if so, split at the natural grammatical clause boundary (e.g., `...node,`, `...kara,`, `...kedo,`, `.`). Never force an awkward mid-phrase chop on a continuous 4.5s–5.5s sentence.
 * **Non-Overlapping Chronology Check:** Verify that every segment's `StartTime` is greater than or equal to the previous segment's `EndTime`.
 * **Isolated Clip Match:** Verify that the audio slice between `StartTime` and `EndTime` starts and ends cleanly on the transcribed words in `VoiceText`.
 
@@ -71,26 +76,23 @@ To eliminate any timing drift or bloat, every generated segment **MUST** undergo
 Your response will be a single, valid JSON array. Each object represents a granularly detected voice segment with mandatory `StartTime`, `EndTime`, and `VoiceText`.
 The time format needs to be "<hour>:<minutes>:<seconds>.<milliseconds>". It is allowed to use shortened format if the value is low enough. For example, "13.345", but "60.234" should be "1:00.234".
 
-```json
 [
   {
     "StartTime": "00:00:32.150",
     "EndTime": "00:00:35.800",
-    "VoiceText": "先輩、今日もお疲れ様でした。"
+    "VoiceText": "Senpai, kyou mo otsukaresama deshita."
   },
   {
     "StartTime": "00:00:36.120",
     "EndTime": "00:00:38.450",
-    "VoiceText": "何かお手伝いできることはありますか？"
+    "VoiceText": "Nanika otetsudai dekiru koto wa arimasu ka?"
   },
   {
     "StartTime": "11:46.719",
     "EndTime": "11:49.850",
-    "VoiceText": "いく、いく、あぁっ！"
+    "VoiceText": "Iku, iku, aa!"
   }
 ]
-```
-
 _______________________________________=",
       "TextAfter": null,
       "Lines": null
@@ -284,7 +286,6 @@ Translate the erotic and emotional *reality* of the line, defaulting to evocativ
 ### Output Format
 Output a single, valid JSON array of objects containing `StartTime`, `VoiceText` (or `OnScreenText` when `GrabOnScreenText` is present), `Speaker` (ONLY when `Speaker` was not set and `OngoingSpeakers` has multiple names, or when correcting an obviously wrong `Speaker`), `TranslationAnalysis`, and `TranslatedText`:
 
-```json
 [
   {
     "StartTime": "00:00:05.425",
@@ -353,7 +354,6 @@ Output a single, valid JSON array of objects containing `StartTime`, `VoiceText`
     "TranslatedText": "Ah, so good--! Wait, I can't-- I'm c-- c-cumming, cumming again, ahh!"
   }
 ]
-```
 
 _______________________________________=",
       "TextAfter": null,
@@ -507,7 +507,8 @@ _______________________________________=",
         { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
         { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+" },
         { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*" },
-        { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーはふ、。\\s…!！？?]+" }
+        { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーはふ、。\\s…!！？?]+" },
+        { "Name": "Romaji-Filler", "Pattern": "^(?i)([ahufnm]+|[.,!\\?\\s\\-…])+$" }
       ]
     },
     {
@@ -517,170 +518,102 @@ _______________________________________=",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
       "Engine": {
-		  "$type": "AIEngineAPIGoogle",
-		  "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-		  "Model": "gemini-3.8-flash",
-		  "APIKeyName": "APIKeyGemini",
-		  "UseBatchMode": true,
-		  "UseBatchModeSaving": 0.50,
-		  "RequestBodyExtension": {
-			"safetySettings": [
-			  {
-				"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-				"threshold": "OFF"
-			  },
-			  {
-				"category": "HARM_CATEGORY_HARASSMENT",
-				"threshold": "OFF"
-			  },
-			  {
-				"category": "HARM_CATEGORY_HATE_SPEECH",
-				"threshold": "OFF"
-			  },
-			  {
-				"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-				"threshold": "OFF"
-			  }
-			],
-			"generationConfig": {
-			  "temperature": 0.1,
-			  "mediaResolution": "MEDIA_RESOLUTION_MEDIUM",
-			  "maxOutputTokens": 2048,
-			  "thinkingConfig": {
-				"thinkingLevel": "LOW"
-			  },
-			}
-		  },
-		  "SupportAudio": true,
-		  "SupportImage": true,
-
-		  "EstimatedCostPerInputMillionTokens": 2,
-		  "EstimatedCostPerOutputMillionTokens": 10,
-		  "PauseBeforeSendingRequest": false,
-		  "PauseBeforeSavingResponse": false,
+        "$type": "AIEngineAPIGoogle",
+        "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+        "Model": "gemini-3.8-flash",
+        "APIKeyName": "APIKeyGemini",
+        "UseBatchMode": true,
+        "UseBatchModeSaving": 0.50,
+        "RequestBodyExtension": {
+          "safetySettings": [
+            { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+            { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+            { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+            { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
+          ],
+          "generationConfig": {
+            "temperature": 0.0,
+            "maxOutputTokens": 2048,
+			"thinkingConfig": {
+			  "thinkingLevel": "low"
+			}			
+          }
+        },
+        "SupportAudio": true,
+        "SupportImage": true,
+        "EstimatedCostPerInputMillionTokens": 0.75,
+        "EstimatedCostPerOutputMillionTokens": 2.5
       },
       "Metadatas": {
         "TimingsSource": "full-ai",
         "Sources": "full-ai",
-		"MergeRules": {
+        "MergeRules": {
           "full-ai,VoiceText": "CandidateText"
-        },
+        }
       },
       "Options": {
         "SystemPrompt": {
           "$type": "AIPrompt",
           "Text": "
 =_______________________________________
+# VERBATIM AUDIO CLIP TRANSCRIPTIONIST
 
-# AUDIO BOUNDARY & CLIPPING AUDITOR FOR GEMINI 4 (version 2026-10-23)
+You are an expert audio transcriptionist.
+Your sole job is to listen to the provided AudioClip for each item and transcribe the exact words spoken.
 
-### Role
-You are a precision Japanese acoustic boundary auditor. You receive a batch of candidate speech segments generated by a first-pass transcriber. Each node contains a `StartTime` identifier, the expected `CandidateText`, and the unpadded `AudioClip` slice (`[StartTime .. EndTime]`).
+### Language & Script Rule:
+* **Source Language:** [TranscriptionLanguage]
+* **If [TranscriptionLanguage] is Japanese:** You **MUST** transcribe all spoken words in **plain ASCII Hepburn Romaji** (Latin alphabet only, no Kanji/Hiragana/Katakana, no macrons like `ō` or `ū`).
+* **If [TranscriptionLanguage] is any other language:** Transcribe in the standard native script of [TranscriptionLanguage].
 
-Your mission is to audit each `AudioClip` in sequential order, verify whether the time slice cleanly captured the full `CandidateText`, and classify whether the splice boundaries are intact (`"Y"`) or clipped at the start (`"S"`), the end (`"E"`), or both/missing (`"SE"`).
+### Rules:
+1. Transcribe strictly what is audible inside the clip.
+2. If words or syllables are cut off at the start or end, transcribe only the audible portion (e.g., if `sugoi de` has `su` cut off at the start, output `"goi de."`).
+3. Do not invent or complete cut-off words.
+4. **Multiple Speakers:** If multiple people speak simultaneously or back-to-back inside the clip, transcribe all main spoken lines (separated by ` / ` or `\n- `), ignoring faint background hums or giggles.
+5. If no speech is present (only breathing, moaning without words, bed rustle, or silence), output an empty string: `"Heard": ""`.
 
----
+IMPORTANT: A clip may contain a 0.5s–2.0s pause/silence in the middle of a sentence. Always listen all the way to the very end of the AudioClip and transcribe everything spoken both before AND after any internal pause.
 
-### Input Protocol
-You will receive a JSON array of objects, each containing:
-1. `StartTime`: The node's unique identifier string. Copy this back verbatim.
-2. `CandidateText`: The target Japanese phrase expected inside this time slice.
-3. `AudioClip`: The audio slice extracted from `[StartTime .. EndTime]`.
-
----
-
-### Step-by-Step Auditing Protocol (Per Node)
-
-To maintain 100% alignment and phonetic accuracy across large batches, you MUST generate five fields in exact order for every node:
-
-1. **`"StartTime"`:** Copy the input `StartTime` string back byte-for-byte.
-2. **`"Expected"`:** Copy the input `CandidateText` verbatim so you can compare it directly against the audio.
-3. **`"Audit"`:** Listen closely to `AudioClip` and write a brief, 1-sentence acoustic observation (< 15 words) checking the **start onset** and **end decay** of `Expected`:
-   * **Short/Soft Clips (`0.5s – 1.0s`):** Many clips in intimate scenes are very short (`0.5s`) and whispered or breathless (e.g., `する？`, `こう？`, `気持ちいい。`). Listen carefully for soft vowels and consonants—do **not** dismiss quiet or fast speech as silence if the syllables are faintly audible!
-   * Note explicitly if the full phrase is clear, if the initial syllable(s) were sliced off at `0.0s`, if the final syllable(s) were cut off at the end, or if the clip contains only non-speech noise/silence.
-   * Ignore any stray syllables from neighboring sentences bleeding into the edges.
-4. **`"Heard"`:** Based on your `Audit`, transcribe ONLY the exact Japanese characters/syllables of `Expected` that are physically audible inside `AudioClip`:
-   * If the entire phrase is audible, `"Heard"` matches `"Expected"`.
-   * If the start is clipped, omit the missing opening syllable(s) from `"Heard"`.
-   * If the end is clipped, omit the missing closing syllable(s) from `"Heard"`.
-   * If zero syllables of `Expected` are audible (only silence, panting, or rustling), set `"Heard": ""`.
-5. **`"Status"`:** Output strictly one of these four boundary codes based on `"Audit"` and `"Heard"`:
-   * **`"Y"` (Intact):** Every syllable of `Expected` from start to finish is audible inside `AudioClip`.
-   * **`"S"` (Start Clipped):** One or more initial syllables (or the initial consonant/vowel onset) are cut off at the beginning of `AudioClip`, while the ending is intact.
-   * **`"E"` (End Clipped):** The beginning of the phrase is intact, but one or more final syllables are cut off at the end of `AudioClip`.
-   * **`"SE"` (Both Ends Clipped OR Speech Absent):** Both the beginning AND end of `Expected` are cut off (only middle syllables heard), **OR** `Expected` is completely absent (`"Heard": ""`).
-
----
-
-### Output Mandate
-Return a single, valid JSON array containing one object for every node in the input array, in exact sequential order:
-
+### Output Format:
+Return a valid JSON array of objects containing `"StartTime"` and `"Heard"`:
 [
   {
     "StartTime": "00:00:03.428",
-    "Expected": "すごいで。",
-    "Audit": "Clip starts late; initial 'す' is cut off, 'ごいで' is clear.",
-    "Heard": "ごいで。",
-    "Status": "S"
+    "Heard": "goi de."
   },
   {
     "StartTime": "00:00:05.542",
-    "Expected": "え、すごない？",
-    "Audit": "Full phrase from 'え' to final 'い？' is clearly audible.",
-    "Heard": "え、すごない？",
-    "Status": "Y"
-  },
-  {
-    "StartTime": "00:01:12.100",
-    "Expected": "あー、やばい。",
-    "Audit": "Onset 'あー' is intact, but clip cuts off before final 'い'.",
-    "Heard": "あー、やば",
-    "Status": "E"
-  },
-  {
-    "StartTime": "00:01:45.600",
-    "Expected": "ちょっと私のこと見てて。",
-    "Audit": "Both opening 'ちょっと' and final 'て' are cut off; middle is heard.",
-    "Heard": "私のこと見て",
-    "Status": "SE"
-  },
-  {
-    "StartTime": "00:02:23.226",
-    "Expected": "おいしい。",
-    "Audit": "Only breathing and bed rustle; target speech is completely absent.",
-    "Heard": "",
-    "Status": "SE"
+    "Heard": "E, sugonai?"
   }
 ]
 _______________________________________="
         },
-        "MetadataNeeded": "CandidateText",
-        "MetadataAlwaysProduced": "Status",
+        "MetadataNeeded": "!SkipTimingValidation",
+        "MetadataAlwaysProduced": "Heard",
         "BinaryDataExtractors": [
           {
             "$type": "BinaryDataExtractorAudio",
             "OutputFieldName": "AudioClip",
             "Enabled": true,
-			"ExpandStart": "00:00:00",
-			"ExpandEnd": "00:00:00",
+            "ExpandStart": "00:00:00",
+            "ExpandEnd": "00:00:00",
             "KeepTemporaryFiles": true,
             "SourceAudioId": "audio"
-          },
+          }
         ],
-        "MaximumRequestsInBatch": 20,
+        "MaximumRequestsInBatch": 50,
         "BatchSize": 20,
         "BatchSplitWindows": 0,
         "BatchKeepTogetherThreshold": "00:00:00.0000000",
         "NbContextItems": 0,
         "NbItemsMinimumReceivedToContinue": 15,
-        "FieldsToInclude": "StartTime",
-		"TextAfterAnalysis": ""
+        "FieldsToInclude": "StartTime"
       },
-      "MaxRetriesPerNode": 4,
-      "MaxBudgetRatio": 2.5,
-      "MaxDriftSeconds": 0.5,
+      "MaxRetriesPerNode": 3,
+      "MaxBudgetRatio": 2.0,
+      "MaxDriftSeconds": 0.6,
       "ShrinkStepSeconds": 0.2,
-      "ValleySearchSeconds": 0.1,
       "MinSubtitleDurationSeconds": 0.5,
       "PromptUserOnError": true
     },

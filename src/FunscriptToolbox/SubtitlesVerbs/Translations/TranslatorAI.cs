@@ -8,15 +8,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
     {
         [JsonProperty(Order = 20, Required = Required.Always)]
         public AIEngine Engine { get; set; }
-        [JsonProperty(Order = 21, Required = Required.Always)]
-        internal MetadataAggregator Metadatas { get; set; }
+        [JsonProperty(Order = 21)]
+        public AIEngineConfigOverride EngineConfigOverride { get; set; }
         [JsonProperty(Order = 22, Required = Required.Always)]
+        internal MetadataAggregator Metadatas { get; set; }
+        [JsonProperty(Order = 23, Required = Required.Always)]
         public AIOptions Options { get; set; }
-        [JsonProperty(Order = 23)]
-        public string AutoMergeOn { get; set; }
         [JsonProperty(Order = 24)]
-        public string AutoDeleteOn { get; set; }
+        public string AutoMergeOn { get; set; }
         [JsonProperty(Order = 25)]
+        public string AutoDeleteOn { get; set; }
+        [JsonProperty(Order = 26)]
         public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
@@ -42,6 +44,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             var runner = new AIEngineRunner<TranslatedItem>(
                 context,
                 this.Engine,
+                this.EngineConfigOverride,
                 translation,
                 this.PromptUserOnError);
 
