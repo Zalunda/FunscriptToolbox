@@ -81,44 +81,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (extractor is BinaryDataExtractorAudio extractorAudio)
                     {
                         var fullPcmAudio = context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractorAudio.SourceAudioId && f.IsFinished)?.PcmAudio;
+
                         getDataFunc = (section, timing, _, silent) =>
                         {
-                            var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
-                            var expandEndBy = (gapDuration < extractorAudio.FillGapSmallerThen)
-                                ? TimeSpanExtensions.Max(gapDuration, extractorAudio.ExpandEnd)
-                                : extractorAudio.ExpandEnd;
-                            var startTime = timing.StartTime - extractorAudio.ExpandStart;
-                            var endTime = timing.EndTime + expandEndBy;
-
-                            var (_, filename, startTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(startTime);
-                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}_{startTimeInRightFile + timing.Duration:hh\\-mm\\-ss\\-fff}.wav");
-                            if (File.Exists(backupFilePath))
+                            lock (extractionLock)
                             {
-                                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
-                                var audioBytes = File.ReadAllBytes(backupFilePath);
+                                var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
+                                var expandEndBy = (gapDuration < extractorAudio.FillGapSmallerThen)
+                                    ? TimeSpanExtensions.Max(gapDuration, extractorAudio.ExpandEnd)
+                                    : extractorAudio.ExpandEnd;
+                                var startTime = timing.StartTime - extractorAudio.ExpandStart;
+                                var endTime = timing.EndTime + expandEndBy;
+
+                                var (_, filename, startTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(startTime);
+                                var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}_{startTimeInRightFile + timing.Duration:hh\\-mm\\-ss\\-fff}.wav");
+
                                 var duration = fullPcmAudio != null
                                     ? (TimeSpanExtensions.Min(endTime, fullPcmAudio.EndTime) - TimeSpanExtensions.Max(startTime, TimeSpan.Zero))
                                     : (endTime - startTime);
-                                return new[]
-                                {
-                                    new AIRequestPartAudio(
-                                        section,
-                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                        audioBytes,
-                                        duration,
-                                        timing.StartTime)
-                                };
-                            }
 
-                            lock (extractionLock)
-                            {
+                                // 1. Read from cache if it already exists
                                 if (File.Exists(backupFilePath))
                                 {
                                     if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
                                     var audioBytes = File.ReadAllBytes(backupFilePath);
-                                    var duration = fullPcmAudio != null
-                                        ? (TimeSpanExtensions.Min(endTime, fullPcmAudio.EndTime) - TimeSpanExtensions.Max(startTime, TimeSpan.Zero))
-                                        : (endTime - startTime);
                                     return new[]
                                     {
                                         new AIRequestPartAudio(
@@ -130,26 +116,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     };
                                 }
 
+                                // 2. Extract from PCM & generate .wav
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
+
                                 var tempWavFile = PathExtension.GetTempFileName(".wav");
                                 var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
                                 context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
 
                                 var audioBytesGenerated = File.ReadAllBytes(tempWavFile);
-                                var data = new[]
-                                {
-                                    new AIRequestPartAudio(
-                                        section,
-                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
-                                        audioBytesGenerated,
-                                        snippet.Duration,
-                                        timing.StartTime)
-                                };
                                 File.Delete(tempWavFile);
 
                                 if (extractor.KeepTemporaryFiles)
                                     File.WriteAllBytes(backupFilePath, audioBytesGenerated);
-                                return data;
+
+                                return new[]
+                                {
+                                    new AIRequestPartAudio(
+                                    section,
+                                    $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav",
+                                    audioBytesGenerated,
+                                    snippet.Duration,
+                                    timing.StartTime)
+                                };
                             }
                         };
                     }
@@ -157,26 +145,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         getDataFunc = (section, timing, text, silent) =>
                         {
-                            var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
-                            var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
-
-                            var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorImage.OutputFieldName}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
-                            if (File.Exists(backupFilePath))
-                            {
-                                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached screenshot.");
-                                var image = File.ReadAllBytes(backupFilePath);
-                                return new[]
-                                {
-                                    new AIRequestPartImage(
-                                        section,
-                                        $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
-                                        image,
-                                        timing.StartTime)
-                                };
-                            }
-
                             lock (extractionLock)
                             {
+                                var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
+                                var (_, filename, middleTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(middleTime);
+
+                                var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorImage.OutputFieldName}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
+
+                                // 1. Read from cache if it already exists
                                 if (File.Exists(backupFilePath))
                                 {
                                     if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached screenshot.");
@@ -191,6 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     };
                                 }
 
+                                // 2. Take screenshot via ffmpeg
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
                                 try
                                 {
@@ -199,26 +176,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         middleTimeInRightFile,
                                         ".jpg",
                                         extractorImage.FfmpegFilter?.Replace("[STARTTIME]", text == null ? string.Empty : context.FfmpegHelper.EscapeFfmpegDrawtext(text)));
+
                                     if (image == null)
                                     {
                                         context.WriteError($"Ffmpeg didn't extract a screenshot at {middleTimeInRightFile}.");
                                         return new AIRequestPartImage[0];
                                     }
-                                    else
-                                    {
-                                        var data = new[]
-                                        {
-                                            new AIRequestPartImage(
-                                                section,
-                                                $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
-                                                image,
-                                                timing.StartTime)
-                                        };
 
-                                        if (extractor.KeepTemporaryFiles)
-                                            File.WriteAllBytes(backupFilePath, image);
-                                        return data;
-                                    }
+                                    if (extractor.KeepTemporaryFiles)
+                                        File.WriteAllBytes(backupFilePath, image);
+
+                                    return new[]
+                                    {
+                                        new AIRequestPartImage(
+                                            section,
+                                            $"{timing.StartTime:hh\\-mm\\-ss\\-fff}.jpg",
+                                            image,
+                                            timing.StartTime)
+                                    };
                                 }
                                 catch (Exception ex)
                                 {
