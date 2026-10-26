@@ -121,7 +121,7 @@ You will receive a JSON array of input objects:
 2. `AudioClip`: **The Absolute Ground Truth** for spoken words, vocal tone, breaths, stutters, and pauses (omitted when `GrabOnScreenText` is present).
 3. `Screenshot`: Video frame captured at the segment midpoint, bearing the `[STARTTIME]` watermark in the upper-left corner.
 4. `GrabOnScreenText` (Optional): Indicates an on-screen text/caption node with no `AudioClip`. May be empty/generic (extract main caption) or contain specific target instructions (e.g., `"Sign on the desk"`).
-5. `singlevad-VoiceText` & `full-VoiceText` (Optional): Prior transcription drafts for guidance.
+5. `full-VoiceText` (Optional): Prior transcription draft for guidance only. Because the user may have adjusted the node timing (and thus `AudioClip`) after this draft was generated, **never follow `full-VoiceText` blindly—`AudioClip` always takes precedence**.
 6. `Speaker` (Optional): Designated character name to prioritize.
 7. `Note` (Optional): Explicit user instructions for a specific node.
 8. Context Objects (`"StartTime FOR CONTEXT ONLY"`): Visual-only frames depicting actions occurring during silent gaps between dialogue segments.
@@ -226,6 +226,7 @@ Your English line is an acoustic and temporal map of the audio clip.
   * On a **multi-part line divided by structural pauses (`…`)**, you **MUST preserve the exact semantic sequence of the spoken chunks** so each English chunk aligns with what she is saying at that exact second:
     * *Whispered 3-part sync:* `私のこと… そういう目で… ずっと見てたんですか？` $\rightarrow$ `"At me... in that naughty way... have you been looking all along?"` (**NEVER** invert to `"Have you been looking... at me... in that naughty way?"`, which puts the wrong words on every timestamp).
     * *Taboo reveal sync:* `あの… 旦那さんと… ずっとご無沙汰だって。` $\rightarrow$ `"Um... that with my husband... it's been a dry spell for ages."` (Keep the loaded taboo reveal in the final chunk after the pause so the subtitle doesn't spoil it early).
+* **Adjacent Node Boundary Smoothing:** If two consecutive nodes are practically back-to-back (`<= 0.4s` gap) and an awkward split leaves a trailing starter/conjunction at the end of Node 1 that belongs to Node 2's clause (e.g., `…なんか、` $\rightarrow$ `"! Like,"`), shift that word to the start of Node 2's `TranslatedText` (`"She really scared me last time!"` $\rightarrow$ `"Like, since it was our first meal..."`) while keeping `VoiceText` strictly faithful to each clip.
 * **Mid-Line Breath & Moan Integration:**
   * When she audibly pants, gasps, or whimpers in the gap between words (`先輩のぉ… [はぁ、はぁ] …先輩のあそこが` or `そんなぁ…んっ、じかに…`), reflect that vocalized breath directly at the break (`"Senpai, your-- ahh... your cock is pressing right against me..."` or `"Like this... nn, right on my bare skin..."`).
 
@@ -745,8 +746,8 @@ _______________________________________="
       "MaxMergeGapSameSpeaker": "00:00:00",
       "MaxMergeGapDialogue": "00:00:00.5",
       "MaxMergeDuration": "00:00:02",
-      "RemoveMissing": false,
-      "AddReviewIfTooLong": true,
+      "RemoveMissing": true,
+      "AddReviewIfTooLong": false,
       "SplitPatterns": [
         // 1. Strong Punctuation (End of sentence)
         { "CutWhere": "After", "Pattern": "(?<!\\.)\\.(?![\\d\\.])|[?!…]+" },
