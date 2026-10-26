@@ -39,7 +39,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             r_systemPrompt = options.SystemPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
             r_userPrompt = options.UserPrompt?.GetFinalText(transcriptionLanguage, translationLanguage);
-            r_metadataNeededRules = options.MetadataNeeded?.Split(',').Select(f => f.Trim()).ToArray();
+            r_metadataNeededRules = options.MetadataNeeded == null || options.MetadataNeeded.Trim().Length == 0
+                ? Array.Empty<string>()
+                : options.MetadataNeeded.Split(',').Select(f => f.Trim()).ToArray();
             r_metadataProducedRule = options.MetadataAlwaysProduced?.Split(',').Select(f => f.Trim()).ToArray();
 
             r_options = options;
@@ -61,7 +63,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var item = new TimedItemWithMetadataTagged(referenceTiming, workingOnItem?.Metadata);
                 allItems.Add(item);
 
-                var isItemNeeded = r_metadataNeededRules == null ? true : IsRulesRespected(r_metadataNeededRules, referenceTiming.Metadata);
+                var isItemNeeded = r_metadataNeededRules.Length == 0 ? true : IsRulesRespected(r_metadataNeededRules, referenceTiming.Metadata);
                 var isItemAlreadyDone = workingOnItem != null && IsRulesRespected(r_metadataProducedRule, workingOnItem.Metadata);
 
                 if (isItemNeeded && isItemAlreadyDone)

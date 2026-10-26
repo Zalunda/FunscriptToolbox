@@ -28,7 +28,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            foreach (var extractor in this.Options.BinaryDataExtractors.OfType<BinaryDataExtractorAudio>())
+            foreach (var extractor in this.Options.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
             {
                 if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
                 {
@@ -48,10 +48,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var requestGenerator = this.Metadatas
-                .Aggregate(context)
-                .CreateRequestGenerator(transcription, this.Options, transcription.Language);
-            ExecuteRequests(context, transcription, requestGenerator);
+            var metadataAggregation = this.Metadatas.Aggregate(context);
+            var requestGenerator = ExecuteRequests(context, transcription, this.Options, metadataAggregation.ReferenceTimingsWithMetadata);
             if (requestGenerator.IsFinished())
             {
                 transcription.MarkAsFinished();
@@ -59,8 +57,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        protected AIRequestGenerator ExecuteRequests(SubtitleGeneratorContext context, Transcription transcription, AIRequestGenerator requestGenerator)
+        protected AIRequestGenerator ExecuteRequests(
+            SubtitleGeneratorContext context, 
+            Transcription transcription,
+            AIOptions options,
+            TimedItemWithMetadata[] itemsToBeProcessed)
         {
+            var requestGenerator = new AIRequestGenerator(
+                itemsToBeProcessed,
+                transcription,
+                transcription.Language,
+                transcription.Language,
+                options);
+
             var runner = new AIEngineRunner<TranscribedItem>(
                 context,
                 this.Engine,
@@ -74,7 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var extractionLock = new object();
 
             var binaryDataExtractors = new BinaryDataExtractorCachedCollection(
-                this.Options.BinaryDataExtractors.Select(extractor =>
+                options.BinaryDataExtractors.Select(extractor =>
                 {
                     Func<AIRequestSection, ITiming, string, bool, AIRequestPart[]> getDataFunc;
 

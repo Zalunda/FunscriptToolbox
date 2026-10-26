@@ -1,10 +1,11 @@
-﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.Core;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -36,10 +37,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             public TimeSpan OriginalStartTime { get; set; }
             public TimeSpan OriginalEndTime { get; set; }
+            public string OriginalText { get; set; }
 
             [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
-            [JsonIgnore] public string CandidateText { get; set; }
-
+            
             public TimeSpan CurrentTestStart { get; set; }
             public TimeSpan CurrentTestEnd { get; set; }
 
@@ -51,7 +52,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             public TimeSpan PreviousTestStart { get; set; }
             public TimeSpan PreviousTestEnd { get; set; }
-            public string LastHeardText { get; set; }
+            public string LastVoiceTextHeardText { get; set; }
 
             public bool IsStartLocked { get; set; }
             public bool IsEndLocked { get; set; }
@@ -108,6 +109,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
+        [JsonProperty(Order = 34, Required = Required.Always)]
+        public AIOptions InnerOptions { get; set; } = new AIOptions();
+
         [JsonProperty(Order = 43)]
         public int MaxRetriesPerNode { get; set; } = 3;
 
@@ -123,12 +127,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 47)]
         public double MinSubtitleDurationSeconds { get; set; } = 0.5;
 
+
+        protected override bool IsPrerequisitesMet(
+            SubtitleGeneratorContext context,
+            out string reason)
+        {
+            foreach (var extractor in this.InnerOptions.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
+            {
+                if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
+                {
+                    reason = $"Audio extraction '{extractor.SourceAudioId}' is not done yet.";
+                    return false;
+                }
+            }
+            return base.IsPrerequisitesMet(context, out reason);
+        }
+
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
             var jobState = transcription.CurrentJobState as JobState ?? new JobState();
             transcription.CurrentJobState = jobState;
 
-            var audioExtractor = this.Options.BinaryDataExtractors.OfType<BinaryDataExtractorAudio>().FirstOrDefault();
+            var audioExtractor = this.InnerOptions.BinaryDataExtractors.OfType<BinaryDataExtractorAudio>().FirstOrDefault();
             var fullPcmAudio = context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == audioExtractor?.SourceAudioId && f.IsFinished)?.PcmAudio;
 
             if (fullPcmAudio == null)
@@ -163,7 +183,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (cand != null)
                     {
                         cand.OriginalItem = item;
-                        cand.CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty;
                     }
                 }
             }
@@ -195,8 +214,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     string fakeId = $"{transcription.Id}_refine_iter_{jobState.Iteration}";
                     jobState.PendingBatch = new Transcription(
                         id: fakeId,
-                        metadataAlwaysProduced: this.Options.MetadataAlwaysProduced,
-                        privateMetadataNames: transcription.PrivateMetadataNames,
+                        metadataAlwaysProduced: this.InnerOptions.MetadataAlwaysProduced,
+                        privateMetadataNames: null,
                         language: transcription.Language,
                         isFinished: false);
 
@@ -212,18 +231,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 if (batchToTest.Count > 0)
                 {
-                    var referenceList = batchToTest
+                    var itemsToBeProcessed = batchToTest
                         .Select(cand => new TimedItemWithMetadata(cand.CurrentTestStart, cand.CurrentTestEnd, new MetadataCollection()))
                         .ToArray();
 
-                    var requestGenerator = new AIRequestGenerator(
-                        referenceList,
-                        jobState.PendingBatch,
-                        transcription.Language,
-                        transcription.Language,
-                        this.Options);
-
-                    ExecuteRequests(context, jobState.PendingBatch, requestGenerator);
+                    var requestGenerator = ExecuteRequests(context, jobState.PendingBatch, this.InnerOptions, itemsToBeProcessed);
 
                     if (!requestGenerator.IsFinished())
                         return; // Interrupted
@@ -242,7 +254,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.WriteInfo($"[RefineTiming] Progress: {lockedNodes}/{jobState.Candidates.Count} fully locked.");
             }
 
-            FinalizeTranscription(context, transcription, jobState.Candidates);
+            FinalizeTranscription(transcription, jobState.Candidates);
             transcription.MarkAsFinished();
             context.WIP.Save();
             context.WriteInfo($"[RefineTiming] Refinement completed ({jobState.TotalTestsRun} tests run).");
@@ -259,7 +271,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     OriginalStartTime = item.StartTime,
                     OriginalEndTime = item.EndTime,
                     OriginalItem = item,
-                    CandidateText = item.Metadata.TryGetValue("CandidateText", out var ct) ? ct : string.Empty,
+                    OriginalText = item.Metadata.TryGetValue(this.InnerOptions.MetadataNeeded, out var ct) ? ct : string.Empty,
                     CurrentTestStart = item.StartTime,
                     CurrentTestEnd = item.EndTime,
                     PreviousTestStart = item.StartTime,
@@ -297,7 +309,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 cand.PreviousTestEnd = cand.CurrentTestEnd;
 
                 // Log Orig row immediately
-                cand.AddTraceRow("Orig", ' ', item.StartTime, item.EndTime, ' ', "", cand.CandidateText);
+                cand.AddTraceRow("Orig", ' ', item.StartTime, item.EndTime, ' ', "", cand.OriginalText);
 
                 // Calculate how Init moved compared to Orig
                 cand.PendingStartMod = TimingCandidate.GetStartMod(item.StartTime, cand.CurrentTestStart);
@@ -321,15 +333,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (cand == null) continue;
 
                 cand.RetryCount++;
-                string heard = fakeItem.Metadata.TryGetValue("Heard", out var h) ? h : string.Empty;
-                string normalizedHeard = Normalize(heard);
+                string voiceTextHeard = fakeItem.Metadata.TryGetValue(this.Options.MetadataAlwaysProduced, out var h) ? h : string.Empty;
+                string normalizedVoiceTextHeard = Normalize(voiceTextHeard);
 
-                var match = EvaluateMatch(cand.CandidateText, heard);
+                var match = EvaluateMatch(cand.OriginalText, voiceTextHeard);
 
-                bool heardUnchanged = !string.IsNullOrEmpty(cand.LastHeardText)
-                                      && cand.LastHeardText == normalizedHeard;
+                bool heardUnchanged = !string.IsNullOrEmpty(cand.LastVoiceTextHeardText)
+                                      && cand.LastVoiceTextHeardText == normalizedVoiceTextHeard;
 
-                cand.LastHeardText = normalizedHeard;
+                cand.LastVoiceTextHeardText = normalizedVoiceTextHeard;
 
                 string stepName = cand.RetryCount == 1 ? "Init" : $"#{cand.RetryCount - 1}";
                 char testedStartMod = cand.PendingStartMod;
@@ -352,7 +364,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         cand.IsStartLocked = true;
                         cand.IsEndLocked = true;
                         cand.ValidationNotes.Clear();
-                        cand.AddValidationNote("[Review: Too Much Text, Timing Could Be Tightened or expended to inlcude part that was missed by transcriber]");
+                        cand.AddValidationNote($"Review: Too Much Text Found , Timing Could Be Tightened or expended to include part that was missed by transcriber: {voiceTextHeard}");
                         break;
 
                     case MatchResult.MissingStart:
@@ -368,12 +380,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             nextStart = cand.PreviousTestStart;
                             cand.IsStartLocked = true;
                             reverted = true;
-                            cand.AddValidationNote("[Unsure: Missing Start]");
+                            cand.AddValidationNote("Unsure: Missing Start");
                         }
                         else if (cand.RetryCount >= MaxRetriesPerNode)
                         {
                             cand.IsStartLocked = true;
-                            cand.AddValidationNote("[Unsure: Missing Start]");
+                            cand.AddValidationNote("Unsure: Missing Start");
                         }
                         else
                         {
@@ -395,12 +407,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             nextEnd = cand.PreviousTestEnd;
                             cand.IsEndLocked = true;
                             reverted = true;
-                            cand.AddValidationNote("[Unsure: Missing End]");
+                            cand.AddValidationNote("Unsure: Missing End");
                         }
                         else if (cand.RetryCount >= MaxRetriesPerNode)
                         {
                             cand.IsEndLocked = true;
-                            cand.AddValidationNote("[Unsure: Missing End]");
+                            cand.AddValidationNote("Unsure: Missing End");
                         }
                         else
                         {
@@ -416,12 +428,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             nextEnd = cand.PreviousTestEnd;
                             cand.IsStartLocked = cand.IsEndLocked = true;
                             reverted = true;
-                            cand.AddValidationNote("[Unsure: Clipped Both Sides]");
+                            cand.AddValidationNote("Unsure: Clipped Both Sides");
                         }
                         else if (cand.RetryCount >= MaxRetriesPerNode)
                         {
                             cand.IsStartLocked = cand.IsEndLocked = true;
-                            cand.AddValidationNote("[Unsure: Clipped Both Sides]");
+                            cand.AddValidationNote("Unsure: Clipped Both Sides");
                         }
                         else
                         {
@@ -434,7 +446,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     case MatchResult.Mismatch:
                         cand.IsStartLocked = cand.IsEndLocked = true;
-                        string note = string.IsNullOrWhiteSpace(heard) ? "[Unsure: Audio Inaudible]" : "[Unsure: Text Mismatch]";
+                        string note = string.IsNullOrWhiteSpace(voiceTextHeard) ? "Unsure: Audio Inaudible" : $"Unsure: Text Mismatch: {voiceTextHeard}";
                         cand.AddValidationNote(note);
                         break;
                 }
@@ -447,7 +459,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     cand.CurrentTestEnd,
                     testedEndMod,
                     match.ToString(),
-                    heard);
+                    voiceTextHeard);
 
                 // 2. If we reverted because expansion heard nothing new, log the 'Rev' row with +/-
                 if (reverted)
@@ -467,6 +479,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 cand.CurrentTestEnd = nextEnd;
             }
         }
+
+        #region EvaluateMatch
 
         // 1. Syllable Regex for Romaji:
         // Mora-pure regex (every Japanese mora is consonant+vowel, standalone vowel, 'n', or stop)
@@ -536,7 +550,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (missingEnd)
                 return MatchResult.MissingEnd;
 
-            // 4. If we didn't miss edges, check if Heard heard extra words/speech
+            // 4. If we didn't miss edges, check if Heard contains extra words/speech
             int totalExtraSyllables = hStartExtra + hEndExtra;
             if (totalExtraSyllables >= 2)
                 return MatchResult.FullExtra;
@@ -700,6 +714,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return collapsed.ToString();
         }
 
+        #endregion
+
         private AudioTerrain CreateCandidateTerrain(PcmAudio fullAudio, TimingCandidate cand)
         {
             var maxDrift = TimeSpan.FromSeconds(MaxDriftSeconds);
@@ -741,7 +757,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private void FinalizeTranscription(
-            SubtitleGeneratorContext context,
             Transcription transcription,
             List<TimingCandidate> candidates)
         {
@@ -760,18 +775,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     meta[kvp.Key] = kvp.Value;
                 }
 
-                // If global test budget ran out before this candidate finished testing
-                if (!cand.IsFullyLocked)
-                {
-                    cand.AddValidationNote("[Unsure: Unfinished / Budget Reached]");
-                }
+                var sb = new StringBuilder();
 
                 // Clean nodes have no TimingValidation key, keeping the subtitle clean.
-                if (cand.ValidationNotes.Count > 0)
+                if (cand.ValidationNotes.Count > 0 || !cand.IsFullyLocked)
                 {
-                    meta["TimingValidation"] = string.Join("\n", cand.ValidationNotes);
+                    sb.AppendLine("Timings Warnings:");
+                    // If global test budget ran out before this candidate finished testing
+                    if (!cand.IsFullyLocked)
+                    {
+                        sb.AppendLine("Unsure: Unfinished / Budget Reached");
+                    }
+                    foreach (var note in cand.ValidationNotes)
+                    {
+                        sb.AppendLine("  " + note);
+                    }
                 }
 
+                if (sb.Length > 0)
+                {
+                    sb.AppendLine();
+                }
+                sb.AppendLine(cand.OriginalText);
+
+                meta[this.Options.MetadataAlwaysProduced] = sb.ToString();
                 meta["TimingTrace"] = string.Join("\n", cand.Trace);
 
                 var refinedItem = new TranscribedItem(
@@ -837,8 +864,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     // Only flag for manual review if the overlap was meaningful (>= 50ms)
                     if (overlapDuration.TotalMilliseconds >= 50)
                     {
-                        cur.AddValidationNote("[Review: Shared Audio Zone]");
-                        next.AddValidationNote("[Review: Shared Audio Zone]");
+                        cur.AddValidationNote("Review: Shared Audio Zone");
+                        next.AddValidationNote("Review: Shared Audio Zone");
 
                         cur.AddTraceRow("Med", ' ', cur.CurrentTestStart, cur.CurrentTestEnd, curEndMod);
                         next.AddTraceRow("Med", nextStartMod, next.CurrentTestStart, next.CurrentTestEnd, ' ');

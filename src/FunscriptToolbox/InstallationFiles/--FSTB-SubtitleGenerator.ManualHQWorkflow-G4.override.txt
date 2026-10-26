@@ -514,7 +514,9 @@ _______________________________________=",
     {
       "$type": "TranscriberAIRefineTiming",
       "TranscriptionId": "full-ai-refined",
+	  "$insertAfter": "full-ai",
       "Enabled": true,
+      "PrivateMetadataNames": "TimingTrace",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
       "Engine": {
@@ -546,12 +548,13 @@ _______________________________________=",
       },
       "Metadatas": {
         "TimingsSource": "full-ai",
-        "Sources": "full-ai",
-        "MergeRules": {
-          "full-ai,VoiceText": "CandidateText"
-        }
+        "Sources": "full-ai"
       },
       "Options": {
+        "MetadataNeeded": "VoiceText",
+        "MetadataAlwaysProduced": "VoiceTextWithTimingWarnings",
+      },
+      "InnerOptions": {
         "SystemPrompt": {
           "$type": "AIPrompt",
           "Text": "
@@ -571,26 +574,26 @@ Your sole job is to listen to the provided AudioClip for each item and transcrib
 2. If words or syllables are cut off at the start or end, transcribe only the audible portion (e.g., if `sugoi de` has `su` cut off at the start, output `"goi de."`).
 3. Do not invent or complete cut-off words.
 4. **Multiple Speakers:** If multiple people speak simultaneously or back-to-back inside the clip, transcribe all main spoken lines (separated by ` / ` or `\n- `), ignoring faint background hums or giggles.
-5. If no speech is present (only breathing, moaning without words, bed rustle, or silence), output an empty string: `"Heard": ""`.
+5. If no speech is present (only breathing, moaning without words, bed rustle, or silence), output an empty string: `"VoiceText": ""`.
 
 IMPORTANT: A clip may contain a 0.5s–2.0s pause/silence in the middle of a sentence. Always listen all the way to the very end of the AudioClip and transcribe everything spoken both before AND after any internal pause.
 
 ### Output Format:
-Return a valid JSON array of objects containing `"StartTime"` and `"Heard"`:
+Return a valid JSON array of objects containing only `"StartTime"` and `"VoiceText"`:
 [
   {
     "StartTime": "00:00:03.428",
-    "Heard": "goi de."
+    "VoiceText": "goi de."
   },
   {
     "StartTime": "00:00:05.542",
-    "Heard": "E, sugonai?"
+    "VoiceText": "E, sugonai?"
   }
 ]
 _______________________________________="
         },
-        "MetadataNeeded": "!SkipTimingValidation",
-        "MetadataAlwaysProduced": "Heard",
+        "MetadataNeeded": "",
+        "MetadataAlwaysProduced": "VoiceText",
         "BinaryDataExtractors": [
           {
             "$type": "BinaryDataExtractorAudio",
@@ -610,8 +613,8 @@ _______________________________________="
         "NbItemsMinimumReceivedToContinue": 15,
         "FieldsToInclude": "StartTime"
       },
-      "MaxRetriesPerNode": 3,
-      "MaxBudgetRatio": 2.0,
+      "MaxRetriesPerNode": 0,
+      "MaxBudgetRatio": 2.5,
       "MaxDriftSeconds": 0.6,
       "ShrinkStepSeconds": 0.2,
       "MinSubtitleDurationSeconds": 0.5,
@@ -625,18 +628,20 @@ _______________________________________="
     {
       "Id": "full",
       "Enabled": true,
-      "SourceId": "full-ai"
+      "SourceId": "full-ai-refined"
     },
     {
       "Id": "generated-manual-input-srt",
       "Enabled": true,
       // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.      
-      "WorkerId": "full-ai",
+      "TextSources": "full-ai-refined",
+	  "MetadataToUse": "VoiceTextWithTimingWarnings",
       "Metadatas": {
-        "TimingsSource": "full-ai",
-        "Sources": "full-ai",
+        "TimingsSource": "full-ai-refined",
+        "Sources": "full-ai-refined",
         "MergeRules": {
-          "VoiceText": null
+          "VoiceText": null,
+          "VoiceTextWithTimingWarnings": null
         },
       },
       "UseBySourceMetadatas": "false",
@@ -669,9 +674,10 @@ _______________________________________="
       "StopOnFirstExecution": false,
       "Metadatas": {
         "TimingsSource": "timings",
-        "Sources": "full-ai,speakers,manual-input",
+        "Sources": "full,speakers,manual-input",
         "MergeRules": {
-          "full-ai,VoiceText": "full-VoiceText"
+          "full,VoiceText": "full-VoiceText",
+          "full,TimingValidation": null
         },
       },
       "Options": {
@@ -804,7 +810,6 @@ _______________________________________="
       "Enabled": false,
       "TargetLanguage": "French",
       "CanBeUpdated": false,
-      "PrivateMetadataNames": null,
       "ExportMetadataSrt": false,
       "StopOnFirstExecution": false,
       "Engine": {
@@ -850,7 +855,6 @@ _______________________________________="
       "TargetLanguage": "French",
       "CanBeUpdated": false,
       "PrivateMetadataNames": null,
-      "ExportMetadataSrt": false,
       "StopOnFirstExecution": false,
       "Metadatas": {
         "TimingsSource": "timings",

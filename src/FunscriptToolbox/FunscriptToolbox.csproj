@@ -203,6 +203,7 @@
     <Compile Include="SubtitlesVerbs\Infra\AIEngineCollection.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineConfigOverride.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineErrorType.cs" />
+    <Compile Include="SubtitlesVerbs\Infra\AIEngineRunnerOfT.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIEngineRunner.cs" />
     <Compile Include="SubtitlesVerbs\Infra\AIOptions.cs" />
     <Compile Include="SubtitlesVerbs\AudioExtractions\AudioExtractor.cs" />

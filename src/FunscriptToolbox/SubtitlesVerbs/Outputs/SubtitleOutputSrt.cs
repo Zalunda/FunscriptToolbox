@@ -30,6 +30,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
         [JsonProperty(Order = 17)]
         public string TextSources { get; set; }
+        [JsonProperty(Order = 18)]
+        public string MetadataToUse { get; set; }
         public string WorkerId // For backward compatibility
         {
             set { TextSources = value; }
@@ -49,7 +51,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public string SkipWhenTextSourcesAreIdentical { get; set; }
         [JsonProperty(Order = 25)]
         public bool SaveFullFileToo { get; set; } = false;
-
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -155,7 +156,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                     {
                         foreach (var overlap in overlaps)
                         {
-                            var text = overlap.Item.Metadata.Get(textSource.Container.MetadataAlwaysProduced);
+                            var text = overlap.Item.Metadata.Get(this.MetadataToUse ?? textSource.Container.MetadataAlwaysProduced);
                             if (text == null) continue;
 
                             // Action A: Always build the text portion of the subtitle
