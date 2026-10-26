@@ -16,7 +16,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             FullMatch,
             FullExtra,
-            FullFuzzy,
             MissingStart,
             MissingEnd,
             MissingBoth,
@@ -354,7 +353,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 switch (match)
                 {
                     case MatchResult.FullMatch:
-                    case MatchResult.FullFuzzy:
                         cand.IsStartLocked = true;
                         cand.IsEndLocked = true;
                         cand.ValidationNotes.Clear();
@@ -482,22 +480,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         #region EvaluateMatch
 
-        // 1. Syllable Regex for Romaji:
-        // Mora-pure regex (every Japanese mora is consonant+vowel, standalone vowel, 'n', or stop)
-        private static readonly Regex SyllableRegex = new Regex(
-            @"(?i)[bcdfghjklmnpqrstvwxyz]*[aeiou]|[kstp](?=[kstp])|n",
-            RegexOptions.Compiled);
-
-        private static List<string> TokenizeSyllables(string text)
-        {
-            var matches = SyllableRegex.Matches(text);
-            var list = new List<string>(matches.Count);
-            for (int i = 0; i < matches.Count; i++)
-            {
-                list.Add(matches[i].Value);
-            }
-            return list;
-        }
+        private static readonly Regex PunctuationNormalizeRegex = new Regex(@"[.!…]+", RegexOptions.Compiled);
+        private static readonly Regex WhitespaceNormalizeRegex = new Regex(@"\s+", RegexOptions.Compiled);
 
         private MatchResult EvaluateMatch(string candidateText, string heardText)
         {
@@ -513,205 +497,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (cNorm == hNorm)
                 return MatchResult.FullMatch;
 
-            // 1. Break both into syllables
-            var cSyl = TokenizeSyllables(cNorm);
-            var hSyl = TokenizeSyllables(hNorm);
+            string cTrim = cNorm.TrimEnd('.');
+            string hTrim = hNorm.TrimEnd('.');
 
-            if (cSyl.Count == 0 || hSyl.Count == 0)
+            if (cTrim.Length == 0 || hTrim.Length == 0 || cTrim.TrimEnd('?') == hTrim.TrimEnd('?'))
                 return MatchResult.Mismatch;
 
-            // 2. Find LCS Syllable Alignment
-            var lcs = GetLcsIndices(cSyl, hSyl);
-
-            // If less than 35% of candidate syllables matched, it's a mismatch
-            double matchRatio = (double)lcs.Count / cSyl.Count;
-            if (lcs.Count == 0 || (matchRatio < 0.35 && lcs.Count < 2))
-                return MatchResult.Mismatch;
-
-            // Head analysis:
-            int cStartMissed = lcs[0].IndexInC; // Syllables Candidate had BEFORE first match
-            int hStartExtra = lcs[0].IndexInH; // Syllables Heard had BEFORE first match
-
-            // Tail analysis:
-            int cEndMissed = (cSyl.Count - 1) - lcs[lcs.Count - 1].IndexInC; // Syllables Candidate had AFTER last match
-            int hEndExtra = (hSyl.Count - 1) - lcs[lcs.Count - 1].IndexInH; // Syllables Heard had AFTER last match
-
-            // 3. Classify edges:
-            // Only flag MissingStart if Candidate was clipped AND Heard didn't already hear extra speech there!
-            bool missingStart = cStartMissed >= 1 && hStartExtra < cStartMissed;
-
-            // Only flag MissingEnd if Candidate was clipped AND Heard didn't already hear extra speech there!
-            bool missingEnd = cEndMissed >= 1 && hEndExtra < cEndMissed;
-
-            if (missingStart && missingEnd)
-                return MatchResult.MissingBoth;
-            if (missingStart)
-                return MatchResult.MissingStart;
-            if (missingEnd)
-                return MatchResult.MissingEnd;
-
-            // 4. If we didn't miss edges, check if Heard contains extra words/speech
-            int totalExtraSyllables = hStartExtra + hEndExtra;
-            if (totalExtraSyllables >= 2)
+            if (hTrim.Contains(cTrim))
                 return MatchResult.FullExtra;
 
-            return (lcs.Count == cSyl.Count && cSyl.Count == hSyl.Count)
-                ? MatchResult.FullMatch
-                : MatchResult.FullFuzzy;
+            if (cTrim.StartsWith(hTrim))
+                return MatchResult.MissingEnd;
+
+            if (cTrim.EndsWith(hTrim))
+                return MatchResult.MissingStart;
+
+            if (cTrim.Contains(hTrim))
+                return MatchResult.MissingBoth;
+
+            return MatchResult.Mismatch;
         }
-
-        // Simple standard LCS returning aligned indices
-        private struct AlignedPair
-        {
-            public int IndexInC;
-            public int IndexInH;
-        }
-
-        private static List<AlignedPair> GetLcsIndices(List<string> c, List<string> h)
-        {
-            int[,] dp = new int[c.Count + 1, h.Count + 1];
-
-            for (int i = 1; i <= c.Count; i++)
-            {
-                for (int j = 1; j <= h.Count; j++)
-                {
-                    if (c[i - 1] == h[j - 1])
-                        dp[i, j] = dp[i - 1, j - 1] + 1;
-                    else
-                        dp[i, j] = Math.Max(dp[i - 1, j], dp[i, j - 1]);
-                }
-            }
-
-            var result = new List<AlignedPair>();
-            int ci = c.Count, hi = h.Count;
-            while (ci > 0 && hi > 0)
-            {
-                if (c[ci - 1] == h[hi - 1])
-                {
-                    result.Add(new AlignedPair { IndexInC = ci - 1, IndexInH = hi - 1 });
-                    ci--;
-                    hi--;
-                }
-                else if (dp[ci - 1, hi] >= dp[ci, hi - 1])
-                {
-                    ci--;
-                }
-                else
-                {
-                    hi--;
-                }
-            }
-
-            result.Reverse();
-            return result;
-        }
-
-        private static readonly string[] KanaToRomajiMap = new[]
-        {
-            "a", "a", "i", "i", "u", "u", "e", "e", "o", "o",
-            "ka", "ga", "ki", "gi", "ku", "gu", "ke", "ge", "ko", "go",
-            "sa", "za", "shi", "ji", "su", "zu", "se", "ze", "so", "zo",
-            "ta", "da", "chi", "ji", "tsu", "tsu", "づ", "te", "de", "to", "do",
-            "na", "ni", "nu", "ne", "no",
-            "ha", "ba", "pa", "hi", "bi", "pi", "fu", "bu", "pu", "he", "be", "pe", "ho", "bo", "po",
-            "ma", "mi", "mu", "me", "mo",
-            "ya", "ya", "yu", "yu", "yo", "yo",
-            "ra", "ri", "ru", "re", "ro",
-            "wa", "wa", "wi", "we", "wo", "n", "vu", "ka", "ke"
-        };
 
         private string Normalize(string text)
         {
-            if (string.IsNullOrEmpty(text)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
 
-            // 1. Lowercase, convert macrons, and transliterate any stray Hiragana/Katakana to Romaji
-            // Keep spaces temporarily so word-internal vowel collapses don't merge across word boundaries!
-            var sb = new System.Text.StringBuilder(text.Length);
-            foreach (char rawCh in text)
-            {
-                char ch = rawCh;
-                // Convert Katakana (ァ..ヶ) to Hiragana (ぁ..ゖ)
-                if (ch >= '\u30A1' && ch <= '\u30F6')
-                    ch = (char)(ch - 0x60);
-
-                // Convert Hiragana (ぁ..ゖ) to Romaji
-                if (ch >= '\u3041' && ch <= '\u3096')
-                {
-                    int idx = ch - '\u3041';
-                    if (idx >= 0 && idx < KanaToRomajiMap.Length)
-                        sb.Append(KanaToRomajiMap[idx]);
-                    continue;
-                }
-
-                if (char.IsWhiteSpace(ch) || char.IsPunctuation(ch) || ch == '…' || ch == '・')
-                {
-                    sb.Append(' ');
-                    continue;
-                }
-                if (ch == 'ー') continue;
-
-                switch (char.ToLowerInvariant(ch))
-                {
-                    case 'ā': sb.Append('a'); break;
-                    case 'ī': sb.Append('i'); break;
-                    case 'ū': sb.Append('u'); break;
-                    case 'ē': sb.Append('e'); break;
-                    case 'ō': sb.Append('o'); break;
-                    default: sb.Append(char.ToLowerInvariant(ch)); break;
-                }
-            }
-
-            // 2. Collapse long vowels within words (before removing spaces)
-            string s = sb.ToString();
-
-            s = s.Replace("yuu", "iu")
-                 .Replace("yutte", "itte")
-                 .Replace("yutta", "itta");
-
-            s = s.Replace("ou", "o")
-                .Replace("oo", "o")
-                .Replace("uu", "u")
-                .Replace("aa", "a")
-                .Replace("ee", "e")
-                .Replace("ii", "i");
-
-            // 3. Remove all spaces
-            s = s.Replace(" ", "");
-
-            // 4. Normalize common Japanese Romaji & Kansai-ben phonetic equivalents
-            s = s.Replace("byebye", "baibai")
-                 .Replace("tch", "ch")
-                 .Replace("cch", "ch")
-                 .Replace("jyu", "ju")
-                 .Replace("zyu", "ju")
-                 .Replace("jya", "ja")
-                 .Replace("jyo", "jo")
-                 .Replace("sya", "sha")
-                 .Replace("syu", "shu")
-                 .Replace("syo", "sho")
-                 .Replace("tya", "cha")
-                 .Replace("tyu", "chu")
-                 .Replace("tyo", "cho")
-                 .Replace("yutte", "itte")
-                 .Replace("yutta", "itta")
-                 .Replace("yuu", "iu")
-                 .Replace("rehen", "ren")
-                 .Replace("rahen", "ran")
-                 .Replace("kihen", "kin")
-                 .Replace("sabishi", "samishi")
-                 .Replace("mma", "ma")
-                 .Replace("nma", "ma");
-
-            // 5. Collapse geminate (double) consonants (kk -> k, tt -> t, pp -> p, ss -> s)
-            var collapsed = new System.Text.StringBuilder(s.Length);
-            for (int i = 0; i < s.Length; i++)
-            {
-                if (i > 0 && s[i] == s[i - 1] && "kstpnhmyrwgzdbj".IndexOf(s[i]) >= 0)
-                    continue;
-                collapsed.Append(s[i]);
-            }
-
-            return collapsed.ToString();
+            string s = text.Trim().ToLowerInvariant();
+            s = PunctuationNormalizeRegex.Replace(s, ".");
+            s = WhitespaceNormalizeRegex.Replace(s, " ");
+            return s;
         }
 
         #endregion
