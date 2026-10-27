@@ -247,7 +247,7 @@
     <Compile Include="SubtitlesVerbs\Outputs\SubtitleOutputSrt.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigExample.cs" />
     <Compile Include="SubtitlesVerbs\SubtitleGeneratorConfigLoader.cs" />
-    <Compile Include="SubtitlesVerbs\Transcriptions\AudioTerrain.cs" />
+    <Compile Include="SubtitlesVerbs\Transcriptions\AudioTerrainMappingPhysicBased.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberAIRefineTiming.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberResetImportedMetadatas.cs" />
     <Compile Include="SubtitlesVerbs\Transcriptions\TranscriberClone.cs" />

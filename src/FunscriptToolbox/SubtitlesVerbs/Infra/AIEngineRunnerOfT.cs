@@ -69,7 +69,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                         response.AssistantMessage,
                                         response.Request,
                                         () => response.Cost.NbItemsInResponse++);
-                                    r_context.WIP.Save();
                                 }
                                 catch (AIResponseException ex)
                                 {
@@ -78,6 +77,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 }
                             }
                         }
+                        r_context.WIP.Save();
 
                         if (capturedExceptions.Count > 0)
                         {

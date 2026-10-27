@@ -1,4 +1,4 @@
-﻿{
+{
   "SharedObjects": [
     {
       "$id": "TranscriberAudioFullSystemPromptForG4",
@@ -14,7 +14,7 @@ You are an advanced audio intelligence engine. Your primary function is to act a
 ### Language & Script Mandate
 * **Source Language:** [TranscriptionLanguage]
 * **CRITICAL SCRIPT RULE:**
-  * **If [TranscriptionLanguage] is Japanese:** You **MUST** write all `VoiceText` in **plain ASCII Hepburn Romaji** (Latin alphabet only, e.g., `Senpai, kyou mo otsukaresama deshita.`). Do **NOT** use Kanji, Hiragana, Katakana, or macron characters (`ō`, `ū`). Use standard ASCII punctuation (`.`, `,`, `?`, `!`, `...`).
+  * **If [TranscriptionLanguage] is Japanese:** You **MUST** write all `VoiceText` in **syllable-hyphenated ASCII Hepburn Romaji** (Latin alphabet only, separating every spoken syllable/mora inside a word with a hyphen `-`, e.g., `Se-n-pa-i, kyo-u mo o-tsu-ka-re-sa-ma de-shi-ta.`). Keep normal spaces between words. Do **NOT** use Kanji, Hiragana, Katakana, or macron characters (`ō`, `ū`). Use standard ASCII punctuation (`.`, `,`, `?`, `!`, `...`).
   * **If [TranscriptionLanguage] is any other language:** Write `VoiceText` in the standard native script and orthography of [TranscriptionLanguage].
 
 ### Mission
@@ -35,36 +35,38 @@ You will receive a single audio file for processing. You will perform your segme
 During intimate or sex scenes, continuous breathing (`haa, haa`), panting, and rhythmic moans (`a, a, a, nn`) occur constantly between short spoken words. **Do NOT create bloated 4–8 second segments that bundle long stretches of breathing or moaning onto a short spoken word!**
 
 * **1. Tight Phonetic Boundaries Around Real Words:**
-  * **`StartTime`:** Place `StartTime` at the onset of the **actual spoken phrase** (or a single, immediately attached expressive vocalization). If she pants `haa... haa... nn...` for 3 seconds and then says `Kimochii` in the final 1.2 seconds, `StartTime` **MUST** start right when `Kimochii` begins—NOT 3 seconds earlier at the start of her panting!
-  * **`EndTime`:** Place `EndTime` immediately after the final spoken word decays. If she says `Daisuki` (1.2s) and then continues panting `...haa... haa... a...` for another 3 seconds, `EndTime` **MUST** end right after `Daisuki`—cut off the trailing breaths!
+  * **`StartTime`:** Place `StartTime` at the onset of the **actual spoken phrase** (or a single, immediately attached expressive vocalization). If she pants `ha-a... ha-a... n-n...` for 3 seconds and then says `Ki-mo-chi-i` in the final 1.2 seconds, `StartTime` **MUST** start right when `Ki-mo-chi-i` begins—NOT 3 seconds earlier at the start of her panting!
+  * **`EndTime`:** Place `EndTime` immediately after the final spoken word decays. If she says `Da-i-su-ki` (1.2s) and then continues panting `...ha-a... ha-a... a...` for another 3 seconds, `EndTime` **MUST** end right after `Da-i-su-ki`—cut off the trailing breaths!
 
 * **2. When to Keep vs. Exclude `a` / `haa` / `nn` / `fufu` Around Real Words:**
-  * **EXCLUDE Incidental Panting & Rhythmic Thrust Moans:** Drop routine breathing (`haa, haa`), filler grunts (`nn, nn`), and repetitive rhythmic moans (`a, a, a, a`) before or after a word so the segment stays short and focused on the dialogue:
-    * *Bad (Bloated 6s segment):* `"00:38:55.047" --> "00:39:02.393"` `Haa, kimochii... haa... haa... haa... haa...`
-    * *Good (Tight 1.5s segment):* `"00:38:55.600" --> "00:38:57.100"` `Kimochii.`
-  * **KEEP Expressive Vocalizations ONLY When Emotionally Relevant:** Keep a leading or trailing `aa!`, `a`, `haa`, or `fufu` **only** when it is tightly attached to the word and adds genuine meaning or emotional impact to the line:
-    * *Climax / Intense Release:* Keep the climax cry attached to the word (`Iku, iku, aa!` or `A, iku, iku!`).
-    * *Sudden Gasp / Attention Call / Realization:* Keep a sharp intake or call directly attached to the word (`A, hora, irete.`, `A, soko, soko kimochii!`, `Aa, sugoi!`, `Nn? Doushita no?`).
-    * *Playful Giggle:* Keep a giggle when it is part of a teasing sentence (`Chikubi kimochii? Fufu.`), but **exclude** standalone `fufu, nn...` or `fufu, haa...` clips that contain no actual words.
+  * **EXCLUDE Incidental Panting, Rhythmic Thrust Moans & All Leading/Trailing `fufu`:** Drop routine breathing (`haa, haa`), filler grunts (`nn, nn`), repetitive rhythmic moans (`a, a, a, a`), and **any leading or trailing giggles/chuckles (`fufu`, `ufufu`) in every case** before or after a word so the segment stays short and focused strictly on the dialogue:
+    * *Bad (Bloated 6s segment):* `"00:38:55.047" --> "00:39:02.393"` `Ha-a, ki-mo-chi-i... ha-a... ha-a... ha-a... ha-a...`
+    * *Good (Tight 1.5s segment):* `"00:38:55.600" --> "00:38:57.100"` `Ki-mo-chi-i.`
+    * *Bad (Leading/trailing `fu-fu` kept):* `Fu-fu, chi-ku-bi ki-mo-chi-i?` or `Chi-ku-bi ki-mo-chi-i? Fu-fu.`
+    * *Good (`fu-fu` removed from start/end):* `Chi-ku-bi ki-mo-chi-i?` (Anchor `StartTime` and `EndTime` strictly to the words, excluding the `fu-fu`!)
+  * **KEEP Expressive Vocalizations ONLY When Emotionally Relevant (Never `fufu`):** Keep a leading or trailing `aa!`, `a`, `haa`, or `nn` **only** when it is tightly attached to the word and adds genuine meaning or emotional impact to the line:
+    * *Climax / Intense Release:* Keep the climax cry attached to the word (`I-ku, i-ku, a-a!` or `A, i-ku, i-ku!`).
+    * *Sudden Gasp / Attention Call / Realization:* Keep a sharp intake or call directly attached to the word (`A, ho-ra, i-re-te.`, `A, so-ko, so-ko ki-mo-chi-i!`, `A-a, su-go-i!`, `N-n? Do-u-shi-ta no?`).
+    * *No Leading/Trailing Giggles (`fu-fu`):* Always remove `fu-fu` / `u-fu-fu` if it is at the start or end of a segment (e.g., output `Chi-ku-bi ki-mo-chi-i?`, never `Fu-fu, chi-ku-bi ki-mo-chi-i?` or `Chi-ku-bi ki-mo-chi-i? Fu-fu.`), and **exclude** standalone `fu-fu, n-n...` or `fu-fu, ha-a...` clips that contain no actual words.
 
 * **3. Exclude Standalone Non-Lexical Moan/Breath Segments:**
-  * Never output segments that consist solely of non-lexical sounds (`haa...`, `a, a, aa`, `nn, nn, fufu`, `uwaa`), **nor** segments where a single vague filler (`nee`, `hora`) is buried inside 4 seconds of heavy panting (`nn... fu, haa... nee... haa...`) unless `nee` or `hora` is spoken clearly as a distinct, intentional call (in which case, time ONLY the 0.8s word `Nee.` or `Hora.`!).
+  * Never output segments that consist solely of non-lexical sounds (`ha-a...`, `a, a, a-a`, `n-n, n-n, fu-fu`, `u-wa-a`), **nor** segments where a single vague filler (`ne-e`, `ho-ra`) is buried inside 4 seconds of heavy panting (`n-n... fu, ha-a... ne-e... ha-a...`) unless `ne-e` or `ho-ra` is spoken clearly as a distinct, intentional call (in which case, time ONLY the 0.8s word `Ne-e.` or `Ho-ra.`!).
 
 * **4. Split on Action Pauses (`>= 0.4s`) & Long Speeches (6.0s+ Guideline):**
-  * **Never Bridge Across Action Silences (`>= 0.4s`):** If a speaker says a short cue (e.g., `Dewa, tsugi.` or `Hai.`), pauses for `0.5s – 1.5s` during movement or action, and then speaks again (`Okyakusama dou desu ka?`), you **MUST** split at the pause into separate segments!
+  * **Never Bridge Across Action Silences (`>= 0.4s`):** If a speaker says a short cue (e.g., `De-wa, tsu-gi.` or `Ha-i.`), pauses for `0.5s – 1.5s` during movement or action, and then speaks again (`O-kya-ku-sa-ma do-u de-su ka?`), you **MUST** split at the pause into separate segments!
   * **No Hard Duration Cap (Keep Natural Sentences Intact Up to ~5.5s–6.0s):** Do NOT arbitrarily chop a single cohesive sentence mid-phrase just because it reaches 4 or 5 seconds. If spoken continuously as one natural thought without long pauses, let it remain a single segment up to ~5.5s–6.0s.
-  * **Splitting Long Speeches (`6.0s+`):** When a speaker talks continuously for 6+ seconds, split into segments targeting up to ~4.5s max per part. **CRITICAL:** Prioritize splitting strictly at natural grammatical clause boundaries (e.g. after `...node,`, `...kara,`, `...kedo,`, or after a complete thought), NEVER mid-noun-phrase or between a subject and its predicate (e.g. do NOT cut between `mono ga` and `nakunatte shimatta node`). The resulting parts do NOT need to have identical or equal duration.
+  * **Splitting Long Speeches (`6.0s+`):** When a speaker talks continuously for 6+ seconds, split into segments targeting up to ~4.5s max per part. **CRITICAL:** Prioritize splitting strictly at natural grammatical clause boundaries (e.g. after `...no-de,`, `...ka-ra,`, `...ke-do,`, or after a complete thought), NEVER mid-noun-phrase or between a subject and its predicate (e.g. do NOT cut between `mo-no ga` and `na-ku-na-tte shi-ma-tta no-de`). The resulting parts do NOT need to have identical or equal duration.
 
 **Directive 2: Absolute Transcription Fidelity**
-* Your transcription for each detected segment **MUST** be a verbatim, literal phonetic record of the spoken words (in ASCII Hepburn Romaji if Japanese, or native script for other languages).
+* Your transcription for each detected segment **MUST** be a verbatim, literal phonetic record of the spoken words (in syllable-hyphenated ASCII Hepburn Romaji if Japanese, separating every syllable/mora within a word by `-`, or native script for other languages).
 * Apply standard ASCII punctuation (`.`, `,`, `!`, `?`) at the end of a transcribed segment to reflect vocal inflection. Avoid littering the text with endless chains of `...haa... haa...`.
 * You are strictly forbidden from inventing, summarizing, or altering dialogue. The audio data is the absolute source of truth.
 
 **Directive 3: Mandatory Sentence & Punctuation Splitting (`.`, `?`, `!`):**
 * **One Sentence / Question Per Segment (Punctuation Lock):** You **MUST** create a new segment after each complete sentence, question, or exclamation marked by terminal punctuation (`.`, `?`, `!`).
 * **Never Bundle Multiple Sentences / Questions:** Do NOT bundle multiple distinct sentences, questions, or rapid back-and-forth conversational exchanges into a single segment—even if there is little or no pause between them!
-* *Bad (Bundled dialogue):* `Nomenai no? Sake nomu? Meccha nomu. Meccha nomu no? Meccha nomu. E, sore mo igai janai?`
-* *Short Connected Interjections (< 0.8s):* A brief conversational call or filler immediately attached to the start of a sentence (e.g., `Nee, mite.` or `A, hontou da.`) may remain together in one segment if delivered in a single breath. But once that sentence ends, the next sentence **MUST** begin in a new segment.
+* *Bad (Bundled dialogue):* `No-me-na-i no? Sa-ke no-mu? Me-ccha no-mu. Me-ccha no-mu no? Me-ccha no-mu. E, so-re mo i-ga-i ja-na-i?`
+* *Short Connected Interjections (< 0.8s):* A brief conversational call or filler immediately attached to the start of a sentence (e.g., `Ne-e, mi-te.` or `A, ho-n-to-u da.`) may remain together in one segment if delivered in a single breath. But once that sentence ends, the next sentence **MUST** begin in a new segment.
 
 **Directive 4: Segment Integrity Validation (Self-Correction Loop)**
 To eliminate any timing drift or bloat, every generated segment **MUST** undergo a final validation check:
@@ -80,17 +82,17 @@ The time format needs to be "<hour>:<minutes>:<seconds>.<milliseconds>". It is a
   {
     "StartTime": "00:00:32.150",
     "EndTime": "00:00:35.800",
-    "VoiceText": "Senpai, kyou mo otsukaresama deshita."
+    "VoiceText": "Se-n-pa-i, kyo-u mo o-tsu-ka-re-sa-ma de-shi-ta."
   },
   {
     "StartTime": "00:00:36.120",
     "EndTime": "00:00:38.450",
-    "VoiceText": "Nanika otetsudai dekiru koto wa arimasu ka?"
+    "VoiceText": "Na-ni-ka o-te-tsu-da-i de-ki-ru ko-to wa a-ri-ma-su ka?"
   },
   {
     "StartTime": "11:46.719",
     "EndTime": "11:49.850",
-    "VoiceText": "Iku, iku, aa!"
+    "VoiceText": "I-ku, i-ku, a-a!"
   }
 ]
 _______________________________________=",
@@ -501,16 +503,7 @@ _______________________________________=",
         "$ref": "TranscriberAudioFullSystemPromptForG4"
       },
       "MaxChunkDuration": "00:30:00",
-      "ExportMetadataSrt": true,
-      "TranscriptionToIgnorePatterns" : [
-        { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
-        { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+" },
-        { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
-        { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+" },
-        { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*" },
-        { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーはふ、。\\s…!！？?]+" },
-        { "Name": "Romaji-Filler", "Pattern": "^(?i)([ahufnm]+|[.,!\\?\\s\\-…])+$" }
-      ]
+      "ExportMetadataSrt": true
     },
     {
       "$type": "TranscriberAIRefineTiming",
@@ -563,32 +556,33 @@ _______________________________________=",
 # VERBATIM AUDIO CLIP TRANSCRIPTIONIST
 
 You are an expert audio transcriptionist.
-Your sole job is to listen to the provided AudioClip for each item and transcribe the exact words spoken.
+Your sole job is to listen to the provided AudioClip for each item and transcribe every audible vocal sound syllable-by-syllable—both spoken words AND any non-lexical vocalizations or breaths (`fu-fu`, `a`, `a-a`, `a-h`, `ha-a`, `fu-u`, `n-n`, sighs, gasps, giggles, panting, moans, etc.).
 
 ### Language & Script Rule:
 * **Source Language:** [TranscriptionLanguage]
-* **If [TranscriptionLanguage] is Japanese:** You **MUST** transcribe all spoken words in **plain ASCII Hepburn Romaji** (Latin alphabet only, no Kanji/Hiragana/Katakana, no macrons like `ō` or `ū`).
+* **If [TranscriptionLanguage] is Japanese:** You **MUST** transcribe all spoken words and vocalizations/breaths in **syllable-hyphenated ASCII Hepburn Romaji** (Latin alphabet only, separating every audible syllable/mora within a word or vocalization with a hyphen `-`, e.g., `Se-n-pa-i`, `ki-mo-chi-i`, `fu-fu`, `ha-a`; no Kanji/Hiragana/Katakana, no macrons like `ō` or `ū`). Keep normal spaces between words.
 * **If [TranscriptionLanguage] is any other language:** Transcribe in the standard native script of [TranscriptionLanguage].
 
 ### Rules:
-1. Transcribe strictly what is audible inside the clip.
-2. If words or syllables are cut off at the start or end, transcribe only the audible portion (e.g., if `sugoi de` has `su` cut off at the start, output `"goi de."`).
-3. Do not invent or complete cut-off words.
-4. **Multiple Speakers:** If multiple people speak simultaneously or back-to-back inside the clip, transcribe all main spoken lines (separated by ` / ` or `\n- `), ignoring faint background hums or giggles.
-5. If no speech is present (only breathing, moaning without words, bed rustle, or silence), output an empty string: `"VoiceText": ""`.
+1. Transcribe strictly and completely what is audible inside the clip.
+2. **Include All Audible Breaths, Moans & Giggles (`fu-fu`, `a`, `a-a`, `a-h`, `ha-a`, `fu-u`, `n-n`, etc.):** Do NOT filter out or clean up leading, trailing, or internal breaths, sighs, gasps, moans, hums, or giggles. If a speaker giggles (`fu-fu`), exhales/pants (`ha-a`, `fu-u`), or moans (`a`, `a-a`, `n-n`) before, during, or after the spoken words, you **MUST** include those exact sounds in `VoiceText` (e.g., `"Fu-fu, chi-ku-bi ki-mo-chi-i?"` or `"Ha-a, ki-mo-chi-i, ha-a..."`) so downstream timing refinement can detect and remove them.
+3. If words, syllables, or vocalizations are cut off at the start or end, transcribe only the audible syllables (e.g., if `su-go-i de` has `su` cut off at the start, output `"go-i de."`).
+4. Do not invent or complete cut-off words.
+5. **Multiple Speakers:** If multiple people speak or vocalize simultaneously or back-to-back inside the clip, transcribe all audible lines and vocalizations (separated by ` / ` or `\n- `).
+6. Only if no human vocal or breath sounds are present (only bed rustle, room noise, or silence), output an empty string: `"VoiceText": ""`.
 
-IMPORTANT: A clip may contain a 0.5s–2.0s pause/silence in the middle of a sentence. Always listen all the way to the very end of the AudioClip and transcribe everything spoken both before AND after any internal pause.
+IMPORTANT: A clip may contain a 0.5s–2.0s pause/silence in the middle of a sentence. Always listen all the way from the very beginning to the very end of the AudioClip and transcribe everything spoken or vocalized both before AND after any internal pause.
 
 ### Output Format:
 Return a valid JSON array of objects containing only `"StartTime"` and `"VoiceText"`:
 [
   {
     "StartTime": "00:00:03.428",
-    "VoiceText": "goi de."
+    "VoiceText": "go-i de."
   },
   {
     "StartTime": "00:00:05.542",
-    "VoiceText": "E, sugonai?"
+    "VoiceText": "Fu-fu, e, su-go-na-i? Ha-a..."
   }
 ]
 _______________________________________="

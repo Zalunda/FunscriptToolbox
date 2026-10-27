@@ -1,25 +1,49 @@
 using FunscriptToolbox.Core;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
+    /// <summary>
+    /// Refines the timing of an existing transcription by re-transcribing shorter / longer audio clips.
+    ///
+    /// Clip boundaries only ever move from one "dip" of the audio terrain to the next
+    /// (see AudioTerrainMappingPhysicBased). Every window that is tested is kept, together with
+    /// what the AI heard, and the final timing is picked at the end among all tests:
+    /// the tightest window whose heard text is as close to the original text as the best test.
+    /// </summary>
     public class TranscriberAIRefineTiming : TranscriberAI
     {
         public enum MatchResult
         {
             FullMatch,
-            FullExtra,
             MissingStart,
             MissingEnd,
             MissingBoth,
             Mismatch
+        }
+
+        /// <summary>Which boundary move produced a test window.</summary>
+        public enum TimingMove
+        {
+            Init,
+            ExpandStart,
+            ShrinkStart,
+            ShrinkEnd,
+            ExpandEnd
+        }
+
+        public enum TestWinner
+        {
+            First,
+            Second,
+            Tie
         }
 
         public class JobState
@@ -30,6 +54,47 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public List<TimingCandidate> Candidates { get; set; } = new List<TimingCandidate>();
             public List<TimeSpan> ActiveBatchStartTimes { get; set; }
             public Transcription PendingBatch { get; set; }
+
+#if DEBUG
+            public Dictionary<string, string> CachedResult = new Dictionary<string, string>();
+            public void AddCachedResult(TimeSpan startTime, TimeSpan endTime, string result)
+            {
+                var key = $"{startTime}-{endTime}";
+                CachedResult[key] = result;
+            }
+            public bool TryGetCachedResult(TimeSpan startTime, TimeSpan endTime, out string result)
+            {
+                var key = $"{startTime}-{endTime}";
+                return CachedResult.TryGetValue(key, out result);
+            }
+#endif
+        }
+
+        public class TimeWindow
+        {
+            public TimeSpan Start { get; set; }
+            public TimeSpan End { get; set; }
+            public TimingMove Kind { get; set; }
+
+            [JsonIgnore] public TimeSpan Duration => End - Start;
+
+            public TimeWindow() { }
+
+            public TimeWindow(TimeSpan start, TimeSpan end, TimingMove kind = TimingMove.Init)
+            {
+                Start = start;
+                End = end;
+                Kind = kind;
+            }
+        }
+
+        /// <summary>A window that was sent to the AI, with the answer.</summary>
+        public class TestedWindow : TimeWindow
+        {
+            public int Round { get; set; }
+            public string HeardText { get; set; }
+            public MatchResult Match { get; set; }
+            public double Similarity { get; set; }
         }
 
         public class TimingCandidate
@@ -39,27 +104,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public string OriginalText { get; set; }
 
             [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
-            
+
+            // Best window found so far. Once the candidate is finished, this is the final timing.
             public TimeSpan CurrentTestStart { get; set; }
             public TimeSpan CurrentTestEnd { get; set; }
 
-            // Tracks the bounds of the previous row in the trace to compute '+', '-', or ' '
-            public TimeSpan TracePrevStart { get; set; }
-            public TimeSpan TracePrevEnd { get; set; }
-            public char PendingStartMod { get; set; } = ' ';
-            public char PendingEndMod { get; set; } = ' ';
+            // Windows waiting to be sent to the AI in the next iteration.
+            public List<TimeWindow> Plan { get; set; } = new List<TimeWindow>();
 
-            public TimeSpan PreviousTestStart { get; set; }
-            public TimeSpan PreviousTestEnd { get; set; }
-            public string LastVoiceTextHeardText { get; set; }
+            // Every window already tested, with what the AI heard. Nothing is ever discarded.
+            public List<TestedWindow> Tests { get; set; } = new List<TestedWindow>();
 
             public bool IsStartLocked { get; set; }
             public bool IsEndLocked { get; set; }
             [JsonIgnore] public bool IsFullyLocked => IsStartLocked && IsEndLocked;
 
+            // Number of completed rounds (a round = all windows of one plan have an answer).
             public int RetryCount { get; set; }
             public List<string> ValidationNotes { get; set; } = new List<string>();
             public List<string> Trace { get; set; } = new List<string>();
+
+            public TestedWindow FindTest(TimeSpan start, TimeSpan end)
+            {
+                return Tests.FirstOrDefault(t => t.Start == start && t.End == end);
+            }
 
             public void AddValidationNote(string note)
             {
@@ -101,36 +169,64 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 }
                 else
                 {
-                    string resCol = (result ?? "").PadRight(12);
+                    string resCol = (result ?? "").PadRight(18);
                     string textCol = text != null ? $"'{text}'" : "";
                     Trace.Add($"{lockTag} {stepCol} {boundsCol} {resCol} {textCol}".TrimEnd());
                 }
             }
         }
 
+        [JsonProperty(Order = 20)]
+        public string SourceAudioIdForWaveform { get; set; }
+
         [JsonProperty(Order = 34, Required = Required.Always)]
         public AIOptions InnerOptions { get; set; } = new AIOptions();
 
+        // Maximum number of rounds per candidate (a round tests 1 or 2 windows).
         [JsonProperty(Order = 43)]
-        public int MaxRetriesPerNode { get; set; } = 3;
+        public int MaxRetriesPerNode { get; set; } = 8;
 
         [JsonProperty(Order = 44)]
-        public double MaxBudgetRatio { get; set; } = 3.0;
+        public double MaxBudgetRatio { get; set; } = 8.0;
 
+        // How far (seconds) a boundary may move away from its original position.
         [JsonProperty(Order = 45)]
         public double MaxDriftSeconds { get; set; } = 0.6;
 
+        // No longer used (boundaries now move dip to dip). Kept so existing configs still load.
         [JsonProperty(Order = 46)]
         public double ShrinkStepSeconds { get; set; } = 0.2;
 
         [JsonProperty(Order = 47)]
         public double MinSubtitleDurationSeconds { get; set; } = 0.5;
 
+        // Heard text with at least this similarity (0..1) to the original text counts as a full match.
+        [JsonProperty(Order = 48)]
+        public double FullMatchSimilarity { get; set; } = 0.85;
+
+        // Heard text with at least this similarity to the beginning / end of the original counts as Missing End / Start.
+        [JsonProperty(Order = 49)]
+        public double PartialMatchSimilarity { get; set; } = 0.80;
+
+        // Two heard texts whose similarity to the original differ by less than this are considered equally close.
+        [JsonProperty(Order = 50)]
+        public double SimilarityTieTolerance { get; set; } = 0.03;
+
+        [JsonIgnore]
+        private AudioTerrainMappingPhysicBased r_mapping;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
+            if (!string.IsNullOrEmpty(this.SourceAudioIdForWaveform)
+                && context.WIP.AudioExtractions.Any(f => f.Id == this.SourceAudioIdForWaveform)
+                && context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == this.SourceAudioIdForWaveform && f.IsFinished) == null)
+            {
+                reason = $"Audio extraction '{this.SourceAudioIdForWaveform}' is not done yet.";
+                return false;
+            }
+
             foreach (var extractor in this.InnerOptions.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
             {
                 if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
@@ -142,8 +238,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return base.IsPrerequisitesMet(context, out reason);
         }
 
+#if DEBUG
+        private StreamWriter _writer;
+#endif
+
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
+            _writer = File.CreateText(context.WIP.BaseFilePath + ".ClasssifyDebug.txt");
+
             var jobState = transcription.CurrentJobState as JobState ?? new JobState();
             transcription.CurrentJobState = jobState;
 
@@ -154,6 +256,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 context.WriteError("Cannot refine timing: Full PCM audio extraction not found or not finished.");
                 return;
+            }
+
+            var waveformPcmAudio = (!string.IsNullOrEmpty(this.SourceAudioIdForWaveform)
+                ? context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == this.SourceAudioIdForWaveform && f.IsFinished)?.PcmAudio
+                : null) ?? fullPcmAudio;
+
+            if (r_mapping == null)
+            {
+                r_mapping = new AudioTerrainMappingPhysicBased(waveformPcmAudio)
+                {
+                    MsPerFrame = 1,
+                    BallRadiusMs = 5,
+                    DropIntervalMs = 1,
+                    MinDistanceTraveledMs = 5,
+                    MinInterIslandSilence = TimeSpan.FromMilliseconds(300),
+                    DropFloorFactor = 0.3f
+                };
+                r_mapping.Compute();
+                context.WriteInfo($"[RefineTiming] Terrain mapping: {r_mapping.Islands.Count} islands, {r_mapping.Segments.Count} segments.");
+                DoExportSrt(context, transcription, r_mapping.ToSegmentSubtitles(), "TERRAIN-MAP-PHYSIC");
+                r_mapping.SaveDebugImage(context.WIP.BaseFilePath + $".terrain.jpg", TimeSpan.FromSeconds(88), TimeSpan.FromSeconds(5), 1, 700, 120);
             }
 
             var aggregation = this.Metadatas?.Aggregate(context);
@@ -168,10 +291,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return;
             }
 
+#if DEBUG
+            var oldCache = jobState.CachedResult;
+            jobState = new JobState();
+            jobState.CachedResult = oldCache;
+            transcription.CurrentJobState = jobState;
+#endif
+
             if (jobState.Candidates.Count == 0)
             {
                 context.WriteInfo($"[RefineTiming] Phase 1: Initializing acoustic bounds on {originalItems.Count} candidates...");
-                jobState.Candidates = InitializeCandidates(fullPcmAudio, originalItems);
+                jobState.Candidates = InitializeCandidates(originalItems);
                 DoExportTraceSrt(context, transcription, jobState.Candidates, "FIRST-INIT");
             }
             else
@@ -190,6 +320,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             while (jobState.TotalTestsRun < totalAllowedTests)
             {
+#if DEBUG
+                _writer.WriteLine($"---- START ITERATION #{jobState.Iteration}");
+#endif
                 var pendingCandidates = jobState.Candidates
                     .Where(c => !c.IsFullyLocked && c.RetryCount < MaxRetriesPerNode)
                     .ToList();
@@ -217,8 +350,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         privateMetadataNames: null,
                         language: transcription.Language,
                         isFinished: false);
-
-                    context.WIP.Save();
                 }
                 else
                 {
@@ -228,10 +359,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         .ToList();
                 }
 
+#if DEBUG
+                var itemToRemove = new List<TimingCandidate>();
+                foreach (var cand in batchToTest)
+                {
+                    if (jobState.TryGetCachedResult(cand.CurrentTestStart, cand.CurrentTestEnd, out var result))
+                    {
+                        jobState.PendingBatch.AddNewItem(cand.CurrentTestStart, cand.CurrentTestEnd, MetadataCollection.CreateSimple(this.InnerOptions.MetadataAlwaysProduced, result));
+                        itemToRemove.Add(cand);
+                    }
+                }
+                batchToTest.RemoveAll(c => itemToRemove.Contains(c));
+#endif
+
                 if (batchToTest.Count > 0)
                 {
+                    // Safety net (e.g. state saved by an older version): make sure there is something to test
+                    foreach (var cand in batchToTest)
+                    {
+                        if (cand.Plan.Count == 0)
+                            cand.Plan.Add(new TimeWindow(cand.CurrentTestStart, cand.CurrentTestEnd));
+                    }
+
+                    // A candidate can have several windows to test (e.g. shrink start AND shrink end)
                     var itemsToBeProcessed = batchToTest
-                        .Select(cand => new TimedItemWithMetadata(cand.CurrentTestStart, cand.CurrentTestEnd, new MetadataCollection()))
+                        .SelectMany(cand => cand.Plan)
+                        .Select(w => new TimedItemWithMetadata(w.Start, w.End, new MetadataCollection()))
                         .ToArray();
 
                     var requestGenerator = ExecuteRequests(context, jobState.PendingBatch, this.InnerOptions, itemsToBeProcessed);
@@ -240,8 +393,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         return; // Interrupted
                 }
 
+#if DEBUG
+                foreach (var item in jobState.PendingBatch.Items)
+                {
+                    jobState.AddCachedResult(item.StartTime, item.EndTime, item.Metadata[this.InnerOptions.MetadataAlwaysProduced]);
+                }
+                context.WIP.Save();
+#endif
+
                 jobState.TotalTestsRun += jobState.PendingBatch.Items.Count;
-                ProcessBatchResults(context, batchToTest, jobState.PendingBatch, fullPcmAudio);
+                ProcessBatchResults(jobState.Candidates, jobState.PendingBatch);
                 DoExportTraceSrt(context, transcription, jobState.Candidates, "TRACE");
 
                 transcription.Costs.AddRange(jobState.PendingBatch.Costs);
@@ -249,17 +410,53 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 jobState.ActiveBatchStartTimes = null;
                 context.WIP.Save();
 
+#if DEBUG
+                var dict = new Dictionary<MatchResult, int>();
+                var nomoves = 0;
+                foreach (var cand in jobState.Candidates)
+                {
+                    var match = cand.Tests.LastOrDefault()?.Match;
+                    if (match != null)
+                    {
+                        if (!dict.TryGetValue(match.Value, out var kindCount))
+                        {
+                            dict[match.Value] = 1;
+                        }
+                        else
+                        {
+                            dict[match.Value] = dict[match.Value] + 1;
+                        }
+                    }
+                    else
+                    {
+                        nomoves++;
+                    }
+                }
+                _writer.WriteLine($"--------------- END ITERATION #{jobState.Iteration}");
+                foreach (var kvp in dict)
+                {
+                    _writer.WriteLine($"{kvp.Key} = {kvp.Value}");
+                }
+                _writer.WriteLine($"No moves = {nomoves}");
+                _writer.Flush();
+#endif
                 int lockedNodes = jobState.Candidates.Count(c => c.IsFullyLocked);
                 context.WriteInfo($"[RefineTiming] Progress: {lockedNodes}/{jobState.Candidates.Count} fully locked.");
             }
 
+#if DEBUG
+            _writer.Close();
+#endif
+            return; // Don't want to finalize or I can't retry easily
             FinalizeTranscription(transcription, jobState.Candidates);
             transcription.MarkAsFinished();
             context.WIP.Save();
             context.WriteInfo($"[RefineTiming] Refinement completed ({jobState.TotalTestsRun} tests run).");
         }
 
-        private List<TimingCandidate> InitializeCandidates(PcmAudio fullPcmAudio, List<TimedItemWithMetadata> originalItems)
+        #region Initial bounds
+
+        private List<TimingCandidate> InitializeCandidates(List<TimedItemWithMetadata> originalItems)
         {
             var candidates = new List<TimingCandidate>();
 
@@ -270,49 +467,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     OriginalStartTime = item.StartTime,
                     OriginalEndTime = item.EndTime,
                     OriginalItem = item,
-                    OriginalText = item.Metadata.TryGetValue(this.InnerOptions.MetadataNeeded, out var ct) ? ct : string.Empty,
+                    OriginalText = item.Metadata.TryGetValue(this.Options.MetadataNeeded, out var ct) ? ct : string.Empty,
                     CurrentTestStart = item.StartTime,
-                    CurrentTestEnd = item.EndTime,
-                    PreviousTestStart = item.StartTime,
-                    PreviousTestEnd = item.EndTime
+                    CurrentTestEnd = item.EndTime
                 };
 
-                var terrain = CreateCandidateTerrain(fullPcmAudio, cand);
-                var cursor = terrain.From(cand.OriginalStartTime, cand.OriginalEndTime);
+                TimeSpan start = SnapStart(cand);
+                TimeSpan end = SnapEnd(cand);
 
-                // 1. Refine Start
-                if (cursor.Start.MoveIfSilent(BoundaryDirection.Inward))
+                // Both boundaries ended up in the same stretch of silence: keep the original timing
+                if (end <= start)
                 {
-                    cursor.Start.MoveTowardSpeech(BoundaryDirection.Inward);
-                }
-                else
-                {
-                    cursor.Start.SlideDownSlopeToStableValley(BoundaryDirection.Outward);
+                    start = item.StartTime;
+                    end = item.EndTime;
                 }
 
-                // 2. Refine End
-                if (cursor.End.MoveIfSilent(BoundaryDirection.Inward))
-                {
-                    cursor.End.MoveTowardSpeech(BoundaryDirection.Inward);
-                }
-                else
-                {
-                    cursor.End.SlideDownSlopeToStableValley(BoundaryDirection.Outward);
-                }
+                EnforceMinimumDuration(cand, ref start, ref end);
 
-                cursor.EnforceMinimumDuration(TimeSpan.FromSeconds(MinSubtitleDurationSeconds));
+                cand.CurrentTestStart = start;
+                cand.CurrentTestEnd = end;
+                cand.Plan.Add(new TimeWindow(start, end, TimingMove.Init));
 
-                cand.CurrentTestStart = cursor.Start.Position;
-                cand.CurrentTestEnd = cursor.End.Position;
-                cand.PreviousTestStart = cand.CurrentTestStart;
-                cand.PreviousTestEnd = cand.CurrentTestEnd;
-
-                // Log Orig row immediately
                 cand.AddTraceRow("Orig", ' ', item.StartTime, item.EndTime, ' ', "", cand.OriginalText);
-
-                // Calculate how Init moved compared to Orig
-                cand.PendingStartMod = TimingCandidate.GetStartMod(item.StartTime, cand.CurrentTestStart);
-                cand.PendingEndMod = TimingCandidate.GetEndMod(item.EndTime, cand.CurrentTestEnd);
 
                 candidates.Add(cand);
             }
@@ -320,202 +496,559 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return candidates;
         }
 
-        private void ProcessBatchResults(
-            SubtitleGeneratorContext context,
-            List<TimingCandidate> batch,
-            Transcription fakeTranscription,
-            PcmAudio fullPcmAudio)
+        /// <summary>
+        /// In silence: move inward to the first mountain.
+        /// Inside a mountain: slide outward to the dip that starts it.
+        /// </summary>
+        private TimeSpan SnapStart(TimingCandidate cand)
         {
+            var t = cand.OriginalStartTime;
+            TimeSpan? snapped = r_mapping.IsSilent(t)
+                ? r_mapping.SnapStartInward(t)
+                : r_mapping.SnapStartOutward(t);
+
+            return snapped.HasValue && (snapped.Value - t).Duration() <= TimeSpan.FromSeconds(MaxDriftSeconds)
+                ? snapped.Value
+                : t;
+        }
+
+        /// <summary>
+        /// In silence: move inward to the end of the last mountain.
+        /// Inside a mountain: slide outward to the dip that ends it.
+        /// </summary>
+        private TimeSpan SnapEnd(TimingCandidate cand)
+        {
+            var t = cand.OriginalEndTime;
+            TimeSpan? snapped = r_mapping.IsSilent(t)
+                ? r_mapping.SnapEndInward(t)
+                : r_mapping.SnapEndOutward(t);
+
+            return snapped.HasValue && (snapped.Value - t).Duration() <= TimeSpan.FromSeconds(MaxDriftSeconds)
+                ? snapped.Value
+                : t;
+        }
+
+        private void EnforceMinimumDuration(TimingCandidate cand, ref TimeSpan start, ref TimeSpan end)
+        {
+            var minDuration = TimeSpan.FromSeconds(MinSubtitleDurationSeconds);
+
+            for (int i = 0; i < 20 && end - start < minDuration; i++)
+            {
+                var endDip = NextDip(cand, new TimeWindow(start, end), isStart: false, outward: true);
+                if (endDip.HasValue)
+                    end = endDip.Value;
+                if (end - start >= minDuration)
+                    break;
+
+                var startDip = NextDip(cand, new TimeWindow(start, end), isStart: true, outward: true);
+                if (startDip.HasValue)
+                    start = startDip.Value;
+
+                if (!endDip.HasValue && !startDip.HasValue)
+                    break;
+            }
+
+            // Still too short (no more dips within MaxDrift): pad the end
+            if (end - start < minDuration)
+                end = start + minDuration;
+        }
+
+        #endregion
+
+        #region Search: results -> decision -> next windows
+
+        private void ProcessBatchResults(List<TimingCandidate> batch, Transcription fakeTranscription)
+        {
+            var touched = new List<TimingCandidate>();
+
             foreach (var fakeItem in fakeTranscription.Items)
             {
-                var cand = batch.FirstOrDefault(c => c.CurrentTestStart == fakeItem.StartTime);
+                var cand = batch.FirstOrDefault(c => c.Plan.Any(w => w.Start == fakeItem.StartTime && w.End == fakeItem.EndTime));
                 if (cand == null) continue;
 
-                cand.RetryCount++;
-                string voiceTextHeard = fakeItem.Metadata.TryGetValue(this.Options.MetadataAlwaysProduced, out var h) ? h : string.Empty;
-                string normalizedVoiceTextHeard = Normalize(voiceTextHeard);
+                var window = cand.Plan.First(w => w.Start == fakeItem.StartTime && w.End == fakeItem.EndTime);
+                string heard = fakeItem.Metadata.TryGetValue(this.InnerOptions.MetadataAlwaysProduced, out var h) ? h : string.Empty;
 
-                var match = EvaluateMatch(cand.OriginalText, voiceTextHeard);
-
-                bool heardUnchanged = !string.IsNullOrEmpty(cand.LastVoiceTextHeardText)
-                                      && cand.LastVoiceTextHeardText == normalizedVoiceTextHeard;
-
-                cand.LastVoiceTextHeardText = normalizedVoiceTextHeard;
-
-                string stepName = cand.RetryCount == 1 ? "Init" : $"#{cand.RetryCount - 1}";
-                char testedStartMod = cand.PendingStartMod;
-                char testedEndMod = cand.PendingEndMod;
-
-                TimeSpan nextStart = cand.CurrentTestStart;
-                TimeSpan nextEnd = cand.CurrentTestEnd;
-                bool reverted = false;
-
-                switch (match)
+                var test = new TestedWindow
                 {
-                    case MatchResult.FullMatch:
-                        cand.IsStartLocked = true;
-                        cand.IsEndLocked = true;
-                        cand.ValidationNotes.Clear();
-                        break;
+                    Start = window.Start,
+                    End = window.End,
+                    Kind = window.Kind,
+                    Round = cand.RetryCount,
+                    HeardText = heard,
+                    Match = Classify(cand.OriginalText, heard),
+                    Similarity = TextSimilarity(cand.OriginalText, heard)
+                };
+#if DEBUG
+                _writer.WriteLine($"Original: {cand.OriginalText}");
+                _writer.WriteLine($"Heard:    {heard}");
+                _writer.WriteLine($"{cand.OriginalStartTime} => {test.Match}");
+#endif
 
-                    case MatchResult.FullExtra:
-                        cand.IsStartLocked = true;
-                        cand.IsEndLocked = true;
-                        cand.ValidationNotes.Clear();
-                        cand.AddValidationNote($"Review: Too Much Text Found , Timing Could Be Tightened or expended to include part that was missed by transcriber: {voiceTextHeard}");
-                        break;
+                // Trace: +/- shown relative to the window this one was derived from
+                bool isInit = test.Kind == TimingMove.Init;
+                char startMod = isInit
+                    ? TimingCandidate.GetStartMod(cand.OriginalStartTime, test.Start)
+                    : TimingCandidate.GetStartMod(cand.CurrentTestStart, test.Start);
+                char endMod = isInit
+                    ? TimingCandidate.GetEndMod(cand.OriginalEndTime, test.End)
+                    : TimingCandidate.GetEndMod(cand.CurrentTestEnd, test.End);
 
-                    case MatchResult.MissingStart:
-                        cand.IsEndLocked = true;
+                cand.Tests.Add(test);
+                cand.Plan.Remove(window);
 
-                        if (cand.IsStartLocked)
-                        {
-                            // Start was already verified in a prior pass, and End was just verified now!
-                            cand.ValidationNotes.Clear();
-                        }
-                        else if (heardUnchanged && cand.RetryCount > 1)
-                        {
-                            nextStart = cand.PreviousTestStart;
-                            cand.IsStartLocked = true;
-                            reverted = true;
-                            cand.AddValidationNote("Unsure: Missing Start");
-                        }
-                        else if (cand.RetryCount >= MaxRetriesPerNode)
-                        {
-                            cand.IsStartLocked = true;
-                            cand.AddValidationNote("Unsure: Missing Start");
-                        }
-                        else
-                        {
-                            cand.PreviousTestStart = cand.CurrentTestStart;
-                            nextStart = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.Start);
-                        }
-                        break;
+                string stepName = cand.Tests.Count == 1 ? "Init" : $"#{cand.Tests.Count - 1}";
+                cand.AddTraceRow(stepName, startMod, test.Start, test.End, endMod, $"{test.Match} {test.Similarity:0.00}", heard);
 
-                    case MatchResult.MissingEnd:
-                        cand.IsStartLocked = true;
+                if (!touched.Contains(cand))
+                    touched.Add(cand);
+            }
 
-                        if (cand.IsEndLocked)
-                        {
-                            // End was already verified in a prior pass, and Start was just verified now!
-                            cand.ValidationNotes.Clear();
-                        }
-                        else if (heardUnchanged && cand.RetryCount > 1)
-                        {
-                            nextEnd = cand.PreviousTestEnd;
-                            cand.IsEndLocked = true;
-                            reverted = true;
-                            cand.AddValidationNote("Unsure: Missing End");
-                        }
-                        else if (cand.RetryCount >= MaxRetriesPerNode)
-                        {
-                            cand.IsEndLocked = true;
-                            cand.AddValidationNote("Unsure: Missing End");
-                        }
-                        else
-                        {
-                            cand.PreviousTestEnd = cand.CurrentTestEnd;
-                            nextEnd = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.End);
-                        }
-                        break;
+            foreach (var cand in touched)
+            {
+                // Some windows of this round are still waiting for their answer: decide next time
+                if (cand.Plan.Count > 0)
+                    continue;
 
-                    case MatchResult.MissingBoth:
-                        if (heardUnchanged && cand.RetryCount > 1)
-                        {
-                            nextStart = cand.PreviousTestStart;
-                            nextEnd = cand.PreviousTestEnd;
-                            cand.IsStartLocked = cand.IsEndLocked = true;
-                            reverted = true;
-                            cand.AddValidationNote("Unsure: Clipped Both Sides");
-                        }
-                        else if (cand.RetryCount >= MaxRetriesPerNode)
-                        {
-                            cand.IsStartLocked = cand.IsEndLocked = true;
-                            cand.AddValidationNote("Unsure: Clipped Both Sides");
-                        }
-                        else
-                        {
-                            cand.PreviousTestStart = cand.CurrentTestStart;
-                            cand.PreviousTestEnd = cand.CurrentTestEnd;
-                            nextStart = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.Start);
-                            nextEnd = ExpandBoundary(fullPcmAudio, cand, BoundaryPointType.End);
-                        }
-                        break;
-
-                    case MatchResult.Mismatch:
-                        cand.IsStartLocked = cand.IsEndLocked = true;
-                        string note = string.IsNullOrWhiteSpace(voiceTextHeard) ? "Unsure: Audio Inaudible" : $"Unsure: Text Mismatch: {voiceTextHeard}";
-                        cand.AddValidationNote(note);
-                        break;
-                }
-
-                // 1. Log the test row that just ran
-                cand.AddTraceRow(
-                    stepName,
-                    testedStartMod,
-                    cand.CurrentTestStart,
-                    cand.CurrentTestEnd,
-                    testedEndMod,
-                    match.ToString(),
-                    voiceTextHeard);
-
-                // 2. If we reverted because expansion heard nothing new, log the 'Rev' row with +/-
-                if (reverted)
-                {
-                    char revStartMod = TimingCandidate.GetStartMod(cand.CurrentTestStart, nextStart);
-                    char revEndMod = TimingCandidate.GetEndMod(cand.CurrentTestEnd, nextEnd);
-                    cand.AddTraceRow("Rev", revStartMod, nextStart, nextEnd, revEndMod);
-                }
-                else if (!cand.IsFullyLocked)
-                {
-                    // Prepare the +/- modifiers for the next test iteration
-                    cand.PendingStartMod = TimingCandidate.GetStartMod(cand.CurrentTestStart, nextStart);
-                    cand.PendingEndMod = TimingCandidate.GetEndMod(cand.CurrentTestEnd, nextEnd);
-                }
-
-                cand.CurrentTestStart = nextStart;
-                cand.CurrentTestEnd = nextEnd;
+                AdvanceCandidate(cand);
             }
         }
 
-        #region EvaluateMatch
+        /// <summary>
+        /// Called when every window of the current round has an answer.
+        /// Locks the sides that cannot improve, picks the best window so far and plans the next round.
+        /// </summary>
+        private void AdvanceCandidate(TimingCandidate cand)
+        {
+            var previousBest = cand.FindTest(cand.CurrentTestStart, cand.CurrentTestEnd);
+            var roundTests = cand.Tests.Where(t => t.Round == cand.RetryCount).ToList();
+            cand.RetryCount++;
+
+            // 1. Judge each move tried in this round
+            var eligible = GetEligibleTests(cand);
+            foreach (var test in roundTests)
+            {
+                switch (test.Kind)
+                {
+                    case TimingMove.ShrinkStart:
+                        if (!eligible.Contains(test)) cand.IsStartLocked = true;
+                        break;
+                    case TimingMove.ShrinkEnd:
+                        if (!eligible.Contains(test)) cand.IsEndLocked = true;
+                        break;
+                    case TimingMove.ExpandStart:
+                        if (!IsGain(cand, previousBest, test)) cand.IsStartLocked = true;
+                        break;
+                    case TimingMove.ExpandEnd:
+                        if (!IsGain(cand, previousBest, test)) cand.IsEndLocked = true;
+                        break;
+                }
+            }
+
+            // 2. Best window among ALL tests so far
+            var best = PickBest(cand);
+
+            if (best.Start != cand.CurrentTestStart || best.End != cand.CurrentTestEnd)
+            {
+                cand.AddTraceRow(
+                    "Best",
+                    TimingCandidate.GetStartMod(cand.CurrentTestStart, best.Start),
+                    best.Start,
+                    best.End,
+                    TimingCandidate.GetEndMod(cand.CurrentTestEnd, best.End));
+            }
+
+            cand.CurrentTestStart = best.Start;
+            cand.CurrentTestEnd = best.End;
+
+            // 3. Plan the next round (or stop)
+            cand.Plan.Clear();
+            if (cand.RetryCount < MaxRetriesPerNode)
+                PlanNextMoves(cand, best);
+
+            if (cand.Plan.Count == 0)
+            {
+                cand.IsStartLocked = true;
+                cand.IsEndLocked = true;
+                SetFinalNotes(cand, best);
+            }
+        }
+
+        /// <summary>
+        /// Tests whose heard text is as close to the original text as the closest one,
+        /// restricted to tests that cover the whole text (FullMatch / FullExtra).
+        /// </summary>
+        private List<TestedWindow> GetEligibleTests(TimingCandidate cand)
+        {
+            var pool = cand.Tests.Where(t => t.Match == MatchResult.FullMatch).ToList();
+            if (pool.Count == 0)
+                return new List<TestedWindow>();
+
+            var top = pool.OrderByDescending(t => t.Similarity).First();
+            return pool
+                .Where(t => EvaluateMatch(cand.OriginalText, top.HeardText, t.HeardText) != TestWinner.First)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Final choice: the tightest window among the eligible tests.
+        /// While no test covers the whole text yet, the test closest to the original text.
+        /// </summary>
+        private TestedWindow PickBest(TimingCandidate cand)
+        {
+            var eligible = GetEligibleTests(cand);
+            if (eligible.Count > 0)
+                return eligible.OrderBy(t => t.Duration).First();
+
+            return cand.Tests
+                .OrderByDescending(t => t.Similarity)
+                .ThenByDescending(t => t.Duration)
+                .First();
+        }
+
+        /// <summary>An expansion is worth continuing if it brought us closer to the original text.</summary>
+        private bool IsGain(TimingCandidate cand, TestedWindow previousBest, TestedWindow test)
+        {
+            if (previousBest == null)
+                return true;
+            if (test.Match == MatchResult.FullMatch && previousBest.Match != MatchResult.FullMatch)
+                return true;
+            return EvaluateMatch(cand.OriginalText, previousBest.HeardText, test.HeardText) == TestWinner.Second;
+        }
+
+        private void PlanNextMoves(TimingCandidate cand, TestedWindow best)
+        {
+            switch (best.Match)
+            {
+                case MatchResult.FullMatch:
+                    // Everything was heard: try to tighten both sides (kept as separate tests)
+                    PlanMove(cand, best, TimingMove.ShrinkStart);
+                    PlanMove(cand, best, TimingMove.ShrinkEnd);
+                    break;
+
+                case MatchResult.MissingStart:
+                    PlanMove(cand, best, TimingMove.ExpandStart);
+                    break;
+
+                case MatchResult.MissingEnd:
+                    PlanMove(cand, best, TimingMove.ExpandEnd);
+                    break;
+
+                case MatchResult.MissingBoth:
+                    PlanMove(cand, best, TimingMove.ExpandStart);
+                    PlanMove(cand, best, TimingMove.ExpandEnd);
+                    break;
+
+                case MatchResult.Mismatch:
+                    if (best.Kind == TimingMove.Init)
+                    {
+                        PlanMove(cand, best, TimingMove.ExpandStart);
+                        PlanMove(cand, best, TimingMove.ExpandEnd);
+                    }
+                    else
+                    {
+                        var m = 0;
+                    }
+                    break; // nothing sensible to try
+            }
+        }
+
+        private void PlanMove(TimingCandidate cand, TestedWindow from, TimingMove kind)
+        {
+            bool isStart = kind == TimingMove.ExpandStart || kind == TimingMove.ShrinkStart;
+            bool outward = kind == TimingMove.ExpandStart ||  kind == TimingMove.ExpandEnd;
+
+            if (isStart ? cand.IsStartLocked : cand.IsEndLocked)
+                return;
+
+            TimeSpan? dip = NextDip(cand, from, isStart, outward);
+
+            TimeWindow next = null;
+            if (dip.HasValue)
+            {
+                next = new TimeWindow(
+                    isStart ? dip.Value : from.Start,
+                    isStart ? from.End : dip.Value,
+                    kind);
+            }
+
+            // No dip left, or this exact window was already tested: nothing new to learn on this side
+            if (next == null || cand.FindTest(next.Start, next.End) != null)
+            {
+                if (isStart) cand.IsStartLocked = true; else cand.IsEndLocked = true;
+                return;
+            }
+
+            cand.Plan.Add(next);
+        }
+
+        private void SetFinalNotes(TimingCandidate cand, TestedWindow best)
+        {
+            cand.ValidationNotes.Clear();
+
+            switch (best.Match)
+            {
+                case MatchResult.MissingStart:
+                    cand.AddValidationNote("Unsure: Missing Start");
+                    break;
+                case MatchResult.MissingEnd:
+                    cand.AddValidationNote("Unsure: Missing End");
+                    break;
+                case MatchResult.MissingBoth:
+                    cand.AddValidationNote("Unsure: Clipped Both Sides");
+                    break;
+                case MatchResult.Mismatch:
+                    cand.AddValidationNote(string.IsNullOrWhiteSpace(best.HeardText)
+                        ? "Unsure: Audio Inaudible"
+                        : $"Unsure: Text Mismatch: {best.HeardText}");
+                    break;
+            }
+        }
+
+        #endregion
+
+        #region Dips
+
+        /// <summary>
+        /// Next boundary position for one side of a window: the first dip inward or outward.
+        /// Dips that are out of range, or that IsDipUseful rejects, are skipped.
+        /// Returns null when there is none.
+        /// </summary>
+        private TimeSpan? NextDip(TimingCandidate cand, TimeWindow window, bool isStart, bool outward)
+        {
+            var maxDrift = TimeSpan.FromSeconds(MaxDriftSeconds);
+            var minDuration = TimeSpan.FromSeconds(MinSubtitleDurationSeconds);
+
+            TimeSpan position = isStart ? window.Start : window.End;
+
+            for (int guard = 0; guard < 50; guard++)
+            {
+                TimeSpan? next;
+                if (isStart)
+                    next = outward ? r_mapping.ExpandStart(position) : r_mapping.ShrinkStart(position);
+                else
+                    next = outward ? r_mapping.ExpandEnd(position) : r_mapping.ShrinkEnd(position);
+
+                if (next == null)
+                    return null;
+
+                // Limits: stay within MaxDrift of the original timing, never make the clip too short
+                if (isStart && outward && next.Value < cand.OriginalStartTime - maxDrift) return null;
+                if (!isStart && outward && next.Value > cand.OriginalEndTime + maxDrift) return null;
+                if (isStart && !outward && window.End - next.Value < minDuration) return null;
+                if (!isStart && !outward && next.Value - window.Start < minDuration) return null;
+
+                if (IsDipUseful(cand, window, isStart, outward, next.Value))
+                    return next;
+
+                position = next.Value; // skip this dip, look at the next one
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// THE place to decide that a dip "doesn't make sense" for a specific case and must be skipped.
+        /// Called for every dip NextDip finds; return false to jump over it.
+        /// Available context: the candidate (original text/timing, tests so far), the window being
+        /// moved, which side moves, the direction, and the dip position.
+        /// </summary>
+        private bool IsDipUseful(TimingCandidate cand, TimeWindow window, bool isStart, bool outward, TimeSpan dip)
+        {
+            return true;
+        }
+
+        #endregion
+
+        #region Matching
 
         private static readonly Regex PunctuationNormalizeRegex = new Regex(@"[.!…]+", RegexOptions.Compiled);
         private static readonly Regex WhitespaceNormalizeRegex = new Regex(@"\s+", RegexOptions.Compiled);
+        private static readonly Regex HyphenStripRegex = new Regex(@"(?<=\p{L})-(?=\p{L})", RegexOptions.Compiled);
 
-        private MatchResult EvaluateMatch(string candidateText, string heardText)
+        /// <summary>
+        /// Which of two tests is closest to the original text?
+        /// First  = heardFirst is clearly closer,
+        /// Second = heardSecond is clearly closer,
+        /// Tie    = equally close (difference within SimilarityTieTolerance).
+        /// Fuzzy, because the second AI pass rarely returns exactly what the first one heard.
+        /// </summary>
+        private TestWinner EvaluateMatch(string candidateText, string heardFirst, string heardSecond)
         {
-            if (string.IsNullOrWhiteSpace(heardText))
+            double a = TextSimilarity(candidateText, heardFirst);
+            double b = TextSimilarity(candidateText, heardSecond);
+
+            if (Math.Abs(a - b) <= SimilarityTieTolerance)
+                return TestWinner.Tie;
+
+            return a > b ? TestWinner.First : TestWinner.Second;
+        }
+
+        private struct SyllableAlignItem
+        {
+            public int CandIndex;
+            public int HeardIndex;
+            public double Similarity;
+        }
+
+        /// <summary>
+        /// What does the heard text say about the clip?
+        /// Uses sequence diff/alignment on syllables to classify whether the clip contains
+        /// the full candidate, extra speech, clipped start, clipped end, or is a mismatch.
+        /// </summary>
+        private MatchResult Classify(string candidateText, string heardText)
+        {
+            if (string.IsNullOrWhiteSpace(candidateText) || string.IsNullOrWhiteSpace(heardText))
                 return MatchResult.Mismatch;
 
-            string cNorm = Normalize(candidateText);
-            string hNorm = Normalize(heardText);
+            var cList = ExtractSyllables(candidateText);
+            var hList = ExtractSyllables(heardText);
 
-            if (cNorm.Length == 0 || hNorm.Length == 0)
+            if (cList.Count == 0 || hList.Count == 0)
                 return MatchResult.Mismatch;
 
-            if (cNorm == hNorm)
+            // Fast path: exact syllable sequence match
+            if (cList.Count == hList.Count)
+            {
+                bool allSame = true;
+                for (int i = 0; i < cList.Count; i++)
+                {
+                    if (cList[i] != hList[i])
+                    {
+                        allSame = false;
+                        break;
+                    }
+                }
+                if (allSame)
+                    return MatchResult.FullMatch;
+            }
+
+            int n = cList.Count;
+            int m = hList.Count;
+
+            // DP diff alignment matrix: d[i, j] = minimum edit cost to align cList[0..i-1] with hList[0..j-1]
+            var d = new double[n + 1, m + 1];
+            var dir = new byte[n + 1, m + 1]; // 1 = diag (aligned), 2 = up (cand deletion), 3 = left (heard insertion)
+
+            for (int i = 0; i <= n; i++)
+            {
+                d[i, 0] = i * 1.0;
+                dir[i, 0] = 2;
+            }
+            for (int j = 0; j <= m; j++)
+            {
+                d[0, j] = j * 1.0;
+                dir[0, j] = 3;
+            }
+            dir[0, 0] = 0;
+
+            for (int i = 1; i <= n; i++)
+            {
+                for (int j = 1; j <= m; j++)
+                {
+                    double sim = SingleSyllableSimilarity(cList[i - 1], hList[j - 1]);
+                    double subCost = (sim >= 0.25) ? 2.0 * (1.0 - sim) : 2.5;
+
+                    double costDiag = d[i - 1, j - 1] + subCost;
+                    double costUp = d[i - 1, j] + 1.0;   // cand deleted
+                    double costLeft = d[i, j - 1] + 1.0; // heard inserted
+
+                    if (costDiag <= costUp && costDiag <= costLeft)
+                    {
+                        d[i, j] = costDiag;
+                        dir[i, j] = 1;
+                    }
+                    else if (costUp <= costLeft)
+                    {
+                        d[i, j] = costUp;
+                        dir[i, j] = 2;
+                    }
+                    else
+                    {
+                        d[i, j] = costLeft;
+                        dir[i, j] = 3;
+                    }
+                }
+            }
+
+            // Traceback from (n, m) to (0, 0)
+            var align = new List<SyllableAlignItem>(n + m);
+            int curI = n, curJ = m;
+            while (curI > 0 || curJ > 0)
+            {
+                byte step = dir[curI, curJ];
+                if (step == 1)
+                {
+                    double sim = SingleSyllableSimilarity(cList[curI - 1], hList[curJ - 1]);
+                    align.Add(new SyllableAlignItem { CandIndex = curI - 1, HeardIndex = curJ - 1, Similarity = sim });
+                    curI--;
+                    curJ--;
+                }
+                else if (step == 2)
+                {
+                    align.Add(new SyllableAlignItem { CandIndex = curI - 1, HeardIndex = -1, Similarity = 0 });
+                    curI--;
+                }
+                else
+                {
+                    align.Add(new SyllableAlignItem { CandIndex = -1, HeardIndex = curJ - 1, Similarity = 0 });
+                    curJ--;
+                }
+            }
+            align.Reverse();
+
+            // Find matching syllables
+            double matchScore = 0;
+            int firstMatchIdx = -1;
+            int lastMatchIdx = -1;
+
+            for (int k = 0; k < align.Count; k++)
+            {
+                var item = align[k];
+                if (item.CandIndex >= 0 && item.HeardIndex >= 0 && item.Similarity >= 0.35)
+                {
+                    matchScore += item.Similarity;
+                    if (firstMatchIdx < 0)
+                        firstMatchIdx = k;
+                    lastMatchIdx = k;
+                }
+            }
+
+            if (firstMatchIdx < 0)
+                return MatchResult.Mismatch;
+
+            double candCoverage = matchScore / n;
+            double heardCoverage = matchScore / m;
+
+            // If neither sequence has sufficient correspondence, it's a mismatch
+            if (candCoverage < 0.35 && heardCoverage < 0.35)
+                return MatchResult.Mismatch;
+
+            int firstCand = align[firstMatchIdx].CandIndex;
+            int firstHeard = align[firstMatchIdx].HeardIndex;
+            int lastCand = align[lastMatchIdx].CandIndex;
+            int lastHeard = align[lastMatchIdx].HeardIndex;
+
+            int missingStart = firstCand;
+            int extraStart = firstHeard;
+            int missingEnd = (n - 1) - lastCand;
+            int extraEnd = (m - 1) - lastHeard;
+
+            bool hasMissingStart = missingStart > 0;
+            bool hasMissingEnd = missingEnd > 0;
+            bool hasExtraStart = extraStart > 0;
+            bool hasExtraEnd = extraEnd > 0;
+
+            if (hasMissingStart && hasMissingEnd)
+                return MatchResult.MissingBoth;
+            if (hasMissingStart)
+                return MatchResult.MissingStart;
+            if (hasMissingEnd)
+                return MatchResult.MissingEnd;
+            if (hasExtraStart || hasExtraEnd)
                 return MatchResult.FullMatch;
 
-            string cTrim = cNorm.TrimEnd('.');
-            string hTrim = hNorm.TrimEnd('.');
-
-            if (cTrim.Length == 0 || hTrim.Length == 0 || cTrim.TrimEnd('?') == hTrim.TrimEnd('?'))
-                return MatchResult.Mismatch;
-
-            if (hTrim.Contains(cTrim))
-                return MatchResult.FullExtra;
-
-            if (cTrim.StartsWith(hTrim))
-                return MatchResult.MissingEnd;
-
-            if (cTrim.EndsWith(hTrim))
-                return MatchResult.MissingStart;
-
-            if (cTrim.Contains(hTrim))
-                return MatchResult.MissingBoth;
-
-            return MatchResult.Mismatch;
+            return MatchResult.FullMatch;
         }
 
         private string Normalize(string text)
@@ -524,32 +1057,281 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return string.Empty;
 
             string s = text.Trim().ToLowerInvariant();
+            s = HyphenStripRegex.Replace(s, "");
             s = PunctuationNormalizeRegex.Replace(s, ".");
             s = WhitespaceNormalizeRegex.Replace(s, " ");
             return s;
         }
 
+        /// <summary>0 (nothing in common) .. 1 (identical), ignoring punctuation, spacing and case.</summary>
+        private static double TextSimilarity(string a, string b)
+        {
+            return SyllableSequenceSimilarity(ExtractSyllables(a), ExtractSyllables(b));
+        }
+
+        private static List<string> Slice(List<string> list, int start, int count)
+        {
+            var res = new List<string>(count);
+            for (int i = 0; i < count; i++)
+                res.Add(list[start + i]);
+            return res;
+        }
+
+        /// <summary>
+        /// Splits Romaji (hyphenated or unhyphenated) into normalized canonical morae/syllables.
+        /// Examples: "Se-n-pa-i" / "Sen-pai" / "Senpai" -> ["se", "n", "pa", "i"]
+        ///           "Ki-mo-chi-i" / "Ki-mo-chii"       -> ["ki", "mo", "chi", "i"]
+        ///           "I-ppa-i" / "Ip-pa-i"              -> ["i", "pa", "i"]
+        /// </summary>
+        private static List<string> ExtractSyllables(string text)
+        {
+            var syllables = new List<string>();
+            if (string.IsNullOrWhiteSpace(text))
+                return syllables;
+
+            var tokenBuilder = new StringBuilder();
+            foreach (char ch in text)
+            {
+                if (char.IsLetterOrDigit(ch))
+                {
+                    tokenBuilder.Append(char.ToLowerInvariant(ch));
+                }
+                else if (tokenBuilder.Length > 0)
+                {
+                    AppendTokenMorae(tokenBuilder.ToString(), syllables);
+                    tokenBuilder.Clear();
+                }
+            }
+            if (tokenBuilder.Length > 0)
+                AppendTokenMorae(tokenBuilder.ToString(), syllables);
+
+            return syllables;
+        }
+
+        private static void AppendTokenMorae(string token, List<string> syllables)
+        {
+            // Normalize trailing breath 'h' after a vowel (e.g. "ah" -> "a", "oh" -> "o")
+            if (token.Length == 2 && IsRomajiVowel(token[0]) && token[1] == 'h')
+            {
+                syllables.Add(token[0].ToString());
+                return;
+            }
+
+            int i = 0;
+            while (i < token.Length)
+            {
+                char c = token[i];
+
+                if (char.IsDigit(c))
+                {
+                    int start = i;
+                    while (i < token.Length && char.IsDigit(token[i])) i++;
+                    syllables.Add(token.Substring(start, i - start));
+                    continue;
+                }
+
+                // 1. Standalone vowel mora (a, i, u, e, o)
+                if (IsRomajiVowel(c))
+                {
+                    syllables.Add(c.ToString());
+                    i++;
+                    continue;
+                }
+
+                // 2. Moraic 'n' (at end of token, or before a non-vowel and non-'y')
+                if (c == 'n' && (i + 1 == token.Length || (!IsRomajiVowel(token[i + 1]) && token[i + 1] != 'y')))
+                {
+                    syllables.Add("n");
+                    i++;
+                    // Skip doubled 'nn' inside the same dash-token if followed by a consonant or end
+                    if (i < token.Length && token[i] == 'n' && (i + 1 == token.Length || (!IsRomajiVowel(token[i + 1]) && token[i + 1] != 'y')))
+                        i++;
+                    continue;
+                }
+
+                // 3. Geminate double consonant (e.g. "ppa" -> "pa", "tte" -> "te", "tch" -> "ch")
+                if (i + 1 < token.Length && c == token[i + 1] && c != 'n')
+                {
+                    i++;
+                    continue;
+                }
+                if (c == 't' && i + 2 < token.Length && token[i + 1] == 'c' && token[i + 2] == 'h')
+                {
+                    i++;
+                    continue;
+                }
+
+                // 4. Consonant cluster + vowel
+                int onsetStart = i;
+                while (i < token.Length && !IsRomajiVowel(token[i]) && !char.IsDigit(token[i]))
+                {
+                    i++;
+                }
+
+                if (i < token.Length && IsRomajiVowel(token[i]))
+                {
+                    string rawMora = token.Substring(onsetStart, i - onsetStart + 1);
+                    i++;
+                    // Skip trailing silent 'h' in interjections like "haa" / "ah" if written "hah"
+                    if (i < token.Length && token[i] == 'h' && (i + 1 == token.Length || !IsRomajiVowel(token[i + 1])))
+                        i++;
+                    syllables.Add(NormalizeMora(rawMora));
+                }
+                else
+                {
+                    // Trailing consonant with no vowel (e.g. "ip" from "ip-pa-i"): ignore geminate tail
+                    break;
+                }
+            }
+        }
+
+        private static bool IsRomajiVowel(char c)
+        {
+            return c == 'a' || c == 'i' || c == 'u' || c == 'e' || c == 'o';
+        }
+
+        private static string NormalizeMora(string mora)
+        {
+            switch (mora)
+            {
+                case "si": return "shi";
+                case "ti": return "chi";
+                case "tu": return "tsu";
+                case "hu": return "fu";
+                case "zi":
+                case "di": return "ji";
+                case "du": return "zu";
+                case "sya": return "sha";
+                case "syu": return "shu";
+                case "syo": return "sho";
+                case "tya": return "cha";
+                case "tyu": return "chu";
+                case "tyo": return "cho";
+                case "zya": return "ja";
+                case "zyu": return "ju";
+                case "zyo": return "jo";
+                default: return mora;
+            }
+        }
+
+        private static double SyllableSequenceSimilarity(IReadOnlyList<string> a, IReadOnlyList<string> b)
+        {
+            if (a.Count == 0 && b.Count == 0) return 1.0;
+            if (a.Count == 0 || b.Count == 0) return 0.0;
+            return 1.0 - SyllableLevenshtein(a, b) / Math.Max(a.Count, b.Count);
+        }
+
+        private static double SyllableLevenshtein(IReadOnlyList<string> a, IReadOnlyList<string> b)
+        {
+            var prev = new double[b.Count + 1];
+            var cur = new double[b.Count + 1];
+
+            for (int j = 0; j <= b.Count; j++)
+                prev[j] = j;
+
+            for (int i = 1; i <= a.Count; i++)
+            {
+                cur[0] = i;
+                for (int j = 1; j <= b.Count; j++)
+                {
+                    double subCost = 1.0 - SingleSyllableSimilarity(a[i - 1], b[j - 1]);
+                    cur[j] = Math.Min(Math.Min(cur[j - 1] + 1.0, prev[j] + 1.0), prev[j - 1] + subCost);
+                }
+                var tmp = prev; prev = cur; cur = tmp;
+            }
+
+            return prev[b.Count];
+        }
+
+        /// <summary>
+        /// Graduated similarity between two individual syllables/morae (0.0 .. 1.0).
+        /// Rewards identical vowels and phonetically close consonants when audio is slurred/breathless.
+        /// </summary>
+        private static double SingleSyllableSimilarity(string a, string b)
+        {
+            if (a == b) return 1.0;
+            if (a.Length == 0 || b.Length == 0) return 0.0;
+
+            char vowelA = a[a.Length - 1];
+            char vowelB = b[b.Length - 1];
+            bool hasVowelA = IsRomajiVowel(vowelA);
+            bool hasVowelB = IsRomajiVowel(vowelB);
+
+            if (!hasVowelA || !hasVowelB)
+            {
+                // Moraic 'n' vs nasal syllable ('na', 'ni', 'nu', 'ne', 'no', 'mu')
+                if ((a == "n" && b[0] == 'n') || (b == "n" && a[0] == 'n') || (a == "n" && b == "mu") || (b == "n" && a == "mu"))
+                    return 0.4;
+                return 0.0;
+            }
+
+            string onsetA = a.Substring(0, a.Length - 1);
+            string onsetB = b.Substring(0, b.Length - 1);
+
+            if (vowelA == vowelB)
+            {
+                if (ArePhoneticallyCloseOnsets(onsetA, onsetB))
+                    return 0.75;
+                return 0.50;
+            }
+
+            if (onsetA.Length > 0 && onsetA == onsetB)
+                return 0.40;
+
+            return 0.0;
+        }
+
+        private static bool ArePhoneticallyCloseOnsets(string onsetA, string onsetB)
+        {
+            if (onsetA == onsetB) return true;
+
+            // Breath/aspirate vs pure vowel ("ha" vs "a", "fu" vs "u")
+            if ((onsetA.Length == 0 && (onsetB == "h" || onsetB == "f")) ||
+                (onsetB.Length == 0 && (onsetA == "h" || onsetA == "f")))
+                return true;
+
+            return GetOnsetGroup(onsetA) == GetOnsetGroup(onsetB) && GetOnsetGroup(onsetA) != 0;
+        }
+
+        private static int GetOnsetGroup(string onset)
+        {
+            switch (onset)
+            {
+                case "k":
+                case "g":
+                case "ky":
+                case "gy":
+                    return 1; // Velars
+                case "s":
+                case "sh":
+                case "z":
+                case "j":
+                case "ts":
+                case "ch":
+                    return 2; // Sibilants & affricates
+                case "t":
+                case "d":
+                case "n":
+                case "ny":
+                case "r":
+                case "ry":
+                case "m":
+                case "my":
+                case "b":
+                case "by":
+                case "p":
+                case "py":
+                case "h":
+                case "hy":
+                case "f":
+                case "w":
+                    return 3; // Labials / coronals / liquids (commonly slurred in muffled speech, e.g. bi/ri)
+                default:
+                    return 0;
+            }
+        }
+
         #endregion
-
-        private AudioTerrain CreateCandidateTerrain(PcmAudio fullAudio, TimingCandidate cand)
-        {
-            var maxDrift = TimeSpan.FromSeconds(MaxDriftSeconds);
-            TimeSpan padStart = cand.OriginalStartTime - maxDrift;
-            TimeSpan padEnd = cand.OriginalEndTime + maxDrift;
-
-            return new AudioTerrain(fullAudio, cand.OriginalStartTime, cand.OriginalEndTime, padStart, padEnd);
-        }
-
-        private TimeSpan ExpandBoundary(PcmAudio fullAudio, TimingCandidate cand, BoundaryPointType pointType)
-        {
-            var terrain = CreateCandidateTerrain(fullAudio, cand);
-            var endpoint = terrain.From(cand.CurrentTestStart, cand.CurrentTestEnd)[pointType];
-
-            endpoint.Step(BoundaryDirection.Outward, TimeSpan.FromSeconds(ShrinkStepSeconds));
-            endpoint.SeekStableGround(BoundaryDirection.Outward);
-
-            return endpoint.Position;
-        }
 
         private List<TimingCandidate> SelectCandidatesForBatch(List<TimingCandidate> pendingCandidates)
         {
@@ -695,22 +1477,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             IEnumerable<TimingCandidate> candidates,
             string name)
         {
+            DoExportSrt(
+                context,
+                transcription,
+                candidates.Select(cand => new Subtitle(cand.CurrentTestStart, cand.CurrentTestEnd, cand.Trace.ToArray())),
+                name);
+        }
+
+        private void DoExportSrt(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            IEnumerable<Subtitle> subtitles,
+            string name)
+        {
             if (this.ExportMetadataSrt)
             {
                 var extension = $".Worker.{transcription.Id}.{name}.srt";
                 var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
-                virtualSubtitleFile.Subtitles.AddRange(candidates.Select(cand => new Subtitle(cand.CurrentTestStart, cand.CurrentTestEnd, cand.Trace.ToArray())));
+                virtualSubtitleFile.Subtitles.AddRange(subtitles);
                 virtualSubtitleFile.Save(context.WIP.ParentPath, extension, context.SoftDelete);
 
                 var fullfilePath = context.WIP.BaseFilePath + extension;
-                if (context.WIP.TimelineMap.IsMultipart)
-                {
-                    var newFullFile = new SubtitleFile();
-                    newFullFile.Subtitles.AddRange(
-                        virtualSubtitleFile.Subtitles.Select(item =>
-                            new Subtitle(item.StartTime, item.EndTime, item.Text)));
-                    newFullFile.SaveSrt(fullfilePath);
-                }
+                //if (context.WIP.TimelineMap.IsMultipart)
+                //{
+                //    var newFullFile = new SubtitleFile();
+                //    newFullFile.Subtitles.AddRange(
+                //        virtualSubtitleFile.Subtitles.Select(item =>
+                //            new Subtitle(item.StartTime, item.EndTime, item.Text)));
+                //    newFullFile.SaveSrt(fullfilePath);
+                //}
             }
         }
     }
