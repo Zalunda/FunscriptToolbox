@@ -8,6 +8,39 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
+    /// <summary>Which boundary of a clip is moving.</summary>
+    public enum BoundarySide
+    {
+        Start,
+        End
+    }
+
+    /// <summary>Outward = the clip gets longer, Inward = the clip gets shorter.</summary>
+    public enum MoveDirection
+    {
+        Outward,
+        Inward
+    }
+
+    /// <summary>Options for AudioTerrainMappingPhysicBased.FindDip.</summary>
+    public class DipSearch
+    {
+        /// <summary>Minimum distance between 'from' and the returned dip (0 = the next dip).</summary>
+        public TimeSpan MinJump { get; set; } = TimeSpan.Zero;
+
+        /// <summary>Mountains with a peak below this level are insignificant (0 = every mountain is significant).</summary>
+        public float SignificantLevel { get; set; } = 0f;
+
+        /// <summary>When true, the search may stop before MinJump on a speech edge (see IsSpeechEdge).</summary>
+        public bool StopAtSpeechEdge { get; set; } = false;
+
+        /// <summary>When true, 'from' itself is an acceptable answer if it is a dip ("snap").</summary>
+        public bool Inclusive { get; set; } = false;
+
+        /// <summary>The search never returns a dip beyond this time (in the direction of the move).</summary>
+        public TimeSpan? Limit { get; set; }
+    }
+
     /// <summary>
     /// Splits speech into islands (separated by silence) and cuts each island at every
     /// place where a rolling ball can come to rest in the audio-energy terrain.
@@ -80,18 +113,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public TimeSpan Duration => EndTime - StartTime;
             public SpeechIsland Island { get; internal set; }
 
+            /// <summary>Highest terrain value inside the segment ("height of the mountain").</summary>
+            public float PeakLevel { get; }
+
             internal SpeechSegment(
                 int globalIndex,
                 int islandIndex,
                 int indexInIsland,
                 TimeSpan startTime,
-                TimeSpan endTime)
+                TimeSpan endTime,
+                float peakLevel)
             {
                 GlobalIndex = globalIndex;
                 IslandIndex = islandIndex;
                 IndexInIsland = indexInIsland;
                 StartTime = startTime;
                 EndTime = endTime;
+                PeakLevel = peakLevel;
             }
         }
 
@@ -375,13 +413,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 TimeSpan segStart = islandStartTime;
                 foreach (TimeSpan segEnd in breakTimes)
                 {
-                    var seg = new SpeechSegment(allSegments.Count, islIdx, islandSegments.Count, segStart, segEnd);
+                    var seg = new SpeechSegment(allSegments.Count, islIdx, islandSegments.Count, segStart, segEnd, PeakBetween(terrain, segStart, segEnd));
                     islandSegments.Add(seg);
                     allSegments.Add(seg);
                     segStart = segEnd;
                 }
 
-                var lastSeg = new SpeechSegment(allSegments.Count, islIdx, islandSegments.Count, segStart, islandEndTime);
+                var lastSeg = new SpeechSegment(allSegments.Count, islIdx, islandSegments.Count, segStart, islandEndTime, PeakBetween(terrain, segStart, islandEndTime));
                 islandSegments.Add(lastSeg);
                 allSegments.Add(lastSeg);
 
@@ -391,6 +429,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 islands.Add(island);
             }
+        }
+
+        /// <summary>Highest terrain value in [from, to[.</summary>
+        private float PeakBetween(float[] terrain, TimeSpan from, TimeSpan to)
+        {
+            if (terrain == null || terrain.Length == 0)
+                return 0f;
+
+            int a = Math.Max(0, TimeToFrame(from));
+            int b = Math.Min(terrain.Length - 1, Math.Max(a, TimeToFrame(to) - 1));
+            float peak = 0f;
+            for (int k = a; k <= b; k++)
+                if (terrain[k] > peak) peak = terrain[k];
+            return peak;
+        }
+
+        /// <summary>Highest terrain value between two times (0 when the range is empty). Call after Compute().</summary>
+        public float GetPeakLevel(TimeSpan from, TimeSpan to)
+        {
+            if (to <= from)
+                return 0f;
+            return PeakBetween(r_terrain, from, to);
         }
 
         private static void CalibrateFloors(float[] terrain, out float silenceFloor, out float vocalFloor)
@@ -407,27 +467,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         // ---------------------------------------------------------------------
-        // Navigation: "jump a mountain, stop at the next dip"
+        // Navigation: "jump mountains, stop at a dip"
         // ---------------------------------------------------------------------
         //
         // A "mountain" is a SpeechSegment: the stretch between two consecutive resting places
         // (or between an island edge and its first/last resting place). Silence is never a mountain.
         //
-        // Every method returns the first dip strictly beyond 'from' by more than 'minStep'
-        // (default: one ball radius, so a position already sitting on a dip is not returned again),
-        // or null when there is no further dip in that direction.
+        // A START boundary only ever lands on a mountain start, an END boundary on a mountain end.
         //
-        //   Expand* : move a clip boundary OUTWARD (clip gets longer)
-        //   Shrink* : move a clip boundary INWARD  (clip gets shorter)
+        //   Outward : move a clip boundary OUTWARD (clip gets longer)
+        //   Inward  : move a clip boundary INWARD  (clip gets shorter)
         //
-        // Behaviour, identical for the four methods:
-        //   - boundary in the middle of a mountain -> lands on the dip that ends that mountain
-        //   - boundary already on a dip            -> jumps ONE full mountain, lands on the next dip
-        //   - boundary in silence                  -> crosses/trims the silence, then lands on the
-        //                                             dip on the far side of the first mountain met
-        //   - mountains > 1                        -> jumps several mountains at once
-        //
-        // minStep doubles as a "minimum progress": pass e.g. 100 ms to ignore dips that are too close.
+        // FindDip walks the dips in the direction of the move and returns the first one that is
+        // at least MinJump away from 'from', or (StopAtSpeechEdge) the first speech edge met,
+        // whichever comes first. A speech edge is a dip with a significant mountain on one side
+        // and an insignificant one (or silence) on the other side, so crossing a stretch of tiny
+        // noise mountains is done in one jump and never steps over the first/last real syllable.
 
         private List<TimeSpan> r_segStarts = new List<TimeSpan>();
         private List<TimeSpan> r_segEnds = new List<TimeSpan>();
@@ -439,49 +494,97 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             r_segEnds = Segments.Select(s => s.EndTime).ToList();
         }
 
-        private TimeSpan StepOrDefault(TimeSpan? minStep) => minStep ?? TimeSpan.FromMilliseconds(BallRadiusMs);
+        private List<TimeSpan> DipList(BoundarySide side) => side == BoundarySide.Start ? r_segStarts : r_segEnds;
 
-        /// <summary>Clip END moving later: first mountain end after 'from'.</summary>
-        public TimeSpan? ExpandEnd(TimeSpan from, int mountains = 1, TimeSpan? minStep = null)
+        /// <summary>True when moving that side in that direction moves the boundary later in time.</summary>
+        private static bool MovesLater(BoundarySide side, MoveDirection dir)
+            => (side == BoundarySide.Start) == (dir == MoveDirection.Inward);
+
+        /// <summary>
+        /// First dip for that side, moving in that direction from 'from', that satisfies the options
+        /// (see the navigation comment above). Returns null when there is none.
+        /// </summary>
+        public TimeSpan? FindDip(TimeSpan from, BoundarySide side, MoveDirection dir, DipSearch options = null)
         {
-            int i = FirstIndexGreater(r_segEnds, from + StepOrDefault(minStep)) + Math.Max(1, mountains) - 1;
-            return i < r_segEnds.Count ? r_segEnds[i] : (TimeSpan?)null;
+            options = options ?? new DipSearch();
+            var list = DipList(side);
+            bool later = MovesLater(side, dir);
+
+            int i;
+            if (later)
+                i = options.Inclusive ? LastIndexLess(list, from) + 1 : FirstIndexGreater(list, from);
+            else
+                i = options.Inclusive ? FirstIndexGreater(list, from) - 1 : LastIndexLess(list, from);
+
+            for (; i >= 0 && i < list.Count; i += later ? 1 : -1)
+            {
+                var dip = list[i];
+
+                if (options.Limit.HasValue && (later ? dip > options.Limit.Value : dip < options.Limit.Value))
+                    return null;
+
+                if ((dip - from).Duration() >= options.MinJump)
+                    return dip;
+
+                if (options.StopAtSpeechEdge && IsSpeechEdge(dip, options.SignificantLevel))
+                    return dip;
+            }
+
+            return null;
         }
 
-        /// <summary>Clip START moving earlier: last mountain start before 'from'.</summary>
-        public TimeSpan? ExpandStart(TimeSpan from, int mountains = 1, TimeSpan? minStep = null)
+        /// <summary>Every dip of that side within [from, to], in time order.</summary>
+        public IEnumerable<TimeSpan> GetDips(BoundarySide side, TimeSpan from, TimeSpan to)
         {
-            int i = LastIndexLess(r_segStarts, from - StepOrDefault(minStep)) - (Math.Max(1, mountains) - 1);
-            return i >= 0 ? r_segStarts[i] : (TimeSpan?)null;
+            var list = DipList(side);
+            for (int i = LastIndexLess(list, from) + 1; i < list.Count && list[i] <= to; i++)
+                yield return list[i];
         }
 
-        /// <summary>Clip END moving earlier: last mountain end before 'from'.</summary>
-        public TimeSpan? ShrinkEnd(TimeSpan from, int mountains = 1, TimeSpan? minStep = null)
+        /// <summary>
+        /// True when the dip has a significant mountain on one side and an insignificant
+        /// mountain (peak below significantLevel) or silence on the other side.
+        /// </summary>
+        public bool IsSpeechEdge(TimeSpan dip, float significantLevel)
         {
-            int i = LastIndexLess(r_segEnds, from - StepOrDefault(minStep)) - (Math.Max(1, mountains) - 1);
-            return i >= 0 ? r_segEnds[i] : (TimeSpan?)null;
+            bool before = IsSignificant(SegmentEndingAt(dip), significantLevel);
+            bool after = IsSignificant(SegmentStartingAt(dip), significantLevel);
+            return before != after;
         }
 
-        /// <summary>Clip START moving later: first mountain start after 'from'.</summary>
-        public TimeSpan? ShrinkStart(TimeSpan from, int mountains = 1, TimeSpan? minStep = null)
+        /// <summary>True when 'time' is in silence, or inside a mountain whose peak is below significantLevel.</summary>
+        public bool IsInsignificant(TimeSpan time, float significantLevel)
         {
-            int i = FirstIndexGreater(r_segStarts, from + StepOrDefault(minStep)) + Math.Max(1, mountains) - 1;
-            return i < r_segStarts.Count ? r_segStarts[i] : (TimeSpan?)null;
+            return !IsSignificant(SegmentAt(time), significantLevel);
         }
 
         /// <summary>True when 'time' is not inside any mountain (silence, or outside every island).</summary>
         public bool IsSilent(TimeSpan time)
         {
-            int i = LastIndexLess(r_segStarts, time + TimeSpan.FromTicks(1)); // last start <= time
-            return i < 0 || time >= r_segEnds[i];
+            return SegmentAt(time) == null;
         }
 
-        // Snap* = nearest dip in a direction, INCLUDING the position itself
-        // (Expand*/Shrink* always move; Snap* stay put when already on a dip).
-        public TimeSpan? SnapStartOutward(TimeSpan t) => ExpandStart(t, 1, TimeSpan.FromTicks(-1)); // last start  <= t
-        public TimeSpan? SnapStartInward(TimeSpan t) => ShrinkStart(t, 1, TimeSpan.FromTicks(-1));  // first start >= t
-        public TimeSpan? SnapEndOutward(TimeSpan t) => ExpandEnd(t, 1, TimeSpan.FromTicks(-1));     // first end   >= t
-        public TimeSpan? SnapEndInward(TimeSpan t) => ShrinkEnd(t, 1, TimeSpan.FromTicks(-1));      // last end    <= t
+        private static bool IsSignificant(SpeechSegment seg, float significantLevel)
+            => seg != null && seg.PeakLevel >= significantLevel;
+
+        /// <summary>Mountain containing 'time' (null in silence).</summary>
+        private SpeechSegment SegmentAt(TimeSpan time)
+        {
+            int i = LastIndexLess(r_segStarts, time + TimeSpan.FromTicks(1)); // last start <= time
+            return (i < 0 || time >= r_segEnds[i]) ? null : Segments[i];
+        }
+
+        private SpeechSegment SegmentStartingAt(TimeSpan time)
+        {
+            int i = LastIndexLess(r_segStarts, time + TimeSpan.FromTicks(1));
+            return (i >= 0 && r_segStarts[i] == time) ? Segments[i] : null;
+        }
+
+        private SpeechSegment SegmentEndingAt(TimeSpan time)
+        {
+            int i = LastIndexLess(r_segEnds, time + TimeSpan.FromTicks(1));
+            return (i >= 0 && r_segEnds[i] == time) ? Segments[i] : null;
+        }
 
         /// <summary>Index of the first element greater than v (list.Count if none).</summary>
         private static int FirstIndexGreater(List<TimeSpan> l, TimeSpan v)
