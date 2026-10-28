@@ -3,7 +3,6 @@ using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -20,15 +19,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// </summary>
     public class TranscriberAIRefineTiming : TranscriberAI
     {
-        /// <summary>Which boundary move produced a test window.</summary>
         public enum TimingMove
         {
             Init,
-            Refine,
-            ExpandStart,
-            ShrinkStart,
-            ShrinkEnd,
-            ExpandEnd
+            Expand
         }
 
         public class JobState
@@ -40,8 +34,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public List<TimeSpan> ActiveBatchStartTimes { get; set; }
             public Transcription PendingBatch { get; set; }
 
-#if DEBUG
             public Dictionary<string, string> CachedResult = new Dictionary<string, string>();
+
             public void AddCachedResult(TimeSpan startTime, TimeSpan endTime, string result)
             {
                 var key = $"{startTime}-{endTime}";
@@ -52,7 +46,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var key = $"{startTime}-{endTime}";
                 return CachedResult.TryGetValue(key, out result);
             }
-#endif
         }
 
         public class TimeWindow
@@ -60,8 +53,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public TimeSpan Start { get; set; }
             public TimeSpan End { get; set; }
             public TimingMove Kind { get; set; }
-
-            // Index (in TimingCandidate.Tests) of the test this window was derived from (-1 = none / Init).
             public int ParentIndex { get; set; } = -1;
 
             [JsonIgnore] public TimeSpan Duration => End - Start;
@@ -85,13 +76,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public int Round { get; set; }
             public string HeardText { get; set; }
             public MatchAnalysis Match { get; set; }
-
-            // The AI claimed syllables were lost on that side, but it is not physically plausible.
-            public bool SuspiciousStart { get; set; }
-            public bool SuspiciousEnd { get; set; }
-
-            public bool IsSuspicious(BoundarySide side) => side == BoundarySide.Start ? SuspiciousStart : SuspiciousEnd;
-            [JsonIgnore] public bool IsAnySuspicious => SuspiciousStart || SuspiciousEnd;
         }
 
         /// <summary>Search state of one boundary (start or end) of a candidate.</summary>
@@ -99,13 +83,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             // Tightest boundary known to cover the speech on that side.
             public TimeSpan? Good { get; set; }
-
-            // Boundary closest to Good known to cut the speech on that side.
-            public TimeSpan? Bad { get; set; }
-
             public bool IsLocked { get; set; }
-            public bool LockedBySuspicion { get; set; }
-            public int SuspiciousStreak { get; set; }
         }
 
         public class TimingCandidate
@@ -133,10 +111,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public SideSearch End { get; set; } = new SideSearch();
 
             public SideSearch Side(BoundarySide side) => side == BoundarySide.Start ? Start : End;
-
             [JsonIgnore] public bool IsFullyLocked => Start.IsLocked && End.IsLocked;
 
-            // Number of completed rounds (a round = the planned window has an answer).
             public int RetryCount { get; set; }
             public List<string> ValidationNotes { get; set; } = new List<string>();
             public List<string> Trace { get; set; } = new List<string>();
@@ -170,14 +146,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var diffMs = (cur - prev).TotalMilliseconds;
                 if (Math.Abs(diffMs) < 1) return ' ';
-                return diffMs > 0 ? '-' : '+'; // Start moving right (>0) is inward (-), moving left (<0) is outward (+)
+                return diffMs > 0 ? '-' : '+';
             }
 
             public static char GetEndMod(TimeSpan prev, TimeSpan cur)
             {
                 var diffMs = (cur - prev).TotalMilliseconds;
                 if (Math.Abs(diffMs) < 1) return ' ';
-                return diffMs < 0 ? '-' : '+'; // End moving left (<0) is inward (-), moving right (>0) is outward (+)
+                return diffMs < 0 ? '-' : '+';
             }
 
             public void AddTraceRow(string step, char startMod, TimeSpan start, TimeSpan end, char endMod, string result = null, string text = null)
@@ -216,56 +192,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 45)]
         public double MaxDriftSeconds { get; set; } = 0.6;
 
-        // No longer used (boundaries now move dip to dip). Kept so existing configs still load.
         [JsonProperty(Order = 46)]
-        public double ShrinkStepSeconds { get; set; } = 0.2;
-
-        [JsonProperty(Order = 47)]
         public double MinSubtitleDurationSeconds { get; set; } = 0.5;
 
-        // No longer used (per-side states replaced it). Kept so existing configs still load.
-        [JsonProperty(Order = 48)]
-        public double FullMatchSimilarity { get; set; } = 0.85;
-
-        // No longer used (per-side states replaced it). Kept so existing configs still load.
-        [JsonProperty(Order = 49)]
-        public double PartialMatchSimilarity { get; set; } = 0.80;
-
-        // Two heard texts whose similarity to the original differ by less than this are considered equally close.
-        [JsonProperty(Order = 50)]
+        [JsonProperty(Order = 47)]
         public double SimilarityTieTolerance { get; set; } = 0.03;
 
         // A side with N missing syllables and at least N extra ones is read as a substitution (side covered)
         // only when N is at most this value.
-        [JsonProperty(Order = 51)]
+        [JsonProperty(Order = 48)]
         public int MaxSubstitutedSyllables { get; set; } = 2;
 
         // A boundary move must be at least this long, unless it stops exactly on a speech edge.
-        [JsonProperty(Order = 52)]
+        [JsonProperty(Order = 49)]
         public double MinJumpSeconds { get; set; } = 0.07;
 
         // A mountain whose peak is below this ratio of the loudest level inside the original subtitle is noise.
-        [JsonProperty(Order = 53)]
+        [JsonProperty(Order = 50)]
         public double SignificantMountainRatio { get; set; } = 0.15;
 
-        // Shortest plausible syllable: detects AI answers that lost more syllables than the removed audio can hold.
-        [JsonProperty(Order = 54)]
-        public double MinSyllableDurationSeconds { get; set; } = 0.06;
+        /// <summary>
+        /// When a boundary lands in a mountain, look ahead this far outward.
+        /// If significant energy/peak is found, snap directly to that island's edge.
+        /// </summary>
+        [JsonProperty(Order = 51)]
+        public double IslandPeakLookaheadSeconds { get; set; } = 0.10;
 
-        // Consecutive suspicious answers on one side before that side is locked.
-        [JsonProperty(Order = 55)]
-        public int MaxSuspiciousPerSide { get; set; } = 2;
-
-        // A bisect probe must be at least this far from both the good and the bad boundary.
-        [JsonProperty(Order = 56)]
-        public double BisectMinGapSeconds { get; set; } = 0.02;
-
-        // A test whose similarity is this much lower than the best similarity so far does not count as covering.
-        [JsonProperty(Order = 57)]
+        [JsonProperty(Order = 52)]
         public double MaxSimilarityDrop { get; set; } = 0.3;
 
         [JsonIgnore]
-        private AudioTerrainMappingPhysicBased r_mapping;
+        private AudioTerrainMapping r_mapping;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -290,16 +247,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return base.IsPrerequisitesMet(context, out reason);
         }
 
-#if DEBUG
-        private StreamWriter _writer;
-#endif
-
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-#if DEBUG
-            _writer = File.CreateText(context.WIP.BaseFilePath + ".ClasssifyDebug.txt");
-#endif
-
             var jobState = transcription.CurrentJobState as JobState ?? new JobState();
             transcription.CurrentJobState = jobState;
 
@@ -318,21 +267,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (r_mapping == null)
             {
-                r_mapping = new AudioTerrainMappingPhysicBased(waveformPcmAudio)
+                r_mapping = new AudioTerrainMapping(waveformPcmAudio)
                 {
-                    MsPerFrame = 1,
-                    BallRadiusMs = 5,
-                    DropIntervalMs = 1,
-                    MinDistanceTraveledMs = 5,
-                    MinInterIslandSilence = TimeSpan.FromMilliseconds(300),
-                    DropFloorFactor = 0.3f
+                    /// <summary>Terrain must be above (floor * this) to be suspected speech. Lower = more sensitive.</summary>
+                    SpeechRatio = 4f,
+                    /// <summary>A suspected-speech zone must reach (floor * this) somewhere, otherwise it is just noise.</summary>
+                    PeakRatio = 6f,
+                    /// <summary>A valley is a cut if it comes within this fraction of the way from the floor to the lower neighbouring peak. Lower = fewer cuts.</summary>
+                    ValleyReach = 0.25f,
                 };
-                r_mapping.Compute();
-                context.WriteInfo($"[RefineTiming] Terrain mapping: {r_mapping.Islands.Count} islands, {r_mapping.Segments.Count} segments.");
-                DoExportSrt(context, transcription, r_mapping.ToSegmentSubtitles(), "TERRAIN-MAP-PHYSIC");
-                r_mapping.SaveDebugImage(context.WIP.BaseFilePath + $".terrain.jpg", TimeSpan.FromSeconds(88), TimeSpan.FromSeconds(5), 1, 700, 120);
+                r_mapping.Compute(context);
+                context.WriteInfo($"[RefineTiming] Terrain mapping: {r_mapping.Segments.Count(f => !f.IsSilence)} mountains, {r_mapping.Segments.Count(f => f.IsSilence)} silences.");
+                DoExportSrt(context, transcription, r_mapping.ToSegmentSubtitles(), "TERRAIN-MAP");
             }
-
             var aggregation = this.Metadatas?.Aggregate(context);
             var originalItems = (aggregation.ReferenceTimingsWithMetadata ?? Array.Empty<TimedItemWithMetadata>())
                 .OrderBy(f => f.StartTime)
@@ -364,9 +311,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     var cand = jobState.Candidates.FirstOrDefault(c => c.OriginalStartTime == item.StartTime);
                     if (cand != null)
-                    {
                         cand.OriginalItem = item;
-                    }
                 }
             }
 
@@ -374,9 +319,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             while (jobState.TotalTestsRun < totalAllowedTests)
             {
-#if DEBUG
-                _writer.WriteLine($"---- START ITERATION #{jobState.Iteration}");
-#endif
                 var pendingCandidates = jobState.Candidates
                     .Where(c => !c.IsFullyLocked && c.RetryCount < MaxRetriesPerNode)
                     .ToList();
@@ -413,14 +355,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         .ToList();
                 }
 
-
-                // Windows that still need to be processed by the AI (not satisfied by cache)
                 var itemsToBeProcessed = batchToTest
                     .Where(cand => cand.Plan != null)
                     .Select(cand => new TimedItemWithMetadata(cand.Plan.Start, cand.Plan.End, new MetadataCollection()))
                     .ToArray();
 
-#if DEBUG
                 var itemsToBeRemoved = new List<TimedItemWithMetadata>();
                 foreach (var item in itemsToBeProcessed)
                 {
@@ -431,20 +370,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                 }
                 itemsToBeProcessed = itemsToBeProcessed.Where(item => !itemsToBeRemoved.Contains(item)).ToArray();
-#endif
 
                 var requestGenerator = ExecuteRequests(context, jobState.PendingBatch, this.InnerOptions, itemsToBeProcessed);
-
                 if (!requestGenerator.IsFinished())
                     return; // Interrupted
 
-#if DEBUG
                 foreach (var item in jobState.PendingBatch.Items)
                 {
                     jobState.AddCachedResult(item.StartTime, item.EndTime, item.Metadata[this.InnerOptions.MetadataAlwaysProduced]);
                 }
-                context.WIP.Save();
-#endif
 
                 jobState.TotalTestsRun += jobState.PendingBatch.Items.Count;
                 ProcessBatchResults(jobState.Candidates, jobState.PendingBatch);
@@ -455,40 +389,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 jobState.ActiveBatchStartTimes = null;
                 context.WIP.Save();
 
-#if DEBUG
-                var dict = new Dictionary<string, int>();
-                var nomoves = 0;
-                foreach (var cand in jobState.Candidates)
-                {
-                    var match = cand.Tests.LastOrDefault()?.Match;
-                    if (match != null)
-                    {
-                        var key = match.IsMismatch ? "Mismatch" : $"S={match.StartState} E={match.EndState}";
-                        dict.TryGetValue(key, out var kindCount);
-                        dict[key] = kindCount + 1;
-                    }
-                    else
-                    {
-                        nomoves++;
-                    }
-                }
-                _writer.WriteLine($"--------------- END ITERATION #{jobState.Iteration}");
-                foreach (var kvp in dict)
-                {
-                    _writer.WriteLine($"{kvp.Key} = {kvp.Value}");
-                }
-                _writer.WriteLine($"No moves = {nomoves}");
-                _writer.Flush();
-#endif
                 int lockedNodes = jobState.Candidates.Count(c => c.IsFullyLocked);
                 context.WriteInfo($"[RefineTiming] Progress: {lockedNodes}/{jobState.Candidates.Count} fully locked.");
             }
 
-#if DEBUG
-            _writer.Close();
-#endif
-            return; // Don't want to finalize or I can't retry easily
+            DoExportMetatadaSrt(context, transcription, false);
             FinalizeTranscription(transcription, jobState.Candidates);
+            return; // Don't want to finalize or I can't retry easily
             transcription.MarkAsFinished();
             context.WIP.Save();
             context.WriteInfo($"[RefineTiming] Refinement completed ({jobState.TotalTestsRun} tests run).");
@@ -512,7 +419,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     CurrentTestEnd = item.EndTime,
                     SignificantLevel = (float)(SignificantMountainRatio * r_mapping.GetPeakLevel(item.StartTime, item.EndTime))
                 };
-
                 TimeSpan start = SnapInitialBoundary(cand, BoundarySide.Start);
                 TimeSpan end = SnapInitialBoundary(cand, BoundarySide.End);
 
@@ -530,7 +436,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 cand.Plan = new TimeWindow(start, end, TimingMove.Init);
 
                 cand.AddTraceRow("Orig", ' ', item.StartTime, item.EndTime, ' ', "", cand.OriginalText);
-
                 candidates.Add(cand);
             }
 
@@ -538,10 +443,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         /// <summary>
-        /// In silence or insignificant terrain (noise): move INWARD to the speech edge, i.e. the dip where
-        /// the first (start) / last (end) significant mountain begins / ends. MaxDrift is ignored, the
-        /// move is only bounded by the other original boundary.
-        /// Inside a significant mountain: slide OUTWARD to the dip that starts / ends it (within MaxDrift).
+        /// Snaps initial boundaries prioritizing grabbing whole islands:
+        /// - If in silence/insignificant: jump inward to speech edge.
+        /// - If inside a mountain: check outward lookahead window for energy/peaks; if present, snap
+        ///   to the full outer boundary of that mountain island.
         /// </summary>
         private TimeSpan SnapInitialBoundary(TimingCandidate cand, BoundarySide side)
         {
@@ -549,21 +454,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var t = isStart ? cand.OriginalStartTime : cand.OriginalEndTime;
             var other = isStart ? cand.OriginalEndTime : cand.OriginalStartTime;
             var maxDrift = TimeSpan.FromSeconds(MaxDriftSeconds);
+            var lookahead = TimeSpan.FromSeconds(IslandPeakLookaheadSeconds);
 
+            // 1. Silent or insignificant: snap inward towards speech edge
             if (r_mapping.IsInsignificant(t, cand.SignificantLevel))
             {
                 var edge = r_mapping.FindDip(t, side, MoveDirection.Inward, new DipSearch
                 {
                     MinJump = TimeSpan.MaxValue,
                     StopAtSpeechEdge = true,
-                    SignificantLevel = cand.SignificantLevel,
+                    SignificantLevel = 0,
                     Inclusive = true,
                     Limit = other
                 });
                 if (edge.HasValue)
                     return edge.Value;
 
-                // No significant speech found: in silence, at least move to the first mountain
                 if (r_mapping.IsSilent(t))
                 {
                     var dip = r_mapping.FindDip(t, side, MoveDirection.Inward, new DipSearch { Inclusive = true, Limit = other });
@@ -573,6 +479,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return t;
             }
 
+            // 2. Inside a mountain: check outward island lookahead
+            var lookFrom = isStart ? (t > lookahead ? t - lookahead : TimeSpan.Zero) : t;
+            var lookTo = isStart ? t : t + lookahead;
+            float lookaheadPeak = r_mapping.GetPeakLevel(lookFrom, lookTo);
+
+            // If there is significant energy/peak in the outward direction, capture whole island
+            if (lookaheadPeak >= cand.SignificantLevel)
+            {
+                var islandEdge = r_mapping.FindDip(t, side, MoveDirection.Outward, new DipSearch
+                {
+                    StopAtSpeechEdge = true,
+                    SignificantLevel = cand.SignificantLevel,
+                    Inclusive = true,
+                    Limit = isStart ? t - maxDrift : t + maxDrift
+                });
+
+                if (islandEdge.HasValue && (islandEdge.Value - t).Duration() <= maxDrift)
+                    return islandEdge.Value;
+            }
+
+            // Regular outward snap to nearest dip
             var snapped = r_mapping.FindDip(t, side, MoveDirection.Outward, new DipSearch { Inclusive = true });
             return snapped.HasValue && (snapped.Value - t).Duration() <= maxDrift
                 ? snapped.Value
@@ -600,14 +527,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     break;
             }
 
-            // Still too short (no more dips within MaxDrift): pad the end
             if (end - start < minDuration)
                 end = start + minDuration;
         }
 
         #endregion
 
-        #region Search: results -> judgement -> next window
+        #region Search: results -> judgement -> expansion planning
 
         private void ProcessBatchResults(List<TimingCandidate> batch, Transcription fakeTranscription)
         {
@@ -621,7 +547,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 string heard = fakeItem.Metadata.TryGetValue(this.InnerOptions.MetadataAlwaysProduced, out var h) ? h : string.Empty;
 
                 var plan = cand.Plan;
-                var parent = GetTest(cand, plan.ParentIndex);
+                var parent = plan.ParentIndex >= 0 && plan.ParentIndex < cand.Tests.Count ? cand.Tests[plan.ParentIndex] : null;
+
                 var test = new TestedWindow
                 {
                     Start = plan.Start,
@@ -632,15 +559,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     HeardText = heard,
                     Match = RomajiSyllableMatcher.Analyze(cand.OriginalText, heard, MaxSubstitutedSyllables)
                 };
-                DetectSuspiciousAnswer(cand, parent, test);
 
-#if DEBUG
-                _writer.WriteLine($"Original: {cand.OriginalText}");
-                _writer.WriteLine($"Heard:    {heard}");
-                _writer.WriteLine($"{cand.OriginalStartTime} => {test.Match.ToTraceString()}");
-#endif
-
-                // Trace: +/- shown relative to the window this one was derived from (the original timing for Init)
                 char startMod = TimingCandidate.GetStartMod(parent?.Start ?? cand.OriginalStartTime, test.Start);
                 char endMod = TimingCandidate.GetEndMod(parent?.End ?? cand.OriginalEndTime, test.End);
 
@@ -648,9 +567,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 cand.Plan = null;
 
                 string stepName = cand.Tests.Count == 1 ? "Init" : $"#{cand.Tests.Count - 1}";
-                string result = test.Match.ToTraceString()
-                    + (test.SuspiciousStart ? " !S" : "")
-                    + (test.SuspiciousEnd ? " !E" : "");
+                string result = test.Match.ToTraceString();
                 cand.AddTraceRow(stepName, startMod, test.Start, test.End, endMod, result, heard);
 
                 if (!touched.Contains(cand))
@@ -663,110 +580,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        private static TestedWindow GetTest(TimingCandidate cand, int index)
-        {
-            return index >= 0 && index < cand.Tests.Count ? cand.Tests[index] : null;
-        }
-
-        /// <summary>True when 'a' is further inside the clip than 'b' for that side.</summary>
-        private static bool IsMoreInward(BoundarySide side, TimeSpan a, TimeSpan b)
-        {
-            return side == BoundarySide.Start ? a > b : a < b;
-        }
-
-        /// <summary>Audio removed on that side between the parent window and the test window (false when nothing was removed).</summary>
-        private static bool TryGetRemovedRange(TimeWindow parent, TimeWindow test, BoundarySide side, out TimeSpan from, out TimeSpan to)
-        {
-            if (side == BoundarySide.Start)
-            {
-                from = parent.Start;
-                to = test.Start;
-            }
-            else
-            {
-                from = test.End;
-                to = parent.End;
-            }
-            return to > from;
-        }
-
-        private bool RemovedSignificantAudio(TimingCandidate cand, TimeWindow parent, TimeWindow test, BoundarySide side)
-        {
-            return TryGetRemovedRange(parent, test, side, out var from, out var to)
-                && r_mapping.GetPeakLevel(from, to) >= cand.SignificantLevel;
-        }
-
-        /// <summary>
-        /// Flags answers that claim syllables were lost on a side when that is not physically plausible:
-        /// nothing was removed on that side, the removed audio has no significant energy, or the removed
-        /// audio is too short to hold that many syllables (e.g. 7 syllables lost by removing 16 ms).
-        /// </summary>
-        private void DetectSuspiciousAnswer(TimingCandidate cand, TestedWindow parent, TestedWindow test)
-        {
-            if (parent == null)
-                return;
-
-            if (test.Match.IsMismatch)
-            {
-                if (!parent.Match.IsMismatch
-                    && !RemovedSignificantAudio(cand, parent, test, BoundarySide.Start)
-                    && !RemovedSignificantAudio(cand, parent, test, BoundarySide.End))
-                {
-                    test.SuspiciousStart = true;
-                    test.SuspiciousEnd = true;
-                }
-                return;
-            }
-
-            test.SuspiciousStart = IsImplausibleLoss(cand, parent, test, BoundarySide.Start);
-            test.SuspiciousEnd = IsImplausibleLoss(cand, parent, test, BoundarySide.End);
-        }
-
-        private bool IsImplausibleLoss(TimingCandidate cand, TestedWindow parent, TestedWindow test, BoundarySide side)
-        {
-            if (test.Match.Covers(side) || parent.Match.IsMismatch)
-                return false;
-
-            int newlyMissing = test.Match.Missing(side) - parent.Match.Missing(side);
-            if (newlyMissing <= 0)
-                return false;
-
-            if (!TryGetRemovedRange(parent, test, side, out var from, out var to))
-                return true; // nothing removed on that side, yet syllables were lost
-
-            if (r_mapping.GetPeakLevel(from, to) < cand.SignificantLevel)
-                return true; // only noise was removed
-
-            double plausibleSyllables = 1 + (to - from).TotalSeconds / MinSyllableDurationSeconds;
-            return newlyMissing > plausibleSyllables;
-        }
-
-        /// <summary>
-        /// Called when the planned window has an answer.
-        /// Judges each side independently, updates the best window and plans the next round.
-        /// </summary>
         private void AdvanceCandidate(TimingCandidate cand)
         {
             var test = cand.Tests.Last();
-            var parent = GetTest(cand, test.ParentIndex);
             cand.RetryCount++;
 
-            // A test that heard something much further from the original than the best test does not prove coverage
             double bestSimilarity = cand.Tests
-                .Where(t => !t.IsAnySuspicious)
                 .Select(t => t.Match.Similarity)
                 .DefaultIfEmpty(0)
                 .Max();
             bool degraded = test.Match.Similarity < bestSimilarity - MaxSimilarityDrop;
 
-            JudgeSide(cand, test, parent, BoundarySide.Start, degraded);
-            JudgeSide(cand, test, parent, BoundarySide.End, degraded);
+            JudgeSide(cand, test, BoundarySide.Start, degraded);
+            JudgeSide(cand, test, BoundarySide.End, degraded);
 
             UpdateCurrentBest(cand);
 
             cand.Plan = null;
             if (!cand.IsFullyLocked && cand.RetryCount < MaxRetriesPerNode)
-                PlanNextWindow(cand, test, parent);
+                PlanNextWindow(cand, test);
 
             if (cand.Plan == null)
             {
@@ -775,195 +607,79 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
-        /// <summary>Updates Good / Bad / lock of one side from the latest test.</summary>
-        private void JudgeSide(TimingCandidate cand, TestedWindow test, TestedWindow parent, BoundarySide side, bool degraded)
+        /// <summary>
+        /// Pure expansion judgement:
+        /// - If covers (Ok / Extra / Substituted): Lock immediately.
+        /// - If Missing / Mismatch: Keep unlocked to expand further outward.
+        /// </summary>
+        private void JudgeSide(TimingCandidate cand, TestedWindow test, BoundarySide side, bool degraded)
         {
             var s = cand.Side(side);
             if (s.IsLocked)
                 return;
 
             var boundary = test.Boundary(side);
-            bool movedInward = parent != null && IsMoreInward(side, boundary, parent.Boundary(side));
-            bool movedOutward = parent != null && IsMoreInward(side, parent.Boundary(side), boundary);
 
-            // Suspicious: ignore the verdict, keep going, unless the AI keeps doing it
-            if (test.IsSuspicious(side))
+            if (!test.Match.IsMismatch && !degraded && test.Match.Covers(side))
             {
-                s.SuspiciousStreak++;
-                if (s.SuspiciousStreak >= MaxSuspiciousPerSide)
-                {
-                    s.IsLocked = true;
-                    s.LockedBySuspicion = true;
-                }
-                return;
-            }
-            s.SuspiciousStreak = 0;
-
-            if (test.Match.IsMismatch || degraded)
-            {
-                if (movedInward)
-                    SetBad(s, side, boundary);
-                else if (parent != null && test.Match.IsMismatch && !movedOutward)
-                    s.IsLocked = true; // that side did not move: the mismatch tells nothing more about it
-                return;
-            }
-
-            if (test.Match.Covers(side))
-            {
-                SetGood(s, side, boundary);
-                return;
-            }
-
-            // Missing on that side
-            SetBad(s, side, boundary);
-            if (movedOutward && s.Good == null)
-            {
-                bool gain = test.Match.Missing(side) < parent.Match.Missing(side)
-                    || test.Match.Similarity > parent.Match.Similarity + SimilarityTieTolerance;
-                if (!gain)
-                    s.IsLocked = true; // expanding further doesn't help
-            }
-        }
-
-        private static void SetGood(SideSearch s, BoundarySide side, TimeSpan boundary)
-        {
-            if (s.Good == null || IsMoreInward(side, boundary, s.Good.Value))
                 s.Good = boundary;
-
-            // A covering boundary at or inside the "bad" one: the bad answer was noise
-            if (s.Bad.HasValue && !IsMoreInward(side, s.Bad.Value, s.Good.Value))
-                s.Bad = null;
+                s.IsLocked = true;
+            }
         }
 
-        private static void SetBad(SideSearch s, BoundarySide side, TimeSpan boundary)
+        private void PlanNextWindow(TimingCandidate cand, TestedWindow test)
         {
-            // Contradicts a known good boundary: ignore
-            if (s.Good.HasValue && !IsMoreInward(side, boundary, s.Good.Value))
-                return;
-
-            // Keep the outermost bad boundary (the closest to Good)
-            if (s.Bad == null || IsMoreInward(side, s.Bad.Value, boundary))
-                s.Bad = boundary;
-        }
-
-        private void PlanNextWindow(TimingCandidate cand, TestedWindow test, TestedWindow parent)
-        {
-            var nextStart = PlanSide(cand, test, parent, BoundarySide.Start);
-            var nextEnd = PlanSide(cand, test, parent, BoundarySide.End);
+            var nextStart = PlanSide(cand, test, BoundarySide.Start);
+            var nextEnd = PlanSide(cand, test, BoundarySide.End);
 
             if (cand.IsFullyLocked || nextEnd <= nextStart)
                 return;
 
-            // If this exact window was already tested, dead end -> stop
             if (cand.FindTest(nextStart, nextEnd) != null)
                 return;
 
-            cand.Plan = new TimeWindow(nextStart, nextEnd, TimingMove.Refine, cand.Tests.Count - 1);
+            cand.Plan = new TimeWindow(nextStart, nextEnd, TimingMove.Expand, cand.Tests.Count - 1);
         }
 
-        /// <summary>Next position of one side. Locks the side when there is nowhere useful to go.</summary>
-        private TimeSpan PlanSide(TimingCandidate cand, TestedWindow test, TestedWindow parent, BoundarySide side)
+        private TimeSpan PlanSide(TimingCandidate cand, TestedWindow test, BoundarySide side)
         {
             var s = cand.Side(side);
             if (s.IsLocked)
-                return LockedBoundary(cand, side);
+                return s.Good ?? test.Boundary(side);
 
             var current = test.Boundary(side);
-            TimeSpan? next;
-
-            if (s.Good.HasValue && s.Bad.HasValue)
-            {
-                // Bracketed: probe between the good and the bad boundary
-                next = Bisect(side, s.Good.Value, s.Bad.Value);
-            }
-            else if (test.IsSuspicious(side) && parent != null)
-            {
-                // Verdict ignored: continue in the same direction as the move that produced it
-                var dir = IsMoreInward(side, parent.Boundary(side), current) ? MoveDirection.Outward : MoveDirection.Inward;
-                next = Jump(cand, test, side, dir, current);
-            }
-            else if (s.Good.HasValue)
-            {
-                next = Jump(cand, test, side, MoveDirection.Inward, s.Good.Value);
-            }
-            else if (s.Bad.HasValue)
-            {
-                next = Jump(cand, test, side, MoveDirection.Outward, s.Bad.Value);
-            }
-            else
-            {
-                // Nothing known yet (Init mismatch): expand
-                next = Jump(cand, test, side, MoveDirection.Outward, current);
-            }
-
-            if (next == null)
-            {
-                s.IsLocked = true;
-                return LockedBoundary(cand, side);
-            }
-            return next.Value;
-        }
-
-        /// <summary>One move: at least MinJump, or exactly on a speech edge; within MaxDrift / minimum duration.</summary>
-        private TimeSpan? Jump(TimingCandidate cand, TestedWindow test, BoundarySide side, MoveDirection dir, TimeSpan from)
-        {
-            var minDuration = TimeSpan.FromSeconds(MinSubtitleDurationSeconds);
             var maxDrift = TimeSpan.FromSeconds(MaxDriftSeconds);
+            var limit = side == BoundarySide.Start ? cand.OriginalStartTime - maxDrift : cand.OriginalEndTime + maxDrift;
 
-            TimeSpan limit;
-            if (dir == MoveDirection.Inward)
-                limit = side == BoundarySide.Start ? test.End - minDuration : test.Start + minDuration;
-            else
-                limit = side == BoundarySide.Start ? cand.OriginalStartTime - maxDrift : cand.OriginalEndTime + maxDrift;
-
-            return r_mapping.FindDip(from, side, dir, new DipSearch
+            // Only move OUTWARD
+            var next = r_mapping.FindDip(current, side, MoveDirection.Outward, new DipSearch
             {
                 MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
                 StopAtSpeechEdge = true,
                 SignificantLevel = cand.SignificantLevel,
                 Limit = limit
             });
+
+            if (!next.HasValue)
+            {
+                s.IsLocked = true;
+                return s.Good ?? current;
+            }
+
+            return next.Value;
         }
 
-        /// <summary>Dip nearest to the middle of the bracket, at least BisectMinGap away from both ends (null if none).</summary>
-        private TimeSpan? Bisect(BoundarySide side, TimeSpan good, TimeSpan bad)
+        private void UpdateCurrentBest(TimingCandidate cand)
         {
-            var gap = TimeSpan.FromSeconds(BisectMinGapSeconds);
-            var lo = good < bad ? good : bad;
-            var hi = good < bad ? bad : good;
-            var mid = lo + TimeSpan.FromTicks((hi - lo).Ticks / 2);
-
-            return r_mapping.GetDips(side, lo + gap, hi - gap)
-                .OrderBy(d => (d - mid).Duration())
-                .Select(d => (TimeSpan?)d)
-                .FirstOrDefault();
-        }
-
-        private TimeSpan LockedBoundary(TimingCandidate cand, BoundarySide side)
-        {
-            return cand.Side(side).Good ?? FallbackBest(cand).Boundary(side);
-        }
-
-        /// <summary>When a side has no good boundary: the most trustworthy test (non suspicious, covering, closest text, longest).</summary>
-        private static TestedWindow FallbackBest(TimingCandidate cand)
-        {
-            var pool = cand.Tests.Where(t => !t.IsAnySuspicious).ToList();
-            if (pool.Count == 0)
-                pool = cand.Tests;
-
-            return pool
+            var fallback = cand.Tests
                 .OrderByDescending(t => t.Match.CoversAll)
                 .ThenByDescending(t => t.Match.Similarity)
                 .ThenByDescending(t => t.Duration)
                 .First();
-        }
 
-        /// <summary>Current timing = per-side good boundaries (fallback: most trustworthy test).</summary>
-        private void UpdateCurrentBest(TimingCandidate cand)
-        {
-            var fallback = FallbackBest(cand);
             var start = cand.Start.Good ?? fallback.Start;
             var end = cand.End.Good ?? fallback.End;
+
             if (end <= start)
             {
                 start = fallback.Start;
@@ -990,7 +706,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (cand.Tests.Count > 0 && cand.Tests.All(t => t.Match.IsMismatch))
             {
-                var best = FallbackBest(cand);
+                var best = cand.Tests.OrderByDescending(t => t.Match.Similarity).First();
                 cand.AddValidationNote(string.IsNullOrWhiteSpace(best.HeardText)
                     ? "Unsure: Audio Inaudible"
                     : $"Unsure: Text Mismatch: {best.HeardText}");
@@ -998,13 +714,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             if (cand.Start.Good == null)
-                cand.AddValidationNote("Unsure: Missing Start");
+                cand.AddValidationNote("Unsure: Missing Start (drift limit reached)");
             if (cand.End.Good == null)
-                cand.AddValidationNote("Unsure: Missing End");
-            if (cand.Start.LockedBySuspicion)
-                cand.AddValidationNote("Unsure: Suspicious AI answers (Start)");
-            if (cand.End.LockedBySuspicion)
-                cand.AddValidationNote("Unsure: Suspicious AI answers (End)");
+                cand.AddValidationNote("Unsure: Missing End (drift limit reached)");
         }
 
         #endregion
@@ -1044,31 +756,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 var meta = new MetadataCollection();
                 foreach (var kvp in cand.OriginalItem.Metadata)
-                {
                     meta[kvp.Key] = kvp.Value;
-                }
 
                 var sb = new StringBuilder();
-
-                // Clean nodes have no TimingValidation key, keeping the subtitle clean.
                 if (cand.ValidationNotes.Count > 0 || !cand.IsFullyLocked)
                 {
                     sb.AppendLine("Timings Warnings:");
-                    // If global test budget ran out before this candidate finished testing
                     if (!cand.IsFullyLocked)
-                    {
                         sb.AppendLine("Unsure: Unfinished / Budget Reached");
-                    }
                     foreach (var note in cand.ValidationNotes)
-                    {
                         sb.AppendLine("  " + note);
-                    }
                 }
 
                 if (sb.Length > 0)
-                {
                     sb.AppendLine();
-                }
                 sb.AppendLine(cand.OriginalText);
 
                 meta[this.Options.MetadataAlwaysProduced] = sb.ToString();
@@ -1103,30 +804,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 var curStart = cur.CurrentTestStart;
                 var curEnd = cur.CurrentTestEnd;
-
                 var nextStart = next.CurrentTestStart;
                 var nextEnd = next.CurrentTestEnd;
 
                 if (curEnd > nextStart)
                 {
                     var overlapDuration = curEnd - nextStart;
-
                     var midTicks = (curEnd.Ticks + nextStart.Ticks) / 2;
                     var midpoint = TimeSpan.FromTicks(midTicks);
 
                     if (midpoint - curStart < minDuration)
-                    {
                         midpoint = curStart + minDuration;
-                    }
                     else if (nextEnd - midpoint < minDuration)
-                    {
                         midpoint = nextEnd - minDuration;
-                    }
 
                     if (midpoint <= curStart || midpoint >= nextEnd)
-                    {
                         midpoint = TimeSpan.FromTicks(midTicks);
-                    }
 
                     char curEndMod = TimingCandidate.GetEndMod(curEnd, midpoint);
                     char nextStartMod = TimingCandidate.GetStartMod(nextStart, midpoint);
@@ -1134,7 +827,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     cur.CurrentTestEnd = midpoint;
                     next.CurrentTestStart = midpoint;
 
-                    // Only flag for manual review if the overlap was meaningful (>= 50ms)
                     if (overlapDuration.TotalMilliseconds >= 50)
                     {
                         cur.AddValidationNote("Review: Shared Audio Zone");
@@ -1172,16 +864,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
                 virtualSubtitleFile.Subtitles.AddRange(subtitles);
                 virtualSubtitleFile.Save(context.WIP.ParentPath, extension, context.SoftDelete);
-
-                var fullfilePath = context.WIP.BaseFilePath + extension;
-                //if (context.WIP.TimelineMap.IsMultipart)
-                //{
-                //    var newFullFile = new SubtitleFile();
-                //    newFullFile.Subtitles.AddRange(
-                //        virtualSubtitleFile.Subtitles.Select(item =>
-                //            new Subtitle(item.StartTime, item.EndTime, item.Text)));
-                //    newFullFile.SaveSrt(fullfilePath);
-                //}
             }
         }
     }

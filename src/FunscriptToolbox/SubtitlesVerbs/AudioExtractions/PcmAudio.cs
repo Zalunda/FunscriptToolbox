@@ -99,24 +99,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             return samples;
         }
 
-
-        public float[] ToRms(int frameSizeInMs)
+        public float[] ToPeak(int frameSizeInMs)
         {
             var samples = this.ToFloat();
             int frameSize = (SamplingRate * frameSizeInMs) / 1000;
             int n = samples.Length / frameSize;
-            float[] rms = new float[n];
+            float[] peaks = new float[n];
             for (int i = 0; i < n; i++)
             {
-                float sumSq = 0;
+                float maxAbs = 0f;
                 int offset = i * frameSize;
                 for (int j = 0; j < frameSize; j++)
                 {
-                    sumSq += samples[offset + j] * samples[offset + j];
+                    float abs = Math.Abs(samples[offset + j]);
+                    if (abs > maxAbs)
+                        maxAbs = abs;
                 }
-                rms[i] = (float)Math.Sqrt(sumSq / frameSize);
+                peaks[i] = maxAbs;
             }
-            return rms;
+            return peaks;
         }
 
         private static TimeSpan IndexToTimeSpan(int index, int samplingRate) => TimeSpan.FromSeconds((double)index / samplingRate / NbBytesPerSamples);
