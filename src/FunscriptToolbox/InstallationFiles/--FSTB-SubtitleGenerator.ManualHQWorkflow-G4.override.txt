@@ -513,6 +513,7 @@ _______________________________________=",
       "PrivateMetadataNames": "TimingTrace",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
+	  "SourceAudioIdForRefiner": "audio-clean-waveform",
       "Engine": {
         "$type": "AIEngineAPIGoogle",
         "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
@@ -608,7 +609,7 @@ _______________________________________="
         "NbItemsMinimumReceivedToContinue": 15,
         "FieldsToInclude": "StartTime"
       },
-      "MaxRetriesPerNode": 0,
+      "MaxRetriesPerNode": 5,
       "MaxBudgetRatio": 2.5,
       "MaxDriftSeconds": 0.6,
       "ShrinkStepSeconds": 0.2,

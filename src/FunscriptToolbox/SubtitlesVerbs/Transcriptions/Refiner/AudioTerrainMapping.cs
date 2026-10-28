@@ -6,35 +6,8 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
 
-namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
+namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
-    // NOTE: BoundarySide, MoveDirection and DipSearch are declared here so this file is self-contained.
-    // If you keep AudioTerrainMappingPhysicBased.cs in the project, delete these three types from one of the two files.
-
-    /// <summary>Which boundary of a clip is moving.</summary>
-    public enum BoundarySide
-    {
-        Start,
-        End
-    }
-
-    /// <summary>Outward = the clip gets longer, Inward = the clip gets shorter.</summary>
-    public enum MoveDirection
-    {
-        Outward,
-        Inward
-    }
-
-    /// <summary>Options for AudioTerrainMappingSimple.FindDip.</summary>
-    public class DipSearch
-    {
-        public TimeSpan MinJump { get; set; } = TimeSpan.Zero;
-        public float SignificantLevel { get; set; } = 0f;
-        public bool StopAtSpeechEdge { get; set; } = false;
-        public bool Inclusive { get; set; } = false;
-        public TimeSpan? Limit { get; set; }
-    }
-
     /// <summary>
     /// Cuts the whole audio into "not speech" stretches and "mountains" (pieces of suspected speech).
     ///
@@ -44,7 +17,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     ///                   The edges are then extended down the slopes until they reach the floor.
     /// 4. CUTS         : inside a zone, every local minimum is a candidate. A cut is kept only if it "reaches down":
     ///                   (valley - floor) / (lowerPeak - floor) &lt;= ValleyReach.
-    /// 5. EXCEPTION    : a small mountain directly followed by a much bigger one is never cut from it.
     ///
     /// The segments are contiguous and cover the whole audio.
     /// </summary>
@@ -140,21 +112,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // Pipeline
         // ---------------------------------------------------------------------
 
-        private class X
-        {
-            public int index;
-            public double mine;
-            public double mineV2;
-            public double subtitleEdit;
-            public X(int index, float mine, float mineV2, float subtitleEdit)
-            {
-                this.index = index;
-                this.mine = mine;
-                this.mineV2 = mineV2;
-                this.subtitleEdit = subtitleEdit;
-            }
-        }
-        public void Compute(SubtitleGeneratorContext context)
+        public void Compute()
         {
             Segments = new List<SpeechSegment>();
             r_zones = new List<(int, int)>();
