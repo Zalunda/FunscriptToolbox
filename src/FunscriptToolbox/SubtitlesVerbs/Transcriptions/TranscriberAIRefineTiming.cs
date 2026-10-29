@@ -38,16 +38,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string SourceAudioIdForRefiner { get; set; }
+        // Maximum number of rounds per candidate (a round tests 1 window).
+        [JsonProperty(Order = 21)]
+
+        public int MaxRetriesPerNode { get; set; } = 8;
+
+        [JsonProperty(Order = 22)]
+        public TimeSpan MaxDrift { get; set; } = TimeSpan.FromSeconds(1.2);
+        [JsonProperty(Order = 23)]
+        public TimeSpan MinSubtitleDuration { get; set; } = TimeSpan.FromSeconds(0.5);
+        [JsonProperty(Order = 24)]
+        public double MaxBudgetRatio { get; set; } = 8.0;
+        [JsonProperty(Order = 25)]
+        public bool IncludeTraceInOutputAlways { get; private set; } = false;
+        [JsonProperty(Order = 26)]
+        public bool IncludeTraceInOutputOnError { get; private set; } = true;
+        [JsonProperty(Order = 27)]
+        public bool IncludeTextInOutput { get; private set; } = true;
+
 
         [JsonProperty(Order = 34, Required = Required.Always)]
         public AIOptions InnerOptions { get; set; } = new AIOptions();
 
-        // Maximum number of rounds per candidate (a round tests 1 window).
-        [JsonProperty(Order = 43)]
-        public int MaxRetriesPerNode { get; set; } = 8;
-
-        [JsonProperty(Order = 44)]
-        public double MaxBudgetRatio { get; set; } = 8.0;
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
@@ -83,7 +95,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var fullPcmAudioForRefiner = context.WIP.AudioExtractions.First(f => f.Id == this.SourceAudioIdForRefiner && f.IsFinished).PcmAudio;
             var refiner = new TimingRefiner(fullPcmAudioForRefiner)
             {
-                MaxRetriesPerNode = this.MaxRetriesPerNode
+                MaxRetriesPerNode = this.MaxRetriesPerNode,
+                MaxDrift = this.MaxDrift,
+                MinSubtitleDuration = this.MinSubtitleDuration
             };
             context.WriteInfo($"  Preparation: Terrain mapping has {refiner.TerrainMapping.Segments.Count(f => !f.IsSilence)} possible speech segments, {refiner.TerrainMapping.Segments.Count(f => f.IsSilence)} silences.");
             DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
@@ -103,7 +117,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var iteration = 0;
             int totalTestsRun = 0;
             int totalAllowedTests = (int)(originalItems.Count * MaxBudgetRatio);
-            while (totalTestsRun < totalAllowedTests)
+            while (totalTestsRun < totalAllowedTests && iteration < MaxRetriesPerNode + 1)
             {
                 var candidatesToTest = refiner.Candidates
                     .Where(c => !c.IsFullyLocked && c.RetryCount < MaxRetriesPerNode)
@@ -125,7 +139,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var itemsToBeProcessed = new List<TimedItemWithMetadata>();
                 foreach (var candidate in candidatesToTest)
                 {
-                    if (candidate.Plan != null)
+                    if (candidate.Plan != null && (totalTestsRun < totalAllowedTests))
                     {
                         var start = candidate.Plan.Start;
                         var end = candidate.Plan.End;
@@ -139,6 +153,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             // Add to the items that will be sent to AI
                             itemsToBeProcessed.Add(new TimedItemWithMetadata(start, end, new MetadataCollection()));
                         }
+                        totalTestsRun++;
                     }
                 }
 
@@ -163,11 +178,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                 refiner.ProcessBatchResults(currentBatchTranscription.Items, this.InnerOptions.MetadataAlwaysProduced);
                 UpdateTranscription(transcription, refiner.Candidates);
-
-                totalTestsRun += currentBatchTranscription.Items.Count;
             }
 
-            return; // Don't want to finalize or I can't retry easily
+            refiner.FinalizeUndecidedOverlaps(refiner.Candidates);
+            UpdateTranscription(transcription, refiner.Candidates);
+
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
@@ -189,19 +204,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var sb = new StringBuilder();
                 if (candidate.ValidationNotes.Count > 0 || !candidate.IsFullyLocked)
                 {
-                    sb.AppendLine("Timings Warnings:");
+                    sb.AppendLine("[TIMING]");
                     if (!candidate.IsFullyLocked)
                         sb.AppendLine("Unsure: Unfinished");
                     foreach (var note in candidate.ValidationNotes)
                         sb.AppendLine("  " + note);
                 }
-
-                if (sb.Length > 0)
-                    sb.AppendLine();
-                sb.AppendLine(candidate.OriginalText);
+                if (this.IncludeTraceInOutputAlways || (this.IncludeTraceInOutputOnError && sb.Length > 0))
+                {
+                    sb.AppendLine("[TRACES]");
+                    foreach (var trace in candidate.Traces)
+                    {
+                        sb.AppendLine($"  {trace}");
+                    }
+                }
+                if (this.IncludeTextInOutput)
+                {
+                    if (sb.Length > 0)
+                        sb.AppendLine();
+                    sb.AppendLine(candidate.OriginalText);
+                }
 
                 meta[this.Options.MetadataAlwaysProduced] = sb.ToString();
-                meta["TimingTrace"] = string.Join("\n", candidate.Trace);
+                meta["TimingTrace"] = string.Join("\n", candidate.Traces);
 
                 var refinedItem = new TranscribedItem(
                     finalStart,

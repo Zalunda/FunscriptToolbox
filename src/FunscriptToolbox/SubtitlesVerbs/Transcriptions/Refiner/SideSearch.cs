@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -7,6 +7,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     {
         // Tightest boundary known to cover the speech on that side.
         public TimeSpan? Good { get; set; }
+        public SideState? GoodState { get; set; }
         public bool IsLocked { get; set; }
     }
 }

@@ -513,7 +513,18 @@ _______________________________________=",
       "PrivateMetadataNames": "TimingTrace",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
+
 	  "SourceAudioIdForRefiner": "audio-clean-waveform",
+      "MaxRetriesPerNode": 7,
+      "MaxBudgetRatio": 4,
+      "MaxDriftSeconds": 1.2,
+      "ShrinkStepSeconds": 0.2,
+      "MinSubtitleDurationSeconds": 0.5,
+	  "IncludeTraceInOutputAlways": false,
+	  "IncludeTraceInOutputOnError": true,
+	  "IncludeTextInOutput": true,
+      "PromptUserOnError": true,
+
       "Engine": {
         "$type": "AIEngineAPIGoogle",
         "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
@@ -608,13 +619,7 @@ _______________________________________="
         "NbContextItems": 0,
         "NbItemsMinimumReceivedToContinue": 15,
         "FieldsToInclude": "StartTime"
-      },
-      "MaxRetriesPerNode": 5,
-      "MaxBudgetRatio": 2.5,
-      "MaxDriftSeconds": 0.6,
-      "ShrinkStepSeconds": 0.2,
-      "MinSubtitleDurationSeconds": 0.5,
-      "PromptUserOnError": true
+      }
     },
     {
       "Id": "full-ai_google",
@@ -640,7 +645,7 @@ _______________________________________="
           "VoiceTextWithTimingWarnings": null
         },
       },
-      "UseBySourceMetadatas": "false",
+      "UseBySourceMetadatas": false,
       // [OPTION] Uncomment the following line to be in 'fully automatic' generation.
       //"AddToFirstSubtitle": null
     },

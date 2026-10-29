@@ -3,6 +3,7 @@
     public enum TimingMove
     {
         Init,
-        Expand
+        Expand,
+        Shrink
     }
 }

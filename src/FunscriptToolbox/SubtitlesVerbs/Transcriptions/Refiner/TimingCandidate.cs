@@ -1,4 +1,4 @@
-﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -21,6 +21,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public TimeSpan CurrentTestStart { get; set; }
         public TimeSpan CurrentTestEnd { get; set; }
 
+        // Hard limits imposed by confirmed neighbor boundaries
+        public TimeSpan? HardLimitStart { get; set; }
+        public TimeSpan? HardLimitEnd { get; set; }
+
         // Window waiting to be sent to the AI in the next iteration.
         public TimeWindow Plan { get; set; } = null;
 
@@ -35,7 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public int RetryCount { get; set; }
         public List<string> ValidationNotes { get; set; } = new List<string>();
-        public List<string> Trace { get; set; } = new List<string>();
+        public List<string> Traces { get; set; } = new List<string>();
 
         public TestedWindow FindTest(TimeSpan start, TimeSpan end)
         {
@@ -84,13 +88,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
             if (string.IsNullOrEmpty(result) && string.IsNullOrEmpty(text))
             {
-                Trace.Add($"{lockTag} {stepCol} {boundsCol}");
+                Traces.Add($"{lockTag} {stepCol} {boundsCol}");
             }
             else
             {
                 string resCol = (result ?? "").PadRight(24);
                 string textCol = text != null ? $"'{text}'" : "";
-                Trace.Add($"{lockTag} {stepCol} {boundsCol} {resCol} {textCol}".TrimEnd());
+                Traces.Add($"{lockTag} {stepCol} {boundsCol} {resCol} {textCol}".TrimEnd());
             }
         }
     }
