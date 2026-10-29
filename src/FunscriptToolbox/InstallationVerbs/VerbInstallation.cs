@@ -1,5 +1,4 @@
 ﻿using CommandLine;
-using FunscriptToolbox.InstallationFiles;
 using FunscriptToolbox.Properties;
 using FunscriptToolbox.SubtitlesVerbs;
 using log4net;
@@ -34,7 +33,6 @@ namespace FunscriptToolbox.MotionVectorsVerbs
 
         public int Execute()
         {
-            InstallOFSPlugin();
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-CreateSubtitles", ".bat", Resources.FSTB_CreateSubtitles_bat, UTF8NoBOM);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
 
@@ -50,38 +48,10 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", ".bat", Resources.FSTB_PrepareScriptForRelease_bat, UTF8NoBOM);
             CreateUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
 
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-PrepareVideoForOFS", ".bat", Resources.FSTB_PrepareVideoForOFS_bat, UTF8NoBOM);
-            CreateUseCaseFolder("FSTB-PrepareVideoForOFS", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
-
             CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-VerifyDownloadedScripts", ".bat", Resources.FSTB_VerifyDownloadedScripts_bat, UTF8NoBOM);
             CreateUseCaseFolder("FSTB-VerifyDownloadedScripts", "--FSTB-GenericCmd", ".bat", Resources.FSTB_GenericCmd_bat, UTF8NoBOM);
 
             return 0;
-        }
-
-        private void InstallOFSPlugin()
-        {
-            var ofsFolder = Environment.ExpandEnvironmentVariables($@"%appdata%\OFS");
-            if (Directory.Exists(ofsFolder))
-            {
-                foreach (var ofsVersionFullPath in Directory.GetDirectories(ofsFolder))
-                {
-                    var extensionName = "FunscriptToolBox.MotionVectors";
-                    var ofsVersionName = Path.GetFileName(ofsVersionFullPath);
-
-                    WriteInfo($@"Adding extension '{extensionName} to OpenFunscripter folder '<appdata>\OFS\{ofsVersionName}'.");
-                    var extensionFolder = Path.Combine(ofsVersionFullPath, "extensions", extensionName);
-                    Directory.CreateDirectory(extensionFolder);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "json.lua"), Resources.json_lua, UTF8NoBOM);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "main.lua"), Resources.main_lua, UTF8NoBOM);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "server_connection.lua"), Resources.server_connection_lua, UTF8NoBOM);
-                    CreateFileWithReplace(Path.Combine(extensionFolder, "virtual_actions.lua"), Resources.virtual_actions_lua, UTF8NoBOM);
-                }
-            }
-            else
-            {
-                WriteInfo($@"Skipping OpenFunscripter plugin installation since OFS cannot be found.", ConsoleColor.DarkGray);
-            }
         }
 
         private void CreateUseCaseFolder(string folderName, string baseFileName, string extension, string fileContent, Encoding encoding)
@@ -115,8 +85,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
                 path,
                 content
                 .Replace("[[FunscriptToolboxExePathInLuaFormat]]", funscriptToolboxExe.Replace(@"\", @"\\")) // Need to double the backslash for lua
-                .Replace("[[FunscriptToolboxFolder]]", funscriptToolboxFolder)
-                .Replace("[[PluginVersion]]", PluginClient.Version), 
+                .Replace("[[FunscriptToolboxFolder]]", funscriptToolboxFolder),
                 encoding);
         }
     }

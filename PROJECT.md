@@ -12,7 +12,7 @@
 | **`FunscriptToolbox.Core`** | C# Class Library | Domain models and file format parsers (`Funscript`, `SubtitleFile`, `WIPFunscriptActionCollection`, etc.). |
 | **`AudioSynchronization`** | C# Class Library | Acoustic fingerprinting and waveform cross-correlation engine for timeline alignment. |
 | **`MotionVectorsExtractor`** | C++ Native Project | Native high-performance motion vector decoder/extractor interfacing with FFmpeg. |
-| **`FunscriptToolbox.UI`** | WPF Application / Library | Interactive UI utilities (Speaker Identification Correction UI, Motion Vectors Editor). |
+| **`FunscriptToolbox.UI`** | WPF Application / Library | Interactive UI utilities (Speaker Identification Correction UI). |
 
 ---
 
@@ -22,11 +22,9 @@ All tools are accessible via `FunscriptToolbox.exe <verb> [options]`.
 
 ### 1. Installation & Environment Setup
 * **`installation`** *(alias: `inst`)*
-  - Installs the `FunscriptToolBox.MotionVectors` extension into detected OpenFunscripter (OFS) installations (`%appdata%\OFS\...\extensions`).
   - Scaffolds ready-to-run workflow folders populated with helper batch scripts and configuration templates:
     - `FSTB-CreateSubtitles2025/`: Subtitle transcription and translation workflows (`Staging`, `ManualHQWorkflow`, `AutomaticHQWorkflow`).
     - `FSTB-PrepareScriptForRelease/`: Script packaging and signature generation for releases.
-    - `FSTB-PrepareVideoForOFS/`: Prepares and extracts motion vector assets for OFS.
     - `FSTB-VerifyDownloadedScripts/`: Automated verification of funscripts against local video files.
 
 ---
@@ -79,16 +77,11 @@ A modular pipeline driven by JSON/C# configuration files to transcribe, identify
 
 ---
 
-### 5. Motion Vectors & OFS Integration (`motionvectors`)
-Extracts block-level video motion vectors and provides real-time motion tracking data to OpenFunscripter.
+### 5. Motion Vectors (`motionvectors`)
+> [!NOTE]
+> Motion vector extraction is no longer supported directly in FunscriptToolbox. If you want to generate a video with embedded motion vector arrows, please use the customized FFmpeg release directly at [Zalunda FFmpeg Releases](https://github.com/Zalunda/FFmpeg/releases).
 
-* **`motionvectors.prepare`** *(alias: `mvs.prep`)*
-  - Extracts motion vectors from video using custom FFmpeg filters (`vf_extract_mvs`, `vf_mestimate`) or native decoders.
-  - Produces binary `.mvs` files and visual preview streams. Supports 2D, VR Left eye, and VR Mosaic layouts.
-
-* **`motionvectors.ofspluginserver`** *(alias: `mvs.ofsps`)*
-  - Runs a local file/IPC socket server communicating with the OpenFunscripter Lua plugin.
-  - Streams motion vector calculations and tracker positions into OFS for automated or assisted funscripting.
+* **`motionvectors.prepare`** *(alias: `mvs.prep`)*: Displays a notification directing users to the custom FFmpeg release.
 
 ---
 
@@ -98,5 +91,3 @@ Extracts block-level video motion vectors and provides real-time motion tracking
   - Interactive WPF dialog used during the subtitle creation workflow.
   - Allows human-in-the-loop validation: review transcribed lines, assign or rename speaker tags, and inspect per-speaker audio/statistics before translation and final subtitle export.
 
-* **Motion Vectors Editor** (`MotionVectorsEditor.xaml`):
-  - Visual diagnostic and calibration tool for inspecting raw motion vector data and tracking zones.

@@ -215,16 +215,9 @@
     <Compile Include="SpeakerCorrection\SpeakerCorrectionTool.xaml.cs">
       <DependentUpon>SpeakerCorrectionTool.xaml</DependentUpon>
     </Compile>
-    <Compile Include="MotionVectorsEditor.xaml.cs">
-      <DependentUpon>MotionVectorsEditor.xaml</DependentUpon>
-    </Compile>
     <Compile Include="SpeakerCorrection\SpeakerStatsViewModel.cs" />
     <Compile Include="Test.cs" />
     <Page Include="SpeakerCorrection\SpeakerCorrectionTool.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="MotionVectorsEditor.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

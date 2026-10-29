@@ -100,18 +100,7 @@ namespace FunscriptToolbox
                         @"Position-Doggy-MenStanding-C.mp4",
                     };
                     break;
-                case 41:
-                    args = new[]
-                    {
-                        "motionvectors.ofspluginserver",
-                        "--channelbasefilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.V2BETA\Channel-999-"),
-                        "--channellockfilepath", Environment.ExpandEnvironmentVariables(@"%appdata%\OFS\OFS3_data\extensions\FunscriptToolBox.MotionVectors.V2BETA\Channel-999.lock"),
-                        "--timeout", "300",
-                        "--debugmode",
-                        "--skipupdate"
-                    };
-                    break;
-
+                
                 case 50:
                     // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";                    
                     var prefix = "*MDVR-375-A*";
@@ -223,8 +212,7 @@ namespace FunscriptToolbox
 
                     VerbSubtitlesCreate.Options,
 
-                    VerbMotionVectorsPrepareFiles.Options,
-                    VerbMotionVectorsOFSPluginServer.Options
+                    VerbMotionVectorsPrepareFiles.Options
                     >(args)
                     .MapResult(
                           (VerbInstallation.Options options) => new VerbInstallation(options).Execute(),
@@ -240,7 +228,6 @@ namespace FunscriptToolbox
                           (VerbSubtitlesCreate.Options options) => new VerbSubtitlesCreate(options).Execute(),
 
                           (VerbMotionVectorsPrepareFiles.Options options) => new VerbMotionVectorsPrepareFiles(options).Execute(),
-                          (VerbMotionVectorsOFSPluginServer.Options options) => new VerbMotionVectorsOFSPluginServer(options).Execute(),
 
                           errors => HandleParseError(errors));
                 rs_log.Info($"Application closing with return code: {result}");

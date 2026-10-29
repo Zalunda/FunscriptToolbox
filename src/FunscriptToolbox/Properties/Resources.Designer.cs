@@ -98,7 +98,7 @@ namespace FunscriptToolbox.Properties {
         ///   Looks up a localized string similar to {
         ///  &quot;SharedObjects&quot;: [
         ///    {
-        ///      &quot;Id&quot;: &quot;TranscriberAudioFullSystemPromptForG4&quot;,
+        ///      &quot;$id&quot;: &quot;TranscriberAudioFullSystemPromptForG4&quot;,
         ///      &quot;TextAfter&quot;: &quot;
         ///=_______________________________________
         ///
@@ -107,7 +107,7 @@ namespace FunscriptToolbox.Properties {
         ///### Multi-Speaker Segmentation &amp; Anti-Bundling Mandate
         ///When multiple speakers talk in a scene, keep timestamps strictly sequential (`EndTime` of segment $N \le$ `StartTime` of segment $N+1$) and follow these strict rules to prevent lazy bundling:
         ///
-        ///1. **Sequential Turn-Taking Where Each Speaker&apos;s Line is &gt; [rest of string was truncated]&quot;;.
+        ///1. **Sequential Turn-Taking Where Each Speaker&apos;s Line is  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_MultiSpeakers_override {
             get {
@@ -124,11 +124,10 @@ namespace FunscriptToolbox.Properties {
         ///      &quot;TextBefore&quot;: null,
         ///      &quot;Text&quot;: &quot;
         ///=_______________________________________
-        ///
-        ///# TRANSCRIPTION AND VAD MANDATE FOR GEMINI 4 (version 2026-10-20)
+        ///# TRANSCRIPTION AND VAD MANDATE FOR GEMINI 4 (version 2026-10-25)
         ///
         ///### Role
-        ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, word-anchored Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary [rest of string was truncated]&quot;;.
+        ///You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, word-anchored Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary a [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string @__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override {
             get {
@@ -298,24 +297,6 @@ namespace FunscriptToolbox.Properties {
         ///REM ScriptVersion:1.0
         ///
         ///echo How to use:
-        ///echo 1. Move scene-to-script.mp4 to this folder.
-        ///echo 2. Start this script.
-        ///echo 3. It will starts by creating a scene-to-script.mvs-p-frames.mp4, which is a
-        ///echo    version of the video optimized to get stable motionvectors (i.e. only P-frames).
-        ///echo    This step is using the ffmpegFilter (value: VRLeft, VRMosaic, 2D or a custom filter) and ffmpegHeight parameters.
-        ///echo 4. It will then extracts the motion vector from the video and create scene-to-s [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string FSTB_PrepareVideoForOFS_bat {
-            get {
-                return ResourceManager.GetString("FSTB-PrepareVideoForOFS_bat", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to @echo off
-        ///REM ScriptVersion:1.0
-        ///
-        ///echo How to use:
         ///echo 1. Move scene.funscript, scene.asig (if .funscript doesn’t include audiosignature) and scene.mp4 to this folder.
         ///echo 2. Start this script.
         ///echo 3a. If your video version is same as the scripter’s version, you’ll see: Audio signatures are SYNCHRONIZED. Script is GOOD.
@@ -325,80 +306,6 @@ namespace FunscriptToolbox.Properties {
         internal static string FSTB_VerifyDownloadedScripts_bat {
             get {
                 return ResourceManager.GetString("FSTB_VerifyDownloadedScripts_bat", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to --
-        ///-- json.lua
-        ///--
-        ///-- Copyright (c) 2020 rxi
-        ///--
-        ///-- Permission is hereby granted, free of charge, to any person obtaining a copy of
-        ///-- this software and associated documentation files (the &quot;Software&quot;), to deal in
-        ///-- the Software without restriction, including without limitation the rights to
-        ///-- use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-        ///-- of the Software, and to permit persons to whom the Software is furnished to do
-        ///-- so, subject to the following conditions:
-        ///--        /// [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string json_lua {
-            get {
-                return ResourceManager.GetString("json_lua", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to -- FunscriptToolbox.MotionVectors LUA Wrappper Version 1.0.0
-        ///json = require &quot;json&quot;
-        ///server_connection = require &quot;server_connection&quot;
-        ///virtual_actions = require &quot;virtual_actions&quot;
-        ///
-        ///-- global var
-        ///FTMVSFullPath = &quot;[[FunscriptToolboxExePathInLuaFormat]]&quot;
-        ///PluginVersion = &quot;[[PluginVersion]]&quot;
-        ///configFullPath = ofs.ExtensionDir() .. &quot;\\config.json&quot;
-        ///
-        ///config = {}
-        ///connection = nil
-        ///virtualActions = {}
-        ///lastVideoFullPath = nil
-        ///lastMvsFullPath = nil
-        ///
-        ///function init()
-        ///    printWithTime(&quot;Plugin Version:&quot;, PluginV [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string main_lua {
-            get {
-                return ResourceManager.GetString("main_lua", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to -- FunscriptToolbox.MotionVectors LUA server_connection
-        ///json = require &quot;json&quot;
-        ///
-        ///local server_connection = {}
-        ///
-        ///function server_connection:new(FTMVSFullPath, enableLogs)
-        ///	local o = { 
-        ///		FTMVSFullPath = FTMVSFullPath,
-        ///		cantFindFTMVSFullPath = false,
-        ///		enableLogs = enableLogs,
-        ///		serverProcessHandle = nil,
-        ///		requests = {},
-        ///		lastTimeTaken = 0,
-        ///		serverTimeout = 300,
-        ///		status = &apos;&apos;,
-        ///		statusTooltip = nil
-        ///	}
-        ///	if not fileExist(o.FTMVSFullPath) then
-        ///		local message = &apos;missing &apos; .. o.FTMVSFullPath
-        ///	 [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string server_connection_lua {
-            get {
-                return ResourceManager.GetString("server_connection_lua", resourceCulture);
             }
         }
         
@@ -554,32 +461,6 @@ namespace FunscriptToolbox.Properties {
         internal static string ValidateImageRequest {
             get {
                 return ResourceManager.GetString("ValidateImageRequest", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to -- FunscriptToolbox.MotionVectors LUA virtual_actions
-        ///local virtual_actions = {}
-        ///
-        ///function virtual_actions:new(scriptIdx, config)
-        ///	local o = { 
-        ///		ScriptIdx = scriptIdx,		
-        ///		Config = config,
-        ///		FrameDurationInSec = 167,
-        ///		GeneratedActionsOriginal = {},
-        ///		ActionsInTimeline = nil
-        ///	}
-        ///	setmetatable(o, {__index = virtual_actions})
-        ///	return o
-        ///end
-        ///
-        ///function virtual_actions:init(userAction, actions, frameDurationInMs)
-        ///	self.GeneratedActionsOriginal = {}
-        ///	self:removeAllVirtualActionsInTimelime(userActi [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string virtual_actions_lua {
-            get {
-                return ResourceManager.GetString("virtual_actions_lua", resourceCulture);
             }
         }
     }

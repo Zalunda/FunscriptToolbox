@@ -30,11 +30,9 @@ A modular suite of .NET / C# command-line tools, native C++ utilities, and WPF G
 ```cmd
 FunscriptToolbox.exe installation
 ```
-* Automatically installs the `FunscriptToolBox.MotionVectors` extension into detected OpenFunscripter installations (`%appdata%\OFS\...\extensions`).
 * Scaffolds ready-to-run workflow folders populated with helper batch scripts and configuration templates:
   * `FSTB-CreateSubtitles2025/`: Subtitle transcription, diarization, and translation workflows (`Staging`, `ManualHQWorkflow`, `AutomaticHQWorkflow`).
   * `FSTB-PrepareScriptForRelease/`: Script packaging and signature generation for releases.
-  * `FSTB-PrepareVideoForOFS/`: Prepares and extracts motion vector assets for OFS.
   * `FSTB-VerifyDownloadedScripts/`: Automated verification of funscripts against local video files.
 
 ---
@@ -70,18 +68,17 @@ A modular pipeline to extract dialogue, perform voice activity detection, transc
 
 ---
 
-### 5. Motion Vectors & OFS Plugin (`motionvectors`)
-Extracts block-level video motion vectors for assisted or automated tracking in OpenFunscripter.
+### 5. Motion Vectors (`motionvectors`)
+> [!NOTE]
+> Motion vector extraction is no longer supported directly in FunscriptToolbox. To generate a video with embedded motion vector arrows, please use the custom FFmpeg release directly from [https://github.com/Zalunda/FFmpeg/releases](https://github.com/Zalunda/FFmpeg/releases).
 
-* **`motionvectors.prepare`** *(alias: `mvs.prep`)*: Extracts motion vectors using native decoders (`MotionVectorsExtractor.exe`) and FFmpeg filters. Outputs binary `.mvs` files and visual preview streams for 2D, VR Left eye, and VR Mosaic layouts.
-* **`motionvectors.ofspluginserver`** *(alias: `mvs.ofsps`)*: Runs an IPC/socket server that feeds real-time motion vector calculations and tracker coordinates directly into the OpenFunscripter Lua extension.
+* **`motionvectors.prepare`** *(alias: `mvs.prep`)*: Outputs guidance pointing to the custom FFmpeg build.
 
 ---
 
 ### 6. Interactive GUI Utilities
 
 * **Speaker Correction Tool** (`SpeakerCorrectionTool.xaml`): Interactive WPF dialog launched during subtitle generation to inspect dialogue lines, listen to audio segments, reassign speakers, and verify timestamps.
-* **Motion Vectors Editor** (`MotionVectorsEditor.xaml`): Diagnostic and calibration tool for inspecting raw motion vector data, block tracking, and motion zones.
 
 ---
 
@@ -90,7 +87,7 @@ Extracts block-level video motion vectors for assisted or automated tracking in 
 1. Download the latest `FunscriptToolbox-<version>.zip` from the [Releases](https://github.com/Zalunda/FunscriptToolbox/releases) page.
 2. Extract the archive into a directory of your choice.
 3. Run `--FSTB-Installation.bat` (or open a command prompt and run `FunscriptToolbox.exe installation`).
-4. The tool will register the OpenFunscripter extension and set up ready-to-use workflow folders with batch templates.
+4. The tool will set up ready-to-use workflow folders with batch templates.
 
 ---
 
@@ -121,8 +118,7 @@ FunscriptToolbox/
 | **`FunscriptToolbox`** | C# / .NET 4.8 | Main console executable exposing all CLI verbs. |
 | **`FunscriptToolbox.Core`** | C# / .NET 4.8 | Core domain models, `.funscript` and `.srt` parsers. |
 | **`AudioSynchronization`** | C# / .NET 4.8 | Acoustic waveform fingerprinting (`.asig`) & cross-correlation. |
-| **`MotionVectorsExtractor`** | C++ / MSVC v143 (x64) | Native high-performance motion vector extractor interfacing with FFmpeg. |
-| **`FunscriptToolbox.UI`** | C# / WPF (.NET 4.8) | Interactive UI utilities (Speaker Correction, Motion Vectors Editor). |
+| **`FunscriptToolbox.UI`** | C# / WPF (.NET 4.8) | Interactive UI utilities (Speaker Correction). |
 
 ---
 
@@ -132,10 +128,9 @@ FunscriptToolbox/
 * **Windows 10/11** (64-bit)
 * **Visual Studio 2022** (Community, Professional, or Enterprise) with workloads:
   * **.NET desktop development** (.NET Framework 4.8 Developer Pack)
-  * **Desktop development with C++** (MSVC v143 toolset, Windows 10/11 SDK)
-
+  
 ### One-Click Local Build
-To build the complete solution (native C++ extractor + C# projects) and produce the release `.zip`:
+To build the complete solution and produce the release `.zip`:
 1. Double-click **`CreateRelease.bat`** at the repository root.
 2. The script will automatically locate MSBuild, compile the solution in `Release` configuration, and package the release archive into `dist\FunscriptToolbox-<version>.zip`.
 
@@ -168,7 +163,7 @@ Releases are fully automated via GitHub Actions ([.github/workflows/build.yml](.
 
 * **Trigger**: Automatically runs whenever a git tag is created (e.g. `2.3.0` or `v2.3.0`).
 * **Version Stamping**: Automatically updates `AssemblyVersion`, `AssemblyFileVersion`, and `AssemblyInformationalVersion` from the tag.
-* **Compilation**: Builds both native C++ (`MotionVectorsExtractor`) and C# projects on a Windows runner.
+* **Compilation**: Builds the solution on a Windows runner.
 * **Release Publication**: Packages `FunscriptToolbox-<version>.zip` and attaches it directly to the published GitHub Release.
 
 To release a new version from your terminal:

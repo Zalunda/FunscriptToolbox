@@ -21,10 +21,6 @@ if (-not (Test-Path $mainExe)) {
     throw "FunscriptToolbox.exe not found at '$mainExe'. Build may have failed or not completed."
 }
 
-$mveExe = Join-Path $buildDir "MotionVectorsExtractor\MotionVectorsExtractor.exe"
-if (-not (Test-Path $mveExe)) {
-    throw "MotionVectorsExtractor.exe not found at '$mveExe'. Native C++ build step may have failed or not copied."
-}
 
 # Extract version from AssemblyInfo.cs if not provided
 if ([string]::IsNullOrWhiteSpace($Version)) {
@@ -75,13 +71,6 @@ if (Test-Path $pythonSourceDir) {
     Copy-Item -Path "$pythonSourceDir\*" -Destination $destPython -Recurse -Force
 }
 
-# 3. Copy MotionVectorsExtractor directory (native exe + ffmpeg dlls)
-$mveDir = Join-Path $buildDir "MotionVectorsExtractor"
-if (Test-Path $mveDir) {
-    $destMve = Join-Path $stagingDir "MotionVectorsExtractor"
-    New-Item -ItemType Directory -Path $destMve -Force | Out-Null
-    Copy-Item -Path "$mveDir\*" -Destination $destMve -Recurse -Force
-}
 
 # 4. Copy runtimes directory if present (Whisper native runtimes)
 $runtimesDir = Join-Path $buildDir "runtimes"

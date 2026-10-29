@@ -121,9 +121,6 @@
   <data name="FSTB-PrepareScriptForRelease_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-PrepareScriptForRelease.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
-  <data name="FSTB-PrepareVideoForOFS_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\InstallationFiles\--FSTB-PrepareVideoForOFS.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
   <data name="FSTB_CreateSubtitles_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-CreateSubtitles.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
@@ -132,15 +129,6 @@
   </data>
   <data name="FSTB_VerifyDownloadedScripts_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-VerifyDownloadedScripts.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="json_lua" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\InstallationFiles\json.lua;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
-  </data>
-  <data name="main_lua" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\InstallationFiles\main.lua;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
-  </data>
-  <data name="server_connection_lua" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\InstallationFiles\server_connection.lua;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
   <data name="TranscriberAudioFullSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
@@ -171,9 +159,6 @@
   </data>
   <data name="ValidateImageRequest" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\ValidateImageRequest.json;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
-  </data>
-  <data name="virtual_actions_lua" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\installationfiles\virtual_actions.lua;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;iso-8859-1</value>
   </data>
   <data name="__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-SubtitleGenerator.AutomaticHQWorkflow.override.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
