@@ -77,14 +77,6 @@ A modular pipeline driven by JSON/C# configuration files to transcribe, identify
 
 ---
 
-### 5. Motion Vectors (`motionvectors`)
-> [!NOTE]
-> Motion vector extraction is no longer supported directly in FunscriptToolbox. If you want to generate a video with embedded motion vector arrows, please use the customized FFmpeg release directly at [Zalunda FFmpeg Releases](https://github.com/Zalunda/FFmpeg/releases).
-
-* **`motionvectors.prepare`** *(alias: `mvs.prep`)*: Displays a notification directing users to the custom FFmpeg release.
-
----
-
 ## Interactive GUI Tools (`FunscriptToolbox.UI`)
 
 * **Speaker Correction Tool** (`SpeakerCorrectionTool.xaml`):

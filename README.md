@@ -68,15 +68,8 @@ A modular pipeline to extract dialogue, perform voice activity detection, transc
 
 ---
 
-### 5. Motion Vectors (`motionvectors`)
-> [!NOTE]
-> Motion vector extraction is no longer supported directly in FunscriptToolbox. To generate a video with embedded motion vector arrows, please use the custom FFmpeg release directly from [https://github.com/Zalunda/FFmpeg/releases](https://github.com/Zalunda/FFmpeg/releases).
 
-* **`motionvectors.prepare`** *(alias: `mvs.prep`)*: Outputs guidance pointing to the custom FFmpeg build.
-
----
-
-### 6. Interactive GUI Utilities
+### 5. Interactive GUI Utilities
 
 * **Speaker Correction Tool** (`SpeakerCorrectionTool.xaml`): Interactive WPF dialog launched during subtitle generation to inspect dialogue lines, listen to audio segments, reassign speakers, and verify timestamps.
 
