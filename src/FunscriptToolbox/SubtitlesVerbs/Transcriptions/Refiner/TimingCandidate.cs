@@ -21,6 +21,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // Hard limits imposed by confirmed neighbor boundaries
         public TimeSpan? HardLimitStart { get; set; }
         public TimeSpan? HardLimitEnd { get; set; }
+        public TimeSpan? LastShrunkHardLimitStart { get; set; }
+        public TimeSpan? LastShrunkHardLimitEnd { get; set; }
+        public TimeSpan? LastCompleteStart { get; set; }
+        public bool PushedRightByNeighbor { get; set; }
+        [JsonIgnore] public string PendingStopReason { get; set; }
+        [JsonIgnore] public bool HasStopped { get; set; }
 
         // Window waiting to be sent to the AI in the next iteration.
         public TimeWindow Plan { get; set; } = null;

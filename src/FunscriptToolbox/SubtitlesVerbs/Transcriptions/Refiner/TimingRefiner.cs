@@ -33,8 +33,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public List<TimingCandidate> Candidates { get; set; } = new List<TimingCandidate>();
 
-        public TimingRefiner(PcmAudio fullPcmAudioForRefiner)
+        public TimingRefiner(PcmAudio fullPcmAudioForRefiner, int maxRetriesPerNode, TimeSpan maxDrift, TimeSpan minSubtitleDuration, float valleyReach)
         {
+            this.MaxRetriesPerNode = maxRetriesPerNode;
+            this.MaxDrift = maxDrift;
+            this.MinSubtitleDuration = minSubtitleDuration;
             TerrainMapping = new AudioTerrainMapping(fullPcmAudioForRefiner)
             {
                 /// <summary>Terrain must be above (floor * this) to be suspected speech. Lower = more sensitive.</summary>
@@ -42,7 +45,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 /// <summary>A suspected-speech zone must reach (floor * this) somewhere, otherwise it is just noise.</summary>
                 PeakRatio = 6f,
                 /// <summary>A valley is a cut if it comes within this fraction of the way from the floor to the lower neighbouring peak. Lower = fewer cuts.</summary>
-                ValleyReach = 0.25f,
+                ValleyReach = valleyReach,
             };
             TerrainMapping.Compute();
         }
@@ -94,20 +97,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var other = isStart ? cand.OriginalEndTime : cand.OriginalStartTime;
             var maxDrift = this.MaxDrift;
 
-            // 1. Silent: snap inward towards speech edge
+            // 1. Silent: snap inward towards speech edge (clamped to MaxDrift and preserving MinSubtitleDuration)
             if (TerrainMapping.IsSilent(t))
             {
+                var inwardLimit = isStart
+                    ? t + maxDrift
+                    : t - maxDrift;
+
+                if (isStart && other - t > this.MinSubtitleDuration)
+                {
+                    var maxStart = other - this.MinSubtitleDuration;
+                    if (inwardLimit > maxStart)
+                        inwardLimit = maxStart;
+                }
+                else if (!isStart && t - other > this.MinSubtitleDuration)
+                {
+                    var minEnd = other + this.MinSubtitleDuration;
+                    if (inwardLimit < minEnd)
+                        inwardLimit = minEnd;
+                }
+
                 var edge = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch
                 {
                     MinJump = TimeSpan.MaxValue,
                     StopAtSpeechEdge = true,
                     Inclusive = true,
-                    Limit = other
+                    Limit = inwardLimit
                 });
-                if (edge.HasValue)
+                if (edge.HasValue && (edge.Value - t).Duration() <= maxDrift)
                     return edge.Value;
 
-                var dip = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch { Inclusive = true, Limit = other });
+                var dip = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch { Inclusive = true, Limit = inwardLimit });
                 if (dip.HasValue && (dip.Value - t).Duration() <= maxDrift)
                     return dip.Value;
                 return t;
@@ -131,10 +151,54 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 : t;
         }
 
+        private bool AreConsecutiveTextsSimilar(TimingCandidate cur, TimingCandidate next)
+        {
+            if (string.IsNullOrWhiteSpace(cur.OriginalText) || string.IsNullOrWhiteSpace(next.OriginalText))
+                return false;
+
+            var match = RomajiSyllableMatcher.Analyze(cur.OriginalText, next.OriginalText, MaxSubstitutedSyllables);
+            return !match.IsMismatch && match.CoversAll && match.Similarity >= 0.75;
+        }
+
         public void EnforceMinimumDuration(TimingCandidate cand, ref TimeSpan start, ref TimeSpan end)
         {
             var minDuration = this.MinSubtitleDuration;
             var maxDrift = this.MaxDrift;
+
+            // De-duplicate Init.Start: two consecutive candidates should not start their Init test on the exact same mountain dip
+            var prev = this.Candidates.LastOrDefault();
+            if (prev != null && start <= prev.CurrentTestStart)
+            {
+                var nextDip = TerrainMapping?.FindDip(
+                    prev.CurrentTestStart,
+                    BoundarySide.Start,
+                    MoveDirection.Inward,
+                    new DipSearch
+                    {
+                        Inclusive = false,
+                        Limit = cand.OriginalStartTime + maxDrift
+                    });
+
+                if (nextDip.HasValue && (nextDip.Value - cand.OriginalStartTime).Duration() <= maxDrift)
+                {
+                    start = nextDip.Value;
+                }
+                else if (cand.OriginalStartTime > prev.CurrentTestStart)
+                {
+                    start = cand.OriginalStartTime;
+                }
+
+                if (end <= start)
+                {
+                    end = cand.OriginalEndTime > start ? cand.OriginalEndTime : start + minDuration;
+                }
+            }
+
+            var startMinLimit = cand.OriginalStartTime - maxDrift;
+            if (prev != null && startMinLimit <= prev.CurrentTestStart)
+            {
+                startMinLimit = prev.CurrentTestStart + TimeSpan.FromMilliseconds(1);
+            }
 
             if (TerrainMapping != null)
             {
@@ -146,7 +210,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     if (end - start >= minDuration)
                         break;
 
-                    var startDip = TerrainMapping.FindDip(start, BoundarySide.Start, MoveDirection.Outward, new DipSearch { Limit = cand.OriginalStartTime - maxDrift });
+                    var startDip = TerrainMapping.FindDip(start, BoundarySide.Start, MoveDirection.Outward, new DipSearch { Limit = startMinLimit });
                     if (startDip.HasValue)
                         start = startDip.Value;
 
@@ -203,7 +267,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 AdvanceCandidate(cand);
             }
 
-            CoordinateNeighborCandidates(this.Candidates);
+            if (this.Candidates.Any(f => !f.Start.IsLocked))
+            {
+                CoordinateNeighborCandidates(this.Candidates);
+            }
+            if (this.Candidates.All(f => f.Start.IsLocked))
+            {
+                CoordinateNeighborCandidates(this.Candidates);
+            }
+            FinalizeCandidateLocks(this.Candidates);
         }
 
         public void AdvanceCandidate(TimingCandidate cand)
@@ -237,13 +309,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 stopReason = PlanNextWindow(cand, test);
             }
 
-            if (cand.Plan == null)
+            cand.PendingStopReason = stopReason;
+        }
+
+        public void FinalizeCandidateLocks(List<TimingCandidate> candidates)
+        {
+            foreach (var cand in candidates)
             {
-                cand.LockAll();
-                SetFinalNotes(cand);
-                if (!string.IsNullOrEmpty(stopReason))
+                if (cand.Plan != null)
                 {
-                    cand.AddTraceRow("Stop", ' ', cand.CurrentTestStart, cand.CurrentTestEnd, ' ', stopReason);
+                    cand.HasStopped = false;
+                    continue;
+                }
+
+                if (!cand.IsFullyLocked || !cand.HasStopped)
+                {
+                    cand.LockAll();
+                    SetFinalNotes(cand);
+                }
+
+                if (!cand.HasStopped)
+                {
+                    cand.HasStopped = true;
+                    var reason = !string.IsNullOrEmpty(cand.PendingStopReason)
+                        ? cand.PendingStopReason
+                        : "Both sides covered";
+                    cand.AddTraceRow("Stop", ' ', cand.CurrentTestStart, cand.CurrentTestEnd, ' ', reason);
                 }
             }
         }
@@ -255,11 +346,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// </summary>
         public void JudgeSide(TimingCandidate cand, TestedWindow test, BoundarySide side, bool degraded)
         {
+            var boundary = test.Boundary(side);
+
+            if (!test.Match.IsMismatch && !degraded && test.Match.Covers(side))
+            {
+                if (side == BoundarySide.Start)
+                    cand.LastCompleteStart = boundary;
+            }
+
             var s = cand.Side(side);
             if (s.IsLocked)
                 return;
-
-            var boundary = test.Boundary(side);
 
             if (!test.Match.IsMismatch && !degraded && test.Match.Covers(side))
             {
@@ -349,7 +446,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public void UpdateCurrentBest(TimingCandidate cand)
         {
-            var fallback = cand.Tests
+            var validTests = cand.Tests
+                .Where(t => (!cand.HardLimitStart.HasValue || t.Start >= cand.HardLimitStart.Value) &&
+                            (!cand.HardLimitEnd.HasValue || t.End <= cand.HardLimitEnd.Value))
+                .ToList();
+
+            var pool = validTests.Count > 0 ? validTests : cand.Tests;
+
+            var fallback = pool
                 .OrderByDescending(t => t.Match.CoversAll)
                 .ThenByDescending(t => t.Match.Similarity)
                 .ThenByDescending(t => t.Duration)
@@ -358,20 +462,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var start = cand.Start.Good ?? fallback.Start;
             var end = cand.End.Good ?? fallback.End;
 
+            if (cand.HardLimitStart.HasValue && start < cand.HardLimitStart.Value)
+                start = cand.HardLimitStart.Value;
+            if (cand.HardLimitEnd.HasValue && end > cand.HardLimitEnd.Value)
+                end = cand.HardLimitEnd.Value;
+
             if (end <= start)
             {
                 start = fallback.Start;
                 end = fallback.End;
+                if (cand.HardLimitEnd.HasValue && end > cand.HardLimitEnd.Value)
+                    end = cand.HardLimitEnd.Value;
+                if (start >= end && cand.HardLimitStart.HasValue)
+                    start = cand.HardLimitStart.Value;
             }
 
             if (start != cand.CurrentTestStart || end != cand.CurrentTestEnd)
             {
+                var bestTest = cand.FindTest(start, end) ?? fallback;
+                string result = bestTest?.Match?.ToTraceString();
+                string heard = bestTest?.HeardText;
+
                 cand.AddTraceRow(
                     "Best",
                     TimingCandidate.GetStartMod(cand.CurrentTestStart, start),
                     start,
                     end,
-                    TimingCandidate.GetEndMod(cand.CurrentTestEnd, end));
+                    TimingCandidate.GetEndMod(cand.CurrentTestEnd, end),
+                    result,
+                    heard);
             }
 
             cand.CurrentTestStart = start;
@@ -431,6 +550,33 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return limit;
         }
 
+        private SideState GetEffectiveSideState(TimingCandidate cand, BoundarySide side)
+        {
+            var s = cand.Side(side);
+            if (s.IsLocked && s.Good.HasValue && (s.GoodState == SideState.Ok || s.GoodState == SideState.Substituted))
+                return SideState.Ok;
+
+            var targetBoundary = side == BoundarySide.Start ? cand.CurrentTestStart : cand.CurrentTestEnd;
+            var test = cand.Tests.LastOrDefault(t => t.Boundary(side) == targetBoundary && !t.Match.IsMismatch)
+                    ?? cand.Tests.LastOrDefault(t => !t.Match.IsMismatch)
+                    ?? cand.Tests.LastOrDefault();
+
+            if (test == null || test.Match.IsMismatch)
+                return SideState.Missing;
+
+            var state = test.Match.State(side);
+            switch (state)
+            {
+                case SideState.Ok:
+                case SideState.Substituted:
+                    return SideState.Ok;
+                case SideState.Extra:
+                    return SideState.Extra;
+                default:
+                    return SideState.Missing;
+            }
+        }
+
         public void CoordinateNeighborCandidates(List<TimingCandidate> candidates)
         {
             var sorted = candidates.OrderBy(c => c.OriginalStartTime).ToList();
@@ -440,122 +586,307 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             {
                 var cur = sorted[i];
                 var next = sorted[i + 1];
+                var minStartForCur = i > 0 ? sorted[i - 1].CurrentTestEnd : TimeSpan.Zero;
 
-                // Case A: Next (Right) confirmed Start with Ok -> creates HardLimitEnd on Cur (Left)
-                if (next.Start.IsLocked && next.Start.Good.HasValue && next.Start.GoodState == SideState.Ok)
+                var latestNextTest = next.Tests.LastOrDefault();
+
+                // Check Revert on Missing if next was previously pushed right
+                if (next.PushedRightByNeighbor && latestNextTest != null)
                 {
-                    var hardLimit = next.Start.Good.Value;
-                    cur.HardLimitEnd = hardLimit;
-
-                    var curTargetEnd = cur.Plan?.End ?? cur.CurrentTestEnd;
-                    if (curTargetEnd > hardLimit)
+                    if (latestNextTest.Match.IsMismatch || latestNextTest.Match.StartState == SideState.Missing)
                     {
-                        // Look for a terrain dip at or before hardLimit, but never before cur.CurrentTestStart
-                        var clampedEnd = FindTerrainDipAtOrBefore(hardLimit, cur.CurrentTestStart);
-                        if (clampedEnd <= cur.CurrentTestStart)
-                            clampedEnd = hardLimit;
+                        var revertStart = next.LastCompleteStart ?? next.OriginalStartTime;
+                        next.PushedRightByNeighbor = false;
+                        next.CurrentTestStart = revertStart;
+                        next.Start.Good = revertStart;
+                        next.Start.GoodState = SideState.Ok;
+                        next.Start.IsLocked = true;
+                        next.Plan = null;
+                        next.AddTraceRow("Rev ", '-', revertStart, next.CurrentTestEnd, ' ', "Revert to LastCompleteStart (over-shrunk into Missing)");
 
-                        var targetStart = cur.CurrentTestStart;
-
-                        // If clamped duration is less than minDuration, attempt to expand Start earlier to compensate
-                        if (clampedEnd - targetStart < minDuration)
+                        cur.HardLimitEnd = revertStart;
+                        if ((cur.Plan?.End ?? cur.CurrentTestEnd) > revertStart)
                         {
-                            var maxDrift = this.MaxDrift;
-                            var startLimit = cur.HardLimitStart ?? (cur.OriginalStartTime - maxDrift);
-                            var neededStart = clampedEnd - minDuration;
-                            if (neededStart < startLimit)
-                                neededStart = startLimit;
+                            ClampAndLockCurEnd(cur, revertStart, minDuration, minStartForCur, $"Locked to neighbor Start ({revertStart:hh\\:mm\\:ss\\.fff})");
+                        }
+                        continue;
+                    }
+                    else if (latestNextTest.Match.StartState == SideState.Ok || latestNextTest.Match.StartState == SideState.Substituted)
+                    {
+                        // Push right succeeded and reached Ok
+                        next.PushedRightByNeighbor = false;
+                        next.Start.Good = next.CurrentTestStart;
+                        next.Start.GoodState = SideState.Ok;
+                        next.Start.IsLocked = true;
+                    }
+                }
 
-                            var expandedStart = FindTerrainDipAtOrBefore(neededStart, startLimit);
-                            if (expandedStart < targetStart)
-                                targetStart = expandedStart;
+                var curEndState = GetEffectiveSideState(cur, BoundarySide.End);
+                var nextStartState = GetEffectiveSideState(next, BoundarySide.Start);
 
-                            // Absolute fallback floor: allow down to 0.1s
-                            if (clampedEnd - targetStart < TimeSpan.FromSeconds(0.1) && clampedEnd > startLimit)
+                var curTargetEnd = cur.Plan?.End ?? cur.CurrentTestEnd;
+                var nextTargetStart = next.Plan?.Start ?? next.CurrentTestStart;
+                bool overlaps = curTargetEnd > nextTargetStart;
+
+                // When consecutive subtitles repeat similar text (or next.Start has reached/crossed cur.Start),
+                // RomajiSyllableMatcher greedily matches cur's repetition as next's S=Ok. Treat next.Start as Extra so we push right.
+                if (overlaps && nextStartState == SideState.Ok && (AreConsecutiveTextsSimilar(cur, next) || nextTargetStart <= cur.CurrentTestStart))
+                {
+                    nextStartState = SideState.Extra;
+                    if (curEndState == SideState.Extra)
+                        curEndState = SideState.Ok;
+                }
+
+                // 1. Missing / Extra OR (Ok / Extra when overlapping) => Push Boundary Right 1 mountain
+                if ((curEndState == SideState.Missing && nextStartState == SideState.Extra) ||
+                    (curEndState == SideState.Ok && nextStartState == SideState.Extra && overlaps))
+                {
+                    var nextShrunkStart = TerrainMapping?.FindDip(
+                        next.CurrentTestStart,
+                        BoundarySide.Start,
+                        MoveDirection.Inward,
+                        new DipSearch
+                        {
+                            MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
+                            StopAtSpeechEdge = true,
+                            Limit = next.CurrentTestEnd - minDuration
+                        });
+
+                    bool canPushNextRight = nextShrunkStart.HasValue
+                        && nextShrunkStart.Value > next.CurrentTestStart
+                        && (next.CurrentTestEnd - nextShrunkStart.Value >= TimeSpan.FromSeconds(0.1))
+                        && next.FindTest(nextShrunkStart.Value, next.CurrentTestEnd) == null;
+
+                    if (canPushNextRight)
+                    {
+                        var targetStart = nextShrunkStart.Value;
+                        next.PushedRightByNeighbor = true;
+                        next.Start.IsLocked = false;
+                        next.Start.Good = null;
+                        next.Start.GoodState = null;
+
+                        char endMod = TimingCandidate.GetEndMod(next.CurrentTestEnd, next.CurrentTestEnd);
+                        next.CurrentTestStart = targetStart;
+                        next.Plan = new TimeWindow(targetStart, next.CurrentTestEnd, TimingMove.Shrink, next.Tests.Count - 1);
+                        next.AddTraceRow("Shrk", '+', targetStart, next.CurrentTestEnd, endMod, "Coord: Push right 1 mountain (next Extra vs cur)");
+
+                        // Allow cur.End to expand towards targetStart
+                        cur.HardLimitEnd = targetStart;
+                        if (cur.Plan == null && cur.CurrentTestEnd < targetStart && curEndState != SideState.Ok)
+                        {
+                            var curExpandedEnd = TerrainMapping?.FindDip(
+                                cur.CurrentTestEnd,
+                                BoundarySide.End,
+                                MoveDirection.Outward,
+                                new DipSearch
+                                {
+                                    MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
+                                    StopAtSpeechEdge = true,
+                                    Limit = targetStart
+                                }) ?? targetStart;
+
+                            if (curExpandedEnd > cur.CurrentTestEnd && cur.FindTest(cur.CurrentTestStart, curExpandedEnd) == null)
                             {
-                                var minFloor = clampedEnd - TimeSpan.FromSeconds(0.1);
-                                targetStart = minFloor > startLimit ? minFloor : startLimit;
+                                cur.End.IsLocked = false;
+                                cur.End.Good = null;
+                                cur.End.GoodState = null;
+
+                                char startMod = TimingCandidate.GetStartMod(cur.CurrentTestStart, cur.CurrentTestStart);
+                                cur.CurrentTestEnd = curExpandedEnd;
+                                cur.Plan = new TimeWindow(cur.CurrentTestStart, curExpandedEnd, TimingMove.Expand, cur.Tests.Count - 1);
+                                cur.AddTraceRow("Exp ", startMod, cur.CurrentTestStart, curExpandedEnd, '+', $"Coord: Push right (towards {targetStart:hh\\:mm\\:ss\\.fff})");
                             }
                         }
+                    }
+                    else
+                    {
+                        // Cannot push next right (no inward dip or inward window was already tested)
+                        next.PushedRightByNeighbor = false;
+                        next.Start.IsLocked = true;
+                        if (next.Start.Good == null)
+                            next.Start.Good = next.CurrentTestStart;
 
-                        // Always unlock and create the plan for cur
+                        cur.HardLimitEnd = next.CurrentTestStart;
+                        if (overlaps)
+                        {
+                            ApplyHardLimitEndShrink(cur, next.CurrentTestStart, minDuration, minStartForCur);
+                        }
+                    }
+                    continue;
+                }
+
+                // 2. nextStartState is Ok or Extra (covers all remaining Ok/Ok, Extra/Ok, Ok/Extra no-overlap, Extra/Extra, Missing/Ok)
+                if (nextStartState == SideState.Ok || nextStartState == SideState.Extra)
+                {
+                    next.Start.IsLocked = true;
+                    if (next.Start.Good == null)
+                        next.Start.Good = next.CurrentTestStart;
+
+                    cur.HardLimitEnd = next.CurrentTestStart;
+                    if (overlaps)
+                    {
+                        ApplyHardLimitEndShrink(cur, next.CurrentTestStart, minDuration, minStartForCur);
+                    }
+                    else if (curEndState != SideState.Missing)
+                    {
+                        cur.End.IsLocked = true;
+                        if (cur.End.Good == null)
+                            cur.End.Good = cur.CurrentTestEnd;
+                    }
+                    continue;
+                }
+
+                // 3. nextStartState is Missing (covers Ok/Missing, Extra/Missing, Missing/Missing)
+                // next.Start general algorithm expands left. Once next.Start can no longer expand left, lock both at next.Start if overlapping.
+                if (nextStartState == SideState.Missing)
+                {
+                    if (next.Start.IsLocked || next.Plan == null)
+                    {
+                        if (overlaps)
+                        {
+                            next.Start.IsLocked = true;
+                            if (next.Start.Good == null)
+                                next.Start.Good = next.CurrentTestStart;
+
+                            cur.HardLimitEnd = next.CurrentTestStart;
+                            ClampAndLockCurEnd(cur, next.CurrentTestStart, minDuration, minStartForCur, $"Locked to neighbor Start ({next.CurrentTestStart:hh\\:mm\\:ss\\.fff})");
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+
+        private void ApplyHardLimitEndShrink(TimingCandidate cur, TimeSpan hardLimit, TimeSpan minDuration, TimeSpan minStartFloor)
+        {
+            cur.HardLimitEnd = hardLimit;
+
+            var curTargetEnd = cur.Plan?.End ?? cur.CurrentTestEnd;
+            if (curTargetEnd > hardLimit)
+            {
+                if (cur.LastShrunkHardLimitEnd != hardLimit)
+                {
+                    var clampedEnd = FindTerrainDipAtOrBefore(hardLimit, cur.CurrentTestStart);
+                    if (clampedEnd <= cur.CurrentTestStart)
+                        clampedEnd = hardLimit;
+
+                    var targetStart = cur.CurrentTestStart;
+
+                    if (clampedEnd - targetStart < minDuration)
+                    {
+                        var maxDrift = this.MaxDrift;
+                        var startLimit = cur.HardLimitStart ?? (cur.OriginalStartTime - maxDrift);
+                        if (startLimit < minStartFloor)
+                            startLimit = minStartFloor;
+
+                        var neededStart = clampedEnd - minDuration;
+                        if (neededStart < startLimit)
+                            neededStart = startLimit;
+
+                        var expandedStart = FindTerrainDipAtOrBefore(neededStart, startLimit);
+                        if (expandedStart < targetStart)
+                            targetStart = expandedStart;
+
+                        if (clampedEnd - targetStart < TimeSpan.FromSeconds(0.1) && clampedEnd > startLimit)
+                        {
+                            var minFloor = clampedEnd - TimeSpan.FromSeconds(0.1);
+                            targetStart = minFloor > startLimit ? minFloor : startLimit;
+                        }
+                    }
+
+                    cur.LastShrunkHardLimitEnd = hardLimit;
+
+                    if (clampedEnd > targetStart + TimeSpan.FromSeconds(0.05) &&
+                        cur.FindTest(targetStart, clampedEnd) == null)
+                    {
                         cur.End.IsLocked = false;
                         cur.End.Good = null;
                         cur.End.GoodState = null;
 
                         char startMod = TimingCandidate.GetStartMod(cur.CurrentTestStart, targetStart);
                         cur.CurrentTestStart = targetStart;
-                        // Guard against zero or inverted duration: never create a zero-length plan
-                        if (clampedEnd <= targetStart + TimeSpan.FromSeconds(0.05))
-                            continue;
-
                         cur.CurrentTestEnd = clampedEnd;
                         cur.Plan = new TimeWindow(targetStart, clampedEnd, TimingMove.Shrink, cur.Tests.Count - 1);
                         cur.AddTraceRow("Shrk", startMod, targetStart, clampedEnd, '-', $"Hard limit {hardLimit:hh\\:mm\\:ss\\.fff}");
+                        return;
                     }
                 }
 
-                // Case B: Cur (Left) confirmed End with Ok -> creates HardLimitStart on Next (Right)
-                if (cur.End.IsLocked && cur.End.Good.HasValue && cur.End.GoodState == SideState.Ok)
+                ClampAndLockCurEnd(cur, hardLimit, minDuration, minStartFloor, $"Locked to Hard limit ({hardLimit:hh\\:mm\\:ss\\.fff})");
+            }
+        }
+
+        private void ClampAndLockCurEnd(TimingCandidate cur, TimeSpan hardLimit, TimeSpan minDuration, TimeSpan minStartFloor, string reason)
+        {
+            var prevStart = cur.CurrentTestStart;
+            if (hardLimit - cur.CurrentTestStart < minDuration)
+            {
+                var maxDrift = this.MaxDrift;
+                var startLimit = cur.HardLimitStart ?? (cur.OriginalStartTime - maxDrift);
+                if (startLimit < minStartFloor)
+                    startLimit = minStartFloor;
+
+                var neededStart = hardLimit - minDuration;
+                if (neededStart < startLimit)
+                    neededStart = startLimit;
+
+                var expandedStart = FindTerrainDipAtOrBefore(neededStart, startLimit);
+                if (expandedStart < cur.CurrentTestStart && expandedStart >= startLimit)
                 {
-                    var hardLimit = cur.End.Good.Value;
-                    next.HardLimitStart = hardLimit;
+                    cur.CurrentTestStart = expandedStart;
+                }
+                else if (neededStart < cur.CurrentTestStart)
+                {
+                    cur.CurrentTestStart = neededStart;
+                }
 
-                    var nextTargetStart = next.Plan?.Start ?? next.CurrentTestStart;
-                    if (nextTargetStart < hardLimit)
-                    {
-                        // Look for a terrain dip at or after hardLimit, but never after next.CurrentTestEnd
-                        var clampedStart = FindTerrainDipAtOrAfter(hardLimit, next.CurrentTestEnd);
-                        if (clampedStart >= next.CurrentTestEnd)
-                            clampedStart = hardLimit;
-
-                        var targetEnd = next.CurrentTestEnd;
-
-                        // If clamped duration is less than minDuration, attempt to expand End later to compensate
-                        if (targetEnd - clampedStart < minDuration)
-                        {
-                            var maxDrift = this.MaxDrift;
-                            var endLimit = next.HardLimitEnd ?? (next.OriginalEndTime + maxDrift);
-                            var neededEnd = clampedStart + minDuration;
-                            if (neededEnd > endLimit)
-                                neededEnd = endLimit;
-
-                            var expandedEnd = FindTerrainDipAtOrAfter(neededEnd, endLimit);
-                            if (expandedEnd > targetEnd)
-                                targetEnd = expandedEnd;
-
-                            // Absolute fallback floor: allow down to 0.1s
-                            if (targetEnd - clampedStart < TimeSpan.FromSeconds(0.1) && clampedStart < endLimit)
-                            {
-                                var minCeil = clampedStart + TimeSpan.FromSeconds(0.1);
-                                targetEnd = minCeil < endLimit ? minCeil : endLimit;
-                            }
-                        }
-
-                        // Always unlock and create the plan for next
-                        next.Start.IsLocked = false;
-                        next.Start.Good = null;
-                        next.Start.GoodState = null;
-
-                        char endMod = TimingCandidate.GetEndMod(next.CurrentTestEnd, targetEnd);
-                        next.CurrentTestStart = clampedStart;
-                        // Guard against zero or inverted duration: never create a zero-length plan
-                        if (targetEnd <= clampedStart + TimeSpan.FromSeconds(0.05))
-                            continue;
-
-                        next.CurrentTestEnd = targetEnd;
-                        next.Plan = new TimeWindow(clampedStart, targetEnd, TimingMove.Shrink, next.Tests.Count - 1);
-                        next.AddTraceRow("Shrk", '+', clampedStart, targetEnd, endMod, $"Hard limit {hardLimit:hh\\:mm\\:ss\\.fff}");
-                    }
+                if (cur.Start.Good.HasValue && cur.Start.Good.Value > cur.CurrentTestStart)
+                {
+                    cur.Start.Good = cur.CurrentTestStart;
                 }
             }
+
+            char startMod = TimingCandidate.GetStartMod(prevStart, cur.CurrentTestStart);
+            cur.CurrentTestEnd = hardLimit;
+
+            var testedAtLimit = cur.FindTest(cur.CurrentTestStart, hardLimit);
+            if (testedAtLimit != null && !testedAtLimit.Match.IsMismatch && testedAtLimit.Match.Covers(BoundarySide.End))
+            {
+                cur.End.Good = hardLimit;
+                cur.End.GoodState = testedAtLimit.Match.EndState;
+            }
+            else
+            {
+                cur.End.Good = null;
+                cur.End.GoodState = null;
+            }
+            cur.End.IsLocked = true;
+
+            if (cur.Plan != null && !cur.Start.IsLocked && cur.Plan.Start + TimeSpan.FromSeconds(0.05) < hardLimit)
+            {
+                cur.Plan = new TimeWindow(cur.Plan.Start, hardLimit, cur.Plan.Kind, cur.Plan.ParentIndex);
+            }
+            else
+            {
+                cur.Plan = null;
+                if (!cur.Start.IsLocked)
+                {
+                    cur.Start.IsLocked = true;
+                    if (cur.Start.Good == null)
+                        cur.Start.Good = cur.CurrentTestStart;
+                }
+                SetFinalNotes(cur);
+            }
+            cur.AddTraceRow("Lock", startMod, cur.CurrentTestStart, hardLimit, '-', reason);
         }
 
         public void FinalizeUndecidedOverlaps(List<TimingCandidate> candidates)
         {
             var sorted = candidates
-                .OrderBy(c => c.CurrentTestStart)
+                .OrderBy(c => c.OriginalStartTime)
                 .ToList();
+
+            var minViableDuration = TimeSpan.FromSeconds(0.1);
 
             for (int i = 0; i < sorted.Count - 1; i++)
             {
@@ -565,19 +896,54 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 var curEnd = cur.CurrentTestEnd;
                 var nextStart = next.CurrentTestStart;
 
-                if (curEnd > nextStart)
+                bool overlaps = curEnd > nextStart;
+                bool curSquashed = (curEnd - cur.CurrentTestStart) < minViableDuration;
+
+                if (overlaps || curSquashed)
                 {
+                    var prevStart = cur.CurrentTestStart;
+                    if (curSquashed)
+                    {
+                        var minFloor = i > 0 ? sorted[i - 1].CurrentTestEnd : TimeSpan.Zero;
+                        if (cur.OriginalStartTime >= minFloor && cur.OriginalStartTime < cur.OriginalEndTime)
+                        {
+                            cur.CurrentTestStart = cur.OriginalStartTime;
+                        }
+                    }
+
+                    char curStartMod = TimingCandidate.GetStartMod(prevStart, cur.CurrentTestStart);
                     char curEndMod = TimingCandidate.GetEndMod(curEnd, cur.OriginalEndTime);
                     char nextStartMod = TimingCandidate.GetStartMod(nextStart, next.OriginalStartTime);
 
-                    cur.CurrentTestEnd = cur.OriginalEndTime;
+                    if (cur.OriginalEndTime > cur.CurrentTestStart)
+                        cur.CurrentTestEnd = cur.OriginalEndTime;
+                    else
+                        cur.CurrentTestEnd = next.OriginalStartTime;
+
                     next.CurrentTestStart = next.OriginalStartTime;
+                    if (next.CurrentTestEnd - next.CurrentTestStart < this.MinSubtitleDuration && next.OriginalEndTime > next.CurrentTestEnd)
+                    {
+                        next.CurrentTestEnd = next.OriginalEndTime;
+                    }
 
                     cur.AddValidationNote("Review: Shared Audio Zone (Reverted to Original)");
                     next.AddValidationNote("Review: Shared Audio Zone (Reverted to Original)");
 
-                    cur.AddTraceRow("Rev ", ' ', cur.CurrentTestStart, cur.CurrentTestEnd, curEndMod, "Revert to Original (Shared Zone)");
+                    cur.AddTraceRow("Rev ", curStartMod, cur.CurrentTestStart, cur.CurrentTestEnd, curEndMod, "Revert to Original (Shared Zone)");
                     next.AddTraceRow("Rev ", nextStartMod, next.CurrentTestStart, next.CurrentTestEnd, ' ', "Revert to Original (Shared Zone)");
+                }
+            }
+
+            foreach (var cand in sorted)
+            {
+                if ((cand.CurrentTestEnd - cand.CurrentTestStart) < minViableDuration)
+                {
+                    char startMod = TimingCandidate.GetStartMod(cand.CurrentTestStart, cand.OriginalStartTime);
+                    char endMod = TimingCandidate.GetEndMod(cand.CurrentTestEnd, cand.OriginalEndTime);
+                    cand.CurrentTestStart = cand.OriginalStartTime;
+                    cand.CurrentTestEnd = cand.OriginalEndTime;
+                    cand.AddValidationNote("Review: Shared Audio Zone (Reverted to Original)");
+                    cand.AddTraceRow("Rev ", startMod, cand.CurrentTestStart, cand.CurrentTestEnd, endMod, "Revert to Original (Squashed Guard)");
                 }
             }
         }

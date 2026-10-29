@@ -35,13 +35,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>A valley is a cut if it comes within this fraction of the way from the floor to the lower neighbouring peak. Lower = fewer cuts.</summary>
         public float ValleyReach { get; set; } = 0.25f;
 
-        public int MsPerFrame { get; set; } = 1;
 
         // Fixed internals (not worth exposing)
+        private const int MsPerFrame = 1;
         private const float MaxFilterMs = 6f;          // removes pitch teeth
         private const float SmoothMs = 3f;
         private const float FloorBlockMs = 250f;       // block size for the noise floor
-        private const int FloorNeighbourBlocks = 8;    // lowest block within +/- 8 blocks (= 2 s)
+        private const int FloorNeighbourBlocks = 32;    // lowest block within +/- 8 blocks (= 2 s) => 64 = +- 8
         private const float FloorPercentile = 0.10f;
         private const float MinFloorFraction = 0.01f;  // floor never below 1% of the typical loud level
         private const float MaxGapMs = 150f;           // gaps shorter than this do not split a zone
