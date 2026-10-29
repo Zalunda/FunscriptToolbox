@@ -27,15 +27,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // A boundary move must be at least this long, unless it stops exactly on a speech edge.
         private double MinJumpSeconds { get; set; } = 0.07;
 
-        // A mountain whose peak is below this ratio of the loudest level inside the original subtitle is noise.
-        private double SignificantMountainRatio { get; set; } = 0.15;
-
-        /// <summary>
-        /// When a boundary lands in a mountain, look ahead this far outward.
-        /// If significant energy/peak is found, snap directly to that island's edge.
-        /// </summary>
-        private double IslandPeakLookaheadSeconds { get; set; } = 0.10;
-
         private double MaxSimilarityDrop { get; set; } = 0.3;
 
         public AudioTerrainMapping TerrainMapping { get; set; }
@@ -66,7 +57,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 OriginalText = originalText,
                 CurrentTestStart = originalItem.StartTime,
                 CurrentTestEnd = originalItem.EndTime,
-                SignificantLevel = (float)(SignificantMountainRatio * (TerrainMapping?.GetPeakLevel(originalItem.StartTime, originalItem.EndTime) ?? 0f))
             };
             TimeSpan start = SnapInitialBoundary(candidate, BoundarySide.Start);
             TimeSpan end = SnapInitialBoundary(candidate, BoundarySide.End);
@@ -90,7 +80,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         /// <summary>
         /// Snaps initial boundaries prioritizing grabbing whole islands:
-        /// - If in silence/insignificant: jump inward to speech edge.
+        /// - If in silence: jump inward to speech edge.
         /// - If inside a mountain: check outward lookahead window for energy/peaks; if present, snap
         ///   to the full outer boundary of that mountain island.
         /// </summary>
@@ -103,50 +93,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var t = isStart ? cand.OriginalStartTime : cand.OriginalEndTime;
             var other = isStart ? cand.OriginalEndTime : cand.OriginalStartTime;
             var maxDrift = this.MaxDrift;
-            var lookahead = TimeSpan.FromSeconds(IslandPeakLookaheadSeconds);
 
-            // 1. Silent or insignificant: snap inward towards speech edge
-            if (TerrainMapping.IsInsignificant(t, cand.SignificantLevel))
+            // 1. Silent: snap inward towards speech edge
+            if (TerrainMapping.IsSilent(t))
             {
                 var edge = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch
                 {
                     MinJump = TimeSpan.MaxValue,
                     StopAtSpeechEdge = true,
-                    SignificantLevel = 0,
                     Inclusive = true,
                     Limit = other
                 });
                 if (edge.HasValue)
                     return edge.Value;
 
-                if (TerrainMapping.IsSilent(t))
-                {
-                    var dip = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch { Inclusive = true, Limit = other });
-                    if (dip.HasValue && (dip.Value - t).Duration() <= maxDrift)
-                        return dip.Value;
-                }
+                var dip = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch { Inclusive = true, Limit = other });
+                if (dip.HasValue && (dip.Value - t).Duration() <= maxDrift)
+                    return dip.Value;
                 return t;
             }
 
-            // 2. Inside a mountain: check outward island lookahead
-            var lookFrom = isStart ? (t > lookahead ? t - lookahead : TimeSpan.Zero) : t;
-            var lookTo = isStart ? t : t + lookahead;
-            float lookaheadPeak = TerrainMapping.GetPeakLevel(lookFrom, lookTo);
-
-            // If there is significant energy/peak in the outward direction, capture whole island
-            if (lookaheadPeak >= cand.SignificantLevel)
+            // 2. Inside a mountain: snap outward to speech edge
+            var islandEdge = TerrainMapping.FindDip(t, side, MoveDirection.Outward, new DipSearch
             {
-                var islandEdge = TerrainMapping.FindDip(t, side, MoveDirection.Outward, new DipSearch
-                {
-                    StopAtSpeechEdge = true,
-                    SignificantLevel = cand.SignificantLevel,
-                    Inclusive = true,
-                    Limit = isStart ? t - maxDrift : t + maxDrift
-                });
+                StopAtSpeechEdge = true,
+                Inclusive = true,
+                Limit = isStart ? t - maxDrift : t + maxDrift
+            });
 
-                if (islandEdge.HasValue && (islandEdge.Value - t).Duration() <= maxDrift)
-                    return islandEdge.Value;
-            }
+            if (islandEdge.HasValue && (islandEdge.Value - t).Duration() <= maxDrift)
+                return islandEdge.Value;
 
             // Regular outward snap to nearest dip
             var snapped = TerrainMapping.FindDip(t, side, MoveDirection.Outward, new DipSearch { Inclusive = true });
@@ -359,7 +335,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             {
                 MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
                 StopAtSpeechEdge = true,
-                SignificantLevel = cand.SignificantLevel,
                 Limit = limit
             });
 

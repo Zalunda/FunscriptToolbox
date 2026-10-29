@@ -14,9 +14,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
 
-        // Terrain level under which a mountain is considered noise for this subtitle.
-        public float SignificantLevel { get; set; }
-
         // Best window found so far. Once the candidate is finished, this is the final timing.
         public TimeSpan CurrentTestStart { get; set; }
         public TimeSpan CurrentTestEnd { get; set; }

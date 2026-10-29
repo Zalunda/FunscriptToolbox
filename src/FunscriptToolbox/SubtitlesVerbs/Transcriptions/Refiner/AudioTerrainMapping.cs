@@ -49,6 +49,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private const float ValleyWindowMs = 15f;      // local-minimum window
         private const float SlopeMaxMs = 150f;         // how far an edge may slide down a slope
         private const float SlopeEndRatio = 1.2f;      // ...or until terrain is within 20% of the floor
+        private const float SlopeExtraMs = 20f;        // extra margin always added to the slide
 
         // ---------------------------------------------------------------------
         // Result type
@@ -309,6 +310,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
             // Include the slopes: slide each edge outward while the terrain keeps going down
             int slopeMax = Frames(SlopeMaxMs);
+            int slopeExtra = Frames(SlopeExtraMs);
             var result = new List<(int start, int end)>();
             int prevEnd = 0;
             for (int zi = 0; zi < zones.Count; zi++)
@@ -321,9 +323,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 while (s > limS && t[s - 1] <= t[s] && t[s - 1] > r_floor[s - 1] * SlopeEndRatio)
                     s--;
 
+                s = Math.Max(prevEnd, s - slopeExtra);
+
                 int limE = Math.Min(nextStart, e + slopeMax);
                 while (e < limE && e < n && t[e] <= t[e - 1] && t[e] > r_floor[e] * SlopeEndRatio)
                     e++;
+
+                e = Math.Min(nextStart, e + slopeExtra);
 
                 result.Add((s, e));
                 prevEnd = e;
@@ -590,7 +596,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 if ((dip - from).Duration() >= options.MinJump)
                     return dip;
 
-                if (options.StopAtSpeechEdge && IsSpeechEdge(dip, options.SignificantLevel))
+                if (options.StopAtSpeechEdge && IsSpeechEdge(dip))
                     return dip;
             }
             return null;
@@ -603,20 +609,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 yield return list[i];
         }
 
-        public bool IsSpeechEdge(TimeSpan dip, float significantLevel)
+        public bool IsSpeechEdge(TimeSpan dip)
         {
-            bool before = IsSignificant(MountainEndingAt(dip), significantLevel);
-            bool after = IsSignificant(MountainStartingAt(dip), significantLevel);
+            bool before = MountainEndingAt(dip) != null;
+            bool after = MountainStartingAt(dip) != null;
             return before != after;
         }
 
-        public bool IsInsignificant(TimeSpan time, float significantLevel)
-            => !IsSignificant(MountainAt(time), significantLevel);
-
         public bool IsSilent(TimeSpan time) => MountainAt(time) == null;
-
-        private static bool IsSignificant(SpeechSegment seg, float significantLevel)
-            => seg != null && seg.PeakLevel >= significantLevel;
 
         private SpeechSegment MountainAt(TimeSpan time)
         {
