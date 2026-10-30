@@ -2,12 +2,19 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('windows'))">
+    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
     <ApplicationManifest Condition="'$(TargetFramework)' == 'net10.0-windows'">app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('windows'))">
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">

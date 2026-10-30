@@ -75,6 +75,7 @@ jobs:
       # 1. Publish FULL (Self-Contained / Autonome)
       # -------------------------------------------------------------
       - name: Publish Full (Self-Contained)
+        shell: bash
         run: |
           dotnet publish src/FunscriptToolbox/FunscriptToolbox.csproj \
             -c Release \
@@ -88,6 +89,7 @@ jobs:
       # 2. Publish PARTIAL (Framework-Dependent / Lightweight)
       # -------------------------------------------------------------
       - name: Publish Partial (Framework-Dependent)
+        shell: bash
         run: |
           dotnet publish src/FunscriptToolbox/FunscriptToolbox.csproj \
             -c Release \
