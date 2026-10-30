@@ -318,6 +318,29 @@ namespace FunscriptToolbox.Properties {
         ///### Mission
         ///Given a single, complete audio file, your mission is to meticulously segme [rest of string was truncated]&quot;;.
         /// </summary>
+        internal static string FSTB_CreateSubtitles_sh {
+            get {
+                return ResourceManager.GetString("FSTB_CreateSubtitles_sh", resourceCulture);
+            }
+        }
+        
+        internal static string FSTB_GenericCmd_sh {
+            get {
+                return ResourceManager.GetString("FSTB_GenericCmd_sh", resourceCulture);
+            }
+        }
+        
+        internal static string FSTB_PrepareScriptForRelease_sh {
+            get {
+                return ResourceManager.GetString("FSTB_PrepareScriptForRelease_sh", resourceCulture);
+            }
+        }
+        
+        internal static string FSTB_VerifyDownloadedScripts_sh {
+            get {
+                return ResourceManager.GetString("FSTB_VerifyDownloadedScripts_sh", resourceCulture);
+            }
+        }
         internal static string TranscriberAudioFullSystemPrompt {
             get {
                 return ResourceManager.GetString("TranscriberAudioFullSystemPrompt", resourceCulture);

@@ -351,3 +351,16 @@ MigrationBackup/
 
 # Distribution packages
 dist/
+
+# ==========================================
+# Visual Studio Code & Local Overrides
+# ==========================================
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.vscode/*.local.json
+*.code-workspace
+.history/
+.csharp/
+.roslyn/

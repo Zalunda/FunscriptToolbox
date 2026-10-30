@@ -1,3 +1,4 @@
+using FunscriptToolbox.Core;
 ﻿using FunscriptToolbox.Core.Infra;
 using System;
 using System.Collections.Generic;

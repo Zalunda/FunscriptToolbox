@@ -130,6 +130,18 @@
   <data name="FSTB_VerifyDownloadedScripts_bat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\InstallationFiles\--FSTB-VerifyDownloadedScripts.bat;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="FSTB_CreateSubtitles_sh" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-CreateSubtitles.sh;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="FSTB_GenericCmd_sh" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-GenericCmd.sh;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="FSTB_PrepareScriptForRelease_sh" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-PrepareScriptForRelease.sh;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="FSTB_VerifyDownloadedScripts_sh" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\InstallationFiles\--FSTB-VerifyDownloadedScripts.sh;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
   <data name="TranscriberAudioFullSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>

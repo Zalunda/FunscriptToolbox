@@ -1,0 +1,61 @@
+<Window x:Class="FunscriptToolbox.UI.JsonCorrectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI JSON Parsing Error - Manual Correction"
+        Height="700" Width="1000"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Consolas"
+        FontSize="13">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Error Message Panel (Top) -->
+        <Border Grid.Row="0" Background="#FFF0F0" BorderBrush="#FFCCCC" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+            <TextBox x:Name="TxtError"
+                     IsReadOnly="True"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Foreground="#CC0000"
+                     FontWeight="Bold"
+                     TextWrapping="Wrap"
+                     MaxHeight="100"
+                     VerticalScrollBarVisibility="Auto" />
+        </Border>
+
+        <!-- JSON Editor (Middle) -->
+        <Border Grid.Row="1" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="4">
+            <TextBox x:Name="TxtJson"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     FontFamily="Consolas"
+                     FontSize="13"
+                     Padding="8"
+                     BorderThickness="0"
+                     SelectionChanged="TxtJson_SelectionChanged" />
+        </Border>
+
+        <!-- Action Buttons (Bottom) -->
+        <DockPanel Grid.Row="2" Margin="0,10,0,5">
+            <Button x:Name="BtnEmpty" Content="Set Empty ( [ ] )" Click="BtnEmpty_Click" Width="150" Height="32" DockPanel.Dock="Left" ToolTip="Continue processing as if the AI response was empty" />
+            
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                <Button x:Name="BtnRetry" Content="Retry Parsing" Click="BtnRetry_Click" Width="130" Height="32" Margin="0,0,10,0" IsDefault="True" FontWeight="SemiBold" />
+                <Button x:Name="BtnCancel" Content="Cancel (Fail)" Click="BtnCancel_Click" Width="120" Height="32" IsCancel="True" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Status Strip (Bottom-most) -->
+        <StatusBar Grid.Row="3" Background="Transparent" Padding="0,5,0,0">
+            <StatusBarItem>
+                <TextBlock x:Name="LblPosition" Text="Line 1, Column 1" Foreground="#666666" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

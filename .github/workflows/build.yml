@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version override (e.g. 2.3.0). Leave empty to use git tag or AssemblyInfo.cs.'
+        description: 'Version override (e.g. 2.4.0). Leave empty to use git tag.'
         required: false
         type: string
 
@@ -16,58 +16,141 @@ permissions:
 
 jobs:
   build:
-    name: Build & Package Release
-    runs-on: windows-latest
+    name: Build (${{ matrix.target.name }})
+    runs-on: ${{ matrix.target.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          # Windows x64
+          - name: windows-x64
+            os: windows-latest
+            rid: win-x64
+            framework: net10.0-windows
+            archive_ext: zip
+          # Linux x64
+          - name: linux-x64
+            os: ubuntu-latest
+            rid: linux-x64
+            framework: net10.0
+            archive_ext: tar.gz
+          # macOS x64 (Intel)
+          - name: osx-x64
+            os: macos-13
+            rid: osx-x64
+            framework: net10.0
+            archive_ext: tar.gz
+          # macOS arm64 (Apple Silicon)
+          - name: osx-arm64
+            os: macos-latest
+            rid: osx-arm64
+            framework: net10.0
+            archive_ext: tar.gz
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-      - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
-
-      - name: Restore NuGet packages
-        run: nuget restore src/FunscriptToolbox.sln
-
-      - name: Determine & Apply Version
-        shell: powershell
+      - name: Determine Version
+        id: get_version
+        shell: bash
         run: |
-          $ver = "${{ inputs.version }}"
-          if ([string]::IsNullOrWhiteSpace($ver)) {
-              $ver = "${{ github.ref_name }}"
-          }
-          if (-not [string]::IsNullOrWhiteSpace($ver)) {
-              Write-Host "Applying version: $ver"
-              .\scripts\set-version.ps1 -Version $ver
-              echo "RESOLVED_VERSION=$ver" >> $env:GITHUB_ENV
-          }
+          RAW_VER="${{ inputs.version }}"
+          if [ -z "$RAW_VER" ]; then
+            RAW_VER="${{ github.ref_name }}"
+          fi
+          CLEAN_VER="${RAW_VER#v}"
+          if [ -z "$CLEAN_VER" ]; then
+            CLEAN_VER="1.0.0"
+          fi
+          echo "version=$CLEAN_VER" >> $GITHUB_OUTPUT
+          echo "Building version: $CLEAN_VER"
 
-      - name: Build Solution (Release)
-        run: msbuild src/FunscriptToolbox.sln /p:Configuration=Release /p:Platform="Any CPU" /m
-
-      - name: Package Release Zip
-        shell: powershell
+      # -------------------------------------------------------------
+      # 1. Publish FULL (Self-Contained / Autonome)
+      # -------------------------------------------------------------
+      - name: Publish Full (Self-Contained)
         run: |
-          $params = @{ Configuration = "Release" }
-          if ($env:RESOLVED_VERSION) {
-              $params["Version"] = $env:RESOLVED_VERSION
-          }
-          .\scripts\package-release.ps1 @params
+          dotnet publish src/FunscriptToolbox/FunscriptToolbox.csproj \
+            -c Release \
+            -f ${{ matrix.target.framework }} \
+            -r ${{ matrix.target.rid }} \
+            --self-contained true \
+            /p:Version=${{ steps.get_version.outputs.version }} \
+            -o dist/publish-full
 
-      - name: Upload Build Artifact
+      # -------------------------------------------------------------
+      # 2. Publish PARTIAL (Framework-Dependent / Lightweight)
+      # -------------------------------------------------------------
+      - name: Publish Partial (Framework-Dependent)
+        run: |
+          dotnet publish src/FunscriptToolbox/FunscriptToolbox.csproj \
+            -c Release \
+            -f ${{ matrix.target.framework }} \
+            -r ${{ matrix.target.rid }} \
+            --self-contained false \
+            /p:Version=${{ steps.get_version.outputs.version }} \
+            -o dist/publish-partial
+
+      # -------------------------------------------------------------
+      # 3. Create Release Archives (Windows: .zip, Unix: .tar.gz)
+      # -------------------------------------------------------------
+      - name: Archive Packages (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.get_version.outputs.version }}"
+          $rid = "${{ matrix.target.name }}"
+          New-Item -ItemType Directory -Force -Path "dist/archives" | Out-Null
+          
+          # Full package
+          Compress-Archive -Path "dist/publish-full/*" -DestinationPath "dist/archives/FunscriptToolbox-$ver-$rid-full.zip" -Force
+          # Partial package
+          Compress-Archive -Path "dist/publish-partial/*" -DestinationPath "dist/archives/FunscriptToolbox-$ver-$rid-partial.zip" -Force
+
+      - name: Archive Packages (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          VER="${{ steps.get_version.outputs.version }}"
+          RID="${{ matrix.target.name }}"
+          mkdir -p dist/archives
+          
+          # Full package
+          tar -czf "dist/archives/FunscriptToolbox-$VER-$RID-full.tar.gz" -C dist/publish-full .
+          # Partial package
+          tar -czf "dist/archives/FunscriptToolbox-$VER-$RID-partial.tar.gz" -C dist/publish-partial .
+
+      # -------------------------------------------------------------
+      # 4. Upload Artifacts
+      # -------------------------------------------------------------
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: FunscriptToolbox
-          path: dist/*.zip
+          name: packages-${{ matrix.target.name }}
+          path: dist/archives/*
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/all-packages
+          merge-multiple: true
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/*.zip
+          files: dist/all-packages/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

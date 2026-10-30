@@ -30,6 +30,7 @@ namespace FunscriptToolbox
 #if DEBUG
             int test = 50;
 
+            Environment.CurrentDirectory = @"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles";
             switch (test)
             {
                 case 0:
@@ -100,10 +101,9 @@ namespace FunscriptToolbox
                         @"Position-Doggy-MenStanding-C.mp4",
                     };
                     break;
-                
+
                 case 50:
-                    // Environment.CurrentDirectory = @"P:\Adult\Tools\FunscriptToolbox\FSTB-CreateSubtitles2025";                    
-                    var prefix = "*MDVR-375-A*";
+                    var prefix = "*savr01090*";
                     args = new[]
                     {
                         "subtitles.create",

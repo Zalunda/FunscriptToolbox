@@ -1,4 +1,5 @@
-﻿using FunscriptToolbox.UI.SpeakerCorrection;
+using FunscriptToolbox.UI.SpeakerCorrection;
+using FunscriptToolbox.Core;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -37,6 +38,33 @@ namespace FunscriptToolbox.UI
                 throw new Exception("Rethrown exception.", threadEx);
 
             return tool.IsFinishForced;
+        }
+
+        public static string PromptForJsonFix(string errorMessage, string jsonText)
+        {
+            string result = null;
+            Exception threadEx = null;
+            var thread = new Thread(() => {
+                try
+                {
+                    var window = new JsonCorrectionWindow(errorMessage, jsonText);
+                    if (window.ShowDialog() == true)
+                    {
+                        result = window.ResultJson;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    threadEx = ex;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+            if (threadEx != null)
+                throw new Exception("Rethrown exception.", threadEx);
+
+            return result;
         }
     }
 }

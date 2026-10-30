@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
-namespace FunscriptToolbox.UI.SpeakerCorrection
+namespace FunscriptToolbox.Core
 {
     public class SpeakerCorrectionWorkItem
     {

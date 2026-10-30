@@ -1,6 +1,8 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+#if WINDOWS
 using FunscriptToolbox.UI;
-using FunscriptToolbox.UI.SpeakerCorrection;
+#endif
+using FunscriptToolbox.Core;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -12,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberInteractifSetSpeaker : Transcriber
     {
-        private const string ToolName = "InteractifSetSpeaker";        
+        private const string ToolName = "InteractifSetSpeaker";
 
         [JsonProperty(Order = 10, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
@@ -30,9 +32,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
         protected override bool IsPrerequisitesMet(
-            SubtitleGeneratorContext context, 
+            SubtitleGeneratorContext context,
             out string reason)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                reason = "TranscriberInteractifSetSpeaker (WPF interactive UI) is only supported on Windows.";
+                return false;
+            }
+
             if (this.Metadatas.Aggregate(context).IsPrerequisitesMetWithoutTimings(out reason) == false)
             {
                 return false;
@@ -45,6 +53,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                context.WriteError("TranscriberInteractifSetSpeaker is not supported on this platform. Interactive speaker correction requires Windows (WPF).");
+                return;
+            }
             var processStartTime = DateTime.Now;
 
             var aggregation = this.Metadatas.Aggregate(context);
@@ -82,11 +95,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         context.WIP.Save();
                     }
                 }
-            }
-            void Undo(SpeakerCorrectionWorkItem workItem)
-            {
-                transcription.Items.RemoveAll(item => item.StartTime == workItem.StartTime);
-                context.WIP.Save();
             }
 
             if (itemsToDo.Length == 0)
@@ -134,17 +142,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             workItems = CreateWorkItem(allItems, itemsToDo.Union(itemsAlreadyDone).ToArray(), UpdateAndSave).ToArray();
 
             var watch = Stopwatch.StartNew();
-            var isFinished = workItems.Length == 0
-                ? true
-                : Test.SpeakerCorrection(
-                workItems,
-                time => { 
-                    var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
-                    var fullpath = Path.Combine(context.WIP.ParentPath, filename);
-                    return (File.Exists(fullpath + ".FAST.mp4") ? fullpath + ".FAST.mp4" : fullpath, adjustedTime); 
-                },
-                UpdateAndSave,
-                Undo);
+            var isFinished = workItems.Length == 0;
+#if WINDOWS
+            void Undo(SpeakerCorrectionWorkItem workItem)
+            {
+                transcription.Items.RemoveAll(item => item.StartTime == workItem.StartTime);
+                context.WIP.Save();
+            }
+            if (!isFinished)
+            {
+                isFinished = Test.SpeakerCorrection(
+                    workItems,
+                    time => {
+                        var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
+                        var fullpath = Path.Combine(context.WIP.ParentPath, filename);
+                        return (File.Exists(fullpath + ".FAST.mp4") ? fullpath + ".FAST.mp4" : fullpath, adjustedTime);
+                    },
+                    UpdateAndSave,
+                    Undo);
+            }
+#else
+            if (!isFinished)
+            {
+                context.WriteError("Interactive speaker correction UI is not supported on this platform.");
+            }
+#endif
             watch.Stop();
 
             var (_, itemsToDoAfter, _, _) = requestGenerator.AnalyzeItemsState();
@@ -188,7 +210,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         workItem.FinalSpeaker = finalSpeaker.Trim();
                         updateAndSave(workItem);
                     }
-                    else 
+                    else
                     {
                         yield return workItem;
                     }

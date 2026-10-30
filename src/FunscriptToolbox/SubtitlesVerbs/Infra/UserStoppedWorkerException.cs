@@ -18,9 +18,5 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public UserStoppedWorkerException(string message, Exception innerException) : base(message, innerException)
         {
         }
-
-        protected UserStoppedWorkerException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-        }
     }
 }

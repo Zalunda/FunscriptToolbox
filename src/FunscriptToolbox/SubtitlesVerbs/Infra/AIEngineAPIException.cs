@@ -41,12 +41,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             EngineIdentifier = engineIdentifier;
         }
 
-        protected AIEngineAPIException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-            ErrorType = (AIEngineErrorType)info.GetInt32(nameof(ErrorType));
-            EngineIdentifier = info.GetString(nameof(EngineIdentifier));
-        }
-
         public static AIEngineAPIException FromAggregateException(AggregateException ex, string engineIdentifier)
         {
             var sb = new StringBuilder();

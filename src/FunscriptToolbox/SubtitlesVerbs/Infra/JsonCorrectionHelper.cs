@@ -1,136 +1,123 @@
-﻿using System.Drawing;
-using System.Text.RegularExpressions;
-using System.Windows.Forms;
+using System;
+using System.Diagnostics;
+using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public static class JsonCorrectionHelper
     {
         /// <summary>
-        /// Pops up a blocking UI. Returns the edited string if the user clicks Retry, or null if they Cancel/Close.
-        /// Expected line and column numbers are 1-based.
+        /// Prompts the user to manually correct invalid JSON.
+        /// On Windows: launches an interactive WPF correction window with Retry, Set Empty ([]), and Cancel.
+        /// On Linux/macOS: writes the invalid JSON with error details to a temporary file and opens the default text editor.
         /// </summary>
         public static string PromptForFix(string errorMessage, string jsonText)
         {
-            // Standardize line endings for Windows forms controls
-            string normalizedJson = jsonText;
-
-            using (var form = new Form())
+#if WINDOWS
+            if (OperatingSystem.IsWindows())
             {
-                form.Text = "AI JSON Parsing Error - Manual Correction";
-                form.Size = new Size(1000, 700);
-                form.StartPosition = FormStartPosition.CenterParent;
-                form.MinimizeBox = false;
-                form.ShowIcon = false;
+                return FunscriptToolbox.UI.Test.PromptForJsonFix(errorMessage, jsonText);
+            }
+#endif
+            return PromptForFixWithEditor(errorMessage, jsonText);
+        }
 
-                // --- Status Bar (Bottom) ---
-                var statusStrip = new StatusStrip();
-                var lblPosition = new ToolStripStatusLabel { Text = "Line 1, Position 1" };
-                statusStrip.Items.Add(lblPosition);
+        private static string PromptForFixWithEditor(string errorMessage, string jsonText)
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), $"fstb-json-fix-{Guid.NewGuid():N}.json");
 
-                // --- Buttons Panel (Bottom, above status strip) ---
-                var panelButtons = new FlowLayoutPanel
+            try
+            {
+                File.WriteAllText(tempFile, jsonText ?? string.Empty);
+
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("================ AI JSON Parsing Error ================");
+                Console.WriteLine(errorMessage);
+                Console.WriteLine("========================================================");
+                Console.ResetColor();
+                Console.WriteLine($"Temporary file created for editing: {tempFile}");
+                Console.WriteLine();
+
+                // Open the default system text editor
+                TryOpenEditor(tempFile);
+
+                while (true)
                 {
-                    Dock = DockStyle.Bottom,
-                    FlowDirection = FlowDirection.RightToLeft,
-                    Height = 40,
-                    Padding = new Padding(5)
-                };
+                    Console.WriteLine("Options:");
+                    Console.WriteLine("  [r] Retry parsing (after saving changes in your editor)");
+                    Console.WriteLine("  [e] Set Empty '[]' (continue as if AI response was empty)");
+                    Console.WriteLine("  [c] Cancel / Fail");
+                    Console.Write("Enter choice [r/e/c]: ");
 
-                var btnCancel = new Button { Text = "Cancel (Fail)", DialogResult = DialogResult.Cancel, Width = 120 };
-                var btnRetry = new Button { Text = "Retry Parsing", DialogResult = DialogResult.OK, Width = 120 };
-
-                panelButtons.Controls.Add(btnCancel);
-                panelButtons.Controls.Add(btnRetry);
-
-                // --- Error Message (Top) ---
-                var txtError = new TextBox
-                {
-                    Dock = DockStyle.Top,
-                    Multiline = true,
-                    ReadOnly = true,
-                    ForeColor = Color.Red,
-                    Font = new Font("Consolas", 10, FontStyle.Bold),
-                    Text = errorMessage,
-                    Height = 50, // Fixed small height
-                    ScrollBars = ScrollBars.Vertical
-                };
-
-                // --- JSON Editor (Middle) ---
-                var txtJson = new RichTextBox
-                {
-                    Dock = DockStyle.Fill,
-                    Font = new Font("Consolas", 10),
-                    Text = normalizedJson,
-                    ScrollBars = RichTextBoxScrollBars.Both,
-                    WordWrap = false,
-                    AcceptsTab = true,
-                    HideSelection = false // Keeps highlight when clicking buttons
-                };
-
-                // Track Line & Column position
-                txtJson.SelectionChanged += (s, e) =>
-                {
-                    int index = txtJson.SelectionStart;
-                    int line = txtJson.GetLineFromCharIndex(index);
-                    int firstCharOfLine = txtJson.GetFirstCharIndexFromLine(line);
-                    int column = index - firstCharOfLine;
-
-                    // JsonErrors are typically 1-based index
-                    lblPosition.Text = $"Line {line + 1}, Position {column + 1}";
-                };
-
-                // Docking order matters (Bottom-most added first)
-                form.Controls.Add(txtJson);      // 4. Fills remaining space
-                form.Controls.Add(txtError);     // 3. Pinned to Top
-                form.Controls.Add(panelButtons); // 2. Pinned to Bottom
-                form.Controls.Add(statusStrip);  // 1. Pinned to Bottom-most
-
-                form.CancelButton = btnCancel;
-
-                form.Shown += (s, e) =>
-                {
-                    // Force the window to the front
-                    form.BringToFront();
-                    form.Activate();
-                    
-                    int targetLine = -1;
-                    int targetPos = -1;
-
-                    var match = Regex.Match(errorMessage, @"line (\d+),\s*position (\d+)", RegexOptions.IgnoreCase);
-                    if (match.Success && int.TryParse(match.Groups[1].Value, out targetLine) && int.TryParse(match.Groups[2].Value, out targetPos))
+                    var input = Console.ReadLine()?.Trim().ToLowerInvariant();
+                    if (input == "r" || input == "retry")
                     {
-                        // Convert from 1-based error to 0-based RichTextBox indices
-                        targetLine -= 1;
-                        targetPos -= 1;
-
-                        if (targetLine >= 0 && targetLine < txtJson.Lines.Length)
+                        if (File.Exists(tempFile))
                         {
-                            int firstCharIndex = txtJson.GetFirstCharIndexFromLine(targetLine);
-                            int targetIndex = firstCharIndex + targetPos;
-
-                            if (targetIndex >= 0 && targetIndex <= txtJson.TextLength)
-                            {
-                                txtJson.Select(targetIndex, 0); // Put cursor exactly at the character
-                            }
+                            return File.ReadAllText(tempFile);
                         }
+                        return jsonText;
+                    }
+                    else if (input == "e" || input == "empty")
+                    {
+                        return "[]";
+                    }
+                    else if (input == "c" || input == "cancel")
+                    {
+                        return null;
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempFile))
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+                catch
+                {
+                    // Ignore temp file cleanup errors
+                }
+            }
+        }
+
+        private static void TryOpenEditor(string filePath)
+        {
+            try
+            {
+                if (OperatingSystem.IsMacOS())
+                {
+                    Process.Start("open", $"\"{filePath}\"");
+                }
+                else if (OperatingSystem.IsLinux())
+                {
+                    var visual = Environment.GetEnvironmentVariable("VISUAL") ?? Environment.GetEnvironmentVariable("EDITOR");
+                    if (!string.IsNullOrEmpty(visual))
+                    {
+                        Process.Start(visual, $"\"{filePath}\"");
                     }
                     else
                     {
-                        // Fallback: put cursor at the end
-                        txtJson.SelectionStart = txtJson.Text.Length;
+                        Process.Start("xdg-open", $"\"{filePath}\"");
                     }
-
-                    txtJson.ScrollToCaret();
-                    txtJson.Focus();
-                };
-
-                if (form.ShowDialog() == DialogResult.OK)
-                {
-                    return txtJson.Text;
                 }
-
-                return null;
+                else
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = filePath,
+                        UseShellExecute = true
+                    };
+                    Process.Start(psi);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not automatically open editor ({ex.Message}). Please edit the file manually.");
             }
         }
     }
