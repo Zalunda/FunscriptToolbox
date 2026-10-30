@@ -1,0 +1,22 @@
+﻿{
+  "SharedObjects": [
+    {
+      "$id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
+      "TextAfter": "Note: This is not a VR scene so the camera might move around more.",
+    },
+  ],
+  "Workers": [
+    {
+      "Id": "singlevad-ai-refined",
+      "Options": {
+        "BinaryDataExtractors": [
+          {
+            "OutputFieldName": "Screenshot",
+            "FfmpegFilter": "drawtext=fontfile='C\\:/Windows/Fonts/Arial.ttf':text='[STARTTIME]':fontsize=20:fontcolor=white:x=10:y=10:box=1:boxcolor=black:boxborderw=5",
+            "KeepTemporaryFiles": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -47,6 +47,7 @@ namespace FunscriptToolbox.MotionVectorsVerbs
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow-G4", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow-G4\\--Multi-Speakers", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_MultiSpeakers_override, Encoding.UTF8);
+            CreateUseCaseFolder("FSTB-CreateSubtitles2025\\ManualHQWorkflow-G4\\--2D", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_ManualHQWorkflow_G4_2D_override, Encoding.UTF8);
             CreateUseCaseFolder("FSTB-CreateSubtitles2025\\AutomaticHQWorkflow", "--FSTB-SubtitleGenerator", ".override.config", Resources.__FSTB_SubtitleGenerator_AutomaticHQWorkflow_override, Encoding.UTF8);
 
             CreateScriptUseCaseFolder("FSTB-PrepareScriptForRelease", "--FSTB-PrepareScriptForRelease", isWindows,
