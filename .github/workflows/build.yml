@@ -77,12 +77,13 @@ jobs:
       - name: Publish Full (Self-Contained)
         shell: bash
         run: |
+          export MSYS_NO_PATHCONV=1
           dotnet publish src/FunscriptToolbox/FunscriptToolbox.csproj \
             -c Release \
             -f ${{ matrix.target.framework }} \
             -r ${{ matrix.target.rid }} \
             --self-contained true \
-            /p:Version=${{ steps.get_version.outputs.version }} \
+            -p:Version="${{ steps.get_version.outputs.version }}" \
             -o dist/publish-full
 
       # -------------------------------------------------------------
@@ -91,12 +92,13 @@ jobs:
       - name: Publish Partial (Framework-Dependent)
         shell: bash
         run: |
+          export MSYS_NO_PATHCONV=1
           dotnet publish src/FunscriptToolbox/FunscriptToolbox.csproj \
             -c Release \
             -f ${{ matrix.target.framework }} \
             -r ${{ matrix.target.rid }} \
             --self-contained false \
-            /p:Version=${{ steps.get_version.outputs.version }} \
+            -p:Version="${{ steps.get_version.outputs.version }}" \
             -o dist/publish-partial
 
       # -------------------------------------------------------------
