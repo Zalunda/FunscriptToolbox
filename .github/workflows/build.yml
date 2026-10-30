@@ -1,4 +1,4 @@
-name: Build & Package Release
+name: Build & Package Release (windows-x64, linux-x64, osx-arm64)
 
 on:
   push:
@@ -32,12 +32,6 @@ jobs:
           - name: linux-x64
             os: ubuntu-latest
             rid: linux-x64
-            framework: net10.0
-            archive_ext: tar.gz
-          # macOS x64 (Intel)
-          - name: osx-x64
-            os: macos-13
-            rid: osx-x64
             framework: net10.0
             archive_ext: tar.gz
           # macOS arm64 (Apple Silicon)
@@ -111,7 +105,7 @@ jobs:
           $ver = "${{ steps.get_version.outputs.version }}"
           $rid = "${{ matrix.target.name }}"
           New-Item -ItemType Directory -Force -Path "dist/archives" | Out-Null
-          
+
           # Full package
           Compress-Archive -Path "dist/publish-full/*" -DestinationPath "dist/archives/FunscriptToolbox-$ver-$rid-full.zip" -Force
           # Partial package
@@ -124,7 +118,7 @@ jobs:
           VER="${{ steps.get_version.outputs.version }}"
           RID="${{ matrix.target.name }}"
           mkdir -p dist/archives
-          
+
           # Full package
           tar -czf "dist/archives/FunscriptToolbox-$VER-$RID-full.tar.gz" -C dist/publish-full .
           # Partial package
