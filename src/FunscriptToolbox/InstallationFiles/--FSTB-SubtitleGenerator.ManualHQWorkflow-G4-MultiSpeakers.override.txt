@@ -104,5 +104,11 @@ When `OngoingSpeakers` lists more than one character or multiple speakers intera
 
 _______________________________________=",
     },
+  ],
+  "Workers": [
+    {
+      "Id": "full-ai",
+      "MaxChunkDuration": "00:15:00"
+    }
   ]
 }
