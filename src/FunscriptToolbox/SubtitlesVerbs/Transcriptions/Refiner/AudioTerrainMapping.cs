@@ -47,7 +47,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private const float ValleyWindowMs = 15f;      // local-minimum window
         private const float SlopeMaxMs = 150f;         // how far an edge may slide down a slope
         private const float SlopeEndRatio = 1.2f;      // ...or until terrain is within 20% of the floor
-        private const float SlopeExtraMs = 20f;        // extra margin always added to the slide
+        public float SlopeExtraStartMs { get; set; } = 30f; // extra margin always added to the start slide
+        public float SlopeExtraEndMs { get; set; } = 30f;    // extra margin always added to the end slide
+        public float SilenceTailSplitMs { get; set; } = 100f; // split long silence after a mountain at +100ms
 
         // ---------------------------------------------------------------------
         // Result type
@@ -308,7 +310,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
             // Include the slopes: slide each edge outward while the terrain keeps going down
             int slopeMax = Frames(SlopeMaxMs);
-            int slopeExtra = Frames(SlopeExtraMs);
+            int slopeExtraStart = Frames(SlopeExtraStartMs);
+            int slopeExtraEnd = Frames(SlopeExtraEndMs);
             var result = new List<(int start, int end)>();
             int prevEnd = 0;
             for (int zi = 0; zi < zones.Count; zi++)
@@ -321,13 +324,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 while (s > limS && t[s - 1] <= t[s] && t[s - 1] > r_floor[s - 1] * SlopeEndRatio)
                     s--;
 
-                s = Math.Max(prevEnd, s - slopeExtra);
+                s = Math.Max(prevEnd, s - slopeExtraStart);
 
                 int limE = Math.Min(nextStart, e + slopeMax);
                 while (e < limE && e < n && t[e] <= t[e - 1] && t[e] > r_floor[e] * SlopeEndRatio)
                     e++;
 
-                e = Math.Min(nextStart, e + slopeExtra);
+                e = Math.Min(nextStart, e + slopeExtraEnd);
 
                 result.Add((s, e));
                 prevEnd = e;
@@ -473,30 +476,89 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         private void BuildSegments(float[] t)
         {
-            var all = new List<SpeechSegment>();
+            var raw = new List<SpeechSegment>();
             int pos = 0;
             int cutIdx = 0;
 
             foreach (var z in r_zones)
             {
                 if (z.start > pos)
-                    all.Add(new SpeechSegment(all.Count, FrameToTime(pos), FrameToTime(z.start), Peak(t, pos, z.start), true));
+                    raw.Add(new SpeechSegment(raw.Count, FrameToTime(pos), FrameToTime(z.start), Peak(t, pos, z.start), true));
 
                 int s = z.start;
                 while (cutIdx < r_cuts.Count && r_cuts[cutIdx] < z.end)
                 {
                     int c = r_cuts[cutIdx++];
-                    AddZoneSegment(all, t, s, c);
+                    AddZoneSegment(raw, t, s, c);
                     s = c;
                 }
-                AddZoneSegment(all, t, s, z.end);
+                AddZoneSegment(raw, t, s, z.end);
                 pos = z.end;
             }
 
             if (t.Length > pos)
-                all.Add(new SpeechSegment(all.Count, FrameToTime(pos), FrameToTime(t.Length), Peak(t, pos, t.Length), true));
+                raw.Add(new SpeechSegment(raw.Count, FrameToTime(pos), FrameToTime(t.Length), Peak(t, pos, t.Length), true));
 
-            Segments = all;
+            // Merge any consecutive silence segments first so each silence stretch after a mountain is contiguous
+            var merged = new List<SpeechSegment>(raw.Count);
+            foreach (var seg in raw)
+            {
+                if (seg.IsSilence && merged.Count > 0 && merged[merged.Count - 1].IsSilence)
+                {
+                    var prev = merged[merged.Count - 1];
+                    merged[merged.Count - 1] = new SpeechSegment(
+                        prev.GlobalIndex,
+                        prev.StartTime,
+                        seg.EndTime,
+                        Math.Max(prev.PeakLevel, seg.PeakLevel),
+                        true);
+                }
+                else
+                {
+                    merged.Add(new SpeechSegment(merged.Count, seg.StartTime, seg.EndTime, seg.PeakLevel, seg.IsSilence));
+                }
+            }
+
+            // Go back and split long silence segments following a mountain into [<start>, <start> + 100ms] and [<start> + 100ms, <end>]
+            var tailSplit = TimeSpan.FromMilliseconds(SilenceTailSplitMs);
+            var finalSegments = new List<SpeechSegment>(merged.Count + 16);
+            for (int i = 0; i < merged.Count; i++)
+            {
+                var seg = merged[i];
+                bool followsMountain = i > 0 && !merged[i - 1].IsSilence;
+                if (seg.IsSilence && followsMountain && SilenceTailSplitMs > 0f && seg.Duration > tailSplit)
+                {
+                    TimeSpan splitTime = seg.StartTime + tailSplit;
+                    int sFrame = TimeToFrame(seg.StartTime);
+                    int splitFrame = TimeToFrame(splitTime);
+                    int eFrame = TimeToFrame(seg.EndTime);
+
+                    finalSegments.Add(new SpeechSegment(
+                        finalSegments.Count,
+                        seg.StartTime,
+                        splitTime,
+                        Peak(t, sFrame, splitFrame),
+                        true));
+
+                    finalSegments.Add(new SpeechSegment(
+                        finalSegments.Count,
+                        splitTime,
+                        seg.EndTime,
+                        Peak(t, splitFrame, eFrame),
+                        true));
+                }
+                else
+                {
+                    finalSegments.Add(new SpeechSegment(
+                        finalSegments.Count,
+                        seg.StartTime,
+                        seg.EndTime,
+                        seg.PeakLevel,
+                        seg.IsSilence));
+                }
+            }
+
+            Segments = finalSegments;
         }
 
         private void AddZoneSegment(List<SpeechSegment> all, float[] t, int s, int e)
@@ -557,14 +619,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // ---------------------------------------------------------------------
 
         private List<SpeechSegment> r_mountains = new List<SpeechSegment>();
+        private List<TimeSpan> r_mountainStarts = new List<TimeSpan>();
+        private List<TimeSpan> r_mountainEnds = new List<TimeSpan>();
         private List<TimeSpan> r_segStarts = new List<TimeSpan>();
         private List<TimeSpan> r_segEnds = new List<TimeSpan>();
 
         private void BuildNavigationIndex()
         {
             r_mountains = Segments.Where(s => !s.IsSilence).ToList();
-            r_segStarts = r_mountains.Select(s => s.StartTime).ToList();
-            r_segEnds = r_mountains.Select(s => s.EndTime).ToList();
+            r_mountainStarts = r_mountains.Select(s => s.StartTime).ToList();
+            r_mountainEnds = r_mountains.Select(s => s.EndTime).ToList();
+
+            // Start dips only ever land on the start of a mountain (skipping all silence segments)
+            r_segStarts = r_mountainStarts;
+
+            // End dips land on the end of a mountain OR the +100ms silence cut right after a mountain
+            r_segEnds = new List<TimeSpan>(r_mountains.Count * 2);
+            for (int i = 0; i < Segments.Count; i++)
+            {
+                var seg = Segments[i];
+                if (!seg.IsSilence)
+                {
+                    r_segEnds.Add(seg.EndTime);
+                }
+                else if (i > 0 && !Segments[i - 1].IsSilence && i + 1 < Segments.Count && Segments[i + 1].IsSilence)
+                {
+                    r_segEnds.Add(seg.EndTime);
+                }
+            }
         }
 
         private List<TimeSpan> DipList(BoundarySide side) => side == BoundarySide.Start ? r_segStarts : r_segEnds;
@@ -616,22 +698,33 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public bool IsSilent(TimeSpan time) => MountainAt(time) == null;
 
+        /// <summary>
+        /// Returns true if any speech mountain overlaps the open interval (from, to).
+        /// </summary>
+        public bool HasSpeechBetween(TimeSpan from, TimeSpan to)
+        {
+            if (to <= from || r_mountains == null || r_mountains.Count == 0)
+                return false;
+            int i = LastIndexLess(r_mountainStarts, to);
+            return i >= 0 && r_mountainEnds[i] > from;
+        }
+
         private SpeechSegment MountainAt(TimeSpan time)
         {
-            int i = LastIndexLess(r_segStarts, time + TimeSpan.FromTicks(1));
-            return (i < 0 || time >= r_segEnds[i]) ? null : r_mountains[i];
+            int i = LastIndexLess(r_mountainStarts, time + TimeSpan.FromTicks(1));
+            return (i < 0 || time >= r_mountainEnds[i]) ? null : r_mountains[i];
         }
 
         private SpeechSegment MountainStartingAt(TimeSpan time)
         {
-            int i = LastIndexLess(r_segStarts, time + TimeSpan.FromTicks(1));
-            return (i >= 0 && r_segStarts[i] == time) ? r_mountains[i] : null;
+            int i = LastIndexLess(r_mountainStarts, time + TimeSpan.FromTicks(1));
+            return (i >= 0 && r_mountainStarts[i] == time) ? r_mountains[i] : null;
         }
 
         private SpeechSegment MountainEndingAt(TimeSpan time)
         {
-            int i = LastIndexLess(r_segEnds, time + TimeSpan.FromTicks(1));
-            return (i >= 0 && r_segEnds[i] == time) ? r_mountains[i] : null;
+            int i = LastIndexLess(r_mountainEnds, time + TimeSpan.FromTicks(1));
+            return (i >= 0 && r_mountainEnds[i] == time) ? r_mountains[i] : null;
         }
 
         private static int FirstIndexGreater(List<TimeSpan> l, TimeSpan v)
@@ -660,7 +753,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // Output
         // ---------------------------------------------------------------------
 
-        /// <summary>Mountains are labelled A, B, C... (so neighbours differ), non-speech "-".</summary>
+        /// <summary>Mountains are labelled A, B, C... (so neighbours differ), post-mountain +100ms silence tail is labelled "-".</summary>
         public IEnumerable<Subtitle> ToSegmentSubtitles()
         {
             var oneMs = TimeSpan.FromMilliseconds(1);
@@ -668,7 +761,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             for (int i = 0; i < Segments.Count; i++)
             {
                 var seg = Segments[i];
-                if (!seg.IsSilence)
+                bool isSilenceTail = seg.IsSilence && i > 0 && !Segments[i - 1].IsSilence && i + 1 < Segments.Count && Segments[i + 1].IsSilence;
+                if (!seg.IsSilence || isSilenceTail)
                 {
                     string label = seg.IsSilence ? "-" : ((char)('A' + (mountainIndex++ % 26))).ToString();
                     TimeSpan endTime = (i < Segments.Count - 1 && seg.Duration > oneMs)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -252,9 +252,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 extraMetadatas[prop.Name] = prop.Value.ToString();
                         }
 
-                        if (!extraMetadatas.ContainsKey(request.MetadataAlwaysProduced))
+                        if (!string.IsNullOrWhiteSpace(request.MetadataAlwaysProduced))
                         {
-                            throw new Exception($"Required metadata '{request.MetadataAlwaysProduced}' is not present. {GetSegmentInformation(segment)}");
+                            foreach (var requiredMeta in request.MetadataAlwaysProduced.Split(',').Select(f => f.Trim()).Where(f => f.Length > 0))
+                            {
+                                if (!extraMetadatas.ContainsKey(requiredMeta))
+                                {
+                                    throw new Exception($"Required metadata '{requiredMeta}' is not present. {GetSegmentInformation(segment)}");
+                                }
+                            }
                         }
 
                         pendingItems.Add((startTime, endTime, extraMetadatas));

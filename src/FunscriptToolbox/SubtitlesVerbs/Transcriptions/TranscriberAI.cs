@@ -57,6 +57,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
         }
 
+        protected virtual BinaryDataExtractorCachedCollection CreateBinaryDataExtractorCollection(
+            BinaryDataExtractorExtended[] extractors)
+        {
+            return new BinaryDataExtractorCachedCollection(extractors);
+        }
+
         protected AIRequestGenerator ExecuteRequests(
             SubtitleGeneratorContext context, 
             Transcription transcription,
@@ -82,8 +88,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var extractionLock = new object();
 
-            var binaryDataExtractors = new BinaryDataExtractorCachedCollection(
-                options.BinaryDataExtractors.Select(extractor =>
+            var binaryDataExtractors = CreateBinaryDataExtractorCollection(
+                (options.BinaryDataExtractors ?? Array.Empty<BinaryDataExtractor>()).Select(extractor =>
                 {
                     Func<AIRequestSection, ITiming, string, bool, AIRequestPart[]> getDataFunc;
 
@@ -103,11 +109,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 var endTime = timing.EndTime + expandEndBy;
 
                                 var (_, filename, startTimeInRightFile) = context.WIP.TimelineMap.GetPathAndPosition(startTime);
-                                var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}_{startTimeInRightFile + timing.Duration:hh\\-mm\\-ss\\-fff}.wav");
-
                                 var duration = fullPcmAudio != null
                                     ? (TimeSpanExtensions.Min(endTime, fullPcmAudio.EndTime) - TimeSpanExtensions.Max(startTime, TimeSpan.Zero))
                                     : (endTime - startTime);
+                                var backupFilePath = context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractorAudio.OutputFieldName}_{startTimeInRightFile:hh\\-mm\\-ss\\-fff}_{startTimeInRightFile + duration:hh\\-mm\\-ss\\-fff}.wav");
 
                                 // 1. Read from cache if it already exists
                                 if (File.Exists(backupFilePath))

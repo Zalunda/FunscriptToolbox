@@ -6,16 +6,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class BinaryDataExtractorCachedCollection
     {
-        private readonly Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>> r_cache;
+        private readonly Dictionary<(TimeSpan, TimeSpan), Dictionary<string, AIRequestPart[]>> r_cache;
         private readonly Dictionary<(TimeSpan, TimeSpan), (TimeSpan time, (string name, BinaryDataType dataType, AIRequestPart[] contentList)[] binaryItems)[]> r_contextNodesCache;
-        private readonly Dictionary<string, BinaryDataExtractorExtended> r_extractors;
+        protected readonly Dictionary<string, BinaryDataExtractorExtended> r_extractors;
 
         /// <summary>Called (when not silent) each time GetNamedContentListForItem is served from the in-memory cache.</summary>
         public Action<ITiming> OnCacheHit { get; set; }
 
         public BinaryDataExtractorCachedCollection(params BinaryDataExtractorExtended[] extractors)
         {
-            r_cache = new Dictionary<TimeSpan, Dictionary<string, AIRequestPart[]>>();
+            r_cache = new Dictionary<(TimeSpan, TimeSpan), Dictionary<string, AIRequestPart[]>>();
             r_contextNodesCache = new Dictionary<(TimeSpan, TimeSpan), (TimeSpan time, (string name, BinaryDataType dataType, AIRequestPart[] contentList)[] binaryItems)[]>();
             r_extractors = extractors
                 .Where(extractor => extractor.Extractor.Enabled)
@@ -35,9 +35,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             string text = null,
             bool silent = false)
         {
+            var cacheKey = (timing.StartTime, timing.EndTime);
             lock (r_cache)
             {
-                if (r_cache.TryGetValue(timing.StartTime, out var cachedData))
+                if (r_cache.TryGetValue(cacheKey, out var cachedData))
                 {
                     return cachedData;
                 }
@@ -49,23 +50,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             lock (r_cache)
             {
-                if (!r_cache.ContainsKey(timing.StartTime))
+                if (!r_cache.ContainsKey(cacheKey))
                 {
-                    r_cache[timing.StartTime] = data;
+                    r_cache[cacheKey] = data;
                 }
-                return r_cache[timing.StartTime];
+                return r_cache[cacheKey];
             }
         }
 
-        public Dictionary<string, AIRequestPart[]> GetNamedContentListForItem(
+        public virtual Dictionary<string, AIRequestPart[]> GetNamedContentListForItem(
             AIRequestSection section,
             TimedItemWithMetadata item, 
             string text = null,
             bool silent = false)
         {
+            var cacheKey = (item.StartTime, item.EndTime);
             lock (r_cache)
             {
-                if (r_cache.TryGetValue(item.StartTime, out var cachedData))
+                if (r_cache.TryGetValue(cacheKey, out var cachedData))
                 {
                     if (!silent)
                     {
@@ -82,11 +84,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             lock (r_cache)
             {
-                if (!r_cache.ContainsKey(item.StartTime))
+                if (!r_cache.ContainsKey(cacheKey))
                 {
-                    r_cache[item.StartTime] = data;
+                    r_cache[cacheKey] = data;
                 }
-                return r_cache[item.StartTime];
+                return r_cache[cacheKey];
             }
         }
 

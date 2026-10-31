@@ -508,21 +508,21 @@ _______________________________________=",
     {
       "$type": "TranscriberAIRefineTiming",
       "TranscriptionId": "full-ai-refined",
-	  "$insertAfter": "full-ai",
+      "$insertAfter": "full-ai",
       "Enabled": true,
       "PrivateMetadataNames": "TimingTrace",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
 
-	  "SourceAudioIdForRefiner": "audio-clean-waveform",
+      "SourceAudioIdForRefiner": "audio-clean-waveform",
       "MaxRetriesPerNode": 7,
       "MaxBudgetRatio": 4,
       "MaxDriftSeconds": 1.2,
       "ShrinkStepSeconds": 0.2,
       "MinSubtitleDurationSeconds": 0.5,
-	  "IncludeTraceInOutputAlways": false,
-	  "IncludeTraceInOutputOnError": true,
-	  "IncludeTextInOutput": true,
+      "IncludeTraceInOutputAlways": false,
+      "IncludeTraceInOutputOnError": true,
+      "IncludeTextInOutput": true,
       "PromptUserOnError": true,
 
       "Engine": {
@@ -542,9 +542,9 @@ _______________________________________=",
           "generationConfig": {
             "temperature": 0.0,
             "maxOutputTokens": 2048,
-			"thinkingConfig": {
-			  "thinkingLevel": "low"
-			}
+            "thinkingConfig": {
+              "thinkingLevel": "low"
+            }
           }
         },
         "SupportAudio": true,
@@ -622,6 +622,145 @@ _______________________________________="
       }
     },
     {
+      "$type": "TranscriberAIRefineTimingV2",
+      "TranscriptionId": "full-ai-refined-v2",
+      "$insertAfter": "full-ai-refined",
+      "Enabled": true,
+      "PrivateMetadataNames": "TimingTrace",
+      "CanBeUpdated": false,
+      "ExportMetadataSrt": true,
+
+      "SourceAudioIdForRefiner": "audio-clean-waveform",
+      "MaxRetriesPerNode": 10,
+      "MaxMountainSteps": 10,
+      "MaxBudgetRatio": 2.0,
+      "MaxExpansion": "00:00:02.0",
+      "BleedDetectionMargin": "00:00:03.0",
+      "OutwardNudgeDuration": "00:00:00.030",
+      "MinSubtitleDuration": "00:00:00.5",
+      "IncludeTraceInOutputAlways": false,
+      "IncludeTraceInOutputOnError": true,
+      "IncludeTextInOutput": true,
+      "PromptUserOnError": true,
+
+      "Engine": {
+        "$type": "AIEngineAPIGoogle",
+        "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+        "Model": "gemini-4-argon",
+        "APIKeyName": "APIKeyGemini",
+        "UseBatchMode": true,
+        "UseBatchModeSaving": 0.50,
+        "RequestBodyExtension": {
+          "safetySettings": [
+            { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+            { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+            { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+            { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
+          ],
+          "generationConfig": {
+            "temperature": 0.0,
+            "maxOutputTokens": 2048,
+            "thinkingConfig": {
+              "thinkingLevel": "low"
+            }
+          }
+        },
+        "SupportAudio": true,
+        "SupportImage": true,
+        "EstimatedCostPerInputMillionTokens": 0.75,
+        "EstimatedCostPerOutputMillionTokens": 2.5
+      },
+      "Metadatas": {
+        "TimingsSource": "full-ai",
+        "Sources": "full-ai"
+      },
+      "Options": {
+        "MetadataNeeded": "VoiceText",
+        "MetadataAlwaysProduced": "VoiceTextWithTimingWarnings"
+      },
+      "InnerOptions": {
+        "SystemPrompt": {
+          "$type": "AIPrompt",
+          "Text": "
+=_______________________________________
+# AUDIO BOUNDARY & TRANSCRIPTION VALIDATION ENGINE
+
+### Role
+You are a precision audio-boundary judge and transcription verifier. For each subtitle node, you receive a rough-draft `OriginalText` and a series of candidate audio clips (`Audio_Max_Max`, followed by `Audio_<StartId>_<EndId>` ordered from tightest to widest).
+Your job is to:
+1. Verify what is **actually spoken** in the audio (since `OriginalText` comes from an error-prone rough draft that may hallucinate extra words/clauses at the start or end, or mishear syllables).
+2. Select the `BestStart` boundary and `BestEnd` boundary that capture **100% of the actual spoken words with zero syllable clipping and the least amount of surrounding breath, silence, or neighbour bleed**.
+
+### Input Fields per Node
+1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
+2. `OriginalText`: Draft transcription of the expected phrase. **Warning:** Do not let `OriginalText` trick you into hearing words that are not spoken! If `OriginalText` has extra clauses/words at the start or end that are absent from the audio, report what is actually spoken in `"HeardText"`.
+3. `PossibleBleedFromPrev` (Optional): Dialogue from the immediately preceding subtitle. If you hear any part of this text at the **beginning** of wider clips, it belongs to the previous subtitle—choose a tighter `BestStart` that cuts *after* it!
+4. `PossibleBleedFromNext` (Optional): Dialogue from the immediately following subtitle. If you hear any part of this text at the **end** of wider clips, it belongs to the next subtitle—choose a tighter `BestEnd` that cuts *before* it!
+5. `Audio_Max_Max` (Wide Reference Clip — **LISTEN FIRST**):
+   - This is the widest reference clip covering the broader neighborhood around the line.
+   - **Step 1:** Listen to `Audio_Max_Max` first to determine what the speaker **actually says** for this line (excluding any `PossibleBleedFromPrev` / `PossibleBleedFromNext`).
+   - If part of `OriginalText` is **never spoken** even in `Audio_Max_Max` (or if different words are spoken), set `"HeardText"` to the exact Romaji transcription of what you actually hear, and judge `BestStart` and `BestEnd` around **that actual speech**!
+6. Candidate Clips (`Audio_<StartId>_<EndId>`, ordered from tightest/shortest to widest/longest):
+   - Each clip's name tells you which Start boundary (`<StartId>`) and End boundary (`<EndId>`) it uses:
+     - `C1`: Tightest (innermost) boundary option
+     - `C2`, `C3`, `C4`, `C5`...: Progressively wider boundary options stepping outward across acoustic valleys
+
+### Decision Protocol (`BestStart` and `BestEnd`)
+Evaluate the **Start** and **End** boundaries **independently** (e.g., you can pick `"BestStart": "C2"` and `"BestEnd": "C4"` even if no single clip is named `Audio_C2_C4`):
+
+1. **Standard Boundary Choice (`"C1"`, `"C2"`, `"C3"`, `"C4"`, `"C5"`, ...):**
+   - Listen from the tightest clip (`C1`) outward (`C2`, `C3`, ...).
+   - Pick the **tightest (lowest-numbered `C#`)** boundary ID on each side that includes 100% of the spoken syllables (no clipped initial consonant or final vowel) while excluding leading/trailing panting (`haa, haa`), giggles (`fufu`), silence, faint room noise, or neighbour bleed.
+   - **Do NOT stretch `BestStart` or `BestEnd` into silence or breaths trying to account for words in `OriginalText` that were never spoken!**
+   - Only pick a boundary ID (`C1`, `C2`, ...) that actually appears in the candidate `Audio_<StartId>_<EndId>` field names for that node.
+2. **When Even the Widest `C#` Candidate Cuts Off Real Speech (`"Max"`):**
+   - Output `"Max"` for `BestStart` or `BestEnd` **ONLY** if you clearly hear additional spoken syllables of this line inside `Audio_Max_Max` that are still cut off in the widest `C#` clip.
+   - **NEVER output `"Max"` if the region beyond the widest `C#` clip is just silence, breathing, or a faint duplicate murmur!** If words from `OriginalText` are missing in `Audio_Max_Max`, report the shorter actual speech in `"HeardText"` and pick the tight `C#` boundary that frames it.
+3. **Disagreement with `OriginalText` (`HeardText`):**
+   - If what is actually spoken in `Audio_Max_Max` differs from `OriginalText` (e.g., `OriginalText` says `"So-re ka-u ne-n, a-no hi-to."` but the speaker only says `"So-re ka-u ne-n."`), set `"HeardText"` to what is actually spoken and frame `BestStart`/`BestEnd` tightly around `"HeardText"`.
+   - If `Audio_Max_Max` contains no intelligible speech at all (only silence/noise/breathing), set `"BestStart": "Inaudible"`, `"BestEnd": "Inaudible"`, and `"HeardText": ""`.
+   - **If the spoken words match `OriginalText`, OMIT `"HeardText"` (do not include the field).**
+
+### Output Format
+Return a single valid JSON array with one object per input node:
+[
+  {
+    "StartTime": "00:00:32.150",
+    "BestStart": "C2",
+    "BestEnd": "C3"
+  },
+  {
+    "StartTime": "00:00:36.120",
+    "BestStart": "C1",
+    "BestEnd": "C2",
+    "HeardText": "So-re ka-u ne-n."
+  }
+]
+_______________________________________="
+        },
+        "MetadataNeeded": "",
+        "MetadataAlwaysProduced": "BestStart,BestEnd",
+        "BinaryDataExtractors": [
+          {
+            "$type": "BinaryDataExtractorAudio",
+            "OutputFieldName": "AudioClip",
+            "Enabled": true,
+            "ExpandStart": "00:00:00",
+            "ExpandEnd": "00:00:00",
+            "KeepTemporaryFiles": false,
+            "SourceAudioId": "audio"
+          }
+        ],
+        "MaximumRequestsInBatch": 50,
+        "BatchSize": 10,
+        "BatchSplitWindows": 0,
+        "BatchKeepTogetherThreshold": "00:00:00.0000000",
+        "NbContextItems": 0,
+        "NbItemsMinimumReceivedToContinue": 5,
+        "FieldsToInclude": "StartTime"
+      }
+    },
+    {
       "Id": "full-ai_google",
       "Enabled": false
       // [OPTION] Change to true if you prefer having basic english translation in the the manual-input file.
@@ -636,7 +775,7 @@ _______________________________________="
       "Enabled": true,
       // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.
       "TextSources": "full-ai-refined",
-	  "MetadataToUse": "VoiceTextWithTimingWarnings",
+      "MetadataToUse": "VoiceTextWithTimingWarnings",
       "Metadatas": {
         "TimingsSource": "full-ai-refined",
         "Sources": "full-ai-refined",
