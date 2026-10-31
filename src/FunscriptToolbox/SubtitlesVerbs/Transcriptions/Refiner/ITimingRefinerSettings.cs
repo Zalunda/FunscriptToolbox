@@ -9,7 +9,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     public interface ITimingRefinerSettings
     {
         int MaxRetriesPerNode { get; }
-        int MaxMountainSteps { get; }
+        int MaxMountainStepsInward { get; }
+        int MaxMountainStepsOutward { get; }
         TimeSpan MaxExpansion { get; }
         TimeSpan BleedDetectionMargin { get; }
         TimeSpan TinyOverlapTolerance { get; }

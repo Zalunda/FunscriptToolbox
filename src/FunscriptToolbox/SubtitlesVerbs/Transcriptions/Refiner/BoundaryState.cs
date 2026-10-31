@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -11,9 +12,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>Current best / working boundary.</summary>
         public TimeSpan Current { get; set; }
 
-        /// <summary>The boundary may not move beyond this (set by neighbours).</summary>
-        public TimeSpan? HardLimit { get; set; }
-
         public bool Locked { get; set; }
+        public List<BoundaryDipCandidate> Dips { get; } = new List<BoundaryDipCandidate>();
     }
 }

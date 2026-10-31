@@ -624,6 +624,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return null;
         }
 
+        public IEnumerable<TimeSpan> GetDips(BoundarySide side, TimeSpan from, TimeSpan to)
+        {
+            var list = DipList(side);
+            var minT = from < to ? from : to;
+            var maxT = from < to ? to : from;
+            for (int i = LastIndexLess(list, minT) + 1; i < list.Count && list[i] <= maxT; i++)
+                yield return list[i];
+        }
+
         public bool IsSpeechEdge(TimeSpan dip)
         {
             bool before = MountainEndingAt(dip) != null;

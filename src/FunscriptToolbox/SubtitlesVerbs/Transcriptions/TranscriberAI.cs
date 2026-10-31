@@ -64,7 +64,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         protected AIRequestGenerator ExecuteRequests(
-            SubtitleGeneratorContext context, 
+            SubtitleGeneratorContext context,
             Transcription transcription,
             AIOptions options,
             TimedItemWithMetadata[] itemsToBeProcessed)

@@ -27,13 +27,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private static readonly TimeSpan MaxSnapDrift = TimeSpan.FromSeconds(1.2);
         private static readonly TimeSpan MaxFinalClampOverlap = TimeSpan.FromMilliseconds(150);
         private const string MaxOptionKey = "Max";
+        private const string MinOptionKey = "Min";
 
         // ---------------------------------------------------------------------
         // Settings & state
         // ---------------------------------------------------------------------
 
         public int MaxRetriesPerNode { get; }
-        public int MaxMountainSteps { get; }
+        public int MaxMountainStepsInward { get; }
+        public int MaxMountainStepsOutward { get; }
         public TimeSpan MaxExpansion { get; }
         public TimeSpan BleedDetectionMargin { get; }
         public TimeSpan TinyOverlapTolerance { get; }
@@ -56,7 +58,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 throw new ArgumentNullException(nameof(settings));
 
             MaxRetriesPerNode = settings.MaxRetriesPerNode;
-            MaxMountainSteps = Math.Max(0, settings.MaxMountainSteps);
+            MaxMountainStepsInward = Math.Max(0, settings.MaxMountainStepsInward);
+            MaxMountainStepsOutward = Math.Max(0, settings.MaxMountainStepsOutward);
             MaxExpansion = settings.MaxExpansion;
             BleedDetectionMargin = settings.BleedDetectionMargin;
             TinyOverlapTolerance = settings.TinyOverlapTolerance;
@@ -83,6 +86,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         private static bool IsMaxKey(string key)
             => string.Equals(key, MaxOptionKey, StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsMinKey(string key)
+            => string.Equals(key, MinOptionKey, StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsSpecialKey(string key)
+            => IsMaxKey(key) || IsMinKey(key);
 
         private TimeSpan ClampToAudioBounds(TimeSpan t)
         {
@@ -126,6 +135,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             candidate.AddTraceRow("Orig", ' ', originalItem.StartTime, originalItem.EndTime, ' ', "", candidate.OriginalText);
             candidate.Trace("Init", originalItem.StartTime, originalItem.EndTime, "Snapped initial bounds");
 
+            InitializeCandidateDips(candidate);
+
             Candidates.Add(candidate);
             if (!r_byOriginalStart.ContainsKey(candidate.OriginalStartTime))
                 r_byOriginalStart.Add(candidate.OriginalStartTime, candidate);
@@ -135,6 +146,40 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 Candidates = Candidates.OrderBy(c => c.OriginalStartTime).ToList();
         }
 
+        private void InitializeCandidateDips(TimingCandidate cand)
+        {
+            var centerStart = cand.Start.Current;
+            var centerEnd = cand.End.Current;
+
+            // Start dips: from centerEnd - MinClipDuration outward to startMax
+            var startMax = ComputeMax(cand, BoundarySide.Start, centerStart, centerEnd);
+            var startInwardLimit = centerEnd - MinClipDuration;
+            cand.Start.Dips.Clear();
+            foreach (var t in TerrainMapping.GetDips(BoundarySide.Start, startInwardLimit, startMax))
+                cand.Start.Dips.Add(new BoundaryDipCandidate(t));
+
+            // Ensure current snapped start is present in the list
+            EnsureDipPresent(cand.Start.Dips, centerStart);
+
+            // End dips: from centerStart + MinClipDuration outward to endMax
+            var endMax = ComputeMax(cand, BoundarySide.End, centerStart, centerEnd);
+            var endInwardLimit = centerStart + MinClipDuration;
+            cand.End.Dips.Clear();
+            foreach (var t in TerrainMapping.GetDips(BoundarySide.End, endInwardLimit, endMax))
+                cand.End.Dips.Add(new BoundaryDipCandidate(t));
+
+            // Ensure current snapped end is present in the list
+            EnsureDipPresent(cand.End.Dips, centerEnd);
+        }
+
+        private static void EnsureDipPresent(List<BoundaryDipCandidate> list, TimeSpan time)
+        {
+            if (!list.Any(d => d.Time == time))
+            {
+                list.Add(new BoundaryDipCandidate(time));
+                list.Sort((a, b) => a.Time.CompareTo(b.Time));
+            }
+        }
         /// <summary>Finds a dip and accepts it only if it is within MaxSnapDrift of 't'.</summary>
         private TimeSpan? FindDipWithinDrift(TimeSpan t, BoundarySide side, MoveDirection dir, DipSearch search)
         {
@@ -258,35 +303,126 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var startMax = ComputeMax(cand, BoundarySide.Start, centerStart, centerEnd);
             var endMax = ComputeMax(cand, BoundarySide.End, centerStart, centerEnd);
 
-            // Levels: index 0 = tightest ... index MaxMountainSteps = Init ... last = widest
-            var starts = BuildLevels(BoundarySide.Start, centerStart, cand.Start.Locked, centerEnd - MinClipDuration, startMax);
-            var ends = BuildLevels(BoundarySide.End, centerEnd, cand.End.Locked, centerStart + MinClipDuration, endMax);
+            // Select active (non-eliminated) dips for each side
+            var startDips = SelectActiveDips(cand, BoundarySide.Start, centerStart, centerEnd - MinClipDuration, startMax);
+            var endDips = SelectActiveDips(cand, BoundarySide.End, centerEnd, centerStart + MinClipDuration, endMax);
 
-            var windows = BuildWindows(starts, ends, MaxMountainSteps);
+            var windows = BuildWindowsFromDips(startDips, endDips, centerStart, centerEnd);
 
             // Neutral labels, ordered from tightest (innermost) to widest (outermost)
             var startOrder = LabelOptions(BoundarySide.Start, windows.Select(w => w.Start), round);
             var endOrder = LabelOptions(BoundarySide.End, windows.Select(w => w.End), round);
 
-            // If the stretch between the widest option and Max is 100% silence, clamp Max to the widest option
+            // Clamp Max to widest option if trailing terrain is silence
             startMax = TrimSilentMargin(BoundarySide.Start, startMax, startOrder[startOrder.Count - 1]);
             endMax = TrimSilentMargin(BoundarySide.End, endMax, endOrder[endOrder.Count - 1]);
             round.StartOptions[MaxOptionKey] = startMax;
             round.EndOptions[MaxOptionKey] = endMax;
 
+            // Min option: only offered when non-eliminated dips exist inward beyond the tightest candidate
+            if (HasActiveInwardDip(cand, BoundarySide.Start, startOrder[0]))
+                round.StartOptions[MinOptionKey] = startOrder[0];
+            if (HasActiveInwardDip(cand, BoundarySide.End, endOrder[0]))
+                round.EndOptions[MinOptionKey] = endOrder[0];
+
             AddClips(round, windows, startOrder, endOrder, startMax, endMax);
 
-            cand.Traces.Add($"#{round.RoundNumber} Options:");
-            cand.Traces.Add($"     [Start] {FormatOptionsOutsideToInside(BoundarySide.Start, round.StartOptions, startOrder.Count, centerStart)}");
-            cand.Traces.Add($"     [End]   {FormatOptionsOutsideToInside(BoundarySide.End, round.EndOptions, endOrder.Count, centerEnd)}");
-
             return round;
+        }
+
+        private List<TimeSpan> SelectActiveDips(
+            TimingCandidate cand,
+            BoundarySide side,
+            TimeSpan center,
+            TimeSpan inwardDurationLimit,
+            TimeSpan outwardMax)
+        {
+            var boundary = cand[side];
+            if (boundary.Locked)
+                return new List<TimeSpan> { center };
+
+            bool isStart = side == BoundarySide.Start;
+            Func<TimeSpan, bool> inRange = isStart
+                ? t => t <= inwardDurationLimit && t >= outwardMax
+                : t => t >= inwardDurationLimit && t <= outwardMax;
+
+            var available = boundary.Dips
+                .Where(d => d.State != DipCandidateState.Eliminated && d.State != DipCandidateState.HardLimit && inRange(d.Time))
+                .Select(d => d.Time)
+                .ToList();
+
+            var inward = available
+                .Where(t => isStart ? t > center : t < center);
+            inward = isStart
+                ? inward.OrderBy(t => t).Take(MaxMountainStepsInward)
+                : inward.OrderByDescending(t => t).Take(MaxMountainStepsInward);
+
+            var outward = available
+                .Where(t => isStart ? t < center : t > center);
+            outward = isStart
+                ? outward.OrderByDescending(t => t).Take(MaxMountainStepsOutward)
+                : outward.OrderBy(t => t).Take(MaxMountainStepsOutward);
+
+            return inward.Concat(new[] { center }).Concat(outward).Distinct().OrderBy(t => t).ToList();
+        }
+
+        private static bool HasActiveInwardDip(TimingCandidate cand, BoundarySide side, TimeSpan tightestTime)
+        {
+            if (cand[side].Locked)
+                return false;
+
+            bool isStart = side == BoundarySide.Start;
+            return cand[side].Dips.Any(d => d.State != DipCandidateState.Eliminated && d.State != DipCandidateState.HardLimit && (isStart ? d.Time > tightestTime : d.Time < tightestTime));
+        }
+
+        private List<(TimeSpan Start, TimeSpan End)> BuildWindowsFromDips(
+            List<TimeSpan> startDips,
+            List<TimeSpan> endDips,
+            TimeSpan centerStart,
+            TimeSpan centerEnd)
+        {
+            var starts = startDips.OrderByDescending(t => t).ToList(); // Tightest to widest
+            var ends = endDips.OrderBy(t => t).ToList();
+
+            var windows = new List<(TimeSpan Start, TimeSpan End)>();
+            int count = Math.Max(starts.Count, ends.Count);
+
+            for (int i = 0; i < count; i++)
+            {
+                var s = i < starts.Count ? starts[i] : starts.Last();
+                var e = i < ends.Count ? ends[i] : ends.Last();
+
+                if (e - s < MinClipDuration)
+                {
+                    // If tightest pair is too short, expand toward center to maintain minimum duration
+                    if (e - centerStart >= MinClipDuration)
+                        s = centerStart;
+                    else if (centerEnd - s >= MinClipDuration)
+                        e = centerEnd;
+                    else
+                    {
+                        s = centerStart;
+                        e = centerEnd;
+                    }
+                }
+
+                if (e - s >= MinClipDuration && !windows.Contains((s, e)))
+                    windows.Add((s, e));
+            }
+
+            if (windows.Count == 0)
+            {
+                var fallbackEnd = centerEnd > centerStart + MinClipDuration ? centerEnd : centerStart + MinClipDuration;
+                windows.Add((centerStart, ClampToAudioBounds(fallbackEnd)));
+            }
+
+            return windows.OrderByDescending(w => w.Start).ThenBy(w => w.End).ToList();
         }
 
         /// <summary>Furthest the boundary may go outward (limited by MaxExpansion, audio bounds and neighbours' hard limit).</summary>
         private TimeSpan ComputeMax(TimingCandidate cand, BoundarySide side, TimeSpan centerStart, TimeSpan centerEnd)
         {
-            var hardLimit = cand[side].HardLimit;
+            var hardLimit = GetHardLimit(cand, side);
 
             if (side == BoundarySide.Start)
             {
@@ -300,108 +436,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             if (endMax <= centerStart)
                 endMax = ClampToAudioBounds(centerStart + MinClipDuration);
             return endMax;
-        }
-
-        /// <summary>
-        /// Builds the 2N+1 levels for one side: [M{N} .. M1, Init, P1 .. P{N}].
-        /// Inward = shrinking the clip (towards the opposite boundary), Outward = growing it.
-        /// A locked side never moves.
-        /// </summary>
-        private TimeSpan[] BuildLevels(BoundarySide side, TimeSpan center, bool locked, TimeSpan inwardLimit, TimeSpan outwardLimit)
-        {
-            int n = MaxMountainSteps;
-            var levels = new TimeSpan[2 * n + 1];
-            levels[n] = center;
-
-            var cur = center;
-            for (int k = 1; k <= n; k++)
-            {
-                if (!locked)
-                    cur = StepToDip(cur, side, MoveDirection.Inward, inwardLimit, excludeLimit: true);
-                levels[n - k] = cur;
-            }
-
-            cur = center;
-            for (int k = 1; k <= n; k++)
-            {
-                if (!locked)
-                    cur = StepToDip(cur, side, MoveDirection.Outward, outwardLimit, excludeLimit: false);
-                levels[n + k] = cur;
-            }
-
-            return levels;
-        }
-
-        /// <summary>
-        /// Moves to the next dip in the given direction. Returns 'cur' when already at/past the limit,
-        /// when no dip exists, or when the only dip is exactly on the limit and excludeLimit is set.
-        /// (FindDip itself never returns a dip beyond Limit.)
-        /// </summary>
-        private TimeSpan StepToDip(TimeSpan cur, BoundarySide side, MoveDirection dir, TimeSpan limit, bool excludeLimit)
-        {
-            bool later = AudioTerrainMapping.MovesLater(side, dir);
-            if (later ? cur >= limit : cur <= limit)
-                return cur;
-
-            var dip = TerrainMapping.FindDip(cur, side, dir, new DipSearch
-            {
-                MinJump = MinJump,
-                StopAtSpeechEdge = true,
-                Limit = limit
-            });
-
-            if (!dip.HasValue || (excludeLimit && dip.Value == limit))
-                return cur;
-            return dip.Value;
-        }
-
-        /// <summary>
-        /// Combines start/end levels into distinct clip windows, tightest to widest.
-        /// If shrinking both sides makes the clip too short, backs off toward Init.
-        /// </summary>
-        private List<(TimeSpan Start, TimeSpan End)> BuildWindows(TimeSpan[] starts, TimeSpan[] ends, int initIndex)
-        {
-            var windows = new List<(TimeSpan Start, TimeSpan End)>();
-            var seen = new HashSet<(TimeSpan, TimeSpan)>();
-
-            for (int lvl = 0; lvl < starts.Length; lvl++)
-            {
-                var (s, e) = BackOffTowardInit(starts, ends, lvl, initIndex);
-                if (e - s >= MinClipDuration && seen.Add((s, e)))
-                    windows.Add((s, e));
-            }
-
-            if (windows.Count == 0)
-            {
-                var startInit = starts[initIndex];
-                var endInit = ends[initIndex];
-                var fallbackEnd = endInit > startInit + MinClipDuration ? endInit : ClampToAudioBounds(startInit + MinClipDuration);
-                windows.Add((startInit, fallbackEnd));
-            }
-            return windows;
-        }
-
-        private static (TimeSpan Start, TimeSpan End) BackOffTowardInit(TimeSpan[] starts, TimeSpan[] ends, int lvl, int initIndex)
-        {
-            var s = starts[lvl];
-            var e = ends[lvl];
-            if (lvl >= initIndex)
-                return (s, e);
-
-            int step = lvl + 1;
-            while (step <= initIndex && e - s < MinClipDuration)
-            {
-                var altS = starts[step];
-                var altE = ends[step];
-
-                if (e - altS >= MinClipDuration) { s = altS; break; }
-                if (altE - s >= MinClipDuration) { e = altE; break; }
-
-                s = altS;
-                e = altE;
-                step++;
-            }
-            return (s, e);
         }
 
         /// <summary>
@@ -478,20 +512,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             }
         }
 
-        /// <summary>Trace helper: options ordered from outside (Max, C{K}..C1) to inside, '*' marks the Center/Init boundary.</summary>
-        private static string FormatOptionsOutsideToInside(BoundarySide side, Dictionary<string, TimeSpan> opts, int count, TimeSpan centerTime)
+        private static string FormatDips(TimingCandidate cand, BoundarySide side)
         {
-            var parts = new List<string>();
-            if (opts.TryGetValue(MaxOptionKey, out var maxT))
-                parts.Add($"Max={maxT:mm\\:ss\\.fff}");
-
-            for (int idx = count; idx >= 1; idx--)
-            {
-                string key = OptionKey(side, idx);
-                if (opts.TryGetValue(key, out var t))
-                    parts.Add($"{key}{(t == centerTime ? "*" : "")}={t:mm\\:ss\\.fff}");
-            }
-            return string.Join(", ", parts);
+            var initTime = cand[side].Init;
+            return string.Join(" ", cand[side].Dips.Select(d => d.Format(initTime)));
         }
 
         // ---------------------------------------------------------------------
@@ -568,8 +592,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 cand.AddValidationNote($"Unsure: Text Mismatch (original vs heard in Max): `{cand.OriginalText}` vs `{round.HeardText}`");
             }
 
-            string choiceSummary = $"S={round.BestStart ?? "?"} E={round.BestEnd ?? "?"}";
-            cand.Trace($"#{cand.RetryCount}", prevStart, prevEnd, choiceSummary, round.HeardText);
+            cand.Traces.Add($"#{round.RoundNumber} Options:");
+            cand.Traces.Add($"     START: {FormatDips(cand, BoundarySide.Start)}");
+            cand.Traces.Add($"     END:   {FormatDips(cand, BoundarySide.End)}");
+            cand.Trace($"#{cand.RetryCount}", prevStart, prevEnd, null, round.HeardText);
         }
 
         private void ApplySideChoice(TimingCandidate cand, TimingRound round, BoundarySide side)
@@ -623,6 +649,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 return ResolveMaxChoice(cand, side, options, fallback);
             }
 
+            if (string.Equals(token, MinOptionKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return ResolveMinChoice(cand, side, options, fallback);
+            }
+
             // Hyphenated pair e.g. "C2-C3": prefer the tighter boundary rather than cutting in the middle of a mountain
             if (token.Contains("-"))
             {
@@ -632,13 +663,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     TryLookupOptionTime(options, pair[1].Trim(), fallback, out var t2))
                 {
                     var tighter = isStart ? (t1 > t2 ? t1 : t2) : (t1 < t2 ? t1 : t2);
+                    MarkDipsAfterChoice(cand, side, options, tighter);
                     return (tighter, true, false);
                 }
             }
 
             if (TryLookupOptionTime(options, token, fallback, out var resolved))
+            {
+                MarkDipsAfterChoice(cand, side, options, resolved);
                 return (resolved, true, false);
+            }
 
+            MarkDipsAfterChoice(cand, side, options, fallback);
             return (fallback, true, false);
         }
 
@@ -662,9 +698,42 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return token.TrimEnd('*').Trim();
         }
 
+        private static void MarkDipSelected(TimingCandidate cand, BoundarySide side, TimeSpan resolved)
+        {
+            foreach (var d in cand[side].Dips)
+            {
+                if (d.Time == resolved && d.State != DipCandidateState.HardLimit)
+                    d.State = DipCandidateState.Selected;
+            }
+        }
+
+        private static void MarkDipsAfterChoice(
+            TimingCandidate cand,
+            BoundarySide side,
+            Dictionary<string, TimeSpan> options,
+            TimeSpan resolved)
+        {
+            var testedTimes = new HashSet<TimeSpan>(options.Values);
+
+            foreach (var d in cand[side].Dips)
+            {
+                if (d.State == DipCandidateState.HardLimit)
+                    continue;
+
+                if (d.Time == resolved)
+                {
+                    d.State = DipCandidateState.Selected;
+                }
+                else if (testedTimes.Contains(d.Time) && d.State != DipCandidateState.Selected)
+                {
+                    d.State = DipCandidateState.Eliminated;
+                }
+            }
+        }
+
         /// <summary>
-        /// The AI answered "Max". We never jump blindly into raw Max (+MaxExpansion): we move the center to the
-        /// widest candidate option and retry, unless there is nothing more to gain.
+        /// The AI answered "Max". We move the center to the widest candidate option and retry,
+        /// marking all dips at or inside the widest candidate as eliminated.
         /// </summary>
         private (TimeSpan, bool, bool) ResolveMaxChoice(
             TimingCandidate cand,
@@ -676,34 +745,89 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var maxOpt = options.TryGetValue(MaxOptionKey, out var m) ? m : fallback;
             var widestC = GetWidestCandidateTime(options, isStart, fallback);
 
+            EliminateDips(cand, side, widestC, inward: true);
+
             // 1. Max == widest candidate (rest of the zone was silence or clamped): lock cleanly
             if (maxOpt == widestC)
+            {
+                MarkDipSelected(cand, side, widestC);
                 return (widestC, true, false);
+            }
 
             // 2. Max is already clamped against a neighbour's HardLimit: lock cleanly
-            var hardLimit = cand[side].HardLimit;
+            var hardLimit = GetHardLimit(cand, side);
             if (hardLimit.HasValue && (isStart ? maxOpt <= hardLimit.Value : maxOpt >= hardLimit.Value))
+            {
+                MarkDipSelected(cand, side, widestC);
                 return (widestC, true, false);
+            }
 
-            // 3. widest did not advance beyond fallback (no dips existed): lock and flag Missing.
-            //    Otherwise shift the center to widest for the next round.
-            return widestC == fallback
-                ? (widestC, true, true)
-                : (widestC, false, true);
+            // 3. Widest did not advance beyond fallback (no dips existed): lock and flag Missing.
+            if (widestC == fallback)
+            {
+                MarkDipSelected(cand, side, widestC);
+                return (widestC, true, true);
+            }
+
+            return (widestC, false, true);
+        }
+
+        /// <summary>
+        /// The AI answered "Min". We move the center to the tightest candidate option and retry inward,
+        /// marking all dips at or outside the tightest candidate as eliminated.
+        /// </summary>
+        private (TimeSpan, bool, bool) ResolveMinChoice(
+            TimingCandidate cand,
+            BoundarySide side,
+            Dictionary<string, TimeSpan> options,
+            TimeSpan fallback)
+        {
+            bool isStart = side == BoundarySide.Start;
+            var tightestC = GetTightestCandidateTime(options, isStart, fallback);
+
+            EliminateDips(cand, side, tightestC, inward: false);
+
+            // Tightest did not advance beyond fallback (no dips existed): lock cleanly
+            if (tightestC == fallback)
+            {
+                MarkDipSelected(cand, side, tightestC);
+                return (tightestC, true, false);
+            }
+
+            return (tightestC, false, true);
+        }
+
+        private static void EliminateDips(TimingCandidate cand, BoundarySide side, TimeSpan boundaryTime, bool inward)
+        {
+            bool isStart = side == BoundarySide.Start;
+            foreach (var d in cand[side].Dips)
+            {
+                if (d.State == DipCandidateState.HardLimit)
+                    continue;
+
+                bool shouldEliminate = inward
+                    ? (isStart ? d.Time >= boundaryTime : d.Time <= boundaryTime)
+                    : (isStart ? d.Time <= boundaryTime : d.Time >= boundaryTime);
+
+                if (shouldEliminate && d.State != DipCandidateState.Selected)
+                    d.State = DipCandidateState.Eliminated;
+            }
         }
 
         private static TimeSpan GetWidestCandidateTime(Dictionary<string, TimeSpan> options, bool isStart, TimeSpan fallback)
         {
-            var candidateValues = options
-                .Where(kvp => !IsMaxKey(kvp.Key))
-                .Select(kvp => kvp.Value)
-                .ToList();
-
-            if (candidateValues.Count == 0)
-                return fallback;
-
-            return isStart ? candidateValues.Min() : candidateValues.Max();
+            var vals = GetOptionTimes(options);
+            return vals.Count == 0 ? fallback : (isStart ? vals.Min() : vals.Max());
         }
+
+        private static TimeSpan GetTightestCandidateTime(Dictionary<string, TimeSpan> options, bool isStart, TimeSpan fallback)
+        {
+            var vals = GetOptionTimes(options);
+            return vals.Count == 0 ? fallback : (isStart ? vals.Max() : vals.Min());
+        }
+
+        private static List<TimeSpan> GetOptionTimes(Dictionary<string, TimeSpan> options) =>
+            options.Where(kvp => !IsSpecialKey(kvp.Key)).Select(kvp => kvp.Value).ToList();
 
         private static bool TryLookupOptionTime(Dictionary<string, TimeSpan> options, string key, TimeSpan centerFallback, out TimeSpan time)
         {
@@ -757,12 +881,43 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             }
         }
 
+        private static TimeSpan? GetHardLimit(TimingCandidate cand, BoundarySide side)
+        {
+            var hardDips = cand[side].Dips.Where(d => d.State == DipCandidateState.HardLimit).ToList();
+            if (hardDips.Count == 0) return null;
+
+            bool isStart = side == BoundarySide.Start;
+            if (isStart)
+            {
+                var firstForbidden = hardDips.Max(d => d.Time);
+                var allowed = cand[side].Dips.Where(d => d.State != DipCandidateState.HardLimit && d.Time >= firstForbidden).ToList();
+                return allowed.Count > 0 ? allowed.Min(d => d.Time) : firstForbidden;
+            }
+            else
+            {
+                var firstForbidden = hardDips.Min(d => d.Time);
+                var allowed = cand[side].Dips.Where(d => d.State != DipCandidateState.HardLimit && d.Time <= firstForbidden).ToList();
+                return allowed.Count > 0 ? allowed.Max(d => d.Time) : firstForbidden;
+            }
+        }
+
+        private static void SetHardLimit(TimingCandidate cand, BoundarySide side, TimeSpan limit)
+        {
+            EnsureDipPresent(cand[side].Dips, limit);
+            bool isStart = side == BoundarySide.Start;
+            foreach (var d in cand[side].Dips)
+            {
+                if (isStart ? d.Time < limit : d.Time > limit)
+                    d.State = DipCandidateState.HardLimit;
+            }
+        }
+
         private static void PropagateHardLimits(TimingCandidate cur, TimingCandidate next)
         {
             if (next.Start.Locked)
-                cur.End.HardLimit = next.Start.Current;
+                SetHardLimit(cur, BoundarySide.End, next.Start.Current);
             if (cur.End.Locked)
-                next.Start.HardLimit = cur.End.Current;
+                SetHardLimit(next, BoundarySide.Start, cur.End.Current);
         }
 
         /// <summary>Tiny overlap (e.g. from a shared valley): clamp at midpoint or next.Start.</summary>
@@ -789,30 +944,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return true;
         }
 
-        /// <summary>Case A: next.Start overrules cur.End; cur.End is pulled back (and retried when useful).</summary>
+        /// <summary>Case A: next.Start overrules cur.End; cur.End is pulled back and locked.</summary>
         private void CapCurrentEnd(TimingCandidate cur, TimingCandidate next, TimeSpan fallbackEnd)
         {
             var hardCap = next.Start.Current;
-            bool alreadyCappedHere = cur.End.Locked && cur.End.Current == fallbackEnd && cur.End.HardLimit == hardCap;
+            var currentHardLimit = GetHardLimit(cur, BoundarySide.End);
+            bool alreadyCappedHere = cur.End.Locked && cur.End.Current == fallbackEnd && currentHardLimit == hardCap;
 
-            cur.End.HardLimit = hardCap;
+            SetHardLimit(cur, BoundarySide.End, hardCap);
             var prevEnd = cur.End.Current;
             cur.End.Current = fallbackEnd;
 
-            int distinctValidEndOptions = ValidEndOptions(
-                cur.Rounds.LastOrDefault(), hardCap, cur.Start.Current + MinOverlapViableDuration).Count();
+            MarkDipSelected(cur, BoundarySide.End, fallbackEnd);
+            cur.End.Locked = true;
 
-            if (cur.RetryCount < MaxRetriesPerNode && distinctValidEndOptions > 1)
-            {
-                cur.End.Locked = false;
-                cur.Trace("CapE", cur.Start.Current, prevEnd, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff}) -> retry End");
-            }
-            else
-            {
-                cur.End.Locked = true;
-                if (!alreadyCappedHere)
-                    cur.Trace("CapE", cur.Start.Current, prevEnd, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff})");
-            }
+            if (!alreadyCappedHere)
+                cur.Trace("CapE", cur.Start.Current, prevEnd, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff})");
         }
 
         /// <summary>Case B: lock cur, fence next behind cur.End, reset next's bounds and rerun it.</summary>
@@ -821,9 +968,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             cur.LockAll();
 
             var minNextStart = cur.End.Current;
-            bool alreadyResetHere = next.Start.HardLimit == minNextStart && next.Start.Current >= minNextStart;
-            next.Start.HardLimit = minNextStart;
-            next.End.HardLimit = null;
+            var currentNextHardLimit = GetHardLimit(next, BoundarySide.Start);
+            bool alreadyResetHere = currentNextHardLimit == minNextStart && next.Start.Current >= minNextStart;
+            SetHardLimit(next, BoundarySide.Start, minNextStart);
 
             var prevStart = next.Start.Current;
             var prevEnd = next.End.Current;

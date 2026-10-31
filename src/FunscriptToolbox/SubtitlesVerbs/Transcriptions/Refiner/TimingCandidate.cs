@@ -55,8 +55,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public string GetLockTag()
         {
             if (Start.Locked && End.Locked) return "**";
-            if (Start.Locked) return "S?";
-            if (End.Locked) return "?E";
+            if (Start.Locked) return "S*";
+            if (End.Locked) return "*E";
             return "??";
         }
 

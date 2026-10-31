@@ -156,8 +156,11 @@ namespace FunscriptToolbox.Core
         public static SubtitleFile Subtract(
             SubtitleFile firstFile,
             SubtitleFile secondFile,
+            out TimeSpan remainingDuration,
+            TimeSpan? startAt = null,
             TimeSpan? minDuration = null)
         {
+            remainingDuration = TimeSpan.Zero;
             var resultFile = new SubtitleFile();
             var minSpan = minDuration ?? TimeSpan.FromMilliseconds(0);
 
@@ -165,6 +168,8 @@ namespace FunscriptToolbox.Core
             var blockers = new List<(TimeSpan Start, TimeSpan End)>();
             foreach (var sub in secondFile.Subtitles.OrderBy(s => s.StartTime).ThenBy(s => s.EndTime))
             {
+                if (sub.StartTime < startAt)
+                    continue;
                 if (sub.EndTime <= sub.StartTime)
                     continue;
                 if (blockers.Count > 0 && sub.StartTime <= blockers[blockers.Count - 1].End)
@@ -182,6 +187,8 @@ namespace FunscriptToolbox.Core
             int subNumber = 1;
             foreach (var sub in firstFile.Subtitles.OrderBy(s => s.StartTime))
             {
+                if (sub.StartTime < startAt)
+                    continue;
                 var pieces = new List<(TimeSpan Start, TimeSpan End)> { (sub.StartTime, sub.EndTime) };
                 foreach (var b in blockers)
                 {
@@ -219,6 +226,7 @@ namespace FunscriptToolbox.Core
                             piece.End,
                             sub.Lines, // keeps the original text/trace for reference
                             subNumber++));
+                        remainingDuration += piece.End - piece.Start;
                     }
                 }
             }

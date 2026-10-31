@@ -140,13 +140,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // ---------------------------------------------------------------------
 
         [JsonProperty(Order = 20, Required = Required.Always)]
-        public string SourceAudioIdForRefiner { get; set; }
+        public string SourceAudioIdForTerrain { get; set; }
 
         [JsonProperty(Order = 21)]
         public int MaxRetriesPerNode { get; set; } = 3;
 
         [JsonProperty(Order = 22)]
-        public int MaxMountainSteps { get; set; } = 2;
+        public int MaxMountainStepsInward { get; set; } = 2;
+
+        [JsonProperty(Order = 23)]
+        public int MaxMountainStepsOutward { get; set; } = 2;
 
         [JsonProperty(Order = 23)]
         public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
@@ -154,22 +157,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 24)]
         public TimeSpan BleedDetectionMargin { get; set; } = TimeSpan.FromSeconds(3.0);
 
-        [JsonProperty(Order = 25)]
+        [JsonProperty(Order = 26)]
         public TimeSpan TinyOverlapTolerance { get; set; } = TimeSpan.FromMilliseconds(30);
 
-        [JsonProperty(Order = 26)]
+        [JsonProperty(Order = 27)]
         public double MaxBudgetRatio { get; set; } = 2.0;
 
-        [JsonProperty(Order = 27)]
+        [JsonProperty(Order = 28)]
         public float ValleyReach { get; set; } = 0.25f;
 
-        [JsonProperty(Order = 28)]
+        [JsonProperty(Order = 29)]
         public bool IncludeTraceInOutputAlways { get; set; } = false;
 
-        [JsonProperty(Order = 29)]
+        [JsonProperty(Order = 30)]
         public bool IncludeTraceInOutputOnError { get; set; } = true;
 
-        [JsonProperty(Order = 30)]
+        [JsonProperty(Order = 31)]
         public bool IncludeTextInOutput { get; set; } = true;
 
         [JsonProperty(Order = 34, Required = Required.Always)]
@@ -183,10 +186,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (context.WIP.AudioExtractions.Any(f => f.Id == this.SourceAudioIdForRefiner)
-                && context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == this.SourceAudioIdForRefiner && f.IsFinished) == null)
+            if (context.WIP.AudioExtractions.Any(f => f.Id == this.SourceAudioIdForTerrain)
+                && context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == this.SourceAudioIdForTerrain && f.IsFinished) == null)
             {
-                reason = $"Audio extraction '{this.SourceAudioIdForRefiner}' is not done yet.";
+                reason = $"Audio extraction '{this.SourceAudioIdForTerrain}' is not done yet.";
                 return false;
             }
 
@@ -272,7 +275,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private TimingRefiner CreateRefiner(SubtitleGeneratorContext context, Transcription transcription)
         {
             var fullPcmAudioForRefiner = context.WIP.AudioExtractions
-                .First(f => f.Id == this.SourceAudioIdForRefiner && f.IsFinished)
+                .First(f => f.Id == this.SourceAudioIdForTerrain && f.IsFinished)
                 .PcmAudio;
 
             var refiner = new TimingRefiner(fullPcmAudioForRefiner, this);
