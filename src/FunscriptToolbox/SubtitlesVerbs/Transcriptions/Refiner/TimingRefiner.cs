@@ -9,49 +9,93 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     /// <summary>
     /// Refines the timing of transcription candidates by generating multi-clip comparative options
     /// (Max, M{N}..M1, Init, P1..P{N}) around terrain dips and asking the AI to judge the best Start and End boundaries.
+    ///
+    /// Internally the levels are stored in arrays: index 0 = tightest (M{N}), index N = Init, index 2N = widest (P{N}).
     /// </summary>
     public class TimingRefiner
     {
-        public int MaxRetriesPerNode { get; set; } = 3;
-        public int MaxMountainSteps { get; set; } = 2;
-        public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
-        public TimeSpan BleedDetectionMargin { get; set; } = TimeSpan.FromSeconds(3.0);
-        public TimeSpan OutwardNudgeDuration { get; set; } = TimeSpan.FromMilliseconds(30);
-        public TimeSpan MinSubtitleDuration { get; set; } = TimeSpan.FromSeconds(0.5);
+        // ---------------------------------------------------------------------
+        // Constants
+        // ---------------------------------------------------------------------
 
-        private double MinJumpSeconds { get; set; } = 0.07;
+        private const float SpeechRatio = 4f;
+        private const float PeakRatio = 6f;
 
-        public AudioTerrainMapping TerrainMapping { get; set; }
-        public TimeSpan AudioEndTime { get; private set; }
+        private static readonly TimeSpan MinJump = TimeSpan.FromSeconds(0.07);
+        private static readonly TimeSpan MinClipDuration = TimeSpan.FromSeconds(0.05);
+        private static readonly TimeSpan MinOverlapViableDuration = TimeSpan.FromSeconds(0.1);
+        private static readonly TimeSpan MaxSnapDrift = TimeSpan.FromSeconds(1.2);
+        private static readonly TimeSpan MaxFinalClampOverlap = TimeSpan.FromMilliseconds(150);
+        private const string MaxOptionKey = "Max";
 
-        public List<TimingCandidate> Candidates { get; set; } = new List<TimingCandidate>();
+        // ---------------------------------------------------------------------
+        // Settings & state
+        // ---------------------------------------------------------------------
 
-        public TimingRefiner(
-            PcmAudio fullPcmAudioForRefiner,
-            int maxRetriesPerNode,
-            int maxMountainSteps,
-            TimeSpan maxExpansion,
-            TimeSpan bleedDetectionMargin,
-            TimeSpan outwardNudgeDuration,
-            TimeSpan minSubtitleDuration,
-            float valleyReach)
+        public int MaxRetriesPerNode { get; }
+        public int MaxMountainSteps { get; }
+        public TimeSpan MaxExpansion { get; }
+        public TimeSpan BleedDetectionMargin { get; }
+        public TimeSpan TinyOverlapTolerance { get; }
+        public TimeSpan MinSubtitleDuration { get; }
+
+        public AudioTerrainMapping TerrainMapping { get; }
+        public TimeSpan AudioEndTime { get; }
+
+        /// <summary>Always kept sorted by OriginalStartTime.</summary>
+        public List<TimingCandidate> Candidates { get; private set; } = new List<TimingCandidate>();
+
+        private readonly Dictionary<TimeSpan, TimingCandidate> r_byOriginalStart = new Dictionary<TimeSpan, TimingCandidate>();
+
+        private TimeSpan TinyOverlapThreshold =>
+            TimeSpan.FromMilliseconds(Math.Max(60, TinyOverlapTolerance.TotalMilliseconds * 2));
+
+        public TimingRefiner(PcmAudio fullPcmAudioForRefiner, ITimingRefinerSettings settings)
         {
-            this.MaxRetriesPerNode = maxRetriesPerNode;
-            this.MaxMountainSteps = Math.Max(0, maxMountainSteps);
-            this.MaxExpansion = maxExpansion;
-            this.BleedDetectionMargin = bleedDetectionMargin;
-            this.OutwardNudgeDuration = outwardNudgeDuration;
-            this.MinSubtitleDuration = minSubtitleDuration;
-            this.AudioEndTime = fullPcmAudioForRefiner?.EndTime ?? TimeSpan.MaxValue;
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+
+            MaxRetriesPerNode = settings.MaxRetriesPerNode;
+            MaxMountainSteps = Math.Max(0, settings.MaxMountainSteps);
+            MaxExpansion = settings.MaxExpansion;
+            BleedDetectionMargin = settings.BleedDetectionMargin;
+            TinyOverlapTolerance = settings.TinyOverlapTolerance;
+            AudioEndTime = fullPcmAudioForRefiner?.EndTime ?? TimeSpan.MaxValue;
 
             TerrainMapping = new AudioTerrainMapping(fullPcmAudioForRefiner)
             {
-                SpeechRatio = 4f,
-                PeakRatio = 6f,
-                ValleyReach = valleyReach,
+                SpeechRatio = SpeechRatio,
+                PeakRatio = PeakRatio,
+                ValleyReach = settings.ValleyReach,
             };
             TerrainMapping.Compute();
         }
+
+        // ---------------------------------------------------------------------
+        // Small helpers
+        // ---------------------------------------------------------------------
+
+        private static TimeSpan Shift(TimeSpan t, BoundarySide side, MoveDirection dir, TimeSpan amount)
+            => AudioTerrainMapping.MovesLater(side, dir) ? t + amount : t - amount;
+
+        private static TimeSpan Midpoint(TimeSpan a, TimeSpan b)
+            => TimeSpan.FromMilliseconds((a.TotalMilliseconds + b.TotalMilliseconds) / 2.0);
+
+        private static bool IsMaxKey(string key)
+            => string.Equals(key, MaxOptionKey, StringComparison.OrdinalIgnoreCase);
+
+        private TimeSpan ClampToAudioBounds(TimeSpan t)
+        {
+            if (t < TimeSpan.Zero)
+                return TimeSpan.Zero;
+            if (t > AudioEndTime)
+                return AudioEndTime;
+            return t;
+        }
+
+        // ---------------------------------------------------------------------
+        // Candidate creation (initial snapping)
+        // ---------------------------------------------------------------------
 
         public void AddCandidate(TimedItemWithMetadata originalItem, string originalText)
         {
@@ -61,8 +105,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 OriginalEndTime = originalItem.EndTime,
                 OriginalItem = originalItem,
                 OriginalText = originalText,
-                CurrentTestStart = originalItem.StartTime,
-                CurrentTestEnd = originalItem.EndTime,
             };
 
             TimeSpan start = SnapInitialBoundary(candidate, BoundarySide.Start);
@@ -76,165 +118,135 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
             EnforceMinimumDuration(candidate, ref start, ref end);
 
-            candidate.InitStart = start;
-            candidate.InitEnd = end;
-            candidate.CurrentTestStart = start;
-            candidate.CurrentTestEnd = end;
+            candidate.Start.Init = start;
+            candidate.Start.Current = start;
+            candidate.End.Init = end;
+            candidate.End.Current = end;
 
             candidate.AddTraceRow("Orig", ' ', originalItem.StartTime, originalItem.EndTime, ' ', "", candidate.OriginalText);
-            char initStartMod = TimingCandidate.GetStartMod(originalItem.StartTime, start);
-            char initEndMod = TimingCandidate.GetEndMod(originalItem.EndTime, end);
-            candidate.AddTraceRow("Init", initStartMod, start, end, initEndMod, "Snapped initial bounds");
+            candidate.Trace("Init", originalItem.StartTime, originalItem.EndTime, "Snapped initial bounds");
 
-            this.Candidates.Add(candidate);
+            Candidates.Add(candidate);
+            if (!r_byOriginalStart.ContainsKey(candidate.OriginalStartTime))
+                r_byOriginalStart.Add(candidate.OriginalStartTime, candidate);
+
+            // Keep sorted by construction (normally a no-op since the caller adds them in order)
+            if (Candidates.Count > 1 && candidate.OriginalStartTime < Candidates[Candidates.Count - 2].OriginalStartTime)
+                Candidates = Candidates.OrderBy(c => c.OriginalStartTime).ToList();
+        }
+
+        /// <summary>Finds a dip and accepts it only if it is within MaxSnapDrift of 't'.</summary>
+        private TimeSpan? FindDipWithinDrift(TimeSpan t, BoundarySide side, MoveDirection dir, DipSearch search)
+        {
+            var dip = TerrainMapping.FindDip(t, side, dir, search);
+            return dip.HasValue && (dip.Value - t).Duration() <= MaxSnapDrift ? dip : null;
         }
 
         public TimeSpan SnapInitialBoundary(TimingCandidate cand, BoundarySide side)
         {
-            if (TerrainMapping == null)
-                return side == BoundarySide.Start ? cand.OriginalStartTime : cand.OriginalEndTime;
+            var t = side == BoundarySide.Start ? cand.OriginalStartTime : cand.OriginalEndTime;
 
-            bool isStart = side == BoundarySide.Start;
-            var t = isStart ? cand.OriginalStartTime : cand.OriginalEndTime;
-            var maxSnapDrift = TimeSpan.FromSeconds(1.2);
-
-            // 1. Silent: snap inward towards speech edge
+            // 1. Silent: snap inward towards the speech edge (or the nearest dip)
             if (TerrainMapping.IsSilent(t))
             {
-                var inwardLimit = isStart ? t + maxSnapDrift : t - maxSnapDrift;
+                var inwardLimit = Shift(t, side, MoveDirection.Inward, MaxSnapDrift);
 
-                var edge = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch
-                {
-                    MinJump = TimeSpan.MaxValue,
-                    StopAtSpeechEdge = true,
-                    Inclusive = true,
-                    Limit = inwardLimit
-                });
-                if (edge.HasValue && (edge.Value - t).Duration() <= maxSnapDrift)
-                    return edge.Value;
-
-                var dip = TerrainMapping.FindDip(t, side, MoveDirection.Inward, new DipSearch { Inclusive = true, Limit = inwardLimit });
-                if (dip.HasValue && (dip.Value - t).Duration() <= maxSnapDrift)
-                    return dip.Value;
-                return t;
+                return FindDipWithinDrift(t, side, MoveDirection.Inward, new DipSearch
+                       {
+                           MinJump = TimeSpan.MaxValue,
+                           StopAtSpeechEdge = true,
+                           Inclusive = true,
+                           Limit = inwardLimit
+                       })
+                    ?? FindDipWithinDrift(t, side, MoveDirection.Inward, new DipSearch
+                       {
+                           Inclusive = true,
+                           Limit = inwardLimit
+                       })
+                    ?? t;
             }
 
-            // 2. Inside a mountain: snap outward to speech edge
-            var islandEdge = TerrainMapping.FindDip(t, side, MoveDirection.Outward, new DipSearch
-            {
-                StopAtSpeechEdge = true,
-                Inclusive = true,
-                Limit = isStart ? t - maxSnapDrift : t + maxSnapDrift
-            });
-
-            if (islandEdge.HasValue && (islandEdge.Value - t).Duration() <= maxSnapDrift)
-                return islandEdge.Value;
-
-            var snapped = TerrainMapping.FindDip(t, side, MoveDirection.Outward, new DipSearch { Inclusive = true });
-            return snapped.HasValue && (snapped.Value - t).Duration() <= maxSnapDrift
-                ? snapped.Value
-                : t;
+            // 2. Inside a mountain: snap outward to the speech edge (or the nearest dip)
+            return FindDipWithinDrift(t, side, MoveDirection.Outward, new DipSearch
+                   {
+                       StopAtSpeechEdge = true,
+                       Inclusive = true,
+                       Limit = Shift(t, side, MoveDirection.Outward, MaxSnapDrift)
+                   })
+                ?? FindDipWithinDrift(t, side, MoveDirection.Outward, new DipSearch { Inclusive = true })
+                ?? t;
         }
 
         public void EnforceMinimumDuration(TimingCandidate cand, ref TimeSpan start, ref TimeSpan end)
         {
-            var minViableDuration = TimeSpan.FromSeconds(0.05);
-            var maxSnapDrift = TimeSpan.FromSeconds(1.2);
-
-            var prev = this.Candidates.LastOrDefault();
-            if (prev != null && start <= prev.CurrentTestStart)
+            var prev = Candidates.LastOrDefault();
+            if (prev != null && start <= prev.Start.Current)
             {
-                var nextDip = TerrainMapping?.FindDip(
-                    prev.CurrentTestStart,
+                var nextDip = TerrainMapping.FindDip(
+                    prev.Start.Current,
                     BoundarySide.Start,
                     MoveDirection.Inward,
                     new DipSearch
                     {
                         Inclusive = false,
-                        Limit = cand.OriginalStartTime + maxSnapDrift
+                        Limit = cand.OriginalStartTime + MaxSnapDrift
                     });
 
-                if (nextDip.HasValue && (nextDip.Value - cand.OriginalStartTime).Duration() <= maxSnapDrift)
+                if (nextDip.HasValue && (nextDip.Value - cand.OriginalStartTime).Duration() <= MaxSnapDrift)
                 {
                     start = nextDip.Value;
                 }
-                else if (cand.OriginalStartTime > prev.CurrentTestStart)
+                else if (cand.OriginalStartTime > prev.Start.Current)
                 {
                     start = cand.OriginalStartTime;
-                }
-
-                if (end <= start)
-                {
-                    end = cand.OriginalEndTime > start ? cand.OriginalEndTime : start + minViableDuration;
                 }
             }
 
             if (end <= start)
             {
-                end = cand.OriginalEndTime > start ? cand.OriginalEndTime : start + minViableDuration;
+                end = cand.OriginalEndTime > start ? cand.OriginalEndTime : start + MinClipDuration;
             }
         }
 
+        // ---------------------------------------------------------------------
+        // Round preparation
+        // ---------------------------------------------------------------------
+
         /// <summary>
-        /// Prepares the next round of clip options (Audio_Max_Max first, then M2, M1, Init, P1, P2)
+        /// Prepares the next round of clip options (Audio_Max_Max first, then tightest to widest)
         /// and neighbour bleed metadata for all unlocked candidates.
         /// </summary>
         public void PrepareNextRound()
         {
-            var sorted = this.Candidates.OrderBy(c => c.OriginalStartTime).ToList();
-
-            for (int i = 0; i < sorted.Count; i++)
+            for (int i = 0; i < Candidates.Count; i++)
             {
-                var cand = sorted[i];
-                if (cand.IsFullyLocked || cand.RetryCount >= this.MaxRetriesPerNode)
+                var cand = Candidates[i];
+                if (cand.IsFullyLocked || cand.RetryCount >= MaxRetriesPerNode)
                 {
                     cand.CurrentRound = null;
                     continue;
                 }
 
-                // Determine PossibleBleedFromPrev and PossibleBleedFromNext
-                cand.PossibleBleedFromPrev = null;
-                cand.PossibleBleedFromNext = null;
-
-                if (i > 0)
-                {
-                    var prev = sorted[i - 1];
-                    var gapBefore = cand.CurrentTestStart - prev.CurrentTestEnd;
-                    if (gapBefore <= this.BleedDetectionMargin && !string.IsNullOrWhiteSpace(prev.OriginalText))
-                    {
-                        cand.PossibleBleedFromPrev = prev.OriginalText;
-                    }
-                }
-
-                if (i < sorted.Count - 1)
-                {
-                    var next = sorted[i + 1];
-                    var gapAfter = next.CurrentTestStart - cand.CurrentTestEnd;
-                    if (gapAfter <= this.BleedDetectionMargin && !string.IsNullOrWhiteSpace(next.OriginalText))
-                    {
-                        cand.PossibleBleedFromNext = next.OriginalText;
-                    }
-                }
+                cand.PossibleBleedFromPrev = i > 0
+                    ? BleedTextFrom(Candidates[i - 1], cand.Start.Current - Candidates[i - 1].End.Current)
+                    : null;
+                cand.PossibleBleedFromNext = i < Candidates.Count - 1
+                    ? BleedTextFrom(Candidates[i + 1], Candidates[i + 1].Start.Current - cand.End.Current)
+                    : null;
 
                 cand.CurrentRound = BuildRoundForCandidate(cand);
             }
         }
 
-        private string[] GetStepLevels()
-        {
-            var list = new List<string>(this.MaxMountainSteps * 2 + 1);
-            for (int k = this.MaxMountainSteps; k >= 1; k--)
-                list.Add($"M{k}");
-            list.Add("Init");
-            for (int k = 1; k <= this.MaxMountainSteps; k++)
-                list.Add($"P{k}");
-            return list.ToArray();
-        }
+        private string BleedTextFrom(TimingCandidate neighbour, TimeSpan gap)
+            => gap <= BleedDetectionMargin && !string.IsNullOrWhiteSpace(neighbour.OriginalText)
+                ? neighbour.OriginalText
+                : null;
 
         private TimingRound BuildRoundForCandidate(TimingCandidate cand)
         {
-            var centerStart = cand.CurrentTestStart;
-            var centerEnd = cand.CurrentTestEnd;
+            var centerStart = cand.Start.Current;
+            var centerEnd = cand.End.Current;
 
             var round = new TimingRound
             {
@@ -243,576 +255,338 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 CenterEnd = centerEnd
             };
 
-            string[] levels = GetStepLevels();
-            int initIndex = this.MaxMountainSteps;
+            var startMax = ComputeMax(cand, BoundarySide.Start, centerStart, centerEnd);
+            var endMax = ComputeMax(cand, BoundarySide.End, centerStart, centerEnd);
 
-            var rawStartSteps = new Dictionary<string, TimeSpan>(StringComparer.OrdinalIgnoreCase);
-            var rawEndSteps = new Dictionary<string, TimeSpan>(StringComparer.OrdinalIgnoreCase);
+            // Levels: index 0 = tightest ... index MaxMountainSteps = Init ... last = widest
+            var starts = BuildLevels(BoundarySide.Start, centerStart, cand.Start.Locked, centerEnd - MinClipDuration, startMax);
+            var ends = BuildLevels(BoundarySide.End, centerEnd, cand.End.Locked, centerStart + MinClipDuration, endMax);
 
-            // Compute Start boundaries
-            var startInit = centerStart;
-            var startMax = ClampToAudioBounds(startInit - this.MaxExpansion);
-            if (cand.HardLimitStart.HasValue && startMax < cand.HardLimitStart.Value)
-                startMax = cand.HardLimitStart.Value;
+            var windows = BuildWindows(starts, ends, MaxMountainSteps);
 
-            rawStartSteps["Init"] = startInit;
+            // Neutral labels, ordered from tightest (innermost) to widest (outermost)
+            var startOrder = LabelOptions(BoundarySide.Start, windows.Select(w => w.Start), round);
+            var endOrder = LabelOptions(BoundarySide.End, windows.Select(w => w.End), round);
 
-            TimeSpan prevStartInward = startInit;
-            var startInwardLimit = centerEnd - TimeSpan.FromSeconds(0.05);
-            for (int k = 1; k <= this.MaxMountainSteps; k++)
+            // If the stretch between the widest option and Max is 100% silence, clamp Max to the widest option
+            startMax = TrimSilentMargin(BoundarySide.Start, startMax, startOrder[startOrder.Count - 1]);
+            endMax = TrimSilentMargin(BoundarySide.End, endMax, endOrder[endOrder.Count - 1]);
+            round.StartOptions[MaxOptionKey] = startMax;
+            round.EndOptions[MaxOptionKey] = endMax;
+
+            AddClips(round, windows, startOrder, endOrder, startMax, endMax);
+
+            cand.Traces.Add($"#{round.RoundNumber} Options:");
+            cand.Traces.Add($"     [Start] {FormatOptionsOutsideToInside(BoundarySide.Start, round.StartOptions, startOrder.Count, centerStart)}");
+            cand.Traces.Add($"     [End]   {FormatOptionsOutsideToInside(BoundarySide.End, round.EndOptions, endOrder.Count, centerEnd)}");
+
+            return round;
+        }
+
+        /// <summary>Furthest the boundary may go outward (limited by MaxExpansion, audio bounds and neighbours' hard limit).</summary>
+        private TimeSpan ComputeMax(TimingCandidate cand, BoundarySide side, TimeSpan centerStart, TimeSpan centerEnd)
+        {
+            var hardLimit = cand[side].HardLimit;
+
+            if (side == BoundarySide.Start)
             {
-                TimeSpan nextStartInward = prevStartInward;
-                if (!cand.StartLocked && TerrainMapping != null && prevStartInward < startInwardLimit)
-                {
-                    var dip = TerrainMapping.FindDip(prevStartInward, BoundarySide.Start, MoveDirection.Inward, new DipSearch
-                    {
-                        MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
-                        StopAtSpeechEdge = true,
-                        Limit = startInwardLimit
-                    });
-                    if (dip.HasValue && dip.Value < startInwardLimit)
-                        nextStartInward = dip.Value;
-                }
-                rawStartSteps[$"M{k}"] = nextStartInward;
-                prevStartInward = nextStartInward;
+                var max = ClampToAudioBounds(centerStart - MaxExpansion);
+                return hardLimit.HasValue && max < hardLimit.Value ? hardLimit.Value : max;
             }
 
-            TimeSpan prevStartOutward = startInit;
-            for (int k = 1; k <= this.MaxMountainSteps; k++)
+            var endMax = ClampToAudioBounds(centerEnd + MaxExpansion);
+            if (hardLimit.HasValue && endMax > hardLimit.Value)
+                endMax = hardLimit.Value;
+            if (endMax <= centerStart)
+                endMax = ClampToAudioBounds(centerStart + MinClipDuration);
+            return endMax;
+        }
+
+        /// <summary>
+        /// Builds the 2N+1 levels for one side: [M{N} .. M1, Init, P1 .. P{N}].
+        /// Inward = shrinking the clip (towards the opposite boundary), Outward = growing it.
+        /// A locked side never moves.
+        /// </summary>
+        private TimeSpan[] BuildLevels(BoundarySide side, TimeSpan center, bool locked, TimeSpan inwardLimit, TimeSpan outwardLimit)
+        {
+            int n = MaxMountainSteps;
+            var levels = new TimeSpan[2 * n + 1];
+            levels[n] = center;
+
+            var cur = center;
+            for (int k = 1; k <= n; k++)
             {
-                TimeSpan nextStartOutward = prevStartOutward;
-                if (!cand.StartLocked && TerrainMapping != null && prevStartOutward > startMax)
-                {
-                    var dip = TerrainMapping.FindDip(prevStartOutward, BoundarySide.Start, MoveDirection.Outward, new DipSearch
-                    {
-                        MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
-                        StopAtSpeechEdge = true,
-                        Limit = startMax
-                    });
-                    if (dip.HasValue && dip.Value >= startMax)
-                        nextStartOutward = dip.Value;
-                }
-                rawStartSteps[$"P{k}"] = nextStartOutward;
-                prevStartOutward = nextStartOutward;
+                if (!locked)
+                    cur = StepToDip(cur, side, MoveDirection.Inward, inwardLimit, excludeLimit: true);
+                levels[n - k] = cur;
             }
 
-            // Compute End boundaries
-            var endInit = centerEnd;
-            var endMax = ClampToAudioBounds(endInit + this.MaxExpansion);
-            if (cand.HardLimitEnd.HasValue && endMax > cand.HardLimitEnd.Value)
-                endMax = cand.HardLimitEnd.Value;
-            if (endMax <= startInit)
-                endMax = ClampToAudioBounds(startInit + TimeSpan.FromSeconds(0.05));
-
-            rawEndSteps["Init"] = endInit;
-
-            TimeSpan prevEndInward = endInit;
-            var endInwardLimit = centerStart + TimeSpan.FromSeconds(0.05);
-            for (int k = 1; k <= this.MaxMountainSteps; k++)
+            cur = center;
+            for (int k = 1; k <= n; k++)
             {
-                TimeSpan nextEndInward = prevEndInward;
-                if (!cand.EndLocked && TerrainMapping != null && prevEndInward > endInwardLimit)
-                {
-                    var dip = TerrainMapping.FindDip(prevEndInward, BoundarySide.End, MoveDirection.Inward, new DipSearch
-                    {
-                        MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
-                        StopAtSpeechEdge = true,
-                        Limit = endInwardLimit
-                    });
-                    if (dip.HasValue && dip.Value > endInwardLimit)
-                        nextEndInward = dip.Value;
-                }
-                rawEndSteps[$"M{k}"] = nextEndInward;
-                prevEndInward = nextEndInward;
+                if (!locked)
+                    cur = StepToDip(cur, side, MoveDirection.Outward, outwardLimit, excludeLimit: false);
+                levels[n + k] = cur;
             }
 
-            TimeSpan prevEndOutward = endInit;
-            for (int k = 1; k <= this.MaxMountainSteps; k++)
+            return levels;
+        }
+
+        /// <summary>
+        /// Moves to the next dip in the given direction. Returns 'cur' when already at/past the limit,
+        /// when no dip exists, or when the only dip is exactly on the limit and excludeLimit is set.
+        /// (FindDip itself never returns a dip beyond Limit.)
+        /// </summary>
+        private TimeSpan StepToDip(TimeSpan cur, BoundarySide side, MoveDirection dir, TimeSpan limit, bool excludeLimit)
+        {
+            bool later = AudioTerrainMapping.MovesLater(side, dir);
+            if (later ? cur >= limit : cur <= limit)
+                return cur;
+
+            var dip = TerrainMapping.FindDip(cur, side, dir, new DipSearch
             {
-                TimeSpan nextEndOutward = prevEndOutward;
-                if (!cand.EndLocked && TerrainMapping != null && prevEndOutward < endMax)
-                {
-                    var dip = TerrainMapping.FindDip(prevEndOutward, BoundarySide.End, MoveDirection.Outward, new DipSearch
-                    {
-                        MinJump = TimeSpan.FromSeconds(MinJumpSeconds),
-                        StopAtSpeechEdge = true,
-                        Limit = endMax
-                    });
-                    if (dip.HasValue && dip.Value <= endMax)
-                        nextEndOutward = dip.Value;
-                }
-                rawEndSteps[$"P{k}"] = nextEndOutward;
-                prevEndOutward = nextEndOutward;
+                MinJump = MinJump,
+                StopAtSpeechEdge = true,
+                Limit = limit
+            });
+
+            if (!dip.HasValue || (excludeLimit && dip.Value == limit))
+                return cur;
+            return dip.Value;
+        }
+
+        /// <summary>
+        /// Combines start/end levels into distinct clip windows, tightest to widest.
+        /// If shrinking both sides makes the clip too short, backs off toward Init.
+        /// </summary>
+        private List<(TimeSpan Start, TimeSpan End)> BuildWindows(TimeSpan[] starts, TimeSpan[] ends, int initIndex)
+        {
+            var windows = new List<(TimeSpan Start, TimeSpan End)>();
+            var seen = new HashSet<(TimeSpan, TimeSpan)>();
+
+            for (int lvl = 0; lvl < starts.Length; lvl++)
+            {
+                var (s, e) = BackOffTowardInit(starts, ends, lvl, initIndex);
+                if (e - s >= MinClipDuration && seen.Add((s, e)))
+                    windows.Add((s, e));
             }
 
-            // Build candidate windows from tightest (M{N}) to widest (P{N})
-            var candidateWindows = new List<(TimeSpan Start, TimeSpan End)>();
-            var seenCandidateWindows = new HashSet<(TimeSpan, TimeSpan)>();
-            var minClipDuration = TimeSpan.FromSeconds(0.05);
-
-            for (int lvl = 0; lvl < levels.Length; lvl++)
+            if (windows.Count == 0)
             {
-                string levelName = levels[lvl];
-                var s = rawStartSteps[levelName];
-                var e = rawEndSteps[levelName];
-
-                // If shrinking inward on both sides crosses or makes the clip zero, try backing off one side toward Init
-                if (lvl < initIndex && e - s < minClipDuration)
-                {
-                    int stepTowardInit = lvl + 1;
-                    while (stepTowardInit <= initIndex && e - s < minClipDuration)
-                    {
-                        var altS = rawStartSteps[levels[stepTowardInit]];
-                        var altE = rawEndSteps[levels[stepTowardInit]];
-
-                        if (e - altS >= minClipDuration)
-                        {
-                            s = altS;
-                            break;
-                        }
-                        if (altE - s >= minClipDuration)
-                        {
-                            e = altE;
-                            break;
-                        }
-                        s = altS;
-                        e = altE;
-                        stepTowardInit++;
-                    }
-                }
-
-                if (e - s >= minClipDuration && seenCandidateWindows.Add((s, e)))
-                {
-                    candidateWindows.Add((s, e));
-                }
+                var startInit = starts[initIndex];
+                var endInit = ends[initIndex];
+                var fallbackEnd = endInit > startInit + MinClipDuration ? endInit : ClampToAudioBounds(startInit + MinClipDuration);
+                windows.Add((startInit, fallbackEnd));
             }
+            return windows;
+        }
 
-            if (candidateWindows.Count == 0)
+        private static (TimeSpan Start, TimeSpan End) BackOffTowardInit(TimeSpan[] starts, TimeSpan[] ends, int lvl, int initIndex)
+        {
+            var s = starts[lvl];
+            var e = ends[lvl];
+            if (lvl >= initIndex)
+                return (s, e);
+
+            int step = lvl + 1;
+            while (step <= initIndex && e - s < MinClipDuration)
             {
-                var fallbackEnd = endInit > startInit + minClipDuration ? endInit : ClampToAudioBounds(startInit + minClipDuration);
-                candidateWindows.Add((startInit, fallbackEnd));
+                var altS = starts[step];
+                var altE = ends[step];
+
+                if (e - altS >= MinClipDuration) { s = altS; break; }
+                if (altE - s >= MinClipDuration) { e = altE; break; }
+
+                s = altS;
+                e = altE;
+                step++;
             }
+            return (s, e);
+        }
 
-            // Assign neutral labels C1..C{K} ordered from tightest (innermost) to widest (outermost)
-            var distinctStarts = candidateWindows
-                .Select(w => w.Start)
-                .Distinct()
-                .OrderByDescending(t => t) // latest Start = tightest (C1), earliest Start = widest (C{K})
-                .ToList();
+        /// <summary>
+        /// Registers S1..SK (start) or E1..EK (end) in round.StartOptions/EndOptions and returns the ordered times (index 1 first).
+        /// Start: latest start = tightest (S1). End: earliest end = tightest (E1).
+        /// </summary>
+        private static List<TimeSpan> LabelOptions(BoundarySide side, IEnumerable<TimeSpan> times, TimingRound round)
+        {
+            var distinct = times.Distinct();
+            var ordered = (side == BoundarySide.Start
+                    ? distinct.OrderByDescending(t => t)
+                    : distinct.OrderBy(t => t)).ToList();
 
-            var distinctEnds = candidateWindows
-                .Select(w => w.End)
-                .Distinct()
-                .OrderBy(t => t) // earliest End = tightest (C1), latest End = widest (C{K})
-                .ToList();
+            var options = round.OptionsFor(side);
+            for (int i = 0; i < ordered.Count; i++)
+                options[OptionKey(side, i + 1)] = ordered[i];
+            return ordered;
+        }
 
-            var startTimeToId = new Dictionary<TimeSpan, string>();
-            for (int idx = 0; idx < distinctStarts.Count; idx++)
-            {
-                string id = $"C{idx + 1}";
-                startTimeToId[distinctStarts[idx]] = id;
-                round.StartOptions[id] = distinctStarts[idx];
-            }
+        private static string OptionId(BoundarySide side, List<TimeSpan> ordered, TimeSpan time)
+            => OptionKey(side, ordered.IndexOf(time) + 1);
+        private static string OptionPrefix(BoundarySide side) => side == BoundarySide.Start ? "S" : "E";
+        private static string OptionKey(BoundarySide side, int index) => $"{OptionPrefix(side)}{index}";
 
-            var endTimeToId = new Dictionary<TimeSpan, string>();
-            for (int idx = 0; idx < distinctEnds.Count; idx++)
-            {
-                string id = $"C{idx + 1}";
-                endTimeToId[distinctEnds[idx]] = id;
-                round.EndOptions[id] = distinctEnds[idx];
-            }
+        private TimeSpan TrimSilentMargin(BoundarySide side, TimeSpan max, TimeSpan widest)
+        {
+            bool beyondWidest = side == BoundarySide.Start ? max < widest : max > widest;
+            if (!beyondWidest)
+                return max;
 
-            // If the stretch between the widest candidate option and Max is 100% silence, clamp Max to the widest candidate option
-            var widestStartOption = distinctStarts[distinctStarts.Count - 1];
-            if (TerrainMapping != null && startMax < widestStartOption && !TerrainMapping.HasSpeechBetween(startMax, widestStartOption))
-            {
-                startMax = widestStartOption;
-            }
+            var (from, to) = side == BoundarySide.Start ? (max, widest) : (widest, max);
+            return TerrainMapping.HasSpeechBetween(from, to) ? max : widest;
+        }
 
-            var widestEndOption = distinctEnds[distinctEnds.Count - 1];
-            if (TerrainMapping != null && endMax > widestEndOption && !TerrainMapping.HasSpeechBetween(widestEndOption, endMax))
-            {
-                endMax = widestEndOption;
-            }
-
-            round.StartOptions["Max"] = startMax;
-            round.EndOptions["Max"] = endMax;
-
-            // 1. Add Audio_Max_Max FIRST so the AI listens to the wide reference window first
-            if (endMax - startMax >= minClipDuration)
+        private static void AddClips(
+            TimingRound round,
+            List<(TimeSpan Start, TimeSpan End)> windows,
+            List<TimeSpan> startOrder,
+            List<TimeSpan> endOrder,
+            TimeSpan startMax,
+            TimeSpan endMax)
+        {
+            // 1. Audio_Max_Max FIRST so the AI listens to the wide reference window first
+            if (endMax - startMax >= MinClipDuration)
             {
                 round.Clips.Add(new TimingClipOption
                 {
                     FieldName = "Audio_Max_Max",
-                    StartId = "Max",
-                    EndId = "Max",
+                    StartId = MaxOptionKey,
+                    EndId = MaxOptionKey,
                     Start = startMax,
                     End = endMax
                 });
             }
 
-            // 2. Add Audio_C1_C1 .. Audio_C{K}_C{K} from tightest to widest
-            foreach (var (s, e) in candidateWindows)
+            // 2. Audio_C1_C1 .. from tightest to widest
+            foreach (var (s, e) in windows)
             {
-                string sLabel = startTimeToId[s];
-                string eLabel = endTimeToId[e];
-                string fieldName = $"Audio_{sLabel}_{eLabel}";
+                string sId = OptionId(BoundarySide.Start, startOrder, s);
+                string eId = OptionId(BoundarySide.End, endOrder, e);
+                string fieldName = $"Audio_{sId}_{eId}";   // e.g. Audio_S2_E3
 
-                if (!round.Clips.Any(c => string.Equals(c.FieldName, fieldName, StringComparison.OrdinalIgnoreCase)))
+                if (round.Clips.Any(c => string.Equals(c.FieldName, fieldName, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                round.Clips.Add(new TimingClipOption
                 {
-                    round.Clips.Add(new TimingClipOption
-                    {
-                        FieldName = fieldName,
-                        StartId = sLabel,
-                        EndId = eLabel,
-                        Start = s,
-                        End = e
-                    });
-                }
+                    FieldName = fieldName,
+                    StartId = sId,
+                    EndId = eId,
+                    Start = s,
+                    End = e
+                });
             }
-
-            // Trace Start and End boundary options ordered from outside (Max, C{K}..C1) to inside, marking the Center/Init boundary with '*'
-            string FormatOptionsOutsideToInside(Dictionary<string, TimeSpan> opts, int count, TimeSpan centerTime)
-            {
-                var parts = new List<string>();
-                if (opts.TryGetValue("Max", out var maxT))
-                {
-                    parts.Add($"Max={maxT:mm\\:ss\\.fff}");
-                }
-                for (int idx = count; idx >= 1; idx--)
-                {
-                    string key = $"C{idx}";
-                    if (opts.TryGetValue(key, out var t))
-                    {
-                        string marker = (t == centerTime) ? "*" : "";
-                        parts.Add($"{key}{marker}={t:mm\\:ss\\.fff}");
-                    }
-                }
-                return string.Join(", ", parts);
-            }
-
-            string startOptsSummary = FormatOptionsOutsideToInside(round.StartOptions, distinctStarts.Count, centerStart);
-            string endOptsSummary = FormatOptionsOutsideToInside(round.EndOptions, distinctEnds.Count, centerEnd);
-
-            cand.Traces.Add($"#{round.RoundNumber} Options:");
-            cand.Traces.Add($"     [Start] {startOptsSummary}");
-            cand.Traces.Add($"     [End]   {endOptsSummary}");
-
-            return round;
         }
+
+        /// <summary>Trace helper: options ordered from outside (Max, C{K}..C1) to inside, '*' marks the Center/Init boundary.</summary>
+        private static string FormatOptionsOutsideToInside(BoundarySide side, Dictionary<string, TimeSpan> opts, int count, TimeSpan centerTime)
+        {
+            var parts = new List<string>();
+            if (opts.TryGetValue(MaxOptionKey, out var maxT))
+                parts.Add($"Max={maxT:mm\\:ss\\.fff}");
+
+            for (int idx = count; idx >= 1; idx--)
+            {
+                string key = OptionKey(side, idx);
+                if (opts.TryGetValue(key, out var t))
+                    parts.Add($"{key}{(t == centerTime ? "*" : "")}={t:mm\\:ss\\.fff}");
+            }
+            return string.Join(", ", parts);
+        }
+
+        // ---------------------------------------------------------------------
+        // AI response processing
+        // ---------------------------------------------------------------------
 
         public void ProcessBatchResults(IEnumerable<TranscribedItem> responseItems)
         {
             foreach (var item in responseItems)
             {
-                var cand = this.Candidates.FirstOrDefault(c => c.CurrentRound != null && c.OriginalStartTime == item.StartTime);
-                if (cand == null)
-                {
-                    cand = this.Candidates.FirstOrDefault(c => c.CurrentRound != null && Math.Abs((c.OriginalStartTime - item.StartTime).TotalMilliseconds) < 50);
-                }
-                if (cand == null)
-                    continue;
-
-                var round = cand.CurrentRound;
-                cand.RetryCount++;
-
-                item.Metadata.TryGetValue("BestStart", out var bestStartRaw);
-                item.Metadata.TryGetValue("BestEnd", out var bestEndRaw);
-                item.Metadata.TryGetValue("HeardText", out var heardTextRaw);
-
-                round.BestStart = bestStartRaw?.Trim();
-                round.BestEnd = bestEndRaw?.Trim();
-                round.HeardText = heardTextRaw?.Trim();
-                cand.Rounds.Add(round);
-                cand.CurrentRound = null;
-
-                var prevStart = cand.CurrentTestStart;
-                var prevEnd = cand.CurrentTestEnd;
-
-                // Check for Inaudible
-                if (IsInaudibleToken(round.BestStart) || IsInaudibleToken(round.BestEnd))
-                {
-                    cand.LockAll();
-                    cand.AddValidationNote($"Unsure: Audio Inaudible (original): {cand.OriginalText}");
-                    cand.AddTraceRow($"#{cand.RetryCount}", ' ', cand.CurrentTestStart, cand.CurrentTestEnd, ' ', $"AI: Inaudible", round.HeardText);
-                    continue;
-                }
-
-                // Resolve Start
-                if (!cand.StartLocked)
-                {
-                    var (newStart, lockedStart, needsMoreStart) = ResolveBoundaryChoice(cand, round, BoundarySide.Start, round.BestStart);
-                    cand.CurrentTestStart = newStart;
-                    cand.StartLocked = lockedStart;
-                    if (needsMoreStart && (lockedStart || cand.RetryCount >= this.MaxRetriesPerNode))
-                    {
-                        cand.StartLocked = true;
-                        cand.AddValidationNote("Unsure: Missing Start (Max expansion reached)");
-                    }
-                }
-
-                // Resolve End
-                if (!cand.EndLocked)
-                {
-                    var (newEnd, lockedEnd, needsMoreEnd) = ResolveBoundaryChoice(cand, round, BoundarySide.End, round.BestEnd);
-                    cand.CurrentTestEnd = newEnd;
-                    cand.EndLocked = lockedEnd;
-                    if (needsMoreEnd && (lockedEnd || cand.RetryCount >= this.MaxRetriesPerNode))
-                    {
-                        cand.EndLocked = true;
-                        cand.AddValidationNote("Unsure: Missing End (Max expansion reached)");
-                    }
-                }
-
-                // Guard against crossed boundaries
-                if (cand.CurrentTestEnd <= cand.CurrentTestStart)
-                {
-                    cand.CurrentTestStart = round.CenterStart;
-                    cand.CurrentTestEnd = round.CenterEnd;
-                    cand.LockAll();
-                    cand.AddValidationNote("Unsure: Boundaries crossed, kept previous timing");
-                }
-
-                // Record HeardText note if AI reported a different transcription in Max
-                if (!string.IsNullOrWhiteSpace(round.HeardText) &&
-                    !string.Equals(round.HeardText, "null", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(round.HeardText, cand.OriginalText, StringComparison.OrdinalIgnoreCase))
-                {
-                    cand.AddValidationNote($"Unsure: Text Mismatch (original vs heard in Max): `{cand.OriginalText}` vs `{round.HeardText}`");
-                }
-
-                char sMod = TimingCandidate.GetStartMod(prevStart, cand.CurrentTestStart);
-                char eMod = TimingCandidate.GetEndMod(prevEnd, cand.CurrentTestEnd);
-                string choiceSummary = $"S={round.BestStart ?? "?"} E={round.BestEnd ?? "?"}";
-                cand.AddTraceRow($"#{cand.RetryCount}", sMod, cand.CurrentTestStart, cand.CurrentTestEnd, eMod, choiceSummary, round.HeardText);
+                var cand = FindCandidateFor(item);
+                if (cand != null)
+                    ApplyResponse(cand, item);
             }
 
             CoordinateNeighborOverlaps();
         }
 
-        /// <summary>
-        /// Resolves overlaps between adjacent candidates at the end of an iteration:
-        /// - Tiny overlaps (&lt;= OutwardNudgeDuration * 2) are clamped cleanly.
-        /// - Case A (Normal overlap where cur has a valid mountain End dip at or before next.Start):
-        ///   next.Start overrules cur.End (cur.HardLimitEnd = next.Start) and cur.End is pulled back / retried.
-        /// - Case B (Stolen-mountain / total overlap where next.Start jumped back onto or past cur's mountain,
-        ///   leaving cur no valid End dip before next.Start):
-        ///   cur is locked at its current bounds, next.HardLimitStart is set to cur.End, and next is reset and rerun.
-        /// </summary>
-        private void CoordinateNeighborOverlaps()
+        private TimingCandidate FindCandidateFor(TranscribedItem item)
         {
-            var sorted = this.Candidates.OrderBy(c => c.OriginalStartTime).ToList();
-            var minViableDuration = TimeSpan.FromSeconds(0.1);
-            var tinyOverlapThreshold = TimeSpan.FromMilliseconds(Math.Max(60, this.OutwardNudgeDuration.TotalMilliseconds * 2));
+            if (r_byOriginalStart.TryGetValue(item.StartTime, out var exact) && exact.CurrentRound != null)
+                return exact;
 
-            for (int i = 0; i < sorted.Count - 1; i++)
-            {
-                var cur = sorted[i];
-                var next = sorted[i + 1];
-
-                // Propagate hard limits from non-overlapping locked boundaries
-                if (cur.CurrentTestEnd <= next.CurrentTestStart)
-                {
-                    if (next.StartLocked)
-                    {
-                        cur.HardLimitEnd = next.CurrentTestStart;
-                    }
-                    if (cur.EndLocked)
-                    {
-                        next.HardLimitStart = cur.CurrentTestEnd;
-                    }
-                    continue;
-                }
-
-                var overlap = cur.CurrentTestEnd - next.CurrentTestStart;
-
-                // 1. Tiny overlap (e.g. from a shared valley): clamp cleanly at midpoint or next.Start
-                if (overlap <= tinyOverlapThreshold && next.CurrentTestStart > cur.CurrentTestStart + minViableDuration)
-                {
-                    var clampPoint = next.StartLocked
-                        ? next.CurrentTestStart
-                        : TimeSpan.FromMilliseconds((cur.CurrentTestEnd.TotalMilliseconds + next.CurrentTestStart.TotalMilliseconds) / 2.0);
-
-                    if (clampPoint - cur.CurrentTestStart >= minViableDuration && next.CurrentTestEnd - clampPoint >= minViableDuration)
-                    {
-                        cur.CurrentTestEnd = clampPoint;
-                        if (!next.StartLocked)
-                            next.CurrentTestStart = clampPoint;
-                        cur.AddTraceRow("Clmp", ' ', cur.CurrentTestStart, cur.CurrentTestEnd, '-', $"Clamped tiny overlap with next ({clampPoint:mm\\:ss\\.fff})");
-                        continue;
-                    }
-                }
-
-                // 2. Check if cur has a valid mountain End dip at or before next.Start
-                var hardCap = next.CurrentTestStart;
-                if (TryFindBestEndAtOrBefore(cur, hardCap, minViableDuration, out var fallbackEnd))
-                {
-                    // Case A: Normal overlap — Start of next node overrules End of current node
-                    bool alreadyCappedHere = cur.EndLocked && cur.CurrentTestEnd == fallbackEnd && cur.HardLimitEnd == hardCap;
-                    cur.HardLimitEnd = hardCap;
-
-                    var prevEnd = cur.CurrentTestEnd;
-                    cur.CurrentTestEnd = fallbackEnd;
-                    char endMod = TimingCandidate.GetEndMod(prevEnd, cur.CurrentTestEnd);
-
-                    var lastRound = cur.Rounds.LastOrDefault();
-                    int distinctValidEndOptions = lastRound?.EndOptions
-                        .Where(kvp => !string.Equals(kvp.Key, "Max", StringComparison.OrdinalIgnoreCase) &&
-                                      kvp.Value <= hardCap &&
-                                      kvp.Value > cur.CurrentTestStart + minViableDuration)
-                        .Select(kvp => kvp.Value)
-                        .Distinct()
-                        .Count() ?? 0;
-
-                    if (cur.RetryCount < this.MaxRetriesPerNode && distinctValidEndOptions > 1)
-                    {
-                        cur.EndLocked = false;
-                        cur.AddTraceRow("CapE", ' ', cur.CurrentTestStart, cur.CurrentTestEnd, endMod, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff}) -> retry End");
-                    }
-                    else
-                    {
-                        cur.EndLocked = true;
-                        if (!alreadyCappedHere)
-                        {
-                            cur.AddTraceRow("CapE", ' ', cur.CurrentTestStart, cur.CurrentTestEnd, endMod, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff})");
-                        }
-                    }
-                }
-                else
-                {
-                    // Case B: Stolen-mountain / total overlap — next.Start jumped back onto or past cur's mountain, leaving cur no valid End dip.
-                    // Fix cur (first node), set HardLimitStart on next (second node), reset next's bounds, and rerun next!
-                    cur.StartLocked = true;
-                    cur.EndLocked = true;
-
-                    var minNextStart = cur.CurrentTestEnd;
-                    bool alreadyResetHere = next.HardLimitStart == minNextStart && next.CurrentTestStart >= minNextStart;
-                    next.HardLimitStart = minNextStart;
-                    next.HardLimitEnd = null;
-
-                    var prevNextStart = next.CurrentTestStart;
-                    var prevNextEnd = next.CurrentTestEnd;
-
-                    TimeSpan resetStart = next.InitStart >= minNextStart
-                        ? next.InitStart
-                        : FindFirstStartAtOrAfter(minNextStart);
-
-                    TimeSpan resetEnd = next.InitEnd;
-                    if (resetEnd <= resetStart + minViableDuration)
-                    {
-                        resetEnd = next.CurrentTestEnd > resetStart + minViableDuration
-                            ? next.CurrentTestEnd
-                            : FindFirstEndAfter(resetStart, this.MinSubtitleDuration);
-                    }
-
-                    next.CurrentTestStart = resetStart;
-                    next.CurrentTestEnd = resetEnd;
-
-                    if (!next.WasResetByOverlap && next.RetryCount >= this.MaxRetriesPerNode)
-                    {
-                        next.RetryCount = Math.Max(0, this.MaxRetriesPerNode - 1);
-                    }
-                    next.WasResetByOverlap = true;
-
-                    if (next.RetryCount < this.MaxRetriesPerNode)
-                    {
-                        next.StartLocked = false;
-                        next.EndLocked = false;
-                        char sMod = TimingCandidate.GetStartMod(prevNextStart, next.CurrentTestStart);
-                        char eMod = TimingCandidate.GetEndMod(prevNextEnd, next.CurrentTestEnd);
-                        next.AddTraceRow("Rset", sMod, next.CurrentTestStart, next.CurrentTestEnd, eMod, $"Overlapped prev End ({minNextStart:mm\\:ss\\.fff}) -> reset & retry");
-                    }
-                    else
-                    {
-                        next.StartLocked = true;
-                        next.EndLocked = true;
-                        if (!alreadyResetHere)
-                        {
-                            char sMod = TimingCandidate.GetStartMod(prevNextStart, next.CurrentTestStart);
-                            char eMod = TimingCandidate.GetEndMod(prevNextEnd, next.CurrentTestEnd);
-                            next.AddTraceRow("Rset", sMod, next.CurrentTestStart, next.CurrentTestEnd, eMod, $"Overlapped prev End ({minNextStart:mm\\:ss\\.fff}) -> reset");
-                        }
-                    }
-                }
-            }
+            return Candidates.FirstOrDefault(c =>
+                c.CurrentRound != null &&
+                Math.Abs((c.OriginalStartTime - item.StartTime).TotalMilliseconds) < 50);
         }
 
-        private bool TryFindBestEndAtOrBefore(TimingCandidate cand, TimeSpan hardCap, TimeSpan minViableDuration, out TimeSpan bestEnd)
+        private static string GetTrimmedMeta(TranscribedItem item, string key)
         {
-            bestEnd = cand.CurrentTestEnd;
-            var minEnd = cand.CurrentTestStart + minViableDuration;
-            if (hardCap <= minEnd)
-                return false;
-
-            var lastRound = cand.Rounds.LastOrDefault();
-            if (lastRound != null && lastRound.EndOptions.Count > 0)
-            {
-                var validFromOptions = lastRound.EndOptions
-                    .Where(kvp => !string.Equals(kvp.Key, "Max", StringComparison.OrdinalIgnoreCase) && kvp.Value <= hardCap && kvp.Value > minEnd)
-                    .Select(kvp => kvp.Value)
-                    .OrderByDescending(t => t)
-                    .ToList();
-
-                if (validFromOptions.Count > 0)
-                {
-                    bestEnd = validFromOptions[0];
-                    return true;
-                }
-            }
-
-            if (TerrainMapping != null)
-            {
-                var dip = TerrainMapping.FindDip(hardCap, BoundarySide.End, MoveDirection.Inward, new DipSearch
-                {
-                    Inclusive = true,
-                    StopAtSpeechEdge = true,
-                    Limit = minEnd
-                });
-                if (dip.HasValue && dip.Value <= hardCap && dip.Value > minEnd)
-                {
-                    bestEnd = dip.Value;
-                    return true;
-                }
-            }
-
-            if (cand.InitEnd <= hardCap && cand.InitEnd > minEnd)
-            {
-                bestEnd = cand.InitEnd;
-                return true;
-            }
-
-            return false;
+            item.Metadata.TryGetValue(key, out var value);
+            return value?.Trim();
         }
 
-        private TimeSpan FindFirstStartAtOrAfter(TimeSpan minStart)
+        private void ApplyResponse(TimingCandidate cand, TranscribedItem item)
         {
-            if (TerrainMapping != null)
+            var round = cand.CurrentRound;
+            cand.RetryCount++;
+
+            round.BestStart = GetTrimmedMeta(item, TimingMeta.BestStart);
+            round.BestEnd = GetTrimmedMeta(item, TimingMeta.BestEnd);
+            round.HeardText = GetTrimmedMeta(item, TimingMeta.HeardText);
+            cand.Rounds.Add(round);
+            cand.CurrentRound = null;
+
+            var prevStart = cand.Start.Current;
+            var prevEnd = cand.End.Current;
+
+            if (IsInaudibleToken(round.BestStart) || IsInaudibleToken(round.BestEnd))
             {
-                var dip = TerrainMapping.FindDip(minStart, BoundarySide.Start, MoveDirection.Inward, new DipSearch
-                {
-                    Inclusive = true,
-                    StopAtSpeechEdge = true
-                });
-                if (dip.HasValue && dip.Value >= minStart)
-                    return dip.Value;
+                cand.LockAll();
+                cand.AddValidationNote($"Unsure: Audio Inaudible (original): {cand.OriginalText}");
+                cand.Trace($"#{cand.RetryCount}", prevStart, prevEnd, "AI: Inaudible", round.HeardText);
+                return;
             }
-            return minStart;
+
+            foreach (var side in TimingCandidate.Sides)
+                ApplySideChoice(cand, round, side);
+
+            // Guard against crossed boundaries
+            if (cand.End.Current <= cand.Start.Current)
+            {
+                cand.Start.Current = round.CenterStart;
+                cand.End.Current = round.CenterEnd;
+                cand.LockAll();
+                cand.AddValidationNote("Unsure: Boundaries crossed, kept previous timing");
+            }
+
+            // Record HeardText note if AI reported a different transcription in Max
+            if (!string.IsNullOrWhiteSpace(round.HeardText) &&
+                !string.Equals(round.HeardText, "null", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(round.HeardText, cand.OriginalText, StringComparison.OrdinalIgnoreCase))
+            {
+                cand.AddValidationNote($"Unsure: Text Mismatch (original vs heard in Max): `{cand.OriginalText}` vs `{round.HeardText}`");
+            }
+
+            string choiceSummary = $"S={round.BestStart ?? "?"} E={round.BestEnd ?? "?"}";
+            cand.Trace($"#{cand.RetryCount}", prevStart, prevEnd, choiceSummary, round.HeardText);
         }
 
-        private TimeSpan FindFirstEndAfter(TimeSpan start, TimeSpan minDuration)
+        private void ApplySideChoice(TimingCandidate cand, TimingRound round, BoundarySide side)
         {
-            var target = ClampToAudioBounds(start + minDuration);
-            if (TerrainMapping != null)
+            var boundary = cand[side];
+            if (boundary.Locked)
+                return;
+
+            var (time, locked, needsMore) = ResolveBoundaryChoice(cand, round, side, round.ChoiceFor(side));
+            boundary.Current = time;
+            boundary.Locked = locked;
+
+            if (needsMore && (locked || cand.RetryCount >= MaxRetriesPerNode))
             {
-                var dip = TerrainMapping.FindDip(target, BoundarySide.End, MoveDirection.Outward, new DipSearch
-                {
-                    Inclusive = true,
-                    StopAtSpeechEdge = true
-                });
-                if (dip.HasValue && dip.Value > start)
-                    return dip.Value;
+                boundary.Locked = true;
+                cand.AddValidationNote($"Unsure: Missing {side} (Max expansion reached)");
             }
-            return target;
         }
 
         private static bool IsInaudibleToken(string token)
@@ -824,18 +598,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 || token.IndexOf("Silence", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private static TimeSpan GetWidestCandidateTime(Dictionary<string, TimeSpan> options, bool isStart, TimeSpan fallback)
-        {
-            var candidateValues = options
-                .Where(kvp => !string.Equals(kvp.Key, "Max", StringComparison.OrdinalIgnoreCase))
-                .Select(kvp => kvp.Value)
-                .ToList();
-
-            if (candidateValues.Count == 0)
-                return fallback;
-
-            return isStart ? candidateValues.Min() : candidateValues.Max();
-        }
+        // ---------------------------------------------------------------------
+        // Boundary choice resolution
+        // ---------------------------------------------------------------------
 
         private (TimeSpan resolvedTime, bool isLocked, bool needsMoreExpansion) ResolveBoundaryChoice(
             TimingCandidate cand,
@@ -844,70 +609,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             string rawChoice)
         {
             bool isStart = side == BoundarySide.Start;
-            var options = isStart ? round.StartOptions : round.EndOptions;
-            var fallback = isStart ? round.CenterStart : round.CenterEnd;
+            var options = round.OptionsFor(side);
+            var fallback = round.CenterFor(side);
 
             if (string.IsNullOrWhiteSpace(rawChoice))
                 return (fallback, true, false);
 
-            string token = rawChoice.Trim();
+            string token = NormalizeToken(rawChoice, isStart);
 
-            // Strip optional Audio_ prefix if AI wrote Audio_C1_C1 or similar
-            if (token.StartsWith("Audio_", StringComparison.OrdinalIgnoreCase))
-            {
-                var parts = token.Split('_');
-                if (parts.Length >= 3)
-                {
-                    token = isStart ? parts[1] : parts[2];
-                }
-            }
-
-            // Strip any legacy +30ms or * suffix if present
-            if (token.EndsWith("+30ms", StringComparison.OrdinalIgnoreCase))
-            {
-                token = token.Substring(0, token.Length - 5).Trim();
-            }
-            else if (token.EndsWith("+30", StringComparison.OrdinalIgnoreCase))
-            {
-                token = token.Substring(0, token.Length - 3).Trim();
-            }
-            token = token.TrimEnd('*').Trim();
-
-            // Check if AI answered "Max"
-            if (string.Equals(token, "Max", StringComparison.OrdinalIgnoreCase) ||
+            if (string.Equals(token, MaxOptionKey, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(token, "LastChance", StringComparison.OrdinalIgnoreCase))
             {
-                var maxOpt = options.TryGetValue("Max", out var m) ? m : fallback;
-                var widestC = GetWidestCandidateTime(options, isStart, fallback);
-
-                // 1. If Max is identical to the widest candidate option (because the remaining zone to Max was 100% silence
-                //    or clamped by HardLimit), lock cleanly at widestC with no warning and no further expansion!
-                if (maxOpt == widestC)
-                {
-                    return (widestC, true, false);
-                }
-
-                // 2. If Max is already clamped against a neighbor's HardLimit, lock cleanly at widestC
-                if (!isStart && cand.HardLimitEnd.HasValue && maxOpt >= cand.HardLimitEnd.Value)
-                {
-                    return (widestC, true, false);
-                }
-                if (isStart && cand.HardLimitStart.HasValue && maxOpt <= cand.HardLimitStart.Value)
-                {
-                    return (widestC, true, false);
-                }
-
-                // 3. Never jump blindly into raw Max (+2.0s). If widestC did not advance beyond fallback (no dips existed),
-                //    lock at widestC and flag Missing Start/End. Otherwise shift Center to widestC for the next round.
-                if (widestC == fallback)
-                {
-                    return (widestC, true, true);
-                }
-
-                return (widestC, false, true);
+                return ResolveMaxChoice(cand, side, options, fallback);
             }
 
-            // If AI wrote a hyphenated pair e.g. "C2-C3", prefer the tighter boundary rather than cutting in the middle of a mountain
+            // Hyphenated pair e.g. "C2-C3": prefer the tighter boundary rather than cutting in the middle of a mountain
             if (token.Contains("-"))
             {
                 var pair = token.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
@@ -915,19 +631,78 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     TryLookupOptionTime(options, pair[0].Trim(), fallback, out var t1) &&
                     TryLookupOptionTime(options, pair[1].Trim(), fallback, out var t2))
                 {
-                    var tighter = isStart
-                        ? (t1 > t2 ? t1 : t2)
-                        : (t1 < t2 ? t1 : t2);
+                    var tighter = isStart ? (t1 > t2 ? t1 : t2) : (t1 < t2 ? t1 : t2);
                     return (tighter, true, false);
                 }
             }
 
             if (TryLookupOptionTime(options, token, fallback, out var resolved))
-            {
                 return (resolved, true, false);
-            }
 
             return (fallback, true, false);
+        }
+
+        /// <summary>Strips the optional "Audio_X_Y" prefix, legacy "+30ms" suffix and trailing '*'.</summary>
+        private static string NormalizeToken(string rawChoice, bool isStart)
+        {
+            string token = rawChoice.Trim();
+
+            if (token.StartsWith("Audio_", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = token.Split('_');
+                if (parts.Length >= 3)
+                    token = isStart ? parts[1] : parts[2];
+            }
+
+            if (token.EndsWith("+30ms", StringComparison.OrdinalIgnoreCase))
+                token = token.Substring(0, token.Length - 5).Trim();
+            else if (token.EndsWith("+30", StringComparison.OrdinalIgnoreCase))
+                token = token.Substring(0, token.Length - 3).Trim();
+
+            return token.TrimEnd('*').Trim();
+        }
+
+        /// <summary>
+        /// The AI answered "Max". We never jump blindly into raw Max (+MaxExpansion): we move the center to the
+        /// widest candidate option and retry, unless there is nothing more to gain.
+        /// </summary>
+        private (TimeSpan, bool, bool) ResolveMaxChoice(
+            TimingCandidate cand,
+            BoundarySide side,
+            Dictionary<string, TimeSpan> options,
+            TimeSpan fallback)
+        {
+            bool isStart = side == BoundarySide.Start;
+            var maxOpt = options.TryGetValue(MaxOptionKey, out var m) ? m : fallback;
+            var widestC = GetWidestCandidateTime(options, isStart, fallback);
+
+            // 1. Max == widest candidate (rest of the zone was silence or clamped): lock cleanly
+            if (maxOpt == widestC)
+                return (widestC, true, false);
+
+            // 2. Max is already clamped against a neighbour's HardLimit: lock cleanly
+            var hardLimit = cand[side].HardLimit;
+            if (hardLimit.HasValue && (isStart ? maxOpt <= hardLimit.Value : maxOpt >= hardLimit.Value))
+                return (widestC, true, false);
+
+            // 3. widest did not advance beyond fallback (no dips existed): lock and flag Missing.
+            //    Otherwise shift the center to widest for the next round.
+            return widestC == fallback
+                ? (widestC, true, true)
+                : (widestC, false, true);
+        }
+
+        private static TimeSpan GetWidestCandidateTime(Dictionary<string, TimeSpan> options, bool isStart, TimeSpan fallback)
+        {
+            var candidateValues = options
+                .Where(kvp => !IsMaxKey(kvp.Key))
+                .Select(kvp => kvp.Value)
+                .ToList();
+
+            if (candidateValues.Count == 0)
+                return fallback;
+
+            return isStart ? candidateValues.Min() : candidateValues.Max();
         }
 
         private static bool TryLookupOptionTime(Dictionary<string, TimeSpan> options, string key, TimeSpan centerFallback, out TimeSpan time)
@@ -947,46 +722,290 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return false;
         }
 
-        private TimeSpan ClampToAudioBounds(TimeSpan t)
+        // ---------------------------------------------------------------------
+        // Neighbour overlap coordination
+        // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Resolves overlaps between adjacent candidates at the end of an iteration:
+        /// - No overlap: propagate hard limits from locked boundaries.
+        /// - Tiny overlap (&lt;= TinyOverlapThreshold): clamp cleanly.
+        /// - Case A (cur still has a valid End dip at or before next.Start): next.Start overrules cur.End.
+        /// - Case B (next.Start jumped onto/past cur's mountain, no valid End dip for cur):
+        ///   lock cur, set next.HardLimit.Start = cur.End and reset next for a rerun.
+        /// </summary>
+        private void CoordinateNeighborOverlaps()
         {
-            if (t < TimeSpan.Zero)
-                return TimeSpan.Zero;
-            if (t > this.AudioEndTime)
-                return this.AudioEndTime;
-            return t;
+            for (int i = 0; i < Candidates.Count - 1; i++)
+            {
+                var cur = Candidates[i];
+                var next = Candidates[i + 1];
+
+                if (cur.End.Current <= next.Start.Current)
+                {
+                    PropagateHardLimits(cur, next);
+                    continue;
+                }
+
+                if (TryClampTinyOverlap(cur, next))
+                    continue;
+
+                if (TryFindBestEndAtOrBefore(cur, next.Start.Current, out var fallbackEnd))
+                    CapCurrentEnd(cur, next, fallbackEnd);
+                else
+                    ResetNextAfterStolenMountain(cur, next);
+            }
         }
+
+        private static void PropagateHardLimits(TimingCandidate cur, TimingCandidate next)
+        {
+            if (next.Start.Locked)
+                cur.End.HardLimit = next.Start.Current;
+            if (cur.End.Locked)
+                next.Start.HardLimit = cur.End.Current;
+        }
+
+        /// <summary>Tiny overlap (e.g. from a shared valley): clamp at midpoint or next.Start.</summary>
+        private bool TryClampTinyOverlap(TimingCandidate cur, TimingCandidate next)
+        {
+            var overlap = cur.End.Current - next.Start.Current;
+            if (overlap > TinyOverlapThreshold || next.Start.Current <= cur.Start.Current + MinOverlapViableDuration)
+                return false;
+
+            var clampPoint = next.Start.Locked
+                ? next.Start.Current
+                : Midpoint(cur.End.Current, next.Start.Current);
+
+            if (clampPoint - cur.Start.Current < MinOverlapViableDuration ||
+                next.End.Current - clampPoint < MinOverlapViableDuration)
+                return false;
+
+            var prevEnd = cur.End.Current;
+            cur.End.Current = clampPoint;
+            if (!next.Start.Locked)
+                next.Start.Current = clampPoint;
+
+            cur.Trace("Clmp", cur.Start.Current, prevEnd, $"Clamped tiny overlap with next ({clampPoint:mm\\:ss\\.fff})");
+            return true;
+        }
+
+        /// <summary>Case A: next.Start overrules cur.End; cur.End is pulled back (and retried when useful).</summary>
+        private void CapCurrentEnd(TimingCandidate cur, TimingCandidate next, TimeSpan fallbackEnd)
+        {
+            var hardCap = next.Start.Current;
+            bool alreadyCappedHere = cur.End.Locked && cur.End.Current == fallbackEnd && cur.End.HardLimit == hardCap;
+
+            cur.End.HardLimit = hardCap;
+            var prevEnd = cur.End.Current;
+            cur.End.Current = fallbackEnd;
+
+            int distinctValidEndOptions = ValidEndOptions(
+                cur.Rounds.LastOrDefault(), hardCap, cur.Start.Current + MinOverlapViableDuration).Count();
+
+            if (cur.RetryCount < MaxRetriesPerNode && distinctValidEndOptions > 1)
+            {
+                cur.End.Locked = false;
+                cur.Trace("CapE", cur.Start.Current, prevEnd, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff}) -> retry End");
+            }
+            else
+            {
+                cur.End.Locked = true;
+                if (!alreadyCappedHere)
+                    cur.Trace("CapE", cur.Start.Current, prevEnd, $"Overruled by next Start ({hardCap:mm\\:ss\\.fff})");
+            }
+        }
+
+        /// <summary>Case B: lock cur, fence next behind cur.End, reset next's bounds and rerun it.</summary>
+        private void ResetNextAfterStolenMountain(TimingCandidate cur, TimingCandidate next)
+        {
+            cur.LockAll();
+
+            var minNextStart = cur.End.Current;
+            bool alreadyResetHere = next.Start.HardLimit == minNextStart && next.Start.Current >= minNextStart;
+            next.Start.HardLimit = minNextStart;
+            next.End.HardLimit = null;
+
+            var prevStart = next.Start.Current;
+            var prevEnd = next.End.Current;
+
+            TimeSpan resetStart = next.Start.Init >= minNextStart
+                ? next.Start.Init
+                : FindFirstStartAtOrAfter(minNextStart);
+
+            TimeSpan resetEnd = next.End.Init;
+            if (resetEnd <= resetStart + MinOverlapViableDuration)
+            {
+                resetEnd = next.End.Current > resetStart + MinOverlapViableDuration
+                    ? next.End.Current
+                    : FindFirstEndAfter(resetStart, MinSubtitleDuration);
+            }
+
+            next.Start.Current = resetStart;
+            next.End.Current = resetEnd;
+
+            if (!next.WasResetByOverlap && next.RetryCount >= MaxRetriesPerNode)
+                next.RetryCount = Math.Max(0, MaxRetriesPerNode - 1);
+            next.WasResetByOverlap = true;
+
+            if (next.RetryCount < MaxRetriesPerNode)
+            {
+                next.UnlockAll();
+                next.Trace("Rset", prevStart, prevEnd, $"Overlapped prev End ({minNextStart:mm\\:ss\\.fff}) -> reset & retry");
+            }
+            else
+            {
+                next.LockAll();
+                if (!alreadyResetHere)
+                    next.Trace("Rset", prevStart, prevEnd, $"Overlapped prev End ({minNextStart:mm\\:ss\\.fff}) -> reset");
+            }
+        }
+
+        /// <summary>Distinct End options of the round (excluding Max) that lie within (minEnd, hardCap].</summary>
+        private static IEnumerable<TimeSpan> ValidEndOptions(TimingRound round, TimeSpan hardCap, TimeSpan minEnd)
+        {
+            if (round == null)
+                return Enumerable.Empty<TimeSpan>();
+
+            return round.EndOptions
+                .Where(kvp => !IsMaxKey(kvp.Key) && kvp.Value <= hardCap && kvp.Value > minEnd)
+                .Select(kvp => kvp.Value)
+                .Distinct();
+        }
+
+        private bool TryFindBestEndAtOrBefore(TimingCandidate cand, TimeSpan hardCap, out TimeSpan bestEnd)
+        {
+            bestEnd = cand.End.Current;
+            var minEnd = cand.Start.Current + MinOverlapViableDuration;
+            if (hardCap <= minEnd)
+                return false;
+
+            // 1. Latest End option of the last round that fits
+            var fromOptions = ValidEndOptions(cand.Rounds.LastOrDefault(), hardCap, minEnd)
+                .OrderByDescending(t => t)
+                .ToList();
+            if (fromOptions.Count > 0)
+            {
+                bestEnd = fromOptions[0];
+                return true;
+            }
+
+            // 2. A terrain dip just before the cap
+            var dip = TerrainMapping.FindDip(hardCap, BoundarySide.End, MoveDirection.Inward, new DipSearch
+            {
+                Inclusive = true,
+                StopAtSpeechEdge = true,
+                Limit = minEnd
+            });
+            if (dip.HasValue && dip.Value <= hardCap && dip.Value > minEnd)
+            {
+                bestEnd = dip.Value;
+                return true;
+            }
+
+            // 3. The initial End
+            if (cand.End.Init <= hardCap && cand.End.Init > minEnd)
+            {
+                bestEnd = cand.End.Init;
+                return true;
+            }
+
+            return false;
+        }
+
+        private TimeSpan FindFirstStartAtOrAfter(TimeSpan minStart)
+        {
+            var dip = TerrainMapping.FindDip(minStart, BoundarySide.Start, MoveDirection.Inward, new DipSearch
+            {
+                Inclusive = true,
+                StopAtSpeechEdge = true
+            });
+            return dip.HasValue && dip.Value >= minStart ? dip.Value : minStart;
+        }
+
+        private TimeSpan FindFirstEndAfter(TimeSpan start, TimeSpan minDuration)
+        {
+            var target = ClampToAudioBounds(start + minDuration);
+            var dip = TerrainMapping.FindDip(target, BoundarySide.End, MoveDirection.Outward, new DipSearch
+            {
+                Inclusive = true,
+                StopAtSpeechEdge = true
+            });
+            return dip.HasValue && dip.Value > start ? dip.Value : target;
+        }
+
+        // ---------------------------------------------------------------------
+        // Finalization & stats
+        // ---------------------------------------------------------------------
 
         public void FinalizeOverlapsAndMinimumDuration()
         {
-            var sorted = this.Candidates.OrderBy(c => c.OriginalStartTime).ToList();
-            var minViableDuration = TimeSpan.FromSeconds(0.05);
-
-            for (int i = 0; i < sorted.Count - 1; i++)
+            for (int i = 0; i < Candidates.Count - 1; i++)
             {
-                var cur = sorted[i];
-                var next = sorted[i + 1];
+                var cur = Candidates[i];
+                var next = Candidates[i + 1];
 
-                if (cur.CurrentTestEnd > next.CurrentTestStart)
+                if (cur.End.Current <= next.Start.Current)
+                    continue;
+
+                // Slight overlap (e.g. shared valley): clamp at midpoint
+                var overlap = cur.End.Current - next.Start.Current;
+                if (overlap <= MaxFinalClampOverlap)
                 {
-                    // If they overlap slightly (e.g. from +30ms nudge or shared valley), clamp at midpoint or next.CurrentTestStart
-                    var overlap = cur.CurrentTestEnd - next.CurrentTestStart;
-                    if (overlap <= TimeSpan.FromMilliseconds(150))
+                    var mid = Midpoint(cur.End.Current, next.Start.Current);
+                    if (mid - cur.Start.Current >= MinClipDuration && next.End.Current - mid >= MinClipDuration)
                     {
-                        var mid = TimeSpan.FromMilliseconds((cur.CurrentTestEnd.TotalMilliseconds + next.CurrentTestStart.TotalMilliseconds) / 2.0);
-                        if (mid - cur.CurrentTestStart >= minViableDuration && next.CurrentTestEnd - mid >= minViableDuration)
-                        {
-                            cur.CurrentTestEnd = mid;
-                            next.CurrentTestStart = mid;
-                            cur.AddTraceRow("Clmp", ' ', cur.CurrentTestStart, cur.CurrentTestEnd, '-', "Clamped minor overlap with next");
-                            next.AddTraceRow("Clmp", '-', next.CurrentTestStart, next.CurrentTestEnd, ' ', "Clamped minor overlap with prev");
-                            continue;
-                        }
+                        var curPrevEnd = cur.End.Current;
+                        var nextPrevStart = next.Start.Current;
+                        cur.End.Current = mid;
+                        next.Start.Current = mid;
+                        cur.Trace("Clmp", cur.Start.Current, curPrevEnd, "Clamped minor overlap with next");
+                        next.Trace("Clmp", nextPrevStart, next.End.Current, "Clamped minor overlap with prev");
+                        continue;
                     }
-
-                    cur.AddValidationNote("Review: Overlaps with adjacent subtitle");
-                    next.AddValidationNote("Review: Overlaps with adjacent subtitle");
                 }
+
+                cur.AddValidationNote("Review: Overlaps with adjacent subtitle");
+                next.AddValidationNote("Review: Overlaps with adjacent subtitle");
             }
+        }
+
+        /// <summary>Computes the summary numbers (null when there are no candidates).</summary>
+        public TimingRefinerStats ComputeStats()
+        {
+            if (Candidates.Count == 0)
+                return null;
+
+            var stats = new TimingRefinerStats
+            {
+                Total = Candidates.Count,
+                ResolvedInOneRound = Candidates.Count(c => c.Rounds.Count <= 1 && c.IsFullyLocked),
+                Unfinished = Candidates.Count(c => !c.IsFullyLocked),
+                Review = Candidates.Count(c => c.ValidationNotes.Count > 0 || !c.IsFullyLocked),
+            };
+            stats.Clean = stats.Total - stats.Review;
+
+            foreach (var (key, _) in TimingRefinerStats.NoteCategories)
+            {
+                stats.NoteCounts[key] = Candidates.Count(c =>
+                    c.ValidationNotes.Any(n => n.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+
+            stats.AvgOriginalDuration = Candidates.Average(c => (c.OriginalEndTime - c.OriginalStartTime).TotalSeconds);
+            stats.AvgFinalDuration = Candidates.Average(c => (c.End.Current - c.Start.Current).TotalSeconds);
+            stats.AvgStartDrift = Candidates.Average(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
+            stats.MaxOutwardStartDrift = Candidates.Min(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
+            stats.AvgEndDrift = Candidates.Average(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
+            stats.MaxOutwardEndDrift = Candidates.Max(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
+
+            for (int i = 0; i < Candidates.Count; i++)
+            {
+                if (Candidates[i].End.Current - Candidates[i].Start.Current <= MinClipDuration)
+                    stats.Squashed++;
+                if (i < Candidates.Count - 1 && Candidates[i].End.Current > Candidates[i + 1].Start.Current)
+                    stats.Overlaps++;
+            }
+
+            return stats;
         }
     }
 }

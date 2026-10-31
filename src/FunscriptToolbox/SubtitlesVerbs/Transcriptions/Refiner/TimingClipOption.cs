@@ -9,6 +9,5 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public string EndId { get; set; }
         public TimeSpan Start { get; set; }
         public TimeSpan End { get; set; }
-        public TimeSpan Duration => End - Start;
     }
 }

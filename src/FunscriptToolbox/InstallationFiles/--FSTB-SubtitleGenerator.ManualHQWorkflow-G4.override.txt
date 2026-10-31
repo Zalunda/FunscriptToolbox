@@ -514,7 +514,7 @@ _______________________________________=",
       "MaxBudgetRatio": 2.0,
       "MaxExpansion": "00:00:02.0",
       "BleedDetectionMargin": "00:00:03.0",
-      "OutwardNudgeDuration": "00:00:00.030",
+      "TinyOverlapTolerance": "00:00:00.030",
       "MinSubtitleDuration": "00:00:00.5",
       "IncludeTraceInOutputAlways": false,
       "IncludeTraceInOutputOnError": true,
@@ -528,7 +528,7 @@ _______________________________________=",
           "generationConfig": {
             "maxOutputTokens": 2048
           }
-      }
+      },
       "Metadatas": {
         "TimingsSource": "full-ai",
         "Sources": "full-ai"
@@ -561,37 +561,36 @@ Your job is to:
    - If part of `OriginalText` is **never spoken** even in `Audio_Max_Max` (or if different words are spoken), set `"HeardText"` to what you actually heard, and judge `BestStart` and `BestEnd` around **that actual speech**!
 6. Candidate Clips (`Audio_<StartId>_<EndId>`, ordered from tightest/shortest to widest/longest):
    - Each clip's name tells you which Start boundary (`<StartId>`) and End boundary (`<EndId>`) it uses:
-     - `C1`: Tightest (innermost) boundary option
-     - `C2`, `C3`, `C4`, `C5`...: Progressively wider boundary options stepping outward across acoustic valleys
+     - Start boundaries are `S1`, `S2`, `S3`... and End boundaries are `E1`, `E2`, `E3`...
+     - `S1` / `E1`: Tightest (innermost) boundary option
+     - `S2`, `S3`... / `E2`, `E3`...: Progressively wider boundary options stepping outward across acoustic valleys
 
 ### Decision Protocol (`BestStart` and `BestEnd`)
-Evaluate the **Start** and **End** boundaries **independently** (e.g., you can pick `"BestStart": "C2"` and `"BestEnd": "C4"` even if no single clip is named `Audio_C2_C4`):
+Evaluate the **Start** and **End** boundaries **independently** (e.g., you can pick `"BestStart": "S2"` and `"BestEnd": "E4"` even if no single clip is named `Audio_S2_E4`):
 
-1. **Standard Boundary Choice (`"C1"`, `"C2"`, `"C3"`, `"C4"`, `"C5"`, ...):**
-   - Listen from the tightest clip (`C1`) outward (`C2`, `C3`, ...).
-   - Pick the **tightest (lowest-numbered `C#`)** boundary ID on each side that includes 100% of the spoken words (no clipped initial consonant or final vowel) while excluding leading/trailing panting, giggles, silence, faint room noise, or neighbour bleed.
-   - **Do NOT stretch `BestStart` or `BestEnd` into silence or breaths trying to account for words in `OriginalText` that were never spoken!**
-   - Only pick a boundary ID (`C1`, `C2`, ...) that actually appears in the candidate `Audio_<StartId>_<EndId>` field names for that node.
-2. **When Even the Widest `C#` Candidate Cuts Off Real Speech (`"Max"`):**
-   - Output `"Max"` for `BestStart` or `BestEnd` **ONLY** if you clearly hear additional spoken syllables of this line inside `Audio_Max_Max` that are still cut off in the widest `C#` clip.
-   - **NEVER output `"Max"` if the region beyond the widest `C#` clip is just silence, breathing, or a faint duplicate murmur!** If words from `OriginalText` are missing in `Audio_Max_Max`, report the shorter actual speech in `"HeardText"` and pick the tight `C#` boundary that frames it.
+1. **Standard Boundary Choice (Start: `"S1"`, `"S2"`, `"S3"`...; End: `"E1"`, `"E2"`, `"E3"`...):**
+   - Listen from the tightest clip (`S1`/`E1`) outward (`S2`/`E2`, `S3`/`E3`, ...).
+   - Pick the **tightest (lowest-numbered)** boundary ID on each side that includes 100% of the spoken words ...
+   - `BestStart` must always be an `S#` ID and `BestEnd` must always be an `E#` ID.
+   - Only pick a boundary ID that actually appears in the candidate `Audio_<StartId>_<EndId>` field names for that node.
+2. **When Even the Widest Candidate Cuts Off Real Speech (`"Max"`):**
+   - Output `"Max"` for `BestStart` or `BestEnd` **ONLY** if you clearly hear additional spoken syllables ... still cut off in the widest `S#`/`E#` clip.
+   ...
 3. **Disagreement with `OriginalText` (`HeardText`):**
-   - If what is actually spoken in `Audio_Max_Max` differs from `OriginalText` (e.g., `OriginalText` says 「それ買うねん、あの人。」 but the speaker only says 「それ買うねん。」), set `"HeardText"` to what is actually spoken and frame `BestStart`/`BestEnd` tightly around `"HeardText"`.
-   - If `Audio_Max_Max` contains no intelligible speech at all (only silence/noise/breathing), set `"BestStart": "Inaudible"`, `"BestEnd": "Inaudible"`, and `"HeardText": ""`.
-   - **If the spoken words match `OriginalText`, OMIT `"HeardText"` (do not include the field).**
+   ... pick the tight `S#`/`E#` boundary that frames it.
 
 ### Output Format
 Return a single valid JSON array with one object per input node:
 [
   {
     "StartTime": "00:00:32.150",
-    "BestStart": "C2",
-    "BestEnd": "C3"
+    "BestStart": "S2",
+    "BestEnd": "E3"
   },
   {
     "StartTime": "00:00:36.120",
-    "BestStart": "C1",
-    "BestEnd": "C2",
+    "BestStart": "S1",
+    "BestEnd": "E2",
     "HeardText": "それ買うねん。"
   }
 ]

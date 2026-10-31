@@ -39,7 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private const float MaxFilterMs = 6f;          // removes pitch teeth
         private const float SmoothMs = 3f;
         private const float FloorBlockMs = 250f;       // block size for the noise floor
-        private const int FloorNeighbourBlocks = 32;    // lowest block within +/- 8 blocks (= 2 s) => 64 = +- 8
+        private const int FloorNeighbourBlocks = 32;    // lowest block within +/- 64 blocks (= 8 s)
         private const float FloorPercentile = 0.10f;
         private const float MinFloorFraction = 0.01f;  // floor never below 1% of the typical loud level
         private const float MaxGapMs = 150f;           // gaps shorter than this do not split a zone
@@ -47,9 +47,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private const float ValleyWindowMs = 15f;      // local-minimum window
         private const float SlopeMaxMs = 150f;         // how far an edge may slide down a slope
         private const float SlopeEndRatio = 1.2f;      // ...or until terrain is within 20% of the floor
-        public float SlopeExtraStartMs { get; set; } = 30f; // extra margin always added to the start slide
-        public float SlopeExtraEndMs { get; set; } = 30f;    // extra margin always added to the end slide
-        public float SilenceTailSplitMs { get; set; } = 100f; // split long silence after a mountain at +100ms
+        private const float SlopeExtraStartMs = 30f; // extra margin always added to the start slide
+        private const float SlopeExtraEndMs = 30f;    // extra margin always added to the end slide
+        private const float SilenceTailSplitMs = 100f; // split long silence after a mountain at +100ms
 
         // ---------------------------------------------------------------------
         // Result type
@@ -90,13 +90,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private float[] r_floor = new float[0];
         private float[] r_localMin = new float[0];
 
-        // Debug info
         private List<(int start, int end)> r_zones = new List<(int, int)>();
         private List<int> r_cuts = new List<int>();            // final cuts
-        // Shallow valleys: where they are, and the terrain level at which they would have been accepted
-        private List<(int frame, float limit)> r_rejected = new List<(int, float)>();
-        // Candidate zones that failed (too short / peak too low), with the reason
-        private List<(int start, int end, string reason)> r_rejectedZones = new List<(int, int, string)>();
 
         public AudioTerrainMapping(PcmAudio fullAudio)
         {
@@ -118,8 +113,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             Segments = new List<SpeechSegment>();
             r_zones = new List<(int, int)>();
             r_cuts = new List<int>();
-            r_rejected = new List<(int, float)>();
-            r_rejectedZones = new List<(int, int, string)>();
 
             float[] terrain = r_fullAudio.ToPeak(MsPerFrame);
             if (terrain.Length == 0)
@@ -294,18 +287,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             foreach (var z in merged)
             {
                 if (z.end - z.start < minZone)
-                {
-                    r_rejectedZones.Add((z.start, z.end, $"short {(z.end - z.start) * MsPerFrame} ms (min {MinZoneMs:0})"));
                     continue;
-                }
 
                 float best = 0f;
                 for (int k = z.start; k < z.end; k++)
                     best = Math.Max(best, t[k] / r_floor[k]);
                 if (best >= PeakRatio)
                     zones.Add(z);
-                else
-                    r_rejectedZones.Add((z.start, z.end, $"peak {best:0.0}x floor (needs {PeakRatio:0.#}x)"));
             }
 
             // Include the slopes: slide each edge outward while the terrain keeps going down
@@ -396,10 +384,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 }
                 if (worst < 0)
                     break;
-                int cutFrame = mts[worst].End;
-                float lowerPeak = Math.Min(mts[worst].Peak, mts[worst + 1].Peak);
-                float limit = r_floor[cutFrame] + ValleyReach * (lowerPeak - r_floor[cutFrame]);
-                r_rejected.Add((cutFrame, Math.Max(limit, r_floor[cutFrame])));
                 Merge(mts, worst);
             }
 
@@ -571,49 +555,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             all.Add(new SpeechSegment(all.Count, FrameToTime(s), FrameToTime(e), peak, isSilence));
         }
 
-        /// <summary>
-        /// Says what the algorithm saw at 'time': terrain, floor, threshold, and why it is (or is not) speech.
-        /// Call after Compute(). Handy for "why was that mountain ignored?".
-        /// </summary>
-        public string ExplainAt(TimeSpan time)
-        {
-            if (r_terrain == null || r_terrain.Length == 0)
-                return "no data";
-
-            int f = Math.Max(0, Math.Min(r_terrain.Length - 1, TimeToFrame(time)));
-            float t = r_terrain[f];
-            float fl = r_floor[f];
-
-            string verdict;
-            if (r_zones.Any(z => f >= z.start && f < z.end))
-                verdict = "inside a speech zone";
-            else
-            {
-                var rej = r_rejectedZones.Where(z => f >= z.start && f < z.end).ToList();
-                verdict = rej.Count > 0
-                    ? "candidate zone rejected: " + rej[0].reason
-                    : t <= fl * SpeechRatio
-                        ? "below the speech threshold"
-                        : "above the threshold but outside every zone (edge / merged gap)";
-            }
-
-            var seg = Segments.FirstOrDefault(s => time >= s.StartTime && time < s.EndTime);
-            string segText = seg == null
-                ? ""
-                : $" | segment #{seg.GlobalIndex} {(seg.IsSilence ? "non-speech" : "mountain")} {seg.StartTime:m\\:ss\\.fff}-{seg.EndTime:m\\:ss\\.fff}";
-
-            return $"terrain={t:0.0000} floor={fl:0.0000} threshold={fl * SpeechRatio:0.0000} " +
-                   $"({t / fl:0.0}x floor, needs {SpeechRatio:0.#}x) -> {verdict}{segText}";
-        }
-
-        /// <summary>Highest terrain value between two times (0 when empty). Call after Compute().</summary>
-        public float GetPeakLevel(TimeSpan from, TimeSpan to)
-        {
-            if (to <= from || r_terrain == null || r_terrain.Length == 0)
-                return 0f;
-            return Peak(r_terrain, TimeToFrame(from), TimeToFrame(to));
-        }
-
         // ---------------------------------------------------------------------
         // Navigation: "jump mountains, stop at a dip" (unchanged behaviour)
         // ---------------------------------------------------------------------
@@ -651,7 +592,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         private List<TimeSpan> DipList(BoundarySide side) => side == BoundarySide.Start ? r_segStarts : r_segEnds;
 
-        private static bool MovesLater(BoundarySide side, MoveDirection dir)
+        /// <summary>True when moving the boundary on 'side' in direction 'dir' makes its time later.</summary>
+        public static bool MovesLater(BoundarySide side, MoveDirection dir)
             => (side == BoundarySide.Start) == (dir == MoveDirection.Inward);
 
         public TimeSpan? FindDip(TimeSpan from, BoundarySide side, MoveDirection dir, DipSearch options = null)
@@ -680,13 +622,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     return dip;
             }
             return null;
-        }
-
-        public IEnumerable<TimeSpan> GetDips(BoundarySide side, TimeSpan from, TimeSpan to)
-        {
-            var list = DipList(side);
-            for (int i = LastIndexLess(list, from) + 1; i < list.Count && list[i] <= to; i++)
-                yield return list[i];
         }
 
         public bool IsSpeechEdge(TimeSpan dip)
