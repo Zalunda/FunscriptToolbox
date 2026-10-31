@@ -13,10 +13,10 @@ When multiple speakers talk in a scene, keep timestamps strictly sequential (`En
 1. **Sequential Turn-Taking Where Each Speaker's Line is >= 1.2s (MUST BE SPLIT into Separate Segments!):**
    * Whenever Speaker A speaks a sentence (`>= 1.2s`) and Speaker B follows with her own sentence (`>= 1.2s`), you **MUST** output them as **separate sequential segments**—even if there is zero silence between them or their voices slightly overlap for `100–300ms` at the handoff!
    * **Examples of Lazy Bundling (STRICTLY FORBIDDEN):**
-     * *Bad (4.5s bundled):* `- De-mo, wa-ta-shi-ta-chi wa ma-ke-ma-se-n yo.\n- Ne. Ze-tta-i ka-chi-ma-su.` $\rightarrow$ **SPLIT** into Segment 1 (`1.8s`: `De-mo, wa-ta-shi-ta-chi wa ma-ke-ma-se-n yo.`) and Segment 2 (`2.0s`: `Ne. Ze-tta-i ka-chi-ma-su.`)!
-     * *Bad (4.3s bundled):* `- Ho-n-to-u ni o-tsu-yo-i de-su ne.\n- Ko-n-ka-i mo i-ppa-tsu de-su.` $\rightarrow$ **SPLIT** into Segment 1 (`1.9s`: `Ho-n-to-u ni o-tsu-yo-i de-su ne.`) and Segment 2 (`2.0s`: `Ko-n-ka-i mo i-ppa-tsu de-su.`)!
-     * *Bad (8.5s bundled group reaction + solo lines):* Bundling `Ha-i, ha-i, ha-i` + `E, su-go-i! Tsu-yo-i!` + `Ze-tta-i ka-te-ru to o-mo-tta no-ni.` + `Ya-ri-ma-shi-ta ne.` into one 8.5s block $\rightarrow$ **SPLIT** into 4 separate segments (`1.5s`, `2.5s`, `1.9s`, `1.8s`)!
-     * *Bad (12.3s announcement + group cheer):* Bundling an announcement with other girls cheering `I-ki-ma-sho-u! / I-e-e-i!` $\rightarrow$ **SPLIT** the announcement into single-speaker segments (`<= 4.5s`), and put the girls' `I-ki-ma-sho-u! / I-e-e-i!` in its own `2.5s` segment at the end!
+     * *Bad (4.5s bundled):* `- でも、私たちは負けませんよ。\n- ね。絶対勝ちます。` $\rightarrow$ **SPLIT** into Segment 1 (`1.8s`: `でも、私たちは負けませんよ。`) and Segment 2 (`2.0s`: `ね。絶対勝ちます。`)!
+     * *Bad (4.3s bundled):* `- 本当にお強いですね。\n- 今回も一発です。` $\rightarrow$ **SPLIT** into Segment 1 (`1.9s`: `本当にお強いですね。`) and Segment 2 (`2.0s`: `今回も一発です。`)!
+     * *Bad (8.5s bundled group reaction + solo lines):* Bundling `はい、はい、はい` + `え、すごい！強い！` + `絶対勝てると思ったのに。` + `やりましたね。` into one 8.5s block $\rightarrow$ **SPLIT** into 4 separate segments (`1.5s`, `2.5s`, `1.9s`, `1.8s`)!
+     * *Bad (12.3s announcement + group cheer):* Bundling an announcement with other girls cheering `行きましょう！ / イェーイ！` $\rightarrow$ **SPLIT** the announcement into single-speaker segments (`<= 4.5s`), and put the girls' `行きましょう！ / イェーイ！` in its own `2.5s` segment at the end!
 
 2. **Directional Boundary Bleed Attributes (`"Overlap": "BleedLeft" | "BleedRight" | "BleedBoth"`):**
    * When you slice sequential segments at a handoff point where two speakers' voices touch or overlap, add the `"Overlap"` attribute to indicate **which boundary** of the segment contains voice bleed from an adjacent or background speaker:
@@ -27,33 +27,33 @@ When multiple speakers talk in a scene, keep timestamps strictly sequential (`En
 
 3. **When to Use `"Speaker": "Multiple"` (strictly `<= 3.5s` — Simultaneous Outbursts or `< 1.0s` Micro-Turns ONLY):**
    * Only group two (or three) speakers into a single `"Speaker": "Multiple"` segment (formatted with `- Line 1\n- Line 2`) when:
-     1. **True Simultaneous Outburst (`1.5s – 3.0s`):** Multiple women exclaim **at the exact same time** on top of each other (e.g., all gasping `- E? E-e! Su-go-i!\n- Tsu-yo-i!` over the same `2.5s` window when cards are revealed—and then immediately cut a **new** segment when one girl speaks a full sentence like `Ko-n-na no ha-ji-me-te mi-ma-shi-ta yo!` or `Ze-tta-i ka-te-ru to o-mo-tta no-ni.`!).
-     2. **Sub-Second Rapid Turn-Taking (`< 1.0s`):** Two ultra-short interjections occur back-to-back where slicing them apart would create an unreadable `< 1.0s` micro-subtitle (e.g., `- Cho-tto, do-i-te yo.\n- Yo-i-sho.` in `2.5s`, or `- I-ki-ma-sho-u!\n- I-e-e-i!` in `2.2s`).
+     1. **True Simultaneous Outburst (`1.5s – 3.0s`):** Multiple women exclaim **at the exact same time** on top of each other (e.g., all gasping `- え？ええ！すごい！\n- 強い！` over the same `2.5s` window when cards are revealed—and then immediately cut a **new** segment when one girl speaks a full sentence like `こんなの初めて見ましたよ！` or `絶対勝てると思ったのに。`!).
+     2. **Sub-Second Rapid Turn-Taking (`< 1.0s`):** Two ultra-short interjections occur back-to-back where slicing them apart would create an unreadable `< 1.0s` micro-subtitle (e.g., `- ちょっと、どいてよ。\n- よいしょ。` in `2.5s`, or `- 行きましょう！\n- イェーイ！` in `2.2s`).
    * **HARD DURATION CAP ON `"Speaker": "Multiple"`:** A `"Speaker": "Multiple"` segment must **NEVER exceed `3.5 seconds`**!
 
 4. **EXCLUDE Background Backchannel Hums & Trailing Giggles in Multi-Woman Scenes:**
    * When one woman is speaking (or right as she finishes her sentence), other women in the background often murmur passive agreement (`un, uun`, `aa`, `ee`) or giggle (`fufu`, `ahaha`). **NEVER** transcribe these background reactions as a second `- ` line and **NEVER** extend `EndTime` to include them!
-     * *Bad (5.2s bloated with background hum):* `- So-re ni shi-te-mo, sa-kki no sa-n-ni-n ni ka-tsu na-n-te, ho-n-to su-go-i de-su ne.\n- U-n, u-u-n.`
-     * *Good (3.8s tight single-speaker line):* `So-re ni shi-te-mo, sa-kki no sa-n-ni-n ni ka-tsu na-n-te, ho-n-to su-go-i de-su ne.` (Cut `EndTime` right after `ne`, ignoring the background `u-n, u-u-n`!)
+     * *Bad (5.2s bloated with background hum):* `- それにしても、さっきの３人に勝つなんて、ほんとすごいですね。\\n- うん、うーん。`
+     * *Good (3.8s tight single-speaker line):* `それにしても、さっきの３人に勝つなんて、ほんとすごいですね。` (Cut `EndTime` right after `ね`, ignoring the background `うん、うーん`!)
 
 ### Multi-Speaker JSON Output Examples
 [
   {
     "StartTime": "06:02.418",
     "EndTime": "06:04.250",
-    "VoiceText": "De-mo, wa-ta-shi-ta-chi wa ma-ke-ma-se-n yo.",
+    "VoiceText": "でも、私たちは負けませんよ。",
     "Overlap": "BleedRight"
   },
   {
     "StartTime": "06:04.280",
     "EndTime": "06:06.350",
-    "VoiceText": "Ne. Ze-tta-i ka-chi-ma-su.",
+    "VoiceText": "ね。絶対勝ちます。",
     "Overlap": "BleedLeft"
   },
   {
     "StartTime": "06:32.500",
     "EndTime": "06:35.200",
-    "VoiceText": "- E, su-go-i!\n- Tsu-yo-i!",
+    "VoiceText": "- え、すごい！\\n- 強い！",
     "Speaker": "Multiple",
     "Overlap": "BleedBoth"
   }

@@ -112,8 +112,8 @@ namespace FunscriptToolbox.Core
 
                 this.Subtitles.Add(
                     new Subtitle(
-                        subtitle.StartTime, 
-                        newEndTime, 
+                        subtitle.StartTime,
+                        newEndTime,
                         subtitle.Lines));
             }
         }
@@ -128,7 +128,7 @@ namespace FunscriptToolbox.Core
 
         private IEnumerable<string> GetSrtLines(List<Subtitle> subtitles)
         {
-            int index = 1; 
+            int index = 1;
             foreach (var subtitle in subtitles
                 .OrderBy(f => f.StartTime)
                 .ThenBy(f => f.EndTime))
@@ -146,6 +146,83 @@ namespace FunscriptToolbox.Core
         private string FormatTimespan(TimeSpan time)
         {
             return $"{time.Hours:D2}:{time.Minutes:D2}:{time.Seconds:D2},{time.Milliseconds:D3}";
+        }
+
+
+        /// <summary>
+        /// Subtracts the timing of secondFile from firstFile (firstFile - secondFile).
+        /// Any remaining timing fragments from firstFile are added to outputFile.
+        /// </summary>
+        public static SubtitleFile Subtract(
+            SubtitleFile firstFile,
+            SubtitleFile secondFile,
+            TimeSpan? minDuration = null)
+        {
+            var resultFile = new SubtitleFile();
+            var minSpan = minDuration ?? TimeSpan.FromMilliseconds(0);
+
+            // 1. Merge overlapping/adjacent intervals from secondFile into a clean sorted list
+            var blockers = new List<(TimeSpan Start, TimeSpan End)>();
+            foreach (var sub in secondFile.Subtitles.OrderBy(s => s.StartTime).ThenBy(s => s.EndTime))
+            {
+                if (sub.EndTime <= sub.StartTime)
+                    continue;
+                if (blockers.Count > 0 && sub.StartTime <= blockers[blockers.Count - 1].End)
+                {
+                    var prev = blockers[blockers.Count - 1];
+                    blockers[blockers.Count - 1] = (prev.Start, sub.EndTime > prev.End ? sub.EndTime : prev.End);
+                }
+                else
+                {
+                    blockers.Add((sub.StartTime, sub.EndTime));
+                }
+            }
+
+            // 2. For each subtitle in firstFile, subtract every blocker window that intersects it
+            int subNumber = 1;
+            foreach (var sub in firstFile.Subtitles.OrderBy(s => s.StartTime))
+            {
+                var pieces = new List<(TimeSpan Start, TimeSpan End)> { (sub.StartTime, sub.EndTime) };
+                foreach (var b in blockers)
+                {
+                    if (b.End <= sub.StartTime) continue;
+                    if (b.Start >= sub.EndTime) break;
+                    var nextPieces = new List<(TimeSpan Start, TimeSpan End)>();
+                    foreach (var (pStart, pEnd) in pieces)
+                    {
+                        // No overlap
+                        if (b.End <= pStart || b.Start >= pEnd)
+                        {
+                            nextPieces.Add((pStart, pEnd));
+                        }
+                        else
+                        {
+                            // Left piece before blocker
+                            if (pStart < b.Start)
+                                nextPieces.Add((pStart, b.Start));
+                            // Right piece after blocker
+                            if (pEnd > b.End)
+                                nextPieces.Add((b.End, pEnd));
+                        }
+                    }
+                    pieces = nextPieces;
+                    if (pieces.Count == 0) break;
+                }
+
+                // 3. Add any remaining slices to outputFile
+                foreach (var piece in pieces)
+                {
+                    if (piece.End - piece.Start >= minSpan)
+                    {
+                        resultFile.Subtitles.Add(new Subtitle(
+                            piece.Start,
+                            piece.End,
+                            sub.Lines, // keeps the original text/trace for reference
+                            subNumber++));
+                    }
+                }
+            }
+            return resultFile;
         }
     }
 }

@@ -103,7 +103,7 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
-                    var prefix = "*savr01090*";
+                    var prefix = "*MDVR-375-A*";
                     args = new[]
                     {
                         "subtitles.create",
@@ -191,6 +191,13 @@ namespace FunscriptToolbox
 #endif
             try
             {
+                var fileA = SubtitleFile.FromSrtFile(@"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles\02-ManualHQWorkflow-G4\Test\MDVR-375-A.manual-input.srt");
+                var fileB = SubtitleFile.FromSrtFile(@"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles\02-ManualHQWorkflow-G4\Test\MDVR-375-A.Worker.full-ai-refined-v2-#7-Back-To-JAV-Chars.srt");
+                var resultAB = SubtitleFile.Subtract(fileA, fileB, TimeSpan.FromMilliseconds(30));
+                var resultBA = SubtitleFile.Subtract(fileB, fileA, TimeSpan.FromMilliseconds(120));
+                resultAB.SaveSrt(@"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles\02-ManualHQWorkflow-G4\Test\MDVR-375-A.manual-input-minus-full-ai-refined-v2-#7-Back-To-JAV-Chars.srt");
+                resultBA.SaveSrt(@"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles\02-ManualHQWorkflow-G4\Test\MDVR-375-A.full-ai-refined-v2-#7-Back-To-JAV-Chars-minus-manual-input.srt");
+
                 UpdateLog4NetFileNameIfAnotherProcessIsRunning();
                 Console.OutputEncoding = Encoding.UTF8;
 

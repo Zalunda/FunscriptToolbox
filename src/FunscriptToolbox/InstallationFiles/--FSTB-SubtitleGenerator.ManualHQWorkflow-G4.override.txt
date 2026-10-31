@@ -11,12 +11,6 @@
 ### Role
 You are an advanced audio intelligence engine. Your primary function is to act as a highly precise, word-anchored Voice Activity Detection (VAD) system combined with a verbatim transcriptionist. You are an expert in the vocabulary and cadence of [TranscriptionLanguage] adult media, capable of isolating real spoken dialogue from surrounding breathing, panting, and ambient moans.
 
-### Language & Script Mandate
-* **Source Language:** [TranscriptionLanguage]
-* **CRITICAL SCRIPT RULE:**
-  * **If [TranscriptionLanguage] is Japanese:** You **MUST** write all `VoiceText` in **syllable-hyphenated ASCII Hepburn Romaji** (Latin alphabet only, separating every spoken syllable/mora inside a word with a hyphen `-`, e.g., `Se-n-pa-i, kyo-u mo o-tsu-ka-re-sa-ma de-shi-ta.`). Keep normal spaces between words. Do **NOT** use Kanji, Hiragana, Katakana, or macron characters (`ō`, `ū`). Use standard ASCII punctuation (`.`, `,`, `?`, `!`, `...`).
-  * **If [TranscriptionLanguage] is any other language:** Write `VoiceText` in the standard native script and orthography of [TranscriptionLanguage].
-
 ### Mission
 Given a single, complete audio file, your mission is to meticulously segment all **meaningful human speech** and provide a tight, verbatim transcription and overlap metadata for each segment:
 1. **Detect Real Spoken Words:** Identify segments containing actual lexical speech or meaningful conversational interjections, ignoring pure breathing, panting, or non-lexical moaning.
@@ -58,8 +52,8 @@ During intimate or sex scenes, continuous breathing (`haa, haa`), panting, and r
   * **Splitting Long Speeches (`6.0s+`):** When a speaker talks continuously for 6+ seconds, split into segments targeting up to ~4.5s max per part. **CRITICAL:** Prioritize splitting strictly at natural grammatical clause boundaries (e.g. after `...no-de,`, `...ka-ra,`, `...ke-do,`, or after a complete thought), NEVER mid-noun-phrase or between a subject and its predicate (e.g. do NOT cut between `mo-no ga` and `na-ku-na-tte shi-ma-tta no-de`). The resulting parts do NOT need to have identical or equal duration.
 
 **Directive 2: Absolute Transcription Fidelity**
-* Your transcription for each detected segment **MUST** be a verbatim, literal phonetic record of the spoken words (in syllable-hyphenated ASCII Hepburn Romaji if Japanese, separating every syllable/mora within a word by `-`, or native script for other languages).
-* Apply standard ASCII punctuation (`.`, `,`, `!`, `?`) at the end of a transcribed segment to reflect vocal inflection. Avoid littering the text with endless chains of `...haa... haa...`.
+* Your transcription for each detected segment **MUST** be a verbatim, literal record of the spoken words in natural native orthography (Kanji/Kana for Japanese).
+* Apply standard punctuation (`。`, `、`, `！`, `？`) at the end of a transcribed segment to reflect vocal inflection. Avoid littering the text with endless chains of breathing or moaning.
 * You are strictly forbidden from inventing, summarizing, or altering dialogue. The audio data is the absolute source of truth.
 
 **Directive 3: Mandatory Sentence & Punctuation Splitting (`.`, `?`, `!`):**
@@ -82,17 +76,17 @@ The time format needs to be "<hour>:<minutes>:<seconds>.<milliseconds>". It is a
   {
     "StartTime": "00:00:32.150",
     "EndTime": "00:00:35.800",
-    "VoiceText": "Se-n-pa-i, kyo-u mo o-tsu-ka-re-sa-ma de-shi-ta."
+    "VoiceText": "先輩、今日もお疲れ様でした。"
   },
   {
     "StartTime": "00:00:36.120",
     "EndTime": "00:00:38.450",
-    "VoiceText": "Na-ni-ka o-te-tsu-da-i de-ki-ru ko-to wa a-ri-ma-su ka?"
+    "VoiceText": "何かお手伝いできることはありますか？"
   },
   {
     "StartTime": "11:46.719",
     "EndTime": "11:49.850",
-    "VoiceText": "I-ku, i-ku, a-a!"
+    "VoiceText": "イク、イク、ああ！"
   }
 ]
 _______________________________________=",
@@ -508,122 +502,6 @@ _______________________________________=",
     {
       "$type": "TranscriberAIRefineTiming",
       "TranscriptionId": "full-ai-refined",
-      "$insertAfter": "full-ai",
-      "Enabled": true,
-      "PrivateMetadataNames": "TimingTrace",
-      "CanBeUpdated": false,
-      "ExportMetadataSrt": true,
-
-      "SourceAudioIdForRefiner": "audio-clean-waveform",
-      "MaxRetriesPerNode": 7,
-      "MaxBudgetRatio": 4,
-      "MaxDriftSeconds": 1.2,
-      "ShrinkStepSeconds": 0.2,
-      "MinSubtitleDurationSeconds": 0.5,
-      "IncludeTraceInOutputAlways": false,
-      "IncludeTraceInOutputOnError": true,
-      "IncludeTextInOutput": true,
-      "PromptUserOnError": true,
-
-      "Engine": {
-        "$type": "AIEngineAPIGoogle",
-        "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-        "Model": "gemini-3.8-flash",
-        "APIKeyName": "APIKeyGemini",
-        "UseBatchMode": true,
-        "UseBatchModeSaving": 0.50,
-        "RequestBodyExtension": {
-          "safetySettings": [
-            { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
-            { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
-            { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
-            { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
-          ],
-          "generationConfig": {
-            "temperature": 0.0,
-            "maxOutputTokens": 2048,
-            "thinkingConfig": {
-              "thinkingLevel": "low"
-            }
-          }
-        },
-        "SupportAudio": true,
-        "SupportImage": true,
-        "EstimatedCostPerInputMillionTokens": 0.75,
-        "EstimatedCostPerOutputMillionTokens": 2.5
-      },
-      "Metadatas": {
-        "TimingsSource": "full-ai",
-        "Sources": "full-ai"
-      },
-      "Options": {
-        "MetadataNeeded": "VoiceText",
-        "MetadataAlwaysProduced": "VoiceTextWithTimingWarnings",
-      },
-      "InnerOptions": {
-        "SystemPrompt": {
-          "$type": "AIPrompt",
-          "Text": "
-=_______________________________________
-# VERBATIM AUDIO CLIP TRANSCRIPTIONIST
-
-You are an expert audio transcriptionist.
-Your sole job is to listen to the provided AudioClip for each item and transcribe every audible vocal sound syllable-by-syllable—both spoken words AND any non-lexical vocalizations or breaths (`fu-fu`, `a`, `a-a`, `a-h`, `ha-a`, `fu-u`, `n-n`, sighs, gasps, giggles, panting, moans, etc.).
-
-### Language & Script Rule:
-* **Source Language:** [TranscriptionLanguage]
-* **If [TranscriptionLanguage] is Japanese:** You **MUST** transcribe all spoken words and vocalizations/breaths in **syllable-hyphenated ASCII Hepburn Romaji** (Latin alphabet only, separating every audible syllable/mora within a word or vocalization with a hyphen `-`, e.g., `Se-n-pa-i`, `ki-mo-chi-i`, `fu-fu`, `ha-a`; no Kanji/Hiragana/Katakana, no macrons like `ō` or `ū`). Keep normal spaces between words.
-* **If [TranscriptionLanguage] is any other language:** Transcribe in the standard native script of [TranscriptionLanguage].
-
-### Rules:
-1. Transcribe strictly and completely what is audible inside the clip.
-2. **Include All Audible Breaths, Moans & Giggles (`fu-fu`, `a`, `a-a`, `a-h`, `ha-a`, `fu-u`, `n-n`, etc.):** Do NOT filter out or clean up leading, trailing, or internal breaths, sighs, gasps, moans, hums, or giggles. If a speaker giggles (`fu-fu`), exhales/pants (`ha-a`, `fu-u`), or moans (`a`, `a-a`, `n-n`) before, during, or after the spoken words, you **MUST** include those exact sounds in `VoiceText` (e.g., `"Fu-fu, chi-ku-bi ki-mo-chi-i?"` or `"Ha-a, ki-mo-chi-i, ha-a..."`) so downstream timing refinement can detect and remove them.
-3. If words, syllables, or vocalizations are cut off at the start or end, transcribe only the audible syllables (e.g., if `su-go-i de` has `su` cut off at the start, output `"go-i de."`).
-4. Do not invent or complete cut-off words.
-5. **Multiple Speakers:** If multiple people speak or vocalize simultaneously or back-to-back inside the clip, transcribe all audible lines and vocalizations (separated by ` / ` or `\n- `).
-6. Only if no human vocal or breath sounds are present (only bed rustle, room noise, or silence), output an empty string: `"VoiceText": ""`.
-
-IMPORTANT: A clip may contain a 0.5s–2.0s pause/silence in the middle of a sentence. Always listen all the way from the very beginning to the very end of the AudioClip and transcribe everything spoken or vocalized both before AND after any internal pause.
-
-### Output Format:
-Return a valid JSON array of objects containing only `"StartTime"` and `"VoiceText"`:
-[
-  {
-    "StartTime": "00:00:03.428",
-    "VoiceText": "go-i de."
-  },
-  {
-    "StartTime": "00:00:05.542",
-    "VoiceText": "Fu-fu, e, su-go-na-i? Ha-a..."
-  }
-]
-_______________________________________="
-        },
-        "MetadataNeeded": "",
-        "MetadataAlwaysProduced": "VoiceText",
-        "BinaryDataExtractors": [
-          {
-            "$type": "BinaryDataExtractorAudio",
-            "OutputFieldName": "AudioClip",
-            "Enabled": true,
-            "ExpandStart": "00:00:00",
-            "ExpandEnd": "00:00:00",
-            "KeepTemporaryFiles": false,
-            "SourceAudioId": "audio"
-          }
-        ],
-        "MaximumRequestsInBatch": 50,
-        "BatchSize": 20,
-        "BatchSplitWindows": 0,
-        "BatchKeepTogetherThreshold": "00:00:00.0000000",
-        "NbContextItems": 0,
-        "NbItemsMinimumReceivedToContinue": 15,
-        "FieldsToInclude": "StartTime"
-      }
-    },
-    {
-      "$type": "TranscriberAIRefineTimingV2",
-      "TranscriptionId": "full-ai-refined-v2",
       "$insertAfter": "full-ai-refined",
       "Enabled": true,
       "PrivateMetadataNames": "TimingTrace",
@@ -644,32 +522,13 @@ _______________________________________="
       "PromptUserOnError": true,
 
       "Engine": {
-        "$type": "AIEngineAPIGoogle",
-        "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-        "Model": "gemini-4-argon",
-        "APIKeyName": "APIKeyGemini",
-        "UseBatchMode": true,
-        "UseBatchModeSaving": 0.50,
-        "RequestBodyExtension": {
-          "safetySettings": [
-            { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
-            { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
-            { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
-            { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
-          ],
-          "generationConfig": {
-            "temperature": 0.0,
-            "maxOutputTokens": 2048,
-            "thinkingConfig": {
-              "thinkingLevel": "low"
-            }
-          }
-        },
-        "SupportAudio": true,
-        "SupportImage": true,
-        "EstimatedCostPerInputMillionTokens": 0.75,
-        "EstimatedCostPerOutputMillionTokens": 2.5
+        "$ref": "AIEngineGemini4"
       },
+      "EngineConfigOverride": {
+          "generationConfig": {
+            "maxOutputTokens": 2048
+          }
+      }
       "Metadatas": {
         "TimingsSource": "full-ai",
         "Sources": "full-ai"
@@ -693,13 +552,13 @@ Your job is to:
 
 ### Input Fields per Node
 1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
-2. `OriginalText`: Draft transcription of the expected phrase. **Warning:** Do not let `OriginalText` trick you into hearing words that are not spoken! If `OriginalText` has extra clauses/words at the start or end that are absent from the audio, report what is actually spoken in `"HeardText"`.
+2. `OriginalText`: Draft transcription of the expected phrase. **Warning:** Do not let `OriginalText` trick you into hearing words that are not spoken! If `OriginalText` has extra clauses/words at the start or end that are absent from the audio, report what is actually spoken in `"HeardText"` using natural Japanese characters (Kanji/Kana).
 3. `PossibleBleedFromPrev` (Optional): Dialogue from the immediately preceding subtitle. If you hear any part of this text at the **beginning** of wider clips, it belongs to the previous subtitle—choose a tighter `BestStart` that cuts *after* it!
 4. `PossibleBleedFromNext` (Optional): Dialogue from the immediately following subtitle. If you hear any part of this text at the **end** of wider clips, it belongs to the next subtitle—choose a tighter `BestEnd` that cuts *before* it!
 5. `Audio_Max_Max` (Wide Reference Clip — **LISTEN FIRST**):
    - This is the widest reference clip covering the broader neighborhood around the line.
    - **Step 1:** Listen to `Audio_Max_Max` first to determine what the speaker **actually says** for this line (excluding any `PossibleBleedFromPrev` / `PossibleBleedFromNext`).
-   - If part of `OriginalText` is **never spoken** even in `Audio_Max_Max` (or if different words are spoken), set `"HeardText"` to the exact Romaji transcription of what you actually hear, and judge `BestStart` and `BestEnd` around **that actual speech**!
+   - If part of `OriginalText` is **never spoken** even in `Audio_Max_Max` (or if different words are spoken), set `"HeardText"` to what you actually heard, and judge `BestStart` and `BestEnd` around **that actual speech**!
 6. Candidate Clips (`Audio_<StartId>_<EndId>`, ordered from tightest/shortest to widest/longest):
    - Each clip's name tells you which Start boundary (`<StartId>`) and End boundary (`<EndId>`) it uses:
      - `C1`: Tightest (innermost) boundary option
@@ -710,14 +569,14 @@ Evaluate the **Start** and **End** boundaries **independently** (e.g., you can p
 
 1. **Standard Boundary Choice (`"C1"`, `"C2"`, `"C3"`, `"C4"`, `"C5"`, ...):**
    - Listen from the tightest clip (`C1`) outward (`C2`, `C3`, ...).
-   - Pick the **tightest (lowest-numbered `C#`)** boundary ID on each side that includes 100% of the spoken syllables (no clipped initial consonant or final vowel) while excluding leading/trailing panting (`haa, haa`), giggles (`fufu`), silence, faint room noise, or neighbour bleed.
+   - Pick the **tightest (lowest-numbered `C#`)** boundary ID on each side that includes 100% of the spoken words (no clipped initial consonant or final vowel) while excluding leading/trailing panting, giggles, silence, faint room noise, or neighbour bleed.
    - **Do NOT stretch `BestStart` or `BestEnd` into silence or breaths trying to account for words in `OriginalText` that were never spoken!**
    - Only pick a boundary ID (`C1`, `C2`, ...) that actually appears in the candidate `Audio_<StartId>_<EndId>` field names for that node.
 2. **When Even the Widest `C#` Candidate Cuts Off Real Speech (`"Max"`):**
    - Output `"Max"` for `BestStart` or `BestEnd` **ONLY** if you clearly hear additional spoken syllables of this line inside `Audio_Max_Max` that are still cut off in the widest `C#` clip.
    - **NEVER output `"Max"` if the region beyond the widest `C#` clip is just silence, breathing, or a faint duplicate murmur!** If words from `OriginalText` are missing in `Audio_Max_Max`, report the shorter actual speech in `"HeardText"` and pick the tight `C#` boundary that frames it.
 3. **Disagreement with `OriginalText` (`HeardText`):**
-   - If what is actually spoken in `Audio_Max_Max` differs from `OriginalText` (e.g., `OriginalText` says `"So-re ka-u ne-n, a-no hi-to."` but the speaker only says `"So-re ka-u ne-n."`), set `"HeardText"` to what is actually spoken and frame `BestStart`/`BestEnd` tightly around `"HeardText"`.
+   - If what is actually spoken in `Audio_Max_Max` differs from `OriginalText` (e.g., `OriginalText` says 「それ買うねん、あの人。」 but the speaker only says 「それ買うねん。」), set `"HeardText"` to what is actually spoken and frame `BestStart`/`BestEnd` tightly around `"HeardText"`.
    - If `Audio_Max_Max` contains no intelligible speech at all (only silence/noise/breathing), set `"BestStart": "Inaudible"`, `"BestEnd": "Inaudible"`, and `"HeardText": ""`.
    - **If the spoken words match `OriginalText`, OMIT `"HeardText"` (do not include the field).**
 
@@ -733,7 +592,7 @@ Return a single valid JSON array with one object per input node:
     "StartTime": "00:00:36.120",
     "BestStart": "C1",
     "BestEnd": "C2",
-    "HeardText": "So-re ka-u ne-n."
+    "HeardText": "それ買うねん。"
   }
 ]
 _______________________________________="

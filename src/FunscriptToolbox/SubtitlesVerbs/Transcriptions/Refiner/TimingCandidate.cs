@@ -1,8 +1,8 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
+using FunscriptToolbox.Core;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -14,45 +14,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
 
-        // Best window found so far. Once the candidate is finished, this is the final timing.
+        // Initial snapped boundaries
+        public TimeSpan InitStart { get; set; }
+        public TimeSpan InitEnd { get; set; }
+
+        // Current best / working boundaries
         public TimeSpan CurrentTestStart { get; set; }
         public TimeSpan CurrentTestEnd { get; set; }
 
-        // Hard limits imposed by confirmed neighbor boundaries
         public TimeSpan? HardLimitStart { get; set; }
         public TimeSpan? HardLimitEnd { get; set; }
-        public TimeSpan? LastShrunkHardLimitStart { get; set; }
-        public TimeSpan? LastShrunkHardLimitEnd { get; set; }
-        public TimeSpan? LastCompleteStart { get; set; }
-        public bool PushedRightByNeighbor { get; set; }
-        [JsonIgnore] public string PendingStopReason { get; set; }
-        [JsonIgnore] public bool HasStopped { get; set; }
 
-        // Window waiting to be sent to the AI in the next iteration.
-        public TimeWindow Plan { get; set; } = null;
-
-        // Every window already tested, with what the AI heard. Nothing is ever discarded.
-        public List<TestedWindow> Tests { get; set; } = new List<TestedWindow>();
-
-        public SideSearch Start { get; set; } = new SideSearch();
-        public SideSearch End { get; set; } = new SideSearch();
-
-        public SideSearch Side(BoundarySide side) => side == BoundarySide.Start ? Start : End;
-        [JsonIgnore] public bool IsFullyLocked => Start.IsLocked && End.IsLocked;
+        public bool StartLocked { get; set; }
+        public bool EndLocked { get; set; }
+        [JsonIgnore] public bool IsFullyLocked => StartLocked && EndLocked;
 
         public int RetryCount { get; set; }
+        public bool WasResetByOverlap { get; set; }
+        public string PossibleBleedFromPrev { get; set; }
+        public string PossibleBleedFromNext { get; set; }
+
+        public TimingRound CurrentRound { get; set; }
+        public List<TimingRound> Rounds { get; set; } = new List<TimingRound>();
+
         public List<string> ValidationNotes { get; set; } = new List<string>();
         public List<string> Traces { get; set; } = new List<string>();
 
-        public TestedWindow FindTest(TimeSpan start, TimeSpan end)
-        {
-            return Tests.FirstOrDefault(t => t.Start == start && t.End == end);
-        }
-
         public void LockAll()
         {
-            Start.IsLocked = true;
-            End.IsLocked = true;
+            StartLocked = true;
+            EndLocked = true;
         }
 
         public void AddValidationNote(string note)
@@ -63,24 +54,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public string GetLockTag()
         {
-            if (Start.IsLocked && End.IsLocked) return "**";
-            if (Start.IsLocked) return "S?";
-            if (End.IsLocked) return "?E";
+            if (StartLocked && EndLocked) return "**";
+            if (StartLocked) return "S?";
+            if (EndLocked) return "?E";
             return "??";
-        }
-
-        public static char GetStartMod(TimeSpan prev, TimeSpan cur)
-        {
-            var diffMs = (cur - prev).TotalMilliseconds;
-            if (Math.Abs(diffMs) < 1) return ' ';
-            return diffMs > 0 ? '-' : '+';
-        }
-
-        public static char GetEndMod(TimeSpan prev, TimeSpan cur)
-        {
-            var diffMs = (cur - prev).TotalMilliseconds;
-            if (Math.Abs(diffMs) < 1) return ' ';
-            return diffMs < 0 ? '-' : '+';
         }
 
         public void AddTraceRow(string step, char startMod, TimeSpan start, TimeSpan end, char endMod, string result = null, string text = null)
@@ -99,6 +76,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 string textCol = text != null ? $"'{text}'" : "";
                 Traces.Add($"{lockTag} {stepCol} {boundsCol} {resCol} {textCol}".TrimEnd());
             }
+        }
+
+        public static char GetStartMod(TimeSpan prev, TimeSpan cur)
+        {
+            var diffMs = (cur - prev).TotalMilliseconds;
+            if (Math.Abs(diffMs) < 1) return ' ';
+            return diffMs > 0 ? '-' : '+';
+        }
+
+        public static char GetEndMod(TimeSpan prev, TimeSpan cur)
+        {
+            var diffMs = (cur - prev).TotalMilliseconds;
+            if (Math.Abs(diffMs) < 1) return ' ';
+            return diffMs < 0 ? '-' : '+';
+        }
+
+
+        public Subtitle ToSubtitle()
+        {
+            return new Subtitle(this.CurrentTestStart, this.CurrentTestEnd, new[] { this.OriginalText });
         }
     }
 }
