@@ -653,6 +653,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return i >= 0 && r_mountainEnds[i] > from;
         }
 
+        /// <summary>
+        /// Moves a boundary inward over pure silence: End goes back to the end of the last mountain before it,
+        /// Start goes forward to the start of the first mountain after it.
+        /// Returns 'time' unchanged when it is inside a mountain or when there is no mountain on that side.
+        /// </summary>
+        public TimeSpan TrimSilence(TimeSpan time, BoundarySide side)
+        {
+            if (r_mountains == null || r_mountains.Count == 0)
+                return time;
+
+            if (side == BoundarySide.End)
+            {
+                int i = LastIndexLess(r_mountainStarts, time);
+                return i >= 0 && r_mountainEnds[i] < time ? r_mountainEnds[i] : time;
+            }
+
+            int j = FirstIndexGreater(r_mountainEnds, time);
+            return j < r_mountains.Count && r_mountainStarts[j] > time ? r_mountainStarts[j] : time;
+        }
+
         private SpeechSegment MountainAt(TimeSpan time)
         {
             int i = LastIndexLess(r_mountainStarts, time + TimeSpan.FromTicks(1));

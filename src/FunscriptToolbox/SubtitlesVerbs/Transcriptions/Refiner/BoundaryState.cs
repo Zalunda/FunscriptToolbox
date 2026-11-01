@@ -13,6 +13,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public TimeSpan Current { get; set; }
 
         public bool Locked { get; set; }
+
+        /// <summary>Number of AI answers already received for this boundary.</summary>
+        public int RetryCount { get; set; }
+
         public List<BoundaryDipCandidate> Dips { get; } = new List<BoundaryDipCandidate>();
     }
 }

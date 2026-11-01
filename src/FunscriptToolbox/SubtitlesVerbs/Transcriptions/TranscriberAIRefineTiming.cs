@@ -10,8 +10,10 @@ using System.Text;
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     /// <summary>
-    /// Refines the timing of an existing transcription by generating multiple comparative audio clip options
-    /// (Audio_Max_Max, then Audio_C1_C1 .. Audio_CK_CK) per subtitle and asking the AI to select the best Start and End boundaries.
+    /// Refines the timing of an existing transcription in two sequential passes:
+    ///   1. START pass: Audio_Max, Audio_S1..Audio_Sn (same end, different starts) -> BestStart
+    ///   2. END pass:   Audio_Max, Audio_E1..Audio_En (start locked, different ends) -> BestEnd
+    /// Each pass has its own prompt/options (InnerOptionsStart / InnerOptionsEnd).
     /// </summary>
     public class TranscriberAIRefineTiming : TranscriberAI, ITimingRefinerSettings
     {
@@ -56,8 +58,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             public static string BuildKey(TimeSpan originalStart, TimingRound round)
             {
-                var clipsSig = string.Join(";", round.Clips.Select(c => $"{c.StartId}-{c.EndId}:{c.Start:hh\\:mm\\:ss\\.fff}-{c.End:hh\\:mm\\:ss\\.fff}"));
-                return $"{originalStart:hh\\:mm\\:ss\\.fff}|{round.CenterStart:hh\\:mm\\:ss\\.fff}-{round.CenterEnd:hh\\:mm\\:ss\\.fff}|{clipsSig}";
+                var clipsSig = string.Join(";", round.Clips.Select(c => $"{c.OptionId}:{c.Start:hh\\:mm\\:ss\\.fff}-{c.End:hh\\:mm\\:ss\\.fff}"));
+                return $"{originalStart:hh\\:mm\\:ss\\.fff}|{round.Side}|{round.Center:hh\\:mm\\:ss\\.fff}|{StableHash(round.TextSent)}|{clipsSig}";
+            }
+
+            /// <summary>64-bit FNV-1a (string.GetHashCode is randomized per process on modern .NET, so it can't be used for a persisted cache).</summary>
+            private static string StableHash(string text)
+            {
+                unchecked
+                {
+                    ulong hash = 14695981039346656037;
+                    foreach (var ch in text ?? "")
+                    {
+                        hash ^= ch;
+                        hash *= 1099511628211;
+                    }
+                    return hash.ToString("x16");
+                }
             }
 
             public void AddCachedResult(TimeSpan originalStart, TimingRound round, CachedCandidateResponse result)
@@ -136,32 +153,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         // ---------------------------------------------------------------------
-        // Settings (ITimingRefinerSettings members are the ones with Order 21..28)
+        // Settings (ITimingRefinerSettings members are the ones with Order 21..27, 29)
         // ---------------------------------------------------------------------
 
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string SourceAudioIdForTerrain { get; set; }
 
-        [JsonProperty(Order = 21)]
-        public int MaxRetriesPerNode { get; set; } = 3;
-
-        [JsonProperty(Order = 22)]
-        public int MaxMountainStepsInward { get; set; } = 2;
-
+        /// <summary>After the AI's final Start answer, move the Start forward over pure silence (according to the terrain).</summary>
         [JsonProperty(Order = 23)]
-        public int MaxMountainStepsOutward { get; set; } = 2;
+        public bool TrimSilenceOnStart { get; set; } = false;
 
-        [JsonProperty(Order = 23)]
+        /// <summary>After the AI's final End answer, move the End back over pure silence (according to the terrain).</summary>
+        [JsonProperty(Order = 24)]
+        public bool TrimSilenceOnEnd { get; set; } = true;
+
+        [JsonProperty(Order = 25)]
         public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
 
-        [JsonProperty(Order = 24)]
+        [JsonProperty(Order = 26)]
         public TimeSpan BleedDetectionMargin { get; set; } = TimeSpan.FromSeconds(3.0);
 
-        [JsonProperty(Order = 26)]
-        public TimeSpan TinyOverlapTolerance { get; set; } = TimeSpan.FromMilliseconds(30);
-
+        /// <summary>START pass only: all clips end this long after the initial End (so the AI hears the whole line).</summary>
         [JsonProperty(Order = 27)]
-        public double MaxBudgetRatio { get; set; } = 2.0;
+        public TimeSpan StartPassTailPadding { get; set; } = TimeSpan.FromSeconds(0.8);
 
         [JsonProperty(Order = 28)]
         public float ValleyReach { get; set; } = 0.25f;
@@ -175,8 +189,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 31)]
         public bool IncludeTextInOutput { get; set; } = true;
 
-        [JsonProperty(Order = 34, Required = Required.Always)]
-        public AIOptions InnerOptions { get; set; } = new AIOptions();
+        /// <summary>Prompt/batching/extractors of the START pass (must produce BestStart, optionally HeardText).</summary>
+        [JsonProperty(Order = 40, Required = Required.Always)]
+        public AIOptions InnerOptionsStart { get; set; } = new AIOptions();
+
+        /// <summary>Prompt/batching/extractors of the END pass (must produce BestEnd).</summary>
+        [JsonProperty(Order = 41, Required = Required.Always)]
+        public AIOptions InnerOptionsEnd { get; set; } = new AIOptions();
+
+        private AIOptions InnerOptionsFor(BoundarySide side)
+            => side == BoundarySide.Start ? this.InnerOptionsStart : this.InnerOptionsEnd;
 
         // ---------------------------------------------------------------------
         // Prerequisites
@@ -193,12 +215,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return false;
             }
 
-            foreach (var extractor in this.InnerOptions.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
+            foreach (var inner in new[] { this.InnerOptionsStart, this.InnerOptionsEnd })
             {
-                if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
+                foreach (var extractor in inner?.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
                 {
-                    reason = $"Audio extraction '{extractor.SourceAudioId}' is not done yet.";
-                    return false;
+                    if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
+                    {
+                        reason = $"Audio extraction '{extractor.SourceAudioId}' is not done yet.";
+                        return false;
+                    }
                 }
             }
             return base.IsPrerequisitesMet(context, out reason);
@@ -219,46 +244,78 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public Dictionary<TimeSpan, TimingCandidate> NewlyRequested = new Dictionary<TimeSpan, TimingCandidate>();
         }
 
+        private class PhaseReport
+        {
+            public BoundarySide Side;
+            public int Iterations;
+            public int Tests;     // field (not property) so it can be passed by ref
+        }
+
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
             var jobState = GetOrCreateJobState(transcription);
             var refiner = CreateRefiner(context, transcription);
             LoadCandidates(context, refiner);
 
-            int iteration = 0;
-            int totalTestsRun = 0;
-            int totalAllowedTests = (int)(refiner.Candidates.Count * this.MaxBudgetRatio);
-
-            while (totalTestsRun < totalAllowedTests && iteration <= this.MaxRetriesPerNode)
+            var reports = new List<PhaseReport>();
+            foreach (var side in TimingCandidate.Sides)
             {
-                refiner.PrepareNextRound();
+                if (!RunPhase(context, transcription, refiner, jobState, side, reports))
+                    return; // Interrupted
+            }
 
-                // PrepareNextRound leaves CurrentRound == null on locked / exhausted candidates
+            refiner.FinalizeOverlaps();
+            UpdateTranscription(transcription, refiner.Candidates);
+            PrintSummary(context, transcription, refiner, reports);
+            transcription.MarkAsFinished();
+            context.WIP.Save();
+        }
+
+        private bool RunPhase(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            TimingRefiner refiner,
+            JobState jobState,
+            BoundarySide side,
+            List<PhaseReport> reports)
+        {
+            var report = new PhaseReport { Side = side };
+            reports.Add(report);
+
+            var options = InnerOptionsFor(side);
+            refiner.BeginPhase(side);
+
+            // Ends when PrepareNextRound has nothing left to ask (every boundary locked, or the runaway guard was reached)
+            while (true)
+            {
+                refiner.PrepareNextRound(side);
+
+                // PrepareNextRound leaves CurrentRound == null on locked / exhausted / auto-locked candidates
                 var candidatesToTest = refiner.Candidates.Where(c => c.CurrentRound != null).ToList();
 
-                iteration++;
-                context.WriteInfo($"  Iteration {iteration}: " +
-                    $"{refiner.Candidates.Count(c => c.Start.Locked)}/{refiner.Candidates.Count} start locked, " +
-                    $"{refiner.Candidates.Count(c => c.End.Locked)}/{refiner.Candidates.Count} end locked, " +
-                    $"testing {candidatesToTest.Count} candidates, total allowed tests left: {totalAllowedTests - totalTestsRun}...");
+                report.Iterations++;
+                context.WriteInfo($"  [{side}] Iteration {report.Iterations}: " +
+                    $"{refiner.Candidates.Count(c => c[side].Locked)}/{refiner.Candidates.Count} locked, " +
+                    $"testing {candidatesToTest.Count} candidates...");
 
                 if (candidatesToTest.Count == 0)
                     break;
 
-                var batch = BuildBatch(transcription, iteration, candidatesToTest, jobState, ref totalTestsRun, totalAllowedTests);
-                if (!ExecuteBatch(context, transcription, jobState, batch))
-                    return; // Interrupted
+                var batch = BuildBatch(transcription, side, report.Iterations, candidatesToTest, jobState, options, ref report.Tests);
+                if (!ExecuteBatch(context, transcription, jobState, batch, options))
+                    return false; // Interrupted
 
-                refiner.ProcessBatchResults(batch.Transcription.Items);
+                refiner.ProcessBatchResults(batch.Transcription.Items, side);
                 UpdateTranscription(transcription, refiner.Candidates);
                 DoExportMetatadaSrt(context, transcription, false);
             }
 
-            refiner.FinalizeOverlapsAndMinimumDuration();
+            // Whatever is still open on this side is locked and flagged, so the next pass can rely on it
+            refiner.EndPhase(side);
             UpdateTranscription(transcription, refiner.Candidates);
-            PrintSummary(context, transcription, refiner, totalTestsRun, totalAllowedTests);
-            transcription.MarkAsFinished();
-            context.WIP.Save();
+            DoExportMetatadaSrt(context, transcription, false);
+            context.WriteInfo($"  [{side}] Pass finished: {report.Tests} requests in {report.Iterations - 1} iterations.");
+            return true;
         }
 
         private static JobState GetOrCreateJobState(Transcription transcription)
@@ -308,20 +365,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private RefineBatch BuildBatch(
             Transcription transcription,
+            BoundarySide side,
             int iteration,
             List<TimingCandidate> candidatesToTest,
             JobState jobState,
-            ref int totalTestsRun,
-            int totalAllowedTests)
+            AIOptions options,
+            ref int totalTestsRun)
         {
-            string metadataProduced = string.IsNullOrWhiteSpace(this.InnerOptions.MetadataAlwaysProduced)
-                ? $"{TimingMeta.BestStart},{TimingMeta.BestEnd}"
-                : this.InnerOptions.MetadataAlwaysProduced;
+            string defaultProduced = side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd;
+            string metadataProduced = string.IsNullOrWhiteSpace(options.MetadataAlwaysProduced)
+                ? defaultProduced
+                : options.MetadataAlwaysProduced;
 
             var batch = new RefineBatch
             {
                 Transcription = new Transcription(
-                    id: $"{transcription.Id}_refine_iter_{iteration}",
+                    id: $"{transcription.Id}_refine_{side}_iter_{iteration}",
                     metadataAlwaysProduced: metadataProduced,
                     privateMetadataNames: null,
                     language: transcription.Language,
@@ -330,9 +389,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             foreach (var candidate in candidatesToTest)
             {
-                if (totalTestsRun >= totalAllowedTests)
-                    break;
-
                 var round = candidate.CurrentRound;
                 if (jobState.TryGetCachedResult(candidate.OriginalStartTime, round, out var cached))
                 {
@@ -343,7 +399,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     batch.ItemsToProcess.Add(new TimedItemWithMetadata(
                         candidate.OriginalStartTime,
                         candidate.OriginalEndTime,
-                        BuildNodeMetadata(candidate)));
+                        BuildNodeMetadata(candidate, side)));
                     batch.ClipsByStartTime[candidate.OriginalStartTime] = round.Clips;
                     batch.NewlyRequested[candidate.OriginalStartTime] = candidate;
                 }
@@ -353,14 +409,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return batch;
         }
 
-        private static MetadataCollection BuildNodeMetadata(TimingCandidate candidate)
+        /// <summary>Only what the pass needs: Start gets the previous bleed, End gets the next bleed.</summary>
+        private static MetadataCollection BuildNodeMetadata(TimingCandidate candidate, BoundarySide side)
         {
             var nodeMeta = new MetadataCollection();
-            nodeMeta[TimingMeta.OriginalText] = candidate.OriginalText ?? "";
-            if (!string.IsNullOrWhiteSpace(candidate.PossibleBleedFromPrev))
+            nodeMeta[TimingMeta.OriginalText] = candidate.CurrentRound.TextSent ?? "";
+
+            if (side == BoundarySide.Start && !string.IsNullOrWhiteSpace(candidate.PossibleBleedFromPrev))
                 nodeMeta[TimingMeta.PossibleBleedFromPrev] = candidate.PossibleBleedFromPrev;
-            if (!string.IsNullOrWhiteSpace(candidate.PossibleBleedFromNext))
+
+            if (side == BoundarySide.End && !string.IsNullOrWhiteSpace(candidate.PossibleBleedFromNext))
                 nodeMeta[TimingMeta.PossibleBleedFromNext] = candidate.PossibleBleedFromNext;
+
             return nodeMeta;
         }
 
@@ -369,14 +429,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription,
             JobState jobState,
-            RefineBatch batch)
+            RefineBatch batch,
+            AIOptions options)
         {
             m_activeClipsByStartTime = batch.ClipsByStartTime;
             try
             {
                 if (batch.ItemsToProcess.Count > 0)
                 {
-                    var requestGenerator = ExecuteRequests(context, batch.Transcription, this.InnerOptions, batch.ItemsToProcess.ToArray());
+                    var requestGenerator = ExecuteRequests(context, batch.Transcription, options, batch.ItemsToProcess.ToArray());
                     if (!requestGenerator.IsFinished())
                         return false;
                 }
@@ -484,8 +545,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription,
             TimingRefiner refiner,
-            int totalTestsRun,
-            int totalAllowedTests)
+            List<PhaseReport> reports)
         {
             var s = refiner.ComputeStats();
             if (s == null)
@@ -495,7 +555,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             context.WriteInfo(line);
             context.WriteInfo($"  TIMING REFINER SUMMARY ({transcription.Id})");
             context.WriteInfo(line);
-            context.WriteInfo($"  Total Candidates: {s.Total} | Total Node Requests Run: {totalTestsRun} (Budget: {totalAllowedTests}, {((double)totalTestsRun / Math.Max(1, s.Total)):0.00} reqs/node)");
+            context.WriteInfo($"  Total Candidates: {s.Total}");
+            foreach (var r in reports)
+            {
+                context.WriteInfo($"  {r.Side,-5} pass requests: {r.Tests} ({((double)r.Tests / Math.Max(1, s.Total)):0.00} reqs/node)");
+            }
             context.WriteInfo("");
             context.WriteInfo("  QUALITY BREAKDOWN:");
             context.WriteInfo($"    [OK]   Clean / Full Coverage:       {s.Clean,4}  ({Percent(s.Clean, s.Total):0.0}%)  Both sides locked, no warnings");
@@ -503,12 +567,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             foreach (var (key, label) in TimingRefinerStats.NoteCategories)
                 PrintReviewLine(context, label, s.NoteCounts[key]);
-            PrintReviewLine(context, "Unfinished", s.Unfinished);
 
             context.WriteInfo("");
             context.WriteInfo("  TIMING ADJUSTMENTS & ACCURACY:");
-            context.WriteInfo($"    - Resolved in Round 1:              {s.ResolvedInOneRound,4}  ({Percent(s.ResolvedInOneRound, s.Total):0.0}%)");
-            context.WriteInfo($"    - Needed Round 2+:                  {s.RefinedWithRetries,4}  ({Percent(s.RefinedWithRetries, s.Total):0.0}%)");
+            context.WriteInfo($"    - Resolved with <=1 answer/side:    {s.ResolvedInOneRound,4}  ({Percent(s.ResolvedInOneRound, s.Total):0.0}%)");
+            context.WriteInfo($"    - Needed 2+ answers on a side:      {s.RefinedWithRetries,4}  ({Percent(s.RefinedWithRetries, s.Total):0.0}%)");
             context.WriteInfo($"    - Avg Duration:                     {s.AvgOriginalDuration:0.00}s -> {s.AvgFinalDuration:0.00}s (diff: {(s.AvgFinalDuration - s.AvgOriginalDuration):+0.00;-0.00;0.00}s)");
             context.WriteInfo($"    - Avg Start Drift:                  {s.AvgStartDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardStartDrift:0.00}s)");
             context.WriteInfo($"    - Avg End Drift:                    {s.AvgEndDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardEndDrift:+0.00;-0.00;0.00}s)");
@@ -521,7 +584,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private static void PrintReviewLine(SubtitleGeneratorContext context, string label, int count)
         {
             if (count > 0)
-                context.WriteInfo($"           - {(label + ":"),-29}{count,4}");
+                context.WriteInfo($"           - {(label + ":"),-33}{count,4}");
         }
     }
 }

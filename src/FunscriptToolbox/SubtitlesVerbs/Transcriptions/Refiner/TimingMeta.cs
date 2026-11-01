@@ -6,6 +6,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public const string BestStart = "BestStart";
         public const string BestEnd = "BestEnd";
         public const string HeardText = "HeardText";
+
         public const string OriginalText = "OriginalText";
         public const string PossibleBleedFromPrev = "PossibleBleedFromPrev";
         public const string PossibleBleedFromNext = "PossibleBleedFromNext";

@@ -10,6 +10,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         {
             ("Missing Start", "Missing Start (Max limit)"),
             ("Missing End",   "Missing End (Max limit)"),
+            ("Unfinished",    "Unfinished (safety limit)"),
             ("Mismatch",      "Text Mismatch (in Max)"),
             ("Inaudible",     "Audio Inaudible"),
             ("Overlaps",      "Overlap Warning"),
@@ -18,7 +19,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public int Total { get; set; }
         public int Clean { get; set; }
         public int Review { get; set; }
-        public int Unfinished { get; set; }
+
+        /// <summary>Candidates for which both boundaries were settled with a single AI answer (or none).</summary>
         public int ResolvedInOneRound { get; set; }
         public int RefinedWithRetries => Total - ResolvedInOneRound;
 

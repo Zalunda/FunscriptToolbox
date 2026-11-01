@@ -8,11 +8,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
     public class TimingCandidate
     {
+        /// <summary>The order in which the boundaries are refined.</summary>
         public static readonly BoundarySide[] Sides = { BoundarySide.Start, BoundarySide.End };
 
         public TimeSpan OriginalStartTime { get; set; }
         public TimeSpan OriginalEndTime { get; set; }
         public string OriginalText { get; set; }
+
+        /// <summary>What the AI heard during the Start pass (null when it agreed with OriginalText).</summary>
+        public string HeardText { get; set; }
+
+        /// <summary>Best known text: what the AI heard if it disagreed with the draft, otherwise the draft.</summary>
+        [JsonIgnore] public string TextForAI => string.IsNullOrWhiteSpace(HeardText) ? OriginalText : HeardText;
 
         [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
 
@@ -23,8 +30,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         [JsonIgnore] public bool IsFullyLocked => Start.Locked && End.Locked;
 
-        public int RetryCount { get; set; }
-        public bool WasResetByOverlap { get; set; }
         public string PossibleBleedFromPrev { get; set; }
         public string PossibleBleedFromNext { get; set; }
 
@@ -38,12 +43,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         {
             Start.Locked = true;
             End.Locked = true;
-        }
-
-        public void UnlockAll()
-        {
-            Start.Locked = false;
-            End.Locked = false;
         }
 
         public void AddValidationNote(string note)
