@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -20,11 +21,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         private readonly TimingRefiner r_refiner;
         private readonly TimingChecksSettings r_checks;
+        private readonly Regex r_maybePointless;
 
-        public TimingValidator(TimingRefiner refiner, TimingChecksSettings checks)
+        public TimingValidator(TimingRefiner refiner, TimingValidatorSettings settings)
         {
             r_refiner = refiner ?? throw new ArgumentNullException(nameof(refiner));
-            r_checks = checks ?? new TimingChecksSettings();
+            r_checks = settings?.Checks ?? new TimingChecksSettings();
+            r_maybePointless = r_checks.CreateMaybePointlessRegex();
         }
 
         /// <summary>The long subtitles to split (nothing when LongWithSilence is not set to Fix). Nothing is flagged here.</summary>
@@ -60,7 +63,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>Flags everything the checks find.</summary>
         public void Run()
         {
-            var candidates = r_refiner.Candidates;
+            // The title cards have no text and no speech to check
+            var candidates = r_refiner.Candidates.Where(c => c.Origin != TimingOrigin.TitleCard).ToList();
 
             foreach (var cand in candidates)
             {
@@ -68,6 +72,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 CheckSpeechInside(cand);
                 CheckDuration(cand);
                 CheckTextLoop(cand);
+                CheckMaybePointless(cand);
                 CheckLongWithSilence(cand);
             }
 
@@ -137,6 +142,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                         $"Too fast ({chars} chars in {duration.TotalSeconds:0.00}s = {rate:0.0}/s, max {r_checks.MaxCharsPerSecond.Value:0.0}/s)");
                 }
             }
+        }
+
+        /// <summary>A subtitle that is only filler words said over and over ("すごい", "ああ", "きもちいい"...): maybe not worth a subtitle.</summary>
+        private void CheckMaybePointless(TimingCandidate cand)
+        {
+            if (r_maybePointless == null)
+                return;
+
+            var text = (cand.FinalText ?? "").Trim();
+            if (text.Length == 0 || !r_maybePointless.IsMatch(text))
+                return;
+
+            var name = r_checks.FindMaybePointlessPatternName(text);
+            r_refiner.Flag(cand, ValidationCode.MaybePointless,
+                $"Maybe pointless: only filler words ({name ?? "combination of several"}): `{text}`");
         }
 
         /// <summary>A short unit repeated over and over inside one subtitle: the classic hallucination.</summary>

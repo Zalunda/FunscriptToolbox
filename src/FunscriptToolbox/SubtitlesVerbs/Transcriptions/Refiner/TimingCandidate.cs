@@ -19,15 +19,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>What the AI heard during the Start pass (null when it agreed with OriginalText).</summary>
         public string HeardText { get; set; }
 
-        /// <summary>Best known text: what the AI heard if it disagreed with the draft, otherwise the draft.</summary>
         public TimingOrigin Origin { get; set; }
 
-        /// <summary>True when the TextMismatch validation is set to Fix: HeardText replaces OriginalText in the output.</summary>
-        public bool TextReplaced { get; set; }
+        /// <summary>The text of the node: the original, except for a part of a split subtitle (no text of its own: what the AI heard).</summary>
+        [JsonIgnore] public string FinalText => Origin == TimingOrigin.SplitPart ? HeardText ?? "" : OriginalText;
 
-        /// <summary>The text of the output: what the AI heard when it replaced the original, otherwise the original.</summary>
-        [JsonIgnore] public string FinalText => TextReplaced && !string.IsNullOrWhiteSpace(HeardText) ? HeardText : OriginalText;
-
+        /// <summary>Best known text: what the AI heard if it disagreed with the draft, otherwise the draft.</summary>
         [JsonIgnore] public string TextForAI => string.IsNullOrWhiteSpace(HeardText) ? OriginalText : HeardText;
 
         [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }

@@ -22,11 +22,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         SpeechRateLow,
         RepeatedText,
         TextLoop,
+        MaybePointless,
 
         // The split of a long subtitle (Fix mode), and what it leaves behind to look at
         LongWithSilence,
         SplitPart,
         EmptyText,
+
+        /// <summary>A title card was detected in the video (its on-screen text has to be read).</summary>
+        TitleCard,
     }
 
     /// <summary>What to do when a check finds something.</summary>
@@ -38,11 +42,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>The candidate is flagged: it goes in the REVIEW subtitles, with the reason.</summary>
         Warn,
 
-        /// <summary>
-        /// Apply the automatic fix of that check:
-        /// TextMismatch = the text the AI heard replaces the text;
-        /// LongWithSilence = the subtitle is split at its silences.
-        /// </summary>
+        /// <summary>Apply the automatic fix of that check (only LongWithSilence has one: the subtitle is split at its silences).</summary>
         Fix,
     }
 

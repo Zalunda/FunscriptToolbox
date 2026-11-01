@@ -62,26 +62,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public List<TimingCandidate> Candidates { get; private set; } = new List<TimingCandidate>();
 
         private readonly Dictionary<TimeSpan, TimingCandidate> r_byOriginalStart = new Dictionary<TimeSpan, TimingCandidate>();
-        private readonly IReadOnlyDictionary<ValidationCode, ValidationMode> r_validations;
+        private readonly TimingValidatorSettings r_validatorSettings;
         private readonly double? r_textMismatchMinSimilarity;
 
-        /// <summary>The validations that have an automatic fix (the others can only be Warn or Ignore).</summary>
-        private static readonly ValidationCode[] FixableCodes =
-        {
-            ValidationCode.TextMismatch,
-            ValidationCode.LongWithSilence,
-        };
-
+        /// <param name="validatorSettings">What the refiner flags while it works (null = nothing is flagged).</param>
         /// <param name="sharedTerrain">The terrain of a previous refiner of the same audio (it is long to compute), null to compute it.</param>
-        public TimingRefiner(PcmAudio fullPcmAudioForRefiner, ITimingRefinerSettings settings, AudioTerrainMapping sharedTerrain = null)
+        public TimingRefiner(
+            PcmAudio fullPcmAudioForRefiner,
+            TimingRefinerSettings settings,
+            TimingValidatorSettings validatorSettings,
+            AudioTerrainMapping sharedTerrain = null)
         {
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
 
-            r_validations = settings.Validations ?? new Dictionary<ValidationCode, ValidationMode>();
-            foreach (var validation in r_validations.Where(v => v.Value == ValidationMode.Fix && !FixableCodes.Contains(v.Key)))
-                throw new ArgumentException($"Validations: '{validation.Key}' has no automatic fix, it can only be Warn or Ignore (Fix is for {string.Join(", ", FixableCodes)}).", nameof(settings));
-            r_textMismatchMinSimilarity = settings.Checks?.TextMismatchMinSimilarity;
+            r_validatorSettings = validatorSettings;
+            r_textMismatchMinSimilarity = validatorSettings?.Checks?.TextMismatchMinSimilarity;
             TrimSilenceOnStart = settings.TrimSilenceOnStart;
             TrimSilenceOnEnd = settings.TrimSilenceOnEnd;
             MaxExpansion = settings.MaxExpansion;
@@ -89,7 +85,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             StartPassTailPadding = settings.StartPassTailPadding < TimeSpan.Zero ? TimeSpan.Zero : settings.StartPassTailPadding;
             AudioEndTime = fullPcmAudioForRefiner?.EndTime ?? TimeSpan.MaxValue;
 
-            if (sharedTerrain != null)
+            // Without refining there is no terrain: the refiner is then only the list of candidates
+            if (!settings.Enabled)
+            {
+                TerrainMapping = null;
+            }
+            else if (sharedTerrain != null)
             {
                 TerrainMapping = sharedTerrain;
             }
@@ -118,9 +119,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             cand.AddValidationNote(new ValidationNote(code, message));
         }
 
-        /// <summary>A code that is not in the "Validations" setting is a Warn.</summary>
+        /// <summary>What to do for a code (see <see cref="TimingValidatorSettings.ModeOf"/>): Ignore when there are no validator settings.</summary>
         public ValidationMode ModeOf(ValidationCode code)
-            => r_validations.TryGetValue(code, out var mode) ? mode : ValidationMode.Warn;
+            => r_validatorSettings?.ModeOf(code) ?? ValidationMode.Ignore;
 
         private static TimeSpan Shift(TimeSpan t, BoundarySide side, MoveDirection dir, TimeSpan amount)
             => AudioTerrainMapping.MovesLater(side, dir) ? t + amount : t - amount;
@@ -142,6 +143,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // ---------------------------------------------------------------------
         // Candidate creation (initial snapping only; dips are built when a phase begins)
         // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Adds a candidate as it is (no refining, no terrain): both boundaries are the ones of the item, and settled.
+        /// The candidates must be added in order of start time.
+        /// </summary>
+        public void AddCandidateUnrefined(TimedItemWithMetadata originalItem, string originalText)
+        {
+            var candidate = new TimingCandidate
+            {
+                OriginalStartTime = originalItem.StartTime,
+                OriginalEndTime = originalItem.EndTime,
+                OriginalItem = originalItem,
+                OriginalText = originalText,
+            };
+            candidate.Start.Init = candidate.Start.Current = originalItem.StartTime;
+            candidate.End.Init = candidate.End.Current = originalItem.EndTime;
+            candidate.LockAll();
+            candidate.AddTraceRow("Orig", ' ', originalItem.StartTime, originalItem.EndTime, ' ', "", candidate.OriginalText);
+
+            Candidates.Add(candidate);
+            if (!r_byOriginalStart.ContainsKey(candidate.OriginalStartTime))
+                r_byOriginalStart.Add(candidate.OriginalStartTime, candidate);
+        }
 
         /// <summary>The candidates must be added in order of start time.</summary>
         /// <param name="fixedStart">The Start is already validated (outer edge of a split subtitle): it is used as is and never moves.</param>
@@ -820,22 +844,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 if (side == BoundarySide.Start)
                     cand.HeardText = round.HeardText;
 
-                var message = side == BoundarySide.Start
-                    ? $"Text Mismatch (original vs heard in Max): `{cand.OriginalText}` vs `{round.HeardText}`"
-                    : $"Text Mismatch (start-pass text vs heard in End pass): `{round.TextSent}` vs `{round.HeardText}`";
-
-                // A split part has no text of its own: what the Start pass heard IS its text
-                bool noTextYet = side == BoundarySide.Start && cand.Origin != TimingOrigin.Original;
-
-                if (noTextYet || ModeOf(ValidationCode.TextMismatch) == ValidationMode.Fix)
+                if (side == BoundarySide.Start && cand.Origin != TimingOrigin.Original)
                 {
-                    cand.HeardText = round.HeardText;
-                    cand.TextReplaced = true;
-                    cand.Trace("Text", cand.Start.Current, cand.End.Current, "Text replaced by what was heard", round.HeardText);
+                    // A split part has no text of its own: what the Start pass heard IS its text (not a mismatch)
+                    cand.Trace("Text", cand.Start.Current, cand.End.Current, "Text given by what was heard", round.HeardText);
                 }
                 else
                 {
-                    Flag(cand, ValidationCode.TextMismatch, message);
+                    Flag(cand, ValidationCode.TextMismatch, side == BoundarySide.Start
+                        ? $"Text Mismatch (original vs heard in Max): `{cand.OriginalText}` vs `{round.HeardText}`"
+                        : $"Text Mismatch (start-pass text vs heard in End pass): `{round.TextSent}` vs `{round.HeardText}`");
                 }
             }
 
@@ -1157,6 +1175,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             Candidates = Candidates.OrderBy(c => c.OriginalStartTime).ToList();
         }
 
+        /// <summary>
+        /// Adds the title cards (times of the whole timeline) between the other candidates. They are never refined or checked:
+        /// they have no text, their on-screen text is read later (see {GrabOnScreenText} in the output).
+        /// </summary>
+        public void SpliceTitleCards(IEnumerable<(TimeSpan Start, TimeSpan End)> cards)
+        {
+            var added = new List<TimingCandidate>();
+            foreach (var (start, end) in cards)
+            {
+                var cand = new TimingCandidate
+                {
+                    OriginalStartTime = start,
+                    OriginalEndTime = end,
+                    OriginalItem = new TimedItemWithMetadata(start, end),
+                    OriginalText = "",
+                    Origin = TimingOrigin.TitleCard,
+                };
+                foreach (var boundary in new[] { cand.Start, cand.End })
+                    boundary.Locked = true;
+                cand.Start.Init = cand.Start.Current = start;
+                cand.End.Init = cand.End.Current = end;
+
+                cand.AddTraceRow("Card", ' ', start, end, ' ', "Title card detected in the video");
+                Flag(cand, ValidationCode.TitleCard, "Title card detected (on-screen text to read)");
+                added.Add(cand);
+            }
+
+            ReplaceCandidates(Enumerable.Empty<TimingCandidate>(), added);
+        }
+
         /// <summary>Last safety net: clamps slight overlaps at the midpoint, flags the others for review.</summary>
         public void FinalizeOverlaps()
         {
@@ -1192,31 +1240,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>Computes the summary numbers (null when there are no candidates).</summary>
         public TimingRefinerStats ComputeStats()
         {
-            if (Candidates.Count == 0)
+            // The title cards are not refined: they are left out of the numbers
+            var subs = Candidates.Where(c => c.Origin != TimingOrigin.TitleCard).ToList();
+            if (subs.Count == 0)
                 return null;
 
             var stats = new TimingRefinerStats
             {
-                Total = Candidates.Count,
-                Review = Candidates.Count(c => c.NeedsReview),
+                Total = subs.Count,
+                TitleCards = Candidates.Count - subs.Count,
+                Review = subs.Count(c => c.NeedsReview),
             };
             stats.Clean = stats.Total - stats.Review;
 
             foreach (var (code, _) in TimingRefinerStats.NoteCategories)
                 stats.NoteCounts[code] = Candidates.Count(c => c.ValidationNotes.Any(n => n.Code == code));
 
-            stats.AvgOriginalDuration = Candidates.Average(c => (c.OriginalEndTime - c.OriginalStartTime).TotalSeconds);
-            stats.AvgFinalDuration = Candidates.Average(c => (c.End.Current - c.Start.Current).TotalSeconds);
-            stats.AvgStartDrift = Candidates.Average(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
-            stats.MaxOutwardStartDrift = Candidates.Min(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
-            stats.AvgEndDrift = Candidates.Average(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
-            stats.MaxOutwardEndDrift = Candidates.Max(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
+            stats.AvgOriginalDuration = subs.Average(c => (c.OriginalEndTime - c.OriginalStartTime).TotalSeconds);
+            stats.AvgFinalDuration = subs.Average(c => (c.End.Current - c.Start.Current).TotalSeconds);
+            stats.AvgStartDrift = subs.Average(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
+            stats.MaxOutwardStartDrift = subs.Min(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
+            stats.AvgEndDrift = subs.Average(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
+            stats.MaxOutwardEndDrift = subs.Max(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
 
-            for (int i = 0; i < Candidates.Count; i++)
+            for (int i = 0; i < subs.Count; i++)
             {
-                if (Candidates[i].End.Current - Candidates[i].Start.Current <= MinClipDuration)
+                if (subs[i].End.Current - subs[i].Start.Current <= MinClipDuration)
                     stats.Squashed++;
-                if (i < Candidates.Count - 1 && Candidates[i].End.Current > Candidates[i + 1].Start.Current)
+                if (i < subs.Count - 1 && subs[i].End.Current > subs[i + 1].Start.Current)
                     stats.Overlaps++;
             }
 

@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -54,5 +56,62 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         /// <summary>RepeatedText: texts shorter than this (letters/digits) are never a repetition (short answers and moans repeat legitimately).</summary>
         public int RepeatedTextMinChars { get; set; } = 8;
+
+        /// <summary>
+        /// MaybePointless: the words said over and over in a scene, as in the config of TranscriberAudioFullAI (TranscriptionToIgnorePatterns):
+        /// a list of { "Name", "Pattern" }, a regex on the text of the subtitle as it is (not case sensitive).
+        /// A subtitle made only of the words of these patterns (one or several, in any order) is flagged. Let each pattern take its own
+        /// trailing spaces and punctuation, so they can follow each other. No default: null or empty = not done.
+        /// A pattern can't use backreferences or lookarounds (the matching is done in linear time, so it can never hang).
+        /// </summary>
+        public TranscriberAudioFullAI.TranscriptioToIgnorePattern[] MaybePointlessPatterns { get; set; }
+
+        /// <summary>The patterns that are usable (not null, not empty).</summary>
+        private TranscriberAudioFullAI.TranscriptioToIgnorePattern[] GetMaybePointlessPatterns()
+            => (MaybePointlessPatterns ?? Array.Empty<TranscriberAudioFullAI.TranscriptioToIgnorePattern>())
+                .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Pattern))
+                .ToArray();
+
+        /// <summary>
+        /// The check for MaybePointless: the whole text must be made of the words of the patterns (null when not done).
+        /// </summary>
+        /// <exception cref="InvalidOperationException">A pattern is not usable.</exception>
+        public Regex CreateMaybePointlessRegex()
+        {
+            var patterns = GetMaybePointlessPatterns();
+            if (patterns.Length == 0)
+                return null;
+
+            try
+            {
+                foreach (var pattern in patterns)
+                    _ = pattern.Regex; // each one must be valid by itself (and the error says which one)
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException($"Checks: 'MaybePointlessPatterns' has a pattern that is not valid: {ex.Message}", ex);
+            }
+
+            try
+            {
+                return new Regex(
+                    $"^(?:{string.Join("|", patterns.Select(p => $"(?:{p.Pattern})"))})+$",
+                    RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            }
+            catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException)
+            {
+                throw new InvalidOperationException($"Checks: 'MaybePointlessPatterns' can't be used together: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>The name of the pattern that matches the whole text by itself, said once or many times (null when the text mixes several).</summary>
+        public string FindMaybePointlessPatternName(string text)
+        {
+            return GetMaybePointlessPatterns()
+                .FirstOrDefault(p => new Regex(
+                    $"^(?:{p.Pattern})+$",
+                    RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).IsMatch(text))
+                ?.Name;
+        }
     }
 }

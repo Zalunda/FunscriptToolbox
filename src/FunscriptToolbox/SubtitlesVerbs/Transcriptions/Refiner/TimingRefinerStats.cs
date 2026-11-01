@@ -25,12 +25,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             (ValidationCode.SpeechRateLow,      "Text Too Short for the Speech"),
             (ValidationCode.RepeatedText,       "Same Text as a Nearby Subtitle"),
             (ValidationCode.TextLoop,           "Text Repeating Itself"),
+            (ValidationCode.MaybePointless,     "Maybe Pointless (only filler words)"),
             (ValidationCode.LongWithSilence,    "Long with Silence Inside"),
             (ValidationCode.SplitPart,          "Part of a Split Subtitle"),
             (ValidationCode.EmptyText,          "No Text (from the AI)"),
+            (ValidationCode.TitleCard,          "Title Card Detected"),
         };
 
+        /// <summary>The subtitles (the title cards are counted apart).</summary>
         public int Total { get; set; }
+
+        public int TitleCards { get; set; }
         public int Clean { get; set; }
         public int Review { get; set; }
 

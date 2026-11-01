@@ -4,8 +4,11 @@ using FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
@@ -15,7 +18,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     ///   2. END pass:   Audio_Max, Audio_E1..Audio_En (start locked, different ends) -> BestEnd
     /// Each pass has its own prompt/options (InnerOptionsStart / InnerOptionsEnd).
     /// </summary>
-    public class TranscriberAIRefineTiming : TranscriberAI, ITimingRefinerSettings
+    public class TranscriberAIRefineTiming : TranscriberAI
     {
         // ---------------------------------------------------------------------
         // Cache
@@ -55,6 +58,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public class JobState
         {
             public Dictionary<string, CachedCandidateResponse> CachedResults = new Dictionary<string, CachedCandidateResponse>();
+
+            /// <summary>By filename of the video.</summary>
+            public Dictionary<string, TitleCardProgress> TitleCards = new Dictionary<string, TitleCardProgress>();
 
             public static string BuildKey(TimeSpan originalStart, TimingRound round)
             {
@@ -153,32 +159,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         // ---------------------------------------------------------------------
-        // Settings (ITimingRefinerSettings members are the ones with Order 21..27, 29)
+        // Settings: the task does up to three things, each with its own settings and its own Enabled.
+        // All three disabled: the output is a clone of the source (full-ai).
         // ---------------------------------------------------------------------
-
-        [JsonProperty(Order = 20, Required = Required.Always)]
-        public string SourceAudioIdForTerrain { get; set; }
-
-        [JsonProperty(Order = 21)]
-        public float ValleyReach { get; set; } = 0.25f;
-
-        /// <summary>START pass only: all clips end this long after the initial End (so the AI hears the whole line).</summary>
-        [JsonProperty(Order = 22)]
-        public TimeSpan StartPassTailPadding { get; set; } = TimeSpan.FromSeconds(0.8);
-
-        [JsonProperty(Order = 23)]
-        public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
-
-        [JsonProperty(Order = 24)]
-        public TimeSpan BleedDetectionMargin { get; set; } = TimeSpan.FromSeconds(3.0);
-
-        /// <summary>After the AI's final Start answer, move the Start forward over pure silence (according to the terrain).</summary>
-        [JsonProperty(Order = 25)]
-        public bool TrimSilenceOnStart { get; set; } = false;
-
-        /// <summary>After the AI's final End answer, move the End back over pure silence (according to the terrain).</summary>
-        [JsonProperty(Order = 26)]
-        public bool TrimSilenceOnEnd { get; set; } = true;
 
         [JsonProperty(Order = 27)]
         public bool IncludeTraceInVoiceTextForManualReviewAlways { get; set; } = false;
@@ -190,28 +173,44 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public bool IncludeTextInVoiceTextForManualReview { get; set; } = true;
 
         /// <summary>
-        /// What to do for each kind of finding: Warn (the node goes in the REVIEW subtitles, with the reason) or Ignore.
-        /// A code that is not listed is a Warn.
+        /// Looks for title cards (text on a black background) in the videos, in the background, and adds a node for each
+        /// (with {GrabOnScreenText}, so that its on-screen text is read later). Not set (null) or not Enabled: not done.
         /// </summary>
-        [JsonProperty(Order = 30)]
-        public Dictionary<ValidationCode, ValidationMode> Validations { get; set; } = new Dictionary<ValidationCode, ValidationMode>();
+        [JsonProperty(Order = 22)]
+        public TitleCardDetectorOptions TitleCardDetection { get; set; }
 
-        IReadOnlyDictionary<ValidationCode, ValidationMode> ITimingRefinerSettings.Validations => this.Validations;
 
-        /// <summary>Thresholds of the checks done on the final result. A check without a threshold is not done.</summary>
-        [JsonProperty(Order = 31)]
-        public TimingChecksSettings Checks { get; set; } = new TimingChecksSettings();
+        /// <summary>Refines the Start and End of each subtitle (AI + terrain of the audio).</summary>
+        [JsonProperty(Order = 20)]
+        public TimingRefinerSettings RefineTiming { get; set; } = new TimingRefinerSettings();
 
-        /// <summary>Prompt/batching/extractors of the START pass (must produce BestStart, optionally HeardText).</summary>
-        [JsonProperty(Order = 40, Required = Required.Always)]
-        public AIOptions InnerOptionsStart { get; set; } = new AIOptions();
+        /// <summary>
+        /// Checks the refined subtitles (and fixes some of the problems). Needs RefineTiming.
+        /// Its Validations / Checks settings are used while refining too (what is flagged, the similarity of the texts).
+        /// </summary>
+        [JsonProperty(Order = 21)]
+        public TimingValidatorSettings Validation { get; set; } = new TimingValidatorSettings();
 
-        /// <summary>Prompt/batching/extractors of the END pass (must produce BestEnd).</summary>
-        [JsonProperty(Order = 41, Required = Required.Always)]
-        public AIOptions InnerOptionsEnd { get; set; } = new AIOptions();
+        private bool IsTitleCardDetectionEnabled => this.TitleCardDetection?.Enabled == true;
 
-        private AIOptions InnerOptionsFor(BoundarySide side)
-            => side == BoundarySide.Start ? this.InnerOptionsStart : this.InnerOptionsEnd;
+        /// <summary>A clear error when the settings can't work (a missing setting, or a combination that makes no sense).</summary>
+        private void ValidateConfiguration()
+        {
+            if (this.RefineTiming == null)
+                throw new InvalidOperationException("The 'RefineTiming' settings are missing (use {\"Enabled\": false} to not refine the timings).");
+            if (this.Validation == null)
+                throw new InvalidOperationException("The 'Validation' settings are missing (use {\"Enabled\": false} to not validate).");
+
+            if (this.Validation.Enabled && !this.RefineTiming.Enabled)
+            {
+                throw new InvalidOperationException(
+                    "Validation is enabled but RefineTiming is not: the validation needs the refined timings (and the terrain of the audio). " +
+                    "Enable RefineTiming or disable Validation.");
+            }
+
+            this.RefineTiming.Validate();
+            this.Validation.Validate();
+        }
 
         // ---------------------------------------------------------------------
         // Prerequisites
@@ -221,21 +220,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (context.WIP.AudioExtractions.Any(f => f.Id == this.SourceAudioIdForTerrain)
-                && context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == this.SourceAudioIdForTerrain && f.IsFinished) == null)
+            if (this.RefineTiming?.Enabled == true)
             {
-                reason = $"Audio extraction '{this.SourceAudioIdForTerrain}' is not done yet.";
-                return false;
-            }
-
-            foreach (var inner in new[] { this.InnerOptionsStart, this.InnerOptionsEnd })
-            {
-                foreach (var extractor in inner?.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
+                var terrainId = this.RefineTiming.SourceAudioIdForTerrain;
+                if (context.WIP.AudioExtractions.Any(f => f.Id == terrainId)
+                    && context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == terrainId && f.IsFinished) == null)
                 {
-                    if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
+                    reason = $"Audio extraction '{terrainId}' is not done yet.";
+                    return false;
+                }
+
+                foreach (var inner in new[] { this.RefineTiming.InnerOptionsStart, this.RefineTiming.InnerOptionsEnd })
+                {
+                    foreach (var extractor in inner?.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
                     {
-                        reason = $"Audio extraction '{extractor.SourceAudioId}' is not done yet.";
-                        return false;
+                        if (context.WIP.AudioExtractions.FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished) == null)
+                        {
+                            reason = $"Audio extraction '{extractor.SourceAudioId}' is not done yet.";
+                            return false;
+                        }
                     }
                 }
             }
@@ -278,22 +281,239 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
+            ValidateConfiguration();
+
             var jobState = GetOrCreateJobState(transcription);
+
+            TitleCardRun titleCardRun = null;
+            try
+            {
+                titleCardRun = StartTitleCardDetection(context, jobState);
+                RefineAndExport(context, transcription, jobState, titleCardRun);
+            }
+            finally
+            {
+                // Interrupted or failed: the detection must not go on (what it found is in the job state)
+                if (titleCardRun != null)
+                {
+                    titleCardRun.Cancellation.Cancel();
+                    try { titleCardRun.Task.Wait(TimeSpan.FromSeconds(10)); } catch (AggregateException) { }
+                    titleCardRun.Cancellation.Dispose();
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Title cards: detected in the background, spliced in at the end
+        // ---------------------------------------------------------------------
+
+        /// <summary>What the title card detection did on one video: it is saved in the job state, to resume where it stopped.</summary>
+        public class TitleCardProgress
+        {
+            /// <summary>The settings used: when they change, the video is done again.</summary>
+            public string OptionsSignature;
+
+            /// <summary>Everything before this time (in the video) is done and in Segments.</summary>
+            public TimeSpan ProcessedUntil;
+
+            public bool Done;
+
+            /// <summary>The cards found, in the time of the video.</summary>
+            public List<TitleCardSegment> Segments = new List<TitleCardSegment>();
+        }
+
+        /// <summary>The title card detection running in the background, and what the main thread needs to follow it.</summary>
+        private class TitleCardRun
+        {
+            private long m_processedTicks;
+            private int m_found;
+
+            /// <summary>Gives the title cards in the time of the whole timeline (the ones found so far, when stopped).</summary>
+            public Task<List<TitleCardSegment>> Task;
+
+            public CancellationTokenSource Cancellation = new CancellationTokenSource();
+
+            /// <summary>The length of the whole timeline.</summary>
+            public TimeSpan Total;
+
+            /// <summary>True when the user stopped the detection (what is after Processed is not scanned).</summary>
+            public volatile bool StoppedByUser;
+
+            /// <summary>How far the detection went in the whole timeline.</summary>
+            public TimeSpan Processed => TimeSpan.FromTicks(Interlocked.Read(ref m_processedTicks));
+
+            public int Found => Volatile.Read(ref m_found);
+
+            public void Report(TimeSpan processed, int found)
+            {
+                Interlocked.Exchange(ref m_processedTicks, processed.Ticks);
+                Volatile.Write(ref m_found, found);
+            }
+        }
+
+        /// <returns>null when the detection is not turned on.</returns>
+        private TitleCardRun StartTitleCardDetection(SubtitleGeneratorContext context, JobState jobState)
+        {
+            if (!IsTitleCardDetectionEnabled)
+                return null;
+
+            var options = this.TitleCardDetection;
+
+            // Fails right here (and not later in the background) when ffmpeg or the options are not configured
+            var detector = new TitleCardDetector(context.FfmpegHelper.FfmpegPath, options);
+            var signature = JsonConvert.SerializeObject(options);
+            var timelineSegments = context.WIP.TimelineMap.Segments;
+            var parentPath = context.WIP.ParentPath;
+
+            var run = new TitleCardRun { Total = context.WIP.TimelineMap.Duration };
+            var ct = run.Cancellation.Token;
+
+            context.WriteInfo("  Starting title card detection (in the background)...");
+            run.Task = Task.Run(async () =>
+            {
+                var cards = new List<TitleCardSegment>();
+                foreach (var timelineSegment in timelineSegments)
+                {
+                    // What the background thread changes in the job state is changed while no save is in progress
+                    TitleCardProgress progress = null;
+                    context.WIP.ExecuteLocked(() =>
+                    {
+                        if (!jobState.TitleCards.TryGetValue(timelineSegment.Filename, out progress) || progress.OptionsSignature != signature)
+                        {
+                            progress = new TitleCardProgress { OptionsSignature = signature };
+                            jobState.TitleCards[timelineSegment.Filename] = progress;
+                        }
+                    });
+
+                    // Resuming: the progress shown starts from where the previous run stopped
+                    run.Report(timelineSegment.Offset + progress.ProcessedUntil, cards.Count + progress.Segments.Count);
+
+                    if (!progress.Done)
+                    {
+                        try
+                        {
+                            await detector.DetectAsync(
+                                Path.Combine(parentPath, timelineSegment.Filename),
+                                progress.ProcessedUntil,
+                                (found, processedUntil) =>
+                                {
+                                    context.WIP.ExecuteLocked(() =>
+                                    {
+                                        progress.Segments.AddRange(found);
+                                        progress.ProcessedUntil = processedUntil;
+                                    });
+                                    run.Report(timelineSegment.Offset + processedUntil, cards.Count + progress.Segments.Count);
+                                },
+                                ct);
+                            context.WIP.ExecuteLocked(() => progress.Done = true);
+                        }
+                        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                        {
+                            // Stopped: what was found so far is kept (and in the job state: the next run resumes from there)
+                            cards.AddRange(ToTimeline(progress.Segments, timelineSegment.Offset));
+                            break;
+                        }
+                    }
+
+                    cards.AddRange(ToTimeline(progress.Segments, timelineSegment.Offset));
+                    run.Report(timelineSegment.Offset + timelineSegment.Duration, cards.Count);
+                }
+                return cards;
+            });
+            return run;
+        }
+
+        private static IEnumerable<TitleCardSegment> ToTimeline(IEnumerable<TitleCardSegment> segments, TimeSpan offset)
+            => segments.Select(s => new TitleCardSegment(offset + s.StartTime, offset + s.EndTime)).ToList();
+
+        /// <summary>
+        /// Waits for the detection (if it is not finished), with its progress, and adds a node for each title card.
+        /// Q stops the detection: the title cards of what was not scanned yet are then missing.
+        /// </summary>
+        private void SpliceTitleCards(
+            SubtitleGeneratorContext context,
+            TimingRefiner refiner,
+            TitleCardRun run)
+        {
+            if (run == null)
+                return;
+
+            if (!run.Task.IsCompleted)
+            {
+                context.WriteInfo("  Waiting for the title card detection to finish (PRESS Q TO STOP IT: the manual-input file will then have no title card for the part that was not scanned)...");
+
+                var lastSave = DateTime.Now;
+                while (!run.Task.IsCompleted)
+                {
+                    var percent = run.Total > TimeSpan.Zero ? 100.0 * run.Processed.Ticks / run.Total.Ticks : 0;
+                    var stopText = run.StoppedByUser ? " Stopping..." : " (PRESS Q TO STOP)";
+                    context.DefaultProgressUpdateHandler(
+                        "TitleCardDetector",
+                        null,
+                        $"{percent:0}% scanned ({(int)run.Processed.TotalHours}:{run.Processed:mm\\:ss} of {(int)run.Total.TotalHours}:{run.Total:mm\\:ss}), {run.Found} title card(s) found.{stopText}");
+
+                    if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Q)
+                    {
+                        run.StoppedByUser = true;
+                        run.Cancellation.Cancel();
+                    }
+
+                    if (DateTime.Now - lastSave > TimeSpan.FromSeconds(30))
+                    {
+                        context.WIP.Save(); // keeps what the detection found so far, in case the program stops
+                        lastSave = DateTime.Now;
+                    }
+                    Task.WaitAny(new Task[] { run.Task }, TimeSpan.FromMilliseconds(250));
+                }
+                context.ClearProgressUpdate();
+            }
+
+            var cards = run.Task.GetAwaiter().GetResult(); // throws what went wrong in the detection
+            refiner.SpliceTitleCards(cards.Select(c => (c.StartTime, c.EndTime)));
+            context.WriteInfo(run.StoppedByUser
+                ? $"  Title cards: {cards.Count} detected (stopped at {run.Processed:hh\\:mm\\:ss}: none after that)."
+                : $"  Title cards: {cards.Count} detected.");
+        }
+
+        private void RefineAndExport(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            JobState jobState,
+            TitleCardRun titleCardRun)
+        {
             var inputs = LoadInputs(context);
 
             var refiner = CreateRefiner(context, transcription, null);
-            LoadCandidates(context, refiner, inputs);
             var reports = new List<PhaseReport>();
-            if (!RunPhases(context, transcription, refiner, jobState, reports, exportProgress: true))
-                return; // Interrupted
+            var splitReports = new List<PhaseReport>();
+            int originalCount;
+            int partCount = 0;
 
-            refiner.FinalizeOverlaps();
+            if (this.RefineTiming.Enabled)
+            {
+                LoadCandidates(context, refiner, inputs);
+                if (!RunPhases(context, transcription, refiner, jobState, reports, exportProgress: true))
+                    return; // Interrupted
+
+                refiner.FinalizeOverlaps();
+                originalCount = refiner.Candidates.Count;
+            }
+            else
+            {
+                // Nothing is refined: the subtitles are kept as they are
+                context.WriteInfo($"  RefineTiming is disabled: keeping the {inputs.Count} subtitles as they are.");
+                foreach (var input in inputs)
+                {
+                    input.Item.Metadata.TryGetValue(this.Options.MetadataNeeded, out var originalText);
+                    refiner.AddCandidateUnrefined(input.Item, originalText ?? "");
+                }
+                originalCount = refiner.Candidates.Count;
+            }
 
             // The long subtitles are split, and only the parts are refined (their outer edges are already validated)
-            var splitReports = new List<PhaseReport>();
-            int originalCount = refiner.Candidates.Count;
-            int partCount = 0;
-            var splits = new TimingValidator(refiner, this.Checks).PlanSplits();
+            var splits = this.Validation.Enabled
+                ? new TimingValidator(refiner, this.Validation).PlanSplits()
+                : new List<TimingEdit>();
             if (splits.Count > 0)
             {
                 var partInputs = BuildPartInputs(splits);
@@ -309,12 +529,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 refiner.FinalizeOverlaps();
             }
 
-            new TimingValidator(refiner, this.Checks).Run();
+            SpliceTitleCards(context, refiner, titleCardRun);
+            if (this.Validation.Enabled)
+                new TimingValidator(refiner, this.Validation).Run();
 
             UpdateTranscription(transcription, refiner.Candidates);
             DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => !c.NeedsReview).Select(c => c.ToSubtitle()), "CLEAN");
             DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => c.NeedsReview).Select(c => c.ToReviewSubtitle()), "REVIEW");
-            PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
+            if (this.RefineTiming.Enabled)
+                PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
@@ -349,7 +572,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var report = new PhaseReport { Side = side };
             reports.Add(report);
 
-            var options = InnerOptionsFor(side);
+            var options = this.RefineTiming.InnerOptionsFor(side);
             refiner.BeginPhase(side);
 
             // Ends when PrepareNextRound has nothing left to ask (every boundary locked, or the runaway guard was reached)
@@ -405,13 +628,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <param name="sharedTerrain">The terrain of the previous pass (null on the first pass: it is computed and exported).</param>
         private TimingRefiner CreateRefiner(SubtitleGeneratorContext context, Transcription transcription, AudioTerrainMapping sharedTerrain)
         {
-            var fullPcmAudioForRefiner = context.WIP.AudioExtractions
-                .First(f => f.Id == this.SourceAudioIdForTerrain && f.IsFinished)
-                .PcmAudio;
+            // Without refining there is no terrain (and no audio needed): the refiner is only the list of candidates
+            var fullPcmAudioForRefiner = this.RefineTiming.Enabled
+                ? context.WIP.AudioExtractions
+                    .First(f => f.Id == this.RefineTiming.SourceAudioIdForTerrain && f.IsFinished)
+                    .PcmAudio
+                : null;
 
-            var refiner = new TimingRefiner(fullPcmAudioForRefiner, this, sharedTerrain);
+            var refiner = new TimingRefiner(fullPcmAudioForRefiner, this.RefineTiming, this.Validation, sharedTerrain);
 
-            if (sharedTerrain == null)
+            if (this.RefineTiming.Enabled && sharedTerrain == null)
             {
                 var segments = refiner.TerrainMapping.Segments;
                 context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences.");
@@ -594,7 +820,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     meta[kvp.Key] = kvp.Value;
 
                 // VoiceText (copied above) is the text of the first transcription ("" for a split part)
-                meta[TimingMeta.VoiceTextValidated] = candidate.TextForAI ?? "";
+                meta[TimingMeta.VoiceTextValidated] = candidate.Origin == TimingOrigin.TitleCard ? "" : candidate.TextForAI ?? "";
                 meta[this.Options.MetadataAlwaysProduced] = BuildOutputText(candidate);
                 meta[TimingMeta.TimingTrace] = string.Join("\n", candidate.Traces);
 
@@ -609,6 +835,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.Clear();
             transcription.Items.AddRange(newItems);
         }
+
+        private const string GrabOnScreenTextMarker = "{GrabOnScreenText}";
 
         private string BuildOutputText(TimingCandidate candidate)
         {
@@ -630,7 +858,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     sb.AppendLine($"  {trace}");
             }
 
-            if (this.IncludeTextInVoiceTextForManualReview)
+            if (candidate.Origin == TimingOrigin.TitleCard)
+            {
+                // This metadata is what triggers the reading (OCR, translation...) of the title card
+                if (sb.Length > 0)
+                    sb.AppendLine();
+                sb.AppendLine(GrabOnScreenTextMarker);
+            }
+            else if (this.IncludeTextInVoiceTextForManualReview)
             {
                 if (sb.Length > 0)
                     sb.AppendLine();
@@ -675,6 +910,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             context.WriteInfo(partCount > 0
                 ? $"  Total Candidates: {originalCount} (original), {s.Total} (after split)"
                 : $"  Total Candidates: {s.Total}");
+            if (s.TitleCards > 0)
+                context.WriteInfo($"  Title cards detected: {s.TitleCards} (not in the numbers below)");
 
             // "Requests" = answers of the AI, including the ones that came from the cache
             foreach (var r in reports)

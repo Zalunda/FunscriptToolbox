@@ -128,26 +128,44 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.FormatVersion = CURRENT_FORMAT_VERSION;
         }
 
+        private readonly object r_saveLock = new object();
+
+        /// <summary>
+        /// Runs 'action' while no save is in progress. A thread that changes data that is saved (while another thread may call Save)
+        /// must do it in here, otherwise the save can see the data half changed.
+        /// </summary>
+        public void ExecuteLocked(Action action)
+        {
+            lock (r_saveLock)
+            {
+                action();
+            }
+        }
+
+        /// <summary>Thread safe: the saves (and the changes made with <see cref="ExecuteLocked"/>) wait for each other.</summary>
         public void Save(string filepath = null)
         {
-            var path = filepath ?? OriginalFilePath;
-            using (var writer = new StreamWriter(path + ".temp", false, Encoding.UTF8))
+            lock (r_saveLock)
             {
-                rs_serializer.Serialize(writer, this);
-            }
+                var path = filepath ?? OriginalFilePath;
+                using (var writer = new StreamWriter(path + ".temp", false, Encoding.UTF8))
+                {
+                    rs_serializer.Serialize(writer, this);
+                }
 
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-            try
-            {
-                File.Move(path + ".temp", path);
-            }
-            catch 
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(2));
-                File.Move(path + ".temp", path);
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+                try
+                {
+                    File.Move(path + ".temp", path);
+                }
+                catch
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(2));
+                    File.Move(path + ".temp", path);
+                }
             }
         }
     }

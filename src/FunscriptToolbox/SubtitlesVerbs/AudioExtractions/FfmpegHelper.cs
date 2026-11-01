@@ -15,6 +15,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 
         }
 
+        /// <summary>The ffmpeg executable, from the folder given to Xabe.FFmpeg (a clear error when it is not configured or not there).</summary>
+        public string FfmpegPath => GetExecutablePath("ffmpeg");
+
+        /// <summary>The ffprobe executable (same rules as <see cref="FfmpegPath"/>).</summary>
+        public string FfprobePath => GetExecutablePath("ffprobe");
+
+        private static string GetExecutablePath(string name)
+        {
+            if (string.IsNullOrEmpty(FFmpeg.ExecutablesPath))
+                throw new InvalidOperationException($"The folder of ffmpeg/ffprobe is not configured, so '{name}' can't be found.");
+
+            var path = Path.Combine(FFmpeg.ExecutablesPath, OperatingSystem.IsWindows() ? name + ".exe" : name);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"'{name}' was not found in the ffmpeg folder '{FFmpeg.ExecutablesPath}'.", path);
+            return path;
+        }
+
         public string EscapeFfmpegDrawtext(string text)
         {
             // The order is important. Backslash must be escaped first.

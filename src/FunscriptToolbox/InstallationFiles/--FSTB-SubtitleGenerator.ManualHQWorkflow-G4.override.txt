@@ -107,6 +107,7 @@ You are a precision audio-boundary judge. For each subtitle node you decide wher
 ### Input Fields per Node
 1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
 2. `OriginalText`: Rough-draft transcription. **Warning:** it may contain words that are not spoken or mishear syllables. Never let it make you hear words that are not there.
+   - If it has several lines starting with `- `, several people speak in this node (one line per speaker). The line starts at the first word of the FIRST line, and `HeardText` (if you give one) keeps the same `- ` format with all the speakers.
 3. `PossibleBleedFromPrev` (Optional): Dialogue of the immediately preceding subtitle. If you hear any part of it at the **beginning** of a clip, it does not belong to this line: choose a tighter start that begins *after* it.
 4. `Audio_Max` (Wide Reference Clip, **LISTEN FIRST**): The widest clip. Use it to determine what the speaker actually says for this line.
 5. `Audio_S1`, `Audio_S2`, ... `Audio_Sn` (Candidate Clips): `S1` is the LATEST start (tightest), the higher the number the EARLIER the start (wider).
@@ -159,6 +160,7 @@ You are a precision audio-boundary judge. For each subtitle node you decide wher
 ### Input Fields per Node
 1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
 2. `OriginalText`: The text of the line. It has already been verified once, but still trust your ears over the text.
+   - If it has several lines starting with `- `, several people speak in this node (one line per speaker). The line only ends after the last word of the LAST line: every speaker must be inside the clip you choose.
 3. `PossibleBleedFromNext` (Optional): Dialogue of the immediately following subtitle. If you hear any part of it at the **end** of a clip, it does not belong to this line: choose a tighter end that stops *before* it.
 4. `Audio_Max` (Wide Reference Clip, **LISTEN FIRST**): The widest clip.
 5. `Audio_E1`, `Audio_E2`, ... `Audio_En` (Candidate Clips): `E1` is the EARLIEST end (tightest), the higher the number the LATER the end (wider).
@@ -603,66 +605,6 @@ _______________________________________=",
       "PrivateMetadataNames": "TimingTrace",
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
-
-      "SourceAudioIdForTerrain": "audio-clean-waveform",
-
-      // Start pass only: every clip ends this long after the initial End.
-      "StartPassTailPadding": "00:00:00.8",
-
-      "MaxExpansion": "00:00:02.0",
-      "BleedDetectionMargin": "00:00:03.0",
-
-      // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
-      "TrimSilenceOnStart": false,
-      "TrimSilenceOnEnd": true,
-
-      "IncludeTraceInVoiceTextForManualReviewAlways": false,
-      "IncludeTraceInVoiceTextForManualReviewOnError": true,
-      "IncludeTextInVoiceTextForManualReview": true,
-
-      // What to do for each kind of finding: "Warn" (the node gets a [REVIEW] block with the reason, and goes in the .REVIEW.srt),
-      // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
-      //   LongWithSilence => the subtitle is split at its silences (see Checks: MaxSubtitleDuration, MinSilenceToSplit, SplitStrategy).
-      //                      The split parts get their text from the AI, and are flagged (SplitPart).
-      "Validations": {
-        "MissingStart": "Warn",
-        "MissingEnd": "Warn",
-        "Unfinished": "Warn",
-        "TextMismatch": "Warn",
-        "Inaudible": "Warn",
-        "Overlap": "Warn",
-        "BoundariesCrossed": "Warn",
-        "NoAnswer": "Warn",
-        "UnrecognisedAnswer": "Warn",
-        "NoSpeechInside": "Warn",
-        "TooShort": "Warn",
-        "TooFast": "Warn",
-        "TinyGap": "Warn",
-        "SpeechRateHigh": "Warn",
-        "SpeechRateLow": "Warn",
-        "RepeatedText": "Warn",
-        "TextLoop": "Warn",
-        "LongWithSilence": "Warn",
-        "SplitPart": "Warn",
-        "EmptyText": "Warn"
-      },
-
-      // Thresholds of the checks done on the final result (the values below are the defaults, made for Japanese).
-      // A threshold set to null turns its check off. Tune them by looking at what ends up in the REVIEW nodes.
-      "Checks": {
-        "MinDuration": "00:00:00.300",
-        "MaxCharsPerSecond": 15,
-        "MinGap": "00:00:00.050",
-        "MaxCharsPerSpeechSecond": 14,
-        "MinCharsPerSpeechSecond": 1.0,
-        "MaxSubtitleDuration": "00:00:05",
-        "MinSilenceToSplit": "00:00:01",
-        "SplitStrategy": "UnderMaxDuration", // or "EverySilence"
-        "TextMismatchMinSimilarity": 0.8,
-        "RepeatedTextMinSimilarity": 0.9,
-        "RepeatedTextMinChars": 8
-      },
-
       "PromptUserOnError": true,
 
       "Engine": {
@@ -684,58 +626,156 @@ _______________________________________=",
         // Note: VoiceTextValidated is always produced too.
       },
 
-      // ---------------- Pass 1: START ----------------
-      "InnerOptionsStart": {
-        "SystemPrompt": {
-          "$ref": "TimingStartJudgeSystemPrompt"
-        },
-        "MetadataNeeded": "",
-        "MetadataAlwaysProduced": "BestStart",
-        "BinaryDataExtractors": [
-          {
-            "$type": "BinaryDataExtractorAudio",
-            "OutputFieldName": "AudioClip",
-            "Enabled": true,
-            "ExpandStart": "00:00:00",
-            "ExpandEnd": "00:00:00",
-            "KeepTemporaryFiles": false,
-            "SourceAudioId": "audio"
-          }
-        ],
-        "MaximumRequestsInBatch": 1000,
-        "BatchSize": 20,
-        "BatchSplitWindows": 0,
-        "BatchKeepTogetherThreshold": "00:00:00.0000000",
-        "NbContextItems": 0,
-        "NbItemsMinimumReceivedToContinue": 15,
-        "FieldsToInclude": "StartTime"
+      "IncludeTraceInVoiceTextForManualReviewAlways": false,
+      "IncludeTraceInVoiceTextForManualReviewOnError": true,
+      "IncludeTextInVoiceTextForManualReview": true,
+
+      // The task does up to three things, each with its own "Enabled": TitleCardDetection, RefineTiming, Validation (needs RefineTiming).
+      // With the three disabled, the result is a clone of the source ("full-ai").
+
+      "TitleCardDetection": {
+        "Enabled": true,
+        "FfmpegFilter": "crop=iw*0.20:ih*0.06:iw*0.15:ih*0.47"
       },
 
-      // ---------------- Pass 2: END ----------------
-      "InnerOptionsEnd": {
-        "SystemPrompt": {
-          "$ref": "TimingEndJudgeSystemPrompt"
+      // Refines the Start and End of each subtitle: the AI picks between the choices that the terrain of the audio offers.
+      "RefineTiming": {
+        "Enabled": true,
+        "SourceAudioIdForTerrain": "audio-clean-waveform",
+
+        // Start pass only: every clip ends this long after the initial End.
+        "StartPassTailPadding": "00:00:00.8",
+
+        "MaxExpansion": "00:00:02.0",
+        "BleedDetectionMargin": "00:00:03.0",
+
+        // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
+        "TrimSilenceOnStart": false,
+        "TrimSilenceOnEnd": true,
+
+        // ---------------- Pass 1: START ----------------
+        "InnerOptionsStart": {
+          "SystemPrompt": {
+            "$ref": "TimingStartJudgeSystemPrompt"
+          },
+          "MetadataNeeded": "",
+          "MetadataAlwaysProduced": "BestStart",
+          "BinaryDataExtractors": [
+            {
+              "$type": "BinaryDataExtractorAudio",
+              "OutputFieldName": "AudioClip",
+              "Enabled": true,
+              "ExpandStart": "00:00:00",
+              "ExpandEnd": "00:00:00",
+              "KeepTemporaryFiles": false,
+              "SourceAudioId": "audio"
+            }
+          ],
+          "MaximumRequestsInBatch": 1000,
+          "BatchSize": 20,
+          "BatchSplitWindows": 0,
+          "BatchKeepTogetherThreshold": "00:00:00.0000000",
+          "NbContextItems": 0,
+          "NbItemsMinimumReceivedToContinue": 15,
+          "FieldsToInclude": "StartTime"
         },
-        "MetadataNeeded": "",
-        "MetadataAlwaysProduced": "BestEnd",
-        "BinaryDataExtractors": [
-          {
-            "$type": "BinaryDataExtractorAudio",
-            "OutputFieldName": "AudioClip",
-            "Enabled": true,
-            "ExpandStart": "00:00:00",
-            "ExpandEnd": "00:00:00",
-            "KeepTemporaryFiles": false,
-            "SourceAudioId": "audio"
-          }
-        ],
-        "MaximumRequestsInBatch": 1000,
-        "BatchSize": 20,
-        "BatchSplitWindows": 0,
-        "BatchKeepTogetherThreshold": "00:00:00.0000000",
-        "NbContextItems": 0,
-        "NbItemsMinimumReceivedToContinue": 15,
-        "FieldsToInclude": "StartTime"
+
+        // ---------------- Pass 2: END ----------------
+        "InnerOptionsEnd": {
+          "SystemPrompt": {
+            "$ref": "TimingEndJudgeSystemPrompt"
+          },
+          "MetadataNeeded": "",
+          "MetadataAlwaysProduced": "BestEnd",
+          "BinaryDataExtractors": [
+            {
+              "$type": "BinaryDataExtractorAudio",
+              "OutputFieldName": "AudioClip",
+              "Enabled": true,
+              "ExpandStart": "00:00:00",
+              "ExpandEnd": "00:00:00",
+              "KeepTemporaryFiles": false,
+              "SourceAudioId": "audio"
+            }
+          ],
+          "MaximumRequestsInBatch": 1000,
+          "BatchSize": 20,
+          "BatchSplitWindows": 0,
+          "BatchKeepTogetherThreshold": "00:00:00.0000000",
+          "NbContextItems": 0,
+          "NbItemsMinimumReceivedToContinue": 15,
+          "FieldsToInclude": "StartTime"
+        }
+      },
+
+      // Checks the refined subtitles, flags what needs a look ([REVIEW] block in the node) and fixes some problems. Needs RefineTiming.
+      // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
+      "Validation": {
+        "Enabled": true,
+
+        // What to do for each kind of finding: "Warn" (the node gets a [REVIEW] block with the reason, and goes in the .REVIEW.srt),
+        // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
+        //   LongWithSilence => the subtitle is split at its silences (see Checks: MaxSubtitleDuration, MinSilenceToSplit, SplitStrategy).
+        //                      The split parts get their text from the AI, and are flagged (SplitPart).
+        "Validations": {
+          "MissingStart": "Warn",
+          "MissingEnd": "Warn",
+          "Unfinished": "Warn",
+          "TextMismatch": "Warn",
+          "Inaudible": "Warn",
+          "Overlap": "Warn",
+          "BoundariesCrossed": "Warn",
+          "NoAnswer": "Warn",
+          "UnrecognisedAnswer": "Warn",
+          "NoSpeechInside": "Warn",
+          "TooShort": "Warn",
+          "TooFast": "Warn",
+          "TinyGap": "Warn",
+          "SpeechRateHigh": "Warn",
+          "SpeechRateLow": "Warn",
+          "RepeatedText": "Warn",
+          "TextLoop": "Warn",
+          "MaybePointless": "Warn",
+          "LongWithSilence": "Warn",
+          "SplitPart": "Warn",
+          "EmptyText": "Warn",
+          "TitleCard": "Warn"
+        },
+
+        // Thresholds of the checks done on the final result (the values below are the defaults, made for Japanese).
+        // A threshold set to null turns its check off. Tune them by looking at what ends up in the REVIEW nodes.
+        "Checks": {
+          "MinDuration": "00:00:00.300",
+          "MaxCharsPerSecond": 15,
+          "MinGap": "00:00:00.050",
+          "MaxCharsPerSpeechSecond": 14,
+          "MinCharsPerSpeechSecond": 1.0,
+          "MaxSubtitleDuration": "00:00:05",
+          "MinSilenceToSplit": "00:00:01",
+          "SplitStrategy": "UnderMaxDuration", // or "EverySilence"
+          "TextMismatchMinSimilarity": 0.8,
+          "RepeatedTextMinSimilarity": 0.9,
+          "RepeatedTextMinChars": 8,
+
+          // A subtitle made only of these words (one or several, in any order) gets "MaybePointless": it may not be worth a subtitle.
+          // Same format as TranscriptionToIgnorePatterns of full-ai: a regex on the text as it is (not case sensitive; katakana and hiragana
+          // are different characters). Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
+          // Comment (//) the lines of the words that you want to keep. No list (or an empty one) = the check is not done.
+          "MaybePointlessPatterns": [
+            // Words said over and over
+            { "Name": "Sugoi (すごい = incredible)", "Pattern": "(すご|スゴ|凄)[いイーっッ]+[、。\\s…!！?？]*" },
+            { "Name": "Kimochii (きもちいい = it feels good)", "Pattern": "(きもち|キモチ|気持ち)[いイーっッ]+[、。\\s…!！?？]*" },
+            { "Name": "Ii (いい = good)", "Pattern": "[いイ][いイー]+[っッ]*[、。\\s…!！?？]*" },
+            { "Name": "Iku (いく = I'm coming)", "Pattern": "[いイ](く|ク|[っッ]く|[っッ]ク|きそう|キソウ|[っッ]ちゃう|[っッ]ちゃいそう)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Dame (だめ = no, stop)", "Pattern": "(だめ|ダメ|駄目)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Iya (いや, やだ = no, stop it)", "Pattern": "(いや|イヤ|やだ|ヤダ|やん)[あんーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Yabai (やばい = crazy, damn)", "Pattern": "(やば|ヤバ)[いイー]+[、。\\s…!！?？]*" },
+            { "Name": "Motto (もっと = more)", "Pattern": "(もっと|モット)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Nee (ねえ = hey)", "Pattern": "[ねネ][えぇエェーっ]+[、。\\s…!！?？]*" },
+            { "Name": "Hai (はい = yes)", "Pattern": "(はい|ハイ)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Soko (そこ = right there)", "Pattern": "(そこ|ソコ)[ーっ]*[、。\\s…!！?？]*" }
+          ]
+        }
       }
     },
     {
