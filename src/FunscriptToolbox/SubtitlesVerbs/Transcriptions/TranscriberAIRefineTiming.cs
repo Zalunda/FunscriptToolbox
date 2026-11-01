@@ -159,35 +159,48 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string SourceAudioIdForTerrain { get; set; }
 
-        /// <summary>After the AI's final Start answer, move the Start forward over pure silence (according to the terrain).</summary>
+        [JsonProperty(Order = 21)]
+        public float ValleyReach { get; set; } = 0.25f;
+
+        /// <summary>START pass only: all clips end this long after the initial End (so the AI hears the whole line).</summary>
+        [JsonProperty(Order = 22)]
+        public TimeSpan StartPassTailPadding { get; set; } = TimeSpan.FromSeconds(0.8);
+
         [JsonProperty(Order = 23)]
+        public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
+
+        [JsonProperty(Order = 24)]
+        public TimeSpan BleedDetectionMargin { get; set; } = TimeSpan.FromSeconds(3.0);
+
+        /// <summary>After the AI's final Start answer, move the Start forward over pure silence (according to the terrain).</summary>
+        [JsonProperty(Order = 25)]
         public bool TrimSilenceOnStart { get; set; } = false;
 
         /// <summary>After the AI's final End answer, move the End back over pure silence (according to the terrain).</summary>
-        [JsonProperty(Order = 24)]
+        [JsonProperty(Order = 26)]
         public bool TrimSilenceOnEnd { get; set; } = true;
 
-        [JsonProperty(Order = 25)]
-        public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
-
-        [JsonProperty(Order = 26)]
-        public TimeSpan BleedDetectionMargin { get; set; } = TimeSpan.FromSeconds(3.0);
-
-        /// <summary>START pass only: all clips end this long after the initial End (so the AI hears the whole line).</summary>
         [JsonProperty(Order = 27)]
-        public TimeSpan StartPassTailPadding { get; set; } = TimeSpan.FromSeconds(0.8);
+        public bool IncludeTraceInVoiceTextForManualReviewAlways { get; set; } = false;
 
         [JsonProperty(Order = 28)]
-        public float ValleyReach { get; set; } = 0.25f;
+        public bool IncludeTraceInVoiceTextForManualReviewOnError { get; set; } = true;
 
         [JsonProperty(Order = 29)]
-        public bool IncludeTraceInOutputAlways { get; set; } = false;
+        public bool IncludeTextInVoiceTextForManualReview { get; set; } = true;
 
+        /// <summary>
+        /// What to do for each kind of finding: Warn (the node goes in the REVIEW subtitles, with the reason) or Ignore.
+        /// A code that is not listed is a Warn.
+        /// </summary>
         [JsonProperty(Order = 30)]
-        public bool IncludeTraceInOutputOnError { get; set; } = true;
+        public Dictionary<ValidationCode, ValidationMode> Validations { get; set; } = new Dictionary<ValidationCode, ValidationMode>();
 
+        IReadOnlyDictionary<ValidationCode, ValidationMode> ITimingRefinerSettings.Validations => this.Validations;
+
+        /// <summary>Thresholds of the checks done on the final result. A check without a threshold is not done.</summary>
         [JsonProperty(Order = 31)]
-        public bool IncludeTextInOutput { get; set; } = true;
+        public TimingChecksSettings Checks { get; set; } = new TimingChecksSettings();
 
         /// <summary>Prompt/batching/extractors of the START pass (must produce BestStart, optionally HeardText).</summary>
         [JsonProperty(Order = 40, Required = Required.Always)]
@@ -249,35 +262,89 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public BoundarySide Side;
             public int Iterations;
             public int Tests;     // field (not property) so it can be passed by ref
+            public int FromCache; // the Tests that were answered by the cache
+        }
+
+        /// <summary>A subtitle given to the refiner, and where it comes from.</summary>
+        private class RefineInput
+        {
+            public TimedItemWithMetadata Item;
+            public TimingOrigin Origin;
+
+            /// <summary>The edge is already validated (outer edge of a split subtitle).</summary>
+            public TimeSpan? FixedStart;
+            public TimeSpan? FixedEnd;
         }
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
             var jobState = GetOrCreateJobState(transcription);
-            var refiner = CreateRefiner(context, transcription);
-            LoadCandidates(context, refiner);
+            var inputs = LoadInputs(context);
 
+            var refiner = CreateRefiner(context, transcription, null);
+            LoadCandidates(context, refiner, inputs);
             var reports = new List<PhaseReport>();
-            foreach (var side in TimingCandidate.Sides)
-            {
-                if (!RunPhase(context, transcription, refiner, jobState, side, reports))
-                    return; // Interrupted
-            }
+            if (!RunPhases(context, transcription, refiner, jobState, reports, exportProgress: true))
+                return; // Interrupted
 
             refiner.FinalizeOverlaps();
+
+            // The long subtitles are split, and only the parts are refined (their outer edges are already validated)
+            var splitReports = new List<PhaseReport>();
+            int originalCount = refiner.Candidates.Count;
+            int partCount = 0;
+            var splits = new TimingValidator(refiner, this.Checks).PlanSplits();
+            if (splits.Count > 0)
+            {
+                var partInputs = BuildPartInputs(splits);
+                partCount = partInputs.Count;
+                context.WriteInfo($"  Fixes: {splits.Count} subtitle(s) split into {partCount} parts. Refining the parts...");
+
+                var partsRefiner = CreateRefiner(context, transcription, refiner.TerrainMapping);
+                LoadCandidates(context, partsRefiner, partInputs);
+                if (!RunPhases(context, transcription, partsRefiner, jobState, splitReports, exportProgress: false))
+                    return; // Interrupted
+
+                refiner.ReplaceCandidates(splits.Select(s => s.Replaces), partsRefiner.Candidates);
+                refiner.FinalizeOverlaps();
+            }
+
+            new TimingValidator(refiner, this.Checks).Run();
+
             UpdateTranscription(transcription, refiner.Candidates);
-            PrintSummary(context, transcription, refiner, reports);
+            DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => !c.NeedsReview).Select(c => c.ToSubtitle()), "CLEAN");
+            DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => c.NeedsReview).Select(c => c.ToReviewSubtitle()), "REVIEW");
+            PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
 
+        /// <returns>false when the requests were interrupted (the caller must stop).</returns>
+        private bool RunPhases(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            TimingRefiner refiner,
+            JobState jobState,
+            List<PhaseReport> reports,
+            bool exportProgress)
+        {
+            foreach (var side in TimingCandidate.Sides)
+            {
+                if (!RunPhase(context, transcription, refiner, jobState, side, reports, exportProgress))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <param name="exportProgress">false when the refiner only has some of the candidates (the parts of the split subtitles): the transcription is not updated with them.</param>
         private bool RunPhase(
             SubtitleGeneratorContext context,
             Transcription transcription,
             TimingRefiner refiner,
             JobState jobState,
             BoundarySide side,
-            List<PhaseReport> reports)
+            List<PhaseReport> reports,
+            bool exportProgress)
         {
             var report = new PhaseReport { Side = side };
             reports.Add(report);
@@ -301,19 +368,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (candidatesToTest.Count == 0)
                     break;
 
-                var batch = BuildBatch(transcription, side, report.Iterations, candidatesToTest, jobState, options, ref report.Tests);
+                var batch = BuildBatch(transcription, side, report.Iterations, candidatesToTest, jobState, options, report);
                 if (!ExecuteBatch(context, transcription, jobState, batch, options))
                     return false; // Interrupted
 
                 refiner.ProcessBatchResults(batch.Transcription.Items, side);
-                UpdateTranscription(transcription, refiner.Candidates);
-                DoExportMetatadaSrt(context, transcription, false);
+                if (exportProgress)
+                {
+                    UpdateTranscription(transcription, refiner.Candidates);
+                    DoExportMetatadaSrt(context, transcription, false);
+                }
             }
 
             // Whatever is still open on this side is locked and flagged, so the next pass can rely on it
             refiner.EndPhase(side);
-            UpdateTranscription(transcription, refiner.Candidates);
-            DoExportMetatadaSrt(context, transcription, false);
+            if (exportProgress)
+            {
+                UpdateTranscription(transcription, refiner.Candidates);
+                DoExportMetatadaSrt(context, transcription, false);
+            }
             context.WriteInfo($"  [{side}] Pass finished: {report.Tests} requests in {report.Iterations - 1} iterations.");
             return true;
         }
@@ -329,34 +402,72 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return jobState;
         }
 
-        private TimingRefiner CreateRefiner(SubtitleGeneratorContext context, Transcription transcription)
+        /// <param name="sharedTerrain">The terrain of the previous pass (null on the first pass: it is computed and exported).</param>
+        private TimingRefiner CreateRefiner(SubtitleGeneratorContext context, Transcription transcription, AudioTerrainMapping sharedTerrain)
         {
             var fullPcmAudioForRefiner = context.WIP.AudioExtractions
                 .First(f => f.Id == this.SourceAudioIdForTerrain && f.IsFinished)
                 .PcmAudio;
 
-            var refiner = new TimingRefiner(fullPcmAudioForRefiner, this);
+            var refiner = new TimingRefiner(fullPcmAudioForRefiner, this, sharedTerrain);
 
-            var segments = refiner.TerrainMapping.Segments;
-            context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences.");
-            DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
+            if (sharedTerrain == null)
+            {
+                var segments = refiner.TerrainMapping.Segments;
+                context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences.");
+                DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
+            }
 
             return refiner;
         }
 
-        private void LoadCandidates(SubtitleGeneratorContext context, TimingRefiner refiner)
+        private List<RefineInput> LoadInputs(SubtitleGeneratorContext context)
         {
             var aggregation = this.Metadatas?.Aggregate(context);
-            var originalItems = (aggregation?.ReferenceTimingsWithMetadata ?? Array.Empty<TimedItemWithMetadata>())
+            return (aggregation?.ReferenceTimingsWithMetadata ?? Array.Empty<TimedItemWithMetadata>())
                 .OrderBy(f => f.StartTime)
+                .Select(item => new RefineInput { Item = item, Origin = TimingOrigin.Original })
                 .ToList();
+        }
 
-            context.WriteInfo($"  Preparation: Initializing acoustic bounds on {originalItems.Count} candidates...");
-            foreach (var item in originalItems)
+        private void LoadCandidates(SubtitleGeneratorContext context, TimingRefiner refiner, List<RefineInput> inputs)
+        {
+            context.WriteInfo($"  Preparation: Initializing acoustic bounds on {inputs.Count} candidates...");
+            foreach (var input in inputs)
             {
-                item.Metadata.TryGetValue(this.Options.MetadataNeeded, out var originalText);
-                refiner.AddCandidate(item, originalText ?? "");
+                input.Item.Metadata.TryGetValue(this.Options.MetadataNeeded, out var originalText);
+                refiner.AddCandidate(input.Item, originalText ?? "", input.Origin, input.FixedStart, input.FixedEnd);
             }
+        }
+
+        /// <summary>
+        /// The new list of subtitles: the split ones are replaced by their parts. The parts have no text: the Start pass gives it.
+        /// </summary>
+        private List<RefineInput> BuildPartInputs(List<TimingEdit> splits)
+        {
+            var result = new List<RefineInput>();
+            foreach (var split in splits)
+            {
+                for (int i = 0; i < split.Spans.Count; i++)
+                {
+                    var (start, end) = split.Spans[i];
+
+                    var metadata = new MetadataCollection();
+                    foreach (var kvp in split.Replaces.OriginalItem.Metadata)
+                        metadata[kvp.Key] = kvp.Value;
+                    metadata[this.Options.MetadataNeeded] = "";
+
+                    result.Add(new RefineInput
+                    {
+                        Item = new TimedItemWithMetadata(start, end, metadata),
+                        Origin = split.Origin,
+                        // The outer edges of the subtitle were already validated: only the cuts between the parts are open
+                        FixedStart = i == 0 ? start : (TimeSpan?)null,
+                        FixedEnd = i == split.Spans.Count - 1 ? end : (TimeSpan?)null,
+                    });
+                }
+            }
+            return result.OrderBy(i => i.Item.StartTime).ToList();
         }
 
         // ---------------------------------------------------------------------
@@ -370,7 +481,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             List<TimingCandidate> candidatesToTest,
             JobState jobState,
             AIOptions options,
-            ref int totalTestsRun)
+            PhaseReport report)
         {
             string defaultProduced = side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd;
             string metadataProduced = string.IsNullOrWhiteSpace(options.MetadataAlwaysProduced)
@@ -380,7 +491,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var batch = new RefineBatch
             {
                 Transcription = new Transcription(
-                    id: $"{transcription.Id}_refine_{side}_iter_{iteration}",
+                    id: transcription.Id,
                     metadataAlwaysProduced: metadataProduced,
                     privateMetadataNames: null,
                     language: transcription.Language,
@@ -393,6 +504,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (jobState.TryGetCachedResult(candidate.OriginalStartTime, round, out var cached))
                 {
                     batch.Transcription.AddNewItem(candidate.OriginalStartTime, candidate.OriginalEndTime, cached.ToMetadata());
+                    report.FromCache++;
                 }
                 else
                 {
@@ -403,7 +515,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     batch.ClipsByStartTime[candidate.OriginalStartTime] = round.Clips;
                     batch.NewlyRequested[candidate.OriginalStartTime] = candidate;
                 }
-                totalTestsRun++;
+                report.Tests++;
             }
 
             return batch;
@@ -481,6 +593,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 foreach (var kvp in candidate.OriginalItem.Metadata)
                     meta[kvp.Key] = kvp.Value;
 
+                // VoiceText (copied above) is the text of the first transcription ("" for a split part)
+                meta[TimingMeta.VoiceTextValidated] = candidate.TextForAI ?? "";
                 meta[this.Options.MetadataAlwaysProduced] = BuildOutputText(candidate);
                 meta[TimingMeta.TimingTrace] = string.Join("\n", candidate.Traces);
 
@@ -500,27 +614,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             var sb = new StringBuilder();
 
-            if (candidate.ValidationNotes.Count > 0 || !candidate.IsFullyLocked)
+            if (candidate.NeedsReview)
             {
-                sb.AppendLine("[TIMING]");
+                sb.AppendLine("[REVIEW]");
                 if (!candidate.IsFullyLocked)
-                    sb.AppendLine("Unsure: Unfinished");
+                    sb.AppendLine("Unfinished");
                 foreach (var note in candidate.ValidationNotes)
-                    sb.AppendLine("  " + note);
+                    sb.AppendLine("  " + note.Message);
             }
 
-            if (this.IncludeTraceInOutputAlways || (this.IncludeTraceInOutputOnError && sb.Length > 0))
+            if (this.IncludeTraceInVoiceTextForManualReviewAlways || (this.IncludeTraceInVoiceTextForManualReviewOnError && sb.Length > 0))
             {
                 sb.AppendLine("[TRACES]");
                 foreach (var trace in candidate.Traces)
                     sb.AppendLine($"  {trace}");
             }
 
-            if (this.IncludeTextInOutput)
+            if (this.IncludeTextInVoiceTextForManualReview)
             {
                 if (sb.Length > 0)
                     sb.AppendLine();
-                sb.AppendLine(candidate.OriginalText);
+                sb.AppendLine(candidate.FinalText);
             }
 
             return sb.ToString();
@@ -545,7 +659,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription,
             TimingRefiner refiner,
-            List<PhaseReport> reports)
+            List<PhaseReport> reports,
+            List<PhaseReport> splitReports,
+            int originalCount,
+            int partCount)
         {
             var s = refiner.ComputeStats();
             if (s == null)
@@ -555,10 +672,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             context.WriteInfo(line);
             context.WriteInfo($"  TIMING REFINER SUMMARY ({transcription.Id})");
             context.WriteInfo(line);
-            context.WriteInfo($"  Total Candidates: {s.Total}");
+            context.WriteInfo(partCount > 0
+                ? $"  Total Candidates: {originalCount} (original), {s.Total} (after split)"
+                : $"  Total Candidates: {s.Total}");
+
+            // "Requests" = answers of the AI, including the ones that came from the cache
             foreach (var r in reports)
             {
-                context.WriteInfo($"  {r.Side,-5} pass requests: {r.Tests} ({((double)r.Tests / Math.Max(1, s.Total)):0.00} reqs/node)");
+                var text = $"  {r.Side,-5} pass requests: {r.Tests} ({((double)r.Tests / Math.Max(1, originalCount)):0.00} reqs/node";
+                if (r.FromCache > 0)
+                    text += $", {r.FromCache} from cache";
+                text += ")";
+
+                var split = splitReports.FirstOrDefault(f => f.Side == r.Side);
+                if (split != null)
+                    text += $" + {split.Tests} for the {partCount} split parts ({((double)split.Tests / Math.Max(1, partCount)):0.00} reqs/part)";
+
+                context.WriteInfo(text);
             }
             context.WriteInfo("");
             context.WriteInfo("  QUALITY BREAKDOWN:");
@@ -570,8 +700,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             context.WriteInfo("");
             context.WriteInfo("  TIMING ADJUSTMENTS & ACCURACY:");
-            context.WriteInfo($"    - Resolved with <=1 answer/side:    {s.ResolvedInOneRound,4}  ({Percent(s.ResolvedInOneRound, s.Total):0.0}%)");
-            context.WriteInfo($"    - Needed 2+ answers on a side:      {s.RefinedWithRetries,4}  ({Percent(s.RefinedWithRetries, s.Total):0.0}%)");
             context.WriteInfo($"    - Avg Duration:                     {s.AvgOriginalDuration:0.00}s -> {s.AvgFinalDuration:0.00}s (diff: {(s.AvgFinalDuration - s.AvgOriginalDuration):+0.00;-0.00;0.00}s)");
             context.WriteInfo($"    - Avg Start Drift:                  {s.AvgStartDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardStartDrift:0.00}s)");
             context.WriteInfo($"    - Avg End Drift:                    {s.AvgEndDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardEndDrift:+0.00;-0.00;0.00}s)");

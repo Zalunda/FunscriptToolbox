@@ -120,7 +120,7 @@ You are a precision audio-boundary judge. For each subtitle node you decide wher
    - nothing precedes it except a few milliseconds of silence: no leading panting, giggles (fufu), earlier speech or `PossibleBleedFromPrev`.
    - Do NOT stretch the start earlier into silence or breath trying to find words of `OriginalText` that are never spoken.
 3. `"Max"`: answer it **ONLY** if you clearly hear additional spoken syllables of this line in `Audio_Max` that are still cut off in the widest `S#` clip. NEVER answer `"Max"` when what lies before the widest `S#` is only silence, breathing or a faint murmur.
-4. `HeardText`: if the words really spoken in `Audio_Max` differ from `OriginalText`, give what you heard as `"HeardText"` (natural Japanese, Kanji/Kana): the complete line, WITHOUT breaths and WITHOUT words that clearly belong to the previous or the next sentence. If they match, OMIT `"HeardText"`.
+4. `HeardText`: if the words really spoken in `Audio_Max` differ from `OriginalText`, give what you heard as `"HeardText"` (natural Japanese, Kanji/Kana): the complete line, WITHOUT breaths and WITHOUT words that clearly belong to the previous or the next sentence. If they match, OMIT `"HeardText"`. If `OriginalText` is empty, there is nothing to match: you MUST give `"HeardText"` (the complete line spoken in `Audio_Max`).
 5. If `Audio_Max` contains no intelligible speech at all (only silence, noise, breathing), answer `"BestStart": "Inaudible"`.
 6. `BestStart` must be an id that exists for that node (`S1`..`Sn`), or `Max`, `Inaudible`.
 
@@ -606,19 +606,63 @@ _______________________________________=",
 
       "SourceAudioIdForTerrain": "audio-clean-waveform",
 
-      // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
-      "TrimSilenceOnStart": false,
-      "TrimSilenceOnEnd": true,
+      // Start pass only: every clip ends this long after the initial End.
+      "StartPassTailPadding": "00:00:00.8",
 
       "MaxExpansion": "00:00:02.0",
       "BleedDetectionMargin": "00:00:03.0",
 
-      // Start pass only: every clip ends this long after the initial End.
-      "StartPassTailPadding": "00:00:00.8",
+      // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
+      "TrimSilenceOnStart": false,
+      "TrimSilenceOnEnd": true,
 
-      "IncludeTraceInOutputAlways": false,
-      "IncludeTraceInOutputOnError": true,
-      "IncludeTextInOutput": true,
+      "IncludeTraceInVoiceTextForManualReviewAlways": false,
+      "IncludeTraceInVoiceTextForManualReviewOnError": true,
+      "IncludeTextInVoiceTextForManualReview": true,
+
+      // What to do for each kind of finding: "Warn" (the node gets a [REVIEW] block with the reason, and goes in the .REVIEW.srt),
+      // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
+      //   LongWithSilence => the subtitle is split at its silences (see Checks: MaxSubtitleDuration, MinSilenceToSplit, SplitStrategy).
+      //                      The split parts get their text from the AI, and are flagged (SplitPart).
+      "Validations": {
+        "MissingStart": "Warn",
+        "MissingEnd": "Warn",
+        "Unfinished": "Warn",
+        "TextMismatch": "Warn",
+        "Inaudible": "Warn",
+        "Overlap": "Warn",
+        "BoundariesCrossed": "Warn",
+        "NoAnswer": "Warn",
+        "UnrecognisedAnswer": "Warn",
+        "NoSpeechInside": "Warn",
+        "TooShort": "Warn",
+        "TooFast": "Warn",
+        "TinyGap": "Warn",
+        "SpeechRateHigh": "Warn",
+        "SpeechRateLow": "Warn",
+        "RepeatedText": "Warn",
+        "TextLoop": "Warn",
+        "LongWithSilence": "Warn",
+        "SplitPart": "Warn",
+        "EmptyText": "Warn"
+      },
+
+      // Thresholds of the checks done on the final result (the values below are the defaults, made for Japanese).
+      // A threshold set to null turns its check off. Tune them by looking at what ends up in the REVIEW nodes.
+      "Checks": {
+        "MinDuration": "00:00:00.300",
+        "MaxCharsPerSecond": 15,
+        "MinGap": "00:00:00.050",
+        "MaxCharsPerSpeechSecond": 14,
+        "MinCharsPerSpeechSecond": 1.0,
+        "MaxSubtitleDuration": "00:00:05",
+        "MinSilenceToSplit": "00:00:01",
+        "SplitStrategy": "UnderMaxDuration", // or "EverySilence"
+        "TextMismatchMinSimilarity": 0.8,
+        "RepeatedTextMinSimilarity": 0.9,
+        "RepeatedTextMinChars": 8
+      },
+
       "PromptUserOnError": true,
 
       "Engine": {
@@ -636,7 +680,8 @@ _______________________________________=",
       },
       "Options": {
         "MetadataNeeded": "VoiceText",
-        "MetadataAlwaysProduced": "VoiceTextWithTimingWarnings"
+        "MetadataAlwaysProduced": "VoiceTextForManualReview"
+        // Note: VoiceTextValidated is always produced too.
       },
 
       // ---------------- Pass 1: START ----------------
@@ -657,7 +702,7 @@ _______________________________________=",
             "SourceAudioId": "audio"
           }
         ],
-        "MaximumRequestsInBatch": 50,
+        "MaximumRequestsInBatch": 1000,
         "BatchSize": 20,
         "BatchSplitWindows": 0,
         "BatchKeepTogetherThreshold": "00:00:00.0000000",
@@ -684,7 +729,7 @@ _______________________________________=",
             "SourceAudioId": "audio"
           }
         ],
-        "MaximumRequestsInBatch": 50,
+        "MaximumRequestsInBatch": 1000,
         "BatchSize": 20,
         "BatchSplitWindows": 0,
         "BatchKeepTogetherThreshold": "00:00:00.0000000",
@@ -708,13 +753,14 @@ _______________________________________=",
       "Enabled": true,
       // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.
       "TextSources": "full-ai-refined",
-      "MetadataToUse": "VoiceTextWithTimingWarnings",
+      "MetadataToUse": "VoiceTextForManualReview",
       "Metadatas": {
         "TimingsSource": "full-ai-refined",
         "Sources": "full-ai-refined",
         "MergeRules": {
           "VoiceText": null,
-          "VoiceTextWithTimingWarnings": null
+          "VoiceTextValidated": null,
+          "VoiceTextForManualReview": null
         },
       },
       "UseBySourceMetadatas": false,

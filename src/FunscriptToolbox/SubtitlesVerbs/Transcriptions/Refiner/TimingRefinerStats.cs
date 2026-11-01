@@ -5,27 +5,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     /// <summary>Summary numbers computed by <see cref="TimingRefiner.ComputeStats"/>; the transcriber only prints them.</summary>
     public class TimingRefinerStats
     {
-        /// <summary>(substring searched in ValidationNotes, label shown in the summary)</summary>
-        public static readonly (string Key, string Label)[] NoteCategories =
+        /// <summary>(code of the ValidationNotes counted, label shown in the summary)</summary>
+        public static readonly (ValidationCode Code, string Label)[] NoteCategories =
         {
-            ("Missing Start", "Missing Start (Max limit)"),
-            ("Missing End",   "Missing End (Max limit)"),
-            ("Unfinished",    "Unfinished (safety limit)"),
-            ("Mismatch",      "Text Mismatch (in Max)"),
-            ("Inaudible",     "Audio Inaudible"),
-            ("Overlaps",      "Overlap Warning"),
+            (ValidationCode.MissingStart,       "Missing Start (Max limit)"),
+            (ValidationCode.MissingEnd,         "Missing End (Max limit)"),
+            (ValidationCode.Unfinished,         "Unfinished (safety limit)"),
+            (ValidationCode.TextMismatch,       "Text Mismatch (in Max)"),
+            (ValidationCode.Inaudible,          "Audio Inaudible"),
+            (ValidationCode.Overlap,            "Overlap Warning"),
+            (ValidationCode.BoundariesCrossed,  "Boundaries Crossed"),
+            (ValidationCode.NoAnswer,           "No Answer from the AI"),
+            (ValidationCode.UnrecognisedAnswer, "Unrecognised Answer"),
+            (ValidationCode.NoSpeechInside,     "No Speech Inside"),
+            (ValidationCode.TooShort,           "Too Short"),
+            (ValidationCode.TooFast,            "Too Fast (chars/s)"),
+            (ValidationCode.TinyGap,            "Tiny Gap"),
+            (ValidationCode.SpeechRateHigh,     "Text Too Long for the Speech"),
+            (ValidationCode.SpeechRateLow,      "Text Too Short for the Speech"),
+            (ValidationCode.RepeatedText,       "Same Text as a Nearby Subtitle"),
+            (ValidationCode.TextLoop,           "Text Repeating Itself"),
+            (ValidationCode.LongWithSilence,    "Long with Silence Inside"),
+            (ValidationCode.SplitPart,          "Part of a Split Subtitle"),
+            (ValidationCode.EmptyText,          "No Text (from the AI)"),
         };
 
         public int Total { get; set; }
         public int Clean { get; set; }
         public int Review { get; set; }
 
-        /// <summary>Candidates for which both boundaries were settled with a single AI answer (or none).</summary>
-        public int ResolvedInOneRound { get; set; }
-        public int RefinedWithRetries => Total - ResolvedInOneRound;
-
-        /// <summary>Number of candidates having a note that contains each category key.</summary>
-        public Dictionary<string, int> NoteCounts { get; } = new Dictionary<string, int>();
+        /// <summary>Number of candidates having a note with each code.</summary>
+        public Dictionary<ValidationCode, int> NoteCounts { get; } = new Dictionary<ValidationCode, int>();
 
         public double AvgOriginalDuration { get; set; }
         public double AvgFinalDuration { get; set; }

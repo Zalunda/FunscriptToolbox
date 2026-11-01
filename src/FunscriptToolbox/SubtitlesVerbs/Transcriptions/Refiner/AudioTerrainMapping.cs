@@ -653,6 +653,50 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return i >= 0 && r_mountainEnds[i] > from;
         }
 
+        /// <summary>The speech mountains overlapping [from, to] (not clipped), in order.</summary>
+        public List<(TimeSpan Start, TimeSpan End)> SpeechSpans(TimeSpan from, TimeSpan to)
+        {
+            var result = new List<(TimeSpan Start, TimeSpan End)>();
+            if (to <= from || r_mountains == null)
+                return result;
+
+            for (int i = LastIndexLess(r_mountainStarts, to); i >= 0 && r_mountainEnds[i] > from; i--)
+                result.Add((r_mountainStarts[i], r_mountainEnds[i]));
+            result.Reverse();
+            return result;
+        }
+
+        /// <summary>The silences of at least 'minDuration' between two speech mountains overlapping [from, to] (so they are inside [from, to]).</summary>
+        public List<(TimeSpan Start, TimeSpan End)> SilencesBetweenSpeech(TimeSpan from, TimeSpan to, TimeSpan minDuration)
+        {
+            var spans = SpeechSpans(from, to);
+            var result = new List<(TimeSpan Start, TimeSpan End)>();
+            for (int i = 1; i < spans.Count; i++)
+            {
+                if (spans[i].Start - spans[i - 1].End >= minDuration)
+                    result.Add((spans[i - 1].End, spans[i].Start));
+            }
+            return result;
+        }
+
+        /// <summary>Total length of the speech mountains inside [from, to].</summary>
+        public TimeSpan SpeechDurationBetween(TimeSpan from, TimeSpan to)
+        {
+            var total = TimeSpan.Zero;
+            if (to <= from || r_mountains == null)
+                return total;
+
+            // Mountains are sorted and do not overlap: walk back from the last one starting before 'to'
+            for (int i = LastIndexLess(r_mountainStarts, to); i >= 0 && r_mountainEnds[i] > from; i--)
+            {
+                var start = r_mountainStarts[i] > from ? r_mountainStarts[i] : from;
+                var end = r_mountainEnds[i] < to ? r_mountainEnds[i] : to;
+                if (end > start)
+                    total += end - start;
+            }
+            return total;
+        }
+
         /// <summary>
         /// Moves a boundary inward over pure silence: End goes back to the end of the last mountain before it,
         /// Start goes forward to the start of the first mountain after it.

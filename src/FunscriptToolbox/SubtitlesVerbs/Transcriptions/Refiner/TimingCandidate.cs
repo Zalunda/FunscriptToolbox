@@ -3,6 +3,7 @@ using FunscriptToolbox.Core;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -19,6 +20,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public string HeardText { get; set; }
 
         /// <summary>Best known text: what the AI heard if it disagreed with the draft, otherwise the draft.</summary>
+        public TimingOrigin Origin { get; set; }
+
+        /// <summary>True when the TextMismatch validation is set to Fix: HeardText replaces OriginalText in the output.</summary>
+        public bool TextReplaced { get; set; }
+
+        /// <summary>The text of the output: what the AI heard when it replaced the original, otherwise the original.</summary>
+        [JsonIgnore] public string FinalText => TextReplaced && !string.IsNullOrWhiteSpace(HeardText) ? HeardText : OriginalText;
+
         [JsonIgnore] public string TextForAI => string.IsNullOrWhiteSpace(HeardText) ? OriginalText : HeardText;
 
         [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
@@ -36,7 +45,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public TimingRound CurrentRound { get; set; }
         public List<TimingRound> Rounds { get; set; } = new List<TimingRound>();
 
-        public List<string> ValidationNotes { get; set; } = new List<string>();
+        public List<ValidationNote> ValidationNotes { get; set; } = new List<ValidationNote>();
         public List<string> Traces { get; set; } = new List<string>();
 
         public void LockAll()
@@ -45,11 +54,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             End.Locked = true;
         }
 
-        public void AddValidationNote(string note)
+        public void AddValidationNote(ValidationNote note)
         {
-            if (!ValidationNotes.Contains(note))
+            if (!ValidationNotes.Any(n => n.Code == note.Code && n.Message == note.Message))
                 ValidationNotes.Add(note);
         }
+
+        /// <summary>False only for a candidate that is fully settled and has nothing flagged: it goes in the CLEAN subtitles.</summary>
+        [JsonIgnore] public bool NeedsReview => ValidationNotes.Count > 0 || !IsFullyLocked;
 
         public string GetLockTag()
         {
@@ -108,7 +120,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public Subtitle ToSubtitle()
         {
-            return new Subtitle(Start.Current, End.Current, new[] { OriginalText });
+            return new Subtitle(Start.Current, End.Current, new[] { FinalText });
+        }
+
+        /// <summary>The reasons the candidate needs attention (one line each), then its text.</summary>
+        public Subtitle ToReviewSubtitle()
+        {
+            var lines = ValidationNotes.Select(n => n.ToString()).Append(FinalText).ToArray();
+            return new Subtitle(Start.Current, End.Current, lines);
         }
     }
 }
