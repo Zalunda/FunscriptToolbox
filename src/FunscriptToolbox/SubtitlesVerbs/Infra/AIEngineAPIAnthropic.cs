@@ -357,7 +357,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (message == null)
                     throw new AIResponseException(request, "Batch result contained no message.");
 
-                return BuildAIResponse(context, request, watch, verbosePrefix, message);
+                return BuildBatchAIResponse(context, request, watch, verbosePrefix, message);
             }
             finally
             {
@@ -556,7 +556,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         // ─────────────────────────────────────────────────────────────
         //  Shared: build AIResponse from a completed AnthropicMessage
         // ─────────────────────────────────────────────────────────────
-        private AIResponse BuildAIResponse(
+        private AIResponse BuildBatchAIResponse(
             SubtitleGeneratorContext context,
             AIRequest request,
             Stopwatch watch,
@@ -612,8 +612,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 watch.Elapsed,
                 request.ItemsIncluded?.Length ?? 1,
                 0,
-                this.EstimatedCostPerInputMillionTokens,
-                this.EstimatedCostPerOutputMillionTokens,
+                this.EstimatedCostPerInputMillionTokens * CostSaving,
+                this.EstimatedCostPerOutputMillionTokens * CostSaving,
                 inputTokens: usage?.input_tokens,
                 outputThoughtsChars: thoughtContent.Length,
                 outputThoughtsTokens: 0, // Anthropic bundles thinking tokens into output_tokens
