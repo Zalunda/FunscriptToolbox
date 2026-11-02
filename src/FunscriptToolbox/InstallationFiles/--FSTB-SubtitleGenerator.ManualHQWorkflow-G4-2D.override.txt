@@ -7,6 +7,12 @@
   ],
   "Workers": [
     {
+      "Id": "manual-input-preparer",
+      "TitleCardDetection": {
+        "FfmpegFilter": "crop=iw*0.40:ih*0.10:iw*0.30:ih*0.45"
+      }
+    },
+    {
       "Id": "singlevad-ai-refined",
       "Options": {
         "BinaryDataExtractors": [

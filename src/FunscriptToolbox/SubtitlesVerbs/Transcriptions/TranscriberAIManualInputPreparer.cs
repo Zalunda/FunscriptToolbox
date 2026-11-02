@@ -13,12 +13,17 @@ using System.Threading.Tasks;
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     /// <summary>
-    /// Refines the timing of an existing transcription in two sequential passes:
-    ///   1. START pass: Audio_Max, Audio_S1..Audio_Sn (same end, different starts) -> BestStart
-    ///   2. END pass:   Audio_Max, Audio_E1..Audio_En (start locked, different ends) -> BestEnd
-    /// Each pass has its own prompt/options (InnerOptionsStart / InnerOptionsEnd).
+    /// Prepares the subtitles of a transcription (full-ai) for the manual-input file: the nodes that are clean, and the ones
+    /// that need the user's attention ([REVIEW] block). It does up to three things, each with its own settings and Enabled
+    /// (all disabled: the result is a clone of the source):
+    ///   - RefineTiming: refines the timing of each subtitle in two sequential passes:
+    ///       1. START pass: Audio_Max, Audio_S1..Audio_Sn (same end, different starts) -> BestStart
+    ///       2. END pass:   Audio_Max, Audio_E1..Audio_En (start locked, different ends) -> BestEnd
+    ///     Each pass has its own prompt/options (InnerOptionsStart / InnerOptionsEnd).
+    ///   - Validation: checks the refined subtitles, flags what needs a look and splits the long ones.
+    ///   - TitleCardDetection: adds a node for each title card found in the videos.
     /// </summary>
-    public class TranscriberAIRefineTiming : TranscriberAI
+    public class TranscriberAIManualInputPreparer : TranscriberAI
     {
         // ---------------------------------------------------------------------
         // Cache

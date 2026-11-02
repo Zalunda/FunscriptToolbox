@@ -598,9 +598,9 @@ _______________________________________=",
       "ExportMetadataSrt": true
     },
     {
-      "$type": "TranscriberAIRefineTiming",
-      "TranscriptionId": "full-ai-refined",
-      "$insertAfter": "full-ai-refined",
+      "$type": "TranscriberAIManualInputPreparer",
+      "TranscriptionId": "manual-input-preparer",
+      "$insertAfter": "full-ai",
       "Enabled": true,
       "PrivateMetadataNames": "TimingTrace",
       "CanBeUpdated": false,
@@ -635,7 +635,7 @@ _______________________________________=",
 
       "TitleCardDetection": {
         "Enabled": true,
-        "FfmpegFilter": "crop=iw*0.20:ih*0.06:iw*0.15:ih*0.47"
+        "FfmpegFilter": "crop=iw*0.20:ih*0.10:iw*0.15:ih*0.45"
       },
 
       // Refines the Start and End of each subtitle: the AI picks between the choices that the terrain of the audio offers.
@@ -786,17 +786,17 @@ _______________________________________=",
     {
       "Id": "full",
       "Enabled": true,
-      "SourceId": "full-ai-refined"
+      "SourceId": "manual-input-preparer"
     },
     {
       "Id": "generated-manual-input-srt",
       "Enabled": true,
       // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.
-      "TextSources": "full-ai-refined",
+      "TextSources": "manual-input-preparer",
       "MetadataToUse": "VoiceTextForManualReview",
       "Metadatas": {
-        "TimingsSource": "full-ai-refined",
-        "Sources": "full-ai-refined",
+        "TimingsSource": "manual-input-preparer",
+        "Sources": "manual-input-preparer",
         "MergeRules": {
           "VoiceText": null,
           "VoiceTextValidated": null,
