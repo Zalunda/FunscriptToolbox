@@ -25,14 +25,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public double MinDarkRatio { get; init; } = 0.95;  // share of the zone that must be black
         public double MinBrightRatio { get; init; } = 0.0005;
         public double MaxBrightRatio { get; init; } = 0.30; // zone is tight, text fills more of it
-        public double ChangeRatio { get; init; } = 0.30;   // share of text pixels that differ = new card
+        public double ChangeRatio { get; init; } = 0.30;   // share of text pixels that are new = new card
         public TimeSpan MinDuration { get; init; } = TimeSpan.FromSeconds(1);
+
+        /// The fade in/out of a card (text brighter/dimmer than BrightLevel, so not detected as a card) is followed through the
+        /// brightness of the text, for at most this long on each side. Zero: the fades are not followed.
+        public TimeSpan MaxFadeDuration { get; init; } = TimeSpan.FromSeconds(1.5);
     }
 
     public sealed class TitleCardDetector
     {
         /// How often (in video time) the progress is reported.
         private static readonly TimeSpan ProgressInterval = TimeSpan.FromMinutes(1);
+
+        // Fades: the brightness of the text is averaged over this many frames to follow its trend.
+        private const int FadeSmoothingFrames = 5;
 
         private readonly string _ffmpegPath;
         private readonly TitleCardDetectorOptions _o;
@@ -104,10 +111,61 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             int reported = 0;
             var nextReport = startAt + ProgressInterval;
 
-            void Close(TimeSpan end)
+            // Mean brightness of the zone for every frame (see Analyze), to follow the fades
+            var levels = new List<double>();
+            int maxFadeFrames = (int)Math.Ceiling(_o.MaxFadeDuration.TotalSeconds * fps);
+            int smoothing = FadeSmoothingFrames;
+            long lastEndFrame = 0;      // the frame where the last segment was closed (a fade-in cannot go before it)
+            bool fadingOut = false;     // the card is over, its fade out is being followed (segStart is still open)
+            long fadeOutFrame = 0;      // first frame after the card
+
+            TimeSpan TimeAt(long frame) => startAt + TimeSpan.FromSeconds(frame / fps);
+
+            void Close(long frame)
             {
+                var end = TimeAt(frame);
                 if (segStart is { } s && end > s) raw.Add(new TitleCardSegment(s, end));
                 segStart = null;
+                lastEndFrame = frame;
+            }
+
+            double Mean(long from, long to)
+            {
+                from = Math.Max(0, from);
+                to = Math.Min(levels.Count - 1, to);
+                if (to < from) return double.NaN;
+                double sum = 0;
+                for (long i = from; i <= to; i++) sum += levels[(int)i];
+                return sum / (to - from + 1);
+            }
+
+            // The text of the card was fading in before 'frame' (its first detected frame): where does the fade start?
+            long FadeInStart(long frame)
+            {
+                long limit = Math.Max(lastEndFrame, frame - maxFadeFrames);
+                long start = frame;
+                while (start - 1 >= limit)
+                {
+                    // Still brightening: the average of the frames from j on is above the average of the frames before j
+                    long j = start - 1;
+                    double after = Mean(j, j + smoothing - 1);
+                    double before = Mean(j - smoothing, j - 1);
+                    if (double.IsNaN(before) || before >= after)
+                        break;
+                    start = j;
+                }
+                return start;
+            }
+
+            // The card is over: is the text still dimming at 'frame'? (average of the last frames below the average of the ones before)
+            bool FadeOutContinues(long frame)
+            {
+                if (frame - fadeOutFrame >= maxFadeFrames)
+                    return false;
+
+                double older = Mean(frame - 2 * smoothing + 1, frame - smoothing);
+                double recent = Mean(frame - smoothing + 1, frame);
+                return !double.IsNaN(older) && older > recent;
             }
 
             // The cards that cannot change anymore, and the time up to which everything is final.
@@ -127,6 +185,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         boundary = settled[^1].StartTime;
                         settled.RemoveAt(settled.Count - 1);
                     }
+
+                    // The next card may start with a fade in, going back before 'now' (but not before the last segment)
+                    if (segStart == null)
+                        boundary = TimeSpan.FromTicks(Math.Min(boundary.Ticks, Math.Max((now - _o.MaxFadeDuration).Ticks, TimeAt(lastEndFrame).Ticks)));
                 }
 
                 var cleaned = Cleanup(settled);
@@ -140,24 +202,46 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 while (await ReadFullAsync(stream, buf, ct))
                 {
-                    var t = startAt + TimeSpan.FromSeconds(index++ / fps);
+                    long frame = index++;
+                    var t = TimeAt(frame);
 
-                    if (!Analyze(buf, cur, prev, hasPrev, out bool isCard, out bool changed))
-                    { /* unreachable, kept simple */ }
+                    Analyze(buf, cur, prev, hasPrev, out bool isCard, out bool changed, out double level);
+                    levels.Add(level);
+
+                    if (fadingOut)
+                    {
+                        if (!isCard && FadeOutContinues(frame))
+                        {
+                            hasPrev = false;
+                            goto frameDone;
+                        }
+                        fadingOut = false;
+                        Close(frame); // the fade is over (or a new card starts)
+                    }
 
                     if (!isCard)
                     {
-                        Close(t);
+                        if (segStart != null)
+                        {
+                            // The card is over: follow its fade out (the trend cannot be seen yet, the card was flat until now)
+                            fadeOutFrame = frame;
+                            if (maxFadeFrames > 0)
+                                fadingOut = true;
+                            else
+                                Close(frame);
+                        }
                         hasPrev = false;
                     }
                     else
                     {
-                        if (segStart != null && changed) Close(t); // new card right after previous one
-                        segStart ??= t;
+                        if (segStart != null && changed) Close(frame); // new card right after previous one
+                        segStart ??= TimeAt(FadeInStart(frame));
 
                         (prev, cur) = (cur, prev);
                         hasPrev = true;
                     }
+
+                frameDone:
 
                     if (t >= nextReport)
                     {
@@ -171,8 +255,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 try { if (!proc.HasExited) proc.Kill(true); } catch { }
                 throw;
             }
-            var videoEnd = startAt + TimeSpan.FromSeconds(index / fps);
-            Close(videoEnd); // video ended during a card
+            var videoEnd = TimeAt(index);
+            Close(index); // video ended during a card
 
             await proc.WaitForExitAsync(ct);
             if (proc.ExitCode != 0)
@@ -183,23 +267,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         // Single pass: classify the frame, build the text mask, compare with previous mask.
-        private bool Analyze(byte[] f, bool[] mask, bool[] prev, bool hasPrev, out bool isCard, out bool changed)
+        // Also gives the mean brightness of the zone ('level'), whether or not the frame is a card:
+        // a fading text raises it smoothly, even when it is too dim to count as bright pixels.
+        private bool Analyze(byte[] f, bool[] mask, bool[] prev, bool hasPrev, out bool isCard, out bool changed, out double level)
         {
             int dark = 0, bright = 0, diff = 0;
+            long sum = 0;
             for (int i = 0; i < f.Length; i++)
             {
                 byte p = f[i];
+                sum += p;
                 bool b = p >= _o.BrightLevel;
                 mask[i] = b;
                 if (p <= _o.DarkLevel) dark++;
                 else if (b) bright++;
-                if (hasPrev && b != prev[i]) diff++;
+                if (hasPrev && b && !prev[i]) diff++; // only new text: a text that dims (fade out) is not a new card
             }
             double n = f.Length;
             isCard = dark / n >= _o.MinDarkRatio
                 && bright / n >= _o.MinBrightRatio
                 && bright / n <= _o.MaxBrightRatio;
             changed = hasPrev && diff > Math.Max(8, bright * _o.ChangeRatio);
+            level = sum / n;
             return true;
         }
 

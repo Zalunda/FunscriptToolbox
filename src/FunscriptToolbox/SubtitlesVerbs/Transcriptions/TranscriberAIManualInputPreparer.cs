@@ -1012,10 +1012,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (s.StartDipDeltas.Count > 0 || s.EndDipDeltas.Count > 0)
             {
-                // (only the values that occurred; positive = outward: Start earlier / End later; the End is in reading order, as on the timeline)
+                // (only the values that occurred; positive = outward: Start earlier / End later)
                 const int w = 6;
                 var startKeys = s.StartDipDeltas.Keys.OrderByDescending(k => k).ToList();
-                var endKeys = s.EndDipDeltas.Keys.OrderBy(k => k).ToList();
+                var endKeys = s.EndDipDeltas.Keys.OrderByDescending(k => k).ToList();
                 string Cols(IEnumerable<int> keys) => string.Concat(keys.Select(k => k.ToString("+0;-0;0").PadLeft(w)));
                 string Vals(IDictionary<int, int> d, IEnumerable<int> keys) => string.Concat(keys.Select(k => d[k].ToString().PadLeft(w)));
 
