@@ -1342,6 +1342,45 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             }
         }
 
+        /// <summary>
+        /// How many dips the final boundary is from the initial (snapped) one: positive = outward (Start earlier / End later),
+        /// negative = inward. Null when the boundary has no dips (nothing was snapped on the terrain).
+        /// </summary>
+        public static int? DipDelta(TimingCandidate cand, BoundarySide side)
+        {
+            var boundary = cand[side];
+            if (boundary.Dips.Count == 0)
+                return null;
+
+            var times = boundary.Dips.Select(d => d.Time).OrderBy(t => t).ToList();
+            int NearestIndex(TimeSpan t)
+            {
+                int best = 0;
+                for (int i = 1; i < times.Count; i++)
+                    if (Math.Abs((times[i] - t).Ticks) < Math.Abs((times[best] - t).Ticks))
+                        best = i;
+                return best;
+            }
+
+            int delta = NearestIndex(boundary.Current) - NearestIndex(boundary.Init);
+            return side == BoundarySide.Start ? -delta : delta;
+        }
+
+        /// <summary>Adds a last trace row to each candidate: the change of its boundaries compared to the initial snap, in dips.</summary>
+        public void AddFinalDipTraces()
+        {
+            foreach (var cand in Candidates.Where(c => c.Origin != TimingOrigin.TitleCard))
+            {
+                var start = DipDelta(cand, BoundarySide.Start);
+                var end = DipDelta(cand, BoundarySide.End);
+                if (start == null && end == null)
+                    continue;
+
+                string Fmt(int? v) => v.HasValue ? v.Value.ToString("+0;-0;0") : "?";
+                cand.Traces.Add($"{cand.GetLockTag()} {"Dips",-4} Final vs Init: Start= {Fmt(start)}, End= {Fmt(end)}");
+            }
+        }
+
         /// <summary>Computes the summary numbers (null when there are no candidates).</summary>
         public TimingRefinerStats ComputeStats()
         {
@@ -1367,6 +1406,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             stats.MaxOutwardStartDrift = subs.Min(c => (c.Start.Current - c.OriginalStartTime).TotalSeconds);
             stats.AvgEndDrift = subs.Average(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
             stats.MaxOutwardEndDrift = subs.Max(c => (c.End.Current - c.OriginalEndTime).TotalSeconds);
+
+            foreach (var c in subs)
+            {
+                var startDelta = DipDelta(c, BoundarySide.Start);
+                var endDelta = DipDelta(c, BoundarySide.End);
+                if (startDelta.HasValue)
+                    stats.StartDipDeltas[startDelta.Value] = stats.StartDipDeltas.TryGetValue(startDelta.Value, out var sn) ? sn + 1 : 1;
+                if (endDelta.HasValue)
+                    stats.EndDipDeltas[endDelta.Value] = stats.EndDipDeltas.TryGetValue(endDelta.Value, out var en) ? en + 1 : 1;
+            }
 
             for (int i = 0; i < subs.Count; i++)
             {

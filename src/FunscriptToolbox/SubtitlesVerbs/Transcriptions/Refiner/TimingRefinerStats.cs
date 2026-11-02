@@ -49,6 +49,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public double AvgEndDrift { get; set; }
         public double MaxOutwardEndDrift { get; set; }
 
+        /// <summary>Final vs initial snap, in dips (positive = outward): number of subtitles for each value.</summary>
+        public SortedDictionary<int, int> StartDipDeltas { get; } = new SortedDictionary<int, int>();
+        public SortedDictionary<int, int> EndDipDeltas { get; } = new SortedDictionary<int, int>();
+
         public int Overlaps { get; set; }
         public int Squashed { get; set; }
     }

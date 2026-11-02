@@ -540,6 +540,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.Validation.Enabled)
                 new TimingValidator(refiner, this.Validation).Run();
 
+            if (this.RefineTiming.Enabled)
+                refiner.AddFinalDipTraces();
             UpdateTranscription(transcription, refiner.Candidates);
             DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => !c.NeedsReview).Select(c => c.ToSubtitle()), "CLEAN");
             DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => c.NeedsReview).Select(c => c.ToReviewSubtitle()), "REVIEW");
@@ -547,7 +549,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
             RunSimulations(context, transcription, refiner);
             SaveReport(context, transcription.Id);
-            return;
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
@@ -1008,6 +1009,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             m_report.Add(context, $"    - Avg Start Drift:                  {s.AvgStartDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardStartDrift:0.00}s)");
             m_report.Add(context, $"    - Avg End Drift:                    {s.AvgEndDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardEndDrift:+0.00;-0.00;0.00}s)");
             m_report.Add(context, $"    - Overlaps / Squashed (<=0.05s):    {s.Overlaps} / {s.Squashed}");
+
+            if (s.StartDipDeltas.Count > 0 || s.EndDipDeltas.Count > 0)
+            {
+                // (only the values that occurred; positive = outward: Start earlier / End later; the End is in reading order, as on the timeline)
+                const int w = 6;
+                var startKeys = s.StartDipDeltas.Keys.OrderByDescending(k => k).ToList();
+                var endKeys = s.EndDipDeltas.Keys.OrderBy(k => k).ToList();
+                string Cols(IEnumerable<int> keys) => string.Concat(keys.Select(k => k.ToString("+0;-0;0").PadLeft(w)));
+                string Vals(IDictionary<int, int> d, IEnumerable<int> keys) => string.Concat(keys.Select(k => d[k].ToString().PadLeft(w)));
+
+                m_report.Add(context, "");
+                m_report.Add(context, "  DIPS MOVED (final vs initial snap, + = outward):");
+                m_report.Add(context, $"    {"",-10}{"Start".PadRight(startKeys.Count * w)}    {"End"}");
+                m_report.Add(context, $"    {"",-10}{Cols(startKeys)}    {Cols(endKeys)}");
+                m_report.Add(context, $"    {"vs. Init",-10}{Vals(s.StartDipDeltas, startKeys)}    {Vals(s.EndDipDeltas, endKeys)}");
+            }
             m_report.Add(context, line);
         }
 
@@ -1052,8 +1069,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             foreach (var variant in this.Simulations)
                 results.Add(simulator.Run(variant.Name ?? "(unnamed)", variant.Apply(this.RefineTiming)));
 
-            const int SimulationAudioTokensPerSecond = 32;
-            TimingSimulator.Print(context, results, SimulationAudioTokensPerSecond, message => m_report.Add(context, message));
+            TimingSimulator.Print(context, results, AIRequestPartAudio.AudioTokensPerSecond, message => m_report.Add(context, message));
         }
     }
 }

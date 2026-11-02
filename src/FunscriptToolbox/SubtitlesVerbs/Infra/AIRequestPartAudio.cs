@@ -4,6 +4,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class AIRequestPartAudio : AIRequestPart
     {
+        public const int AudioTokensPerSecond = 25; // Gemini has 25 tokens per seconds, I assume something similar for the other vendor.
+
         public override string Modality { get; } = "AUDIO";
         public override BinaryDataType? AssociatedDataType => BinaryDataType.Audio;
 
@@ -24,6 +26,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public override string ForSimplifiedFullPrompt() => $"[Audio, {Duration.TotalSeconds}]";
         public override double Units => this.Duration.TotalSeconds;
         public override string UnitName => "seconds";
-        public override double EstimatedTokens => this.Units * 32; // 32 tokens per seconds for Gemini, I'll assume that it's similar for the other vendor.
+        public override double EstimatedTokens => this.Units * AudioTokensPerSecond;
     }
 }
