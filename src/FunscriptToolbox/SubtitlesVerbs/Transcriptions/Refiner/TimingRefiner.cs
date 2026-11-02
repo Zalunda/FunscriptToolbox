@@ -36,9 +36,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private static readonly TimeSpan MaxFinalClampOverlap = TimeSpan.FromMilliseconds(150);
         private const string MaxOptionKey = "Max";
 
-        /// <summary>Max dips (S1..Sn / E1..En) offered to the AI in ONE request. More dips are spread evenly, then narrowed down around the AI's choice.</summary>
-        private const int MaxTestsInRequest = 4;
-
         /// <summary>
         /// Runaway guard only. Every answer eliminates dips, so a boundary always converges on its own
         /// (a few answers in practice); this just keeps a bug from burning requests forever.
@@ -48,6 +45,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // ---------------------------------------------------------------------
         // Settings & state
         // ---------------------------------------------------------------------
+
+        /// <summary>SnapAndVerify: one request per subtitle (one clip, the snapped Start to the snapped End), and the timings are kept.</summary>
+        public bool VerifyOnly => Mode == RefineMode.SnapAndVerify;
+
+        public RefineMode Mode { get; }
 
         public bool TrimSilenceOnStart { get; }
         public bool TrimSilenceOnEnd { get; }
@@ -60,6 +62,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         /// <summary>Always kept sorted by OriginalStartTime.</summary>
         public List<TimingCandidate> Candidates { get; private set; } = new List<TimingCandidate>();
+
+        /// <summary>Max dips (S1..Sn / E1..En) offered to the AI in ONE request. More dips are spread evenly, then narrowed down around the AI's choice.</summary>
+        public int MaxTestsInRequest { get; set; } = 5;
+        public int MaxDipsInward { get; set; } = 1;
+        public int MaxDipsOutward { get; set; } = 3;
 
         private readonly Dictionary<TimeSpan, TimingCandidate> r_byOriginalStart = new Dictionary<TimeSpan, TimingCandidate>();
         private readonly TimingValidatorSettings r_validatorSettings;
@@ -80,7 +87,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             r_textMismatchMinSimilarity = validatorSettings?.Checks?.TextMismatchMinSimilarity;
             TrimSilenceOnStart = settings.TrimSilenceOnStart;
             TrimSilenceOnEnd = settings.TrimSilenceOnEnd;
+            Mode = settings.Mode;
             MaxExpansion = settings.MaxExpansion;
+            MaxDipsInward = settings.MaxDipsInward;
+            MaxDipsOutward = settings.MaxDipsOutward;
+            MaxTestsInRequest = settings.MaxTestsInRequest;
             BleedDetectionMargin = settings.BleedDetectionMargin;
             StartPassTailPadding = settings.StartPassTailPadding < TimeSpan.Zero ? TimeSpan.Zero : settings.StartPassTailPadding;
             AudioEndTime = fullPcmAudioForRefiner?.EndTime ?? TimeSpan.MaxValue;
@@ -330,6 +341,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 CapEndsByNextStarts();
         }
 
+        /// <summary>
+        /// The sides the AI is asked about, in order: both in Full, only the Start in SnapAndVerify (one request),
+        /// none in SnapOnly (the boundaries stay as snapped on the audio).
+        /// </summary>
+        public IReadOnlyList<BoundarySide> SidesToAsk
+            => Mode == RefineMode.Full ? TimingCandidate.Sides
+            : Mode == RefineMode.SnapAndVerify ? new[] { BoundarySide.Start }
+            : new BoundarySide[0];
+
+        /// <summary>The boundaries of the sides that are not asked stay where the initial snap put them: they are locked.</summary>
+        public void LockUnaskedBoundaries()
+        {
+            var asked = SidesToAsk;
+            foreach (var cand in Candidates)
+            {
+                foreach (var side in TimingCandidate.Sides.Where(s => !asked.Contains(s)))
+                    cand[side].Locked = true;
+
+                if (asked.Count == 0)
+                    cand.Trace("Snap", cand.Start.Current, cand.End.Current, "Kept as snapped on the audio");
+            }
+        }
+
         /// <summary>Call after the last round of a side: whatever is still unlocked is locked and flagged.</summary>
         public void EndPhase(BoundarySide side)
         {
@@ -347,18 +381,44 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             }
         }
 
+        private static IEnumerable<TimeSpan> LimitDipsAround(
+            IEnumerable<TimeSpan> dips, TimeSpan center, BoundarySide side,
+            int? maxInward, int? maxOutward, out TimeSpan? firstDroppedOutward)
+        {
+            var list = dips.OrderBy(t => t).ToList();
+            bool isStart = side == BoundarySide.Start;
+
+            // Nearest first
+            var inward = (isStart ? list.Where(t => t > center).OrderBy(t => t)
+                                : list.Where(t => t < center).OrderByDescending(t => t)).ToList();
+            var outward = (isStart ? list.Where(t => t < center).OrderByDescending(t => t)
+                                : list.Where(t => t > center).OrderBy(t => t)).ToList();
+
+            firstDroppedOutward = maxOutward.HasValue && outward.Count > maxOutward.Value
+                ? outward[maxOutward.Value]
+                : (TimeSpan?)null;
+
+            return inward.Take(maxInward ?? int.MaxValue)
+                .Concat(list.Where(t => t == center))
+                .Concat(outward.Take(maxOutward ?? int.MaxValue))
+                .OrderBy(t => t)
+                .ToList();
+        }
+
         private void InitializeDips(int index, BoundarySide side)
         {
             var cand = Candidates[index];
             var boundary = cand[side];
+            boundary.OutwardLimit = null;
             var (_, durationAnchor) = AnchorsFor(index, side);
-
             var max = ComputeMax(cand, side, boundary.Current, durationAnchor);
             var inwardLimit = InwardLimit(side, durationAnchor);
 
             boundary.Dips.Clear();
-            foreach (var t in TerrainMapping.GetDips(side, inwardLimit, max))
+            TimeSpan? dropped;
+            foreach (var t in LimitDipsAround(TerrainMapping.GetDips(side, inwardLimit, max), boundary.Current, side, MaxDipsInward, MaxDipsOutward, out dropped))
                 boundary.Dips.Add(new BoundaryDipCandidate(t));
+            boundary.OutwardLimit = dropped;
 
             // Ensure the current snapped boundary is present in the list
             EnsureDipPresent(boundary.Dips, boundary.Current);
@@ -536,8 +596,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private static TimeSpan InwardLimit(BoundarySide side, TimeSpan durationAnchor)
             => side == BoundarySide.Start ? durationAnchor - MinClipDuration : durationAnchor + MinClipDuration;
 
+        /// <summary>SnapAndVerify: one clip, exactly the snapped Start to the snapped End (no padding), and the text.</summary>
+        private TimingRound BuildVerifyRound(TimingCandidate cand)
+        {
+            const string optionId = "Verify";
+            var round = new TimingRound
+            {
+                Side = BoundarySide.Start,
+                RoundNumber = 1,
+                Center = cand.Start.Current,
+                ClipAnchor = cand.End.Current,
+                TextSent = cand.OriginalText,
+            };
+            round.Options[optionId] = cand.Start.Current;
+            AddClip(round, BoundarySide.Start, optionId, cand.Start.Current, cand.End.Current);
+            round.Clips[0].FieldName = "AudioClip";
+            return round;
+        }
+
         private TimingRound BuildRoundForSide(int index, BoundarySide side)
         {
+            if (VerifyOnly)
+                return BuildVerifyRound(Candidates[index]);
+
             var cand = Candidates[index];
             var boundary = cand[side];
             var center = boundary.Current;
@@ -675,16 +756,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         private TimeSpan ComputeMax(TimingCandidate cand, BoundarySide side, TimeSpan center, TimeSpan durationAnchor)
         {
             var hardLimit = GetHardLimit(cand, side);
+            var outwardLimit = cand[side].OutwardLimit; // first dip dropped by MaxDipsOutward (null = none dropped)
 
             if (side == BoundarySide.Start)
             {
                 var max = ClampToAudioBounds(center - MaxExpansion);
-                return hardLimit.HasValue && max < hardLimit.Value ? hardLimit.Value : max;
+                if (hardLimit.HasValue && max < hardLimit.Value)
+                    max = hardLimit.Value;
+                if (outwardLimit.HasValue && max < outwardLimit.Value)
+                    max = outwardLimit.Value;
+                return max;
             }
 
             var endMax = ClampToAudioBounds(center + MaxExpansion);
             if (hardLimit.HasValue && endMax > hardLimit.Value)
                 endMax = hardLimit.Value;
+            if (outwardLimit.HasValue && endMax > outwardLimit.Value)
+                endMax = outwardLimit.Value;
             if (endMax <= durationAnchor)
                 endMax = ClampToAudioBounds(durationAnchor + MinClipDuration);
             return endMax;
@@ -803,7 +891,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var boundary = cand[side];
             boundary.RetryCount++;
 
-            round.Choice = GetTrimmedMeta(item, side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd);
+            round.Choice = GetTrimmedMeta(item, VerifyOnly ? TimingMeta.Verdict : side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd);
             round.HeardText = GetTrimmedMeta(item, TimingMeta.HeardText);
             cand.Rounds.Add(round);
             cand.CurrentRound = null;
@@ -821,7 +909,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 return;
             }
 
-            ApplySideChoice(cand, round, side);
+            if (VerifyOnly)
+            {
+                // One request, whatever the answer: the timings are kept
+                boundary.Locked = true;
+                cand.End.Locked = true;
+            }
+            else
+            {
+                ApplySideChoice(cand, round, side);
+            }
 
             // Guard against crossed boundaries
             bool crossed = side == BoundarySide.Start
@@ -861,7 +958,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             cand.Traces.Add($"     {FormatDips(cand, side, round)}");
             cand.Trace(step, prevStart, prevEnd, $"AI: {round.Choice}", round.HeardText);
 
-            if (!crossed && boundary.Locked)
+            if (!crossed && boundary.Locked && !VerifyOnly)
                 TrimSilence(cand, side);
         }
 
@@ -1081,6 +1178,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
             // 3. Widest did not advance beyond fallback (no dips existed): lock and flag Missing.
             if (widestC == fallback)
+            {
+                MarkDipSelected(cand, side, widestC);
+                return (widestC, true, true);
+            }
+
+            // 4. MaxDipsOutward left some dips out: Max is the first of them, and the AI says the speech goes on beyond the widest offered option.
+            //    That is the limit of the search (one request per boundary): lock on the widest and flag Missing.
+            if (cand[side].OutwardLimit.HasValue)
             {
                 MarkDipSelected(cand, side, widestC);
                 return (widestC, true, true);

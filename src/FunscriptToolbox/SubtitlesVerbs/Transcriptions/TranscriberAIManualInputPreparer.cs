@@ -181,19 +181,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// Looks for title cards (text on a black background) in the videos, in the background, and adds a node for each
         /// (with {GrabOnScreenText}, so that its on-screen text is read later). Not set (null) or not Enabled: not done.
         /// </summary>
-        [JsonProperty(Order = 22)]
+        [JsonProperty(Order = 30)]
         public TitleCardDetectorOptions TitleCardDetection { get; set; }
 
 
         /// <summary>Refines the Start and End of each subtitle (AI + terrain of the audio).</summary>
-        [JsonProperty(Order = 20)]
+        [JsonProperty(Order = 31)]
         public TimingRefinerSettings RefineTiming { get; set; } = new TimingRefinerSettings();
 
         /// <summary>
         /// Checks the refined subtitles (and fixes some of the problems). Needs RefineTiming.
         /// Its Validations / Checks settings are used while refining too (what is flagged, the similarity of the texts).
         /// </summary>
-        [JsonProperty(Order = 21)]
+        [JsonProperty(Order = 32)]
         public TimingValidatorSettings Validation { get; set; } = new TimingValidatorSettings();
 
         private bool IsTitleCardDetectionEnabled => this.TitleCardDetection?.Enabled == true;
@@ -209,8 +209,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.Validation.Enabled && !this.RefineTiming.Enabled)
             {
                 throw new InvalidOperationException(
-                    "Validation is enabled but RefineTiming is not: the validation needs the refined timings (and the terrain of the audio). " +
-                    "Enable RefineTiming or disable Validation.");
+                    "Validation is enabled but RefineTiming Mode is 'Off': the validation needs the terrain of the audio (Mode SnapOnly or more). " +
+                    "Change the Mode or disable Validation.");
             }
 
             this.RefineTiming.Validate();
@@ -235,7 +235,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     return false;
                 }
 
-                foreach (var inner in new[] { this.RefineTiming.InnerOptionsStart, this.RefineTiming.InnerOptionsEnd })
+                foreach (var inner in this.RefineTiming.InnerOptionsUsed)
                 {
                     foreach (var extractor in inner?.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
                     {
@@ -271,6 +271,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public int Iterations;
             public int Tests;     // field (not property) so it can be passed by ref
             public int FromCache; // the Tests that were answered by the cache
+            public TimeSpan ClipDuration; // total length of all the audio clips of the Tests (Max and every option)
         }
 
         /// <summary>A subtitle given to the refiner, and where it comes from.</summary>
@@ -516,7 +517,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             // The long subtitles are split, and only the parts are refined (their outer edges are already validated)
-            var splits = this.Validation.Enabled
+            // (a split part gets its text from the AI: not possible without it)
+            var splits = this.Validation.Enabled && this.RefineTiming.UsesAI
                 ? new TimingValidator(refiner, this.Validation).PlanSplits()
                 : new List<TimingEdit>();
             if (splits.Count > 0)
@@ -543,6 +545,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => c.NeedsReview).Select(c => c.ToReviewSubtitle()), "REVIEW");
             if (this.RefineTiming.Enabled)
                 PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
+            RunSimulations(context, transcription, refiner);
+            SaveReport(context, transcription.Id);
+            return;
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
@@ -556,11 +561,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             List<PhaseReport> reports,
             bool exportProgress)
         {
-            foreach (var side in TimingCandidate.Sides)
+            if (refiner.SidesToAsk.Count == 0)
+                context.WriteInfo("  RefineTiming is SnapOnly: timings snapped on the audio, no AI request.");
+
+            foreach (var side in refiner.SidesToAsk)
             {
                 if (!RunPhase(context, transcription, refiner, jobState, side, reports, exportProgress))
                     return false;
             }
+
+            refiner.LockUnaskedBoundaries();
             return true;
         }
 
@@ -714,7 +724,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             AIOptions options,
             PhaseReport report)
         {
-            string defaultProduced = side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd;
+            string defaultProduced = this.RefineTiming.Mode == RefineMode.SnapAndVerify ? TimingMeta.Verdict
+                : side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd;
             string metadataProduced = string.IsNullOrWhiteSpace(options.MetadataAlwaysProduced)
                 ? defaultProduced
                 : options.MetadataAlwaysProduced;
@@ -732,6 +743,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             foreach (var candidate in candidatesToTest)
             {
                 var round = candidate.CurrentRound;
+                report.ClipDuration += round.Clips.Aggregate(TimeSpan.Zero, (sum, c) => sum + (c.End - c.Start));
                 if (jobState.TryGetCachedResult(candidate.OriginalStartTime, round, out var cached))
                 {
                     batch.Transcription.AddNewItem(candidate.OriginalStartTime, candidate.OriginalEndTime, cached.ToMetadata());
@@ -880,6 +892,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return sb.ToString();
         }
 
+        /// <summary>The lines of the final report (summary and simulations): shown, and saved in the report file when ExportMetadataSrt is on.</summary>
+        private class ReportBuffer
+        {
+            public readonly List<string> Lines = new List<string>();
+
+            public void Add(SubtitleGeneratorContext context, string message)
+            {
+                Lines.Add(message);
+                context.WriteInfo(message);
+            }
+        }
+
+        private readonly ReportBuffer m_report = new ReportBuffer();
+
+        private void SaveReport(SubtitleGeneratorContext context, string transcriptionId)
+        {
+            if (!this.ExportMetadataSrt || m_report.Lines.Count == 0)
+                return;
+
+            var path = context.WIP.BaseFilePath + $".Worker.{transcriptionId}.report.txt";
+            File.WriteAllLines(path, m_report.Lines, new UTF8Encoding(true));
+            m_report.Lines.Clear();
+        }
+
         private void DoExportSrt(
             SubtitleGeneratorContext context,
             string transcriptionId,
@@ -892,6 +928,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var virtualSubtitleFile = context.WIP.CreateVirtualSubtitleFile();
                 virtualSubtitleFile.Subtitles.AddRange(subtitles);
                 virtualSubtitleFile.Save(context.WIP.ParentPath, extension, context.SoftDelete);
+            }
+        }
+
+        private static string FormatDuration(TimeSpan t) => $"{(int)t.TotalHours}:{t:mm\\:ss\\.f}";
+
+        /// <summary>The audio the AI had to listen to, compared with the audio of the subtitles and of the whole video.</summary>
+        private void PrintClipDurations(
+            SubtitleGeneratorContext context,
+            TimingRefiner refiner,
+            List<PhaseReport> reports,
+            List<PhaseReport> splitReports)
+        {
+            var original = refiner.Candidates
+                .Where(c => c.Origin != TimingOrigin.TitleCard)
+                .Aggregate(TimeSpan.Zero, (sum, c) => sum + (c.OriginalEndTime - c.OriginalStartTime));
+            var tested = reports.Concat(splitReports).Aggregate(TimeSpan.Zero, (sum, r) => sum + r.ClipDuration);
+            var ratio = original > TimeSpan.Zero ? tested.TotalSeconds / original.TotalSeconds : 0;
+
+            m_report.Add(context, $"  Audio clips tested: {FormatDuration(tested)} for {FormatDuration(original)} of original subtitles ({ratio:0.0}x), out of {FormatDuration(refiner.AudioEndTime)} of audio");
+            foreach (var r in reports)
+            {
+                var split = splitReports.FirstOrDefault(f => f.Side == r.Side);
+                var total = r.ClipDuration + (split?.ClipDuration ?? TimeSpan.Zero);
+                m_report.Add(context, $"    {r.Side,-5} pass: {FormatDuration(total)}");
             }
         }
 
@@ -909,14 +969,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 return;
 
             const string line = "================================================================================";
-            context.WriteInfo(line);
-            context.WriteInfo($"  TIMING REFINER SUMMARY ({transcription.Id})");
-            context.WriteInfo(line);
-            context.WriteInfo(partCount > 0
+            m_report.Add(context, line);
+            m_report.Add(context, $"  TIMING REFINER SUMMARY ({transcription.Id})");
+            m_report.Add(context, line);
+            m_report.Add(context, partCount > 0
                 ? $"  Total Candidates: {originalCount} (original), {s.Total} (after split)"
                 : $"  Total Candidates: {s.Total}");
             if (s.TitleCards > 0)
-                context.WriteInfo($"  Title cards detected: {s.TitleCards} (not in the numbers below)");
+                m_report.Add(context, $"  Title cards detected: {s.TitleCards} (not in the numbers below)");
+
+            PrintClipDurations(context, refiner, reports, splitReports);
 
             // "Requests" = answers of the AI, including the ones that came from the cache
             foreach (var r in reports)
@@ -930,31 +992,68 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (split != null)
                     text += $" + {split.Tests} for the {partCount} split parts ({((double)split.Tests / Math.Max(1, partCount)):0.00} reqs/part)";
 
-                context.WriteInfo(text);
+                m_report.Add(context, text);
             }
-            context.WriteInfo("");
-            context.WriteInfo("  QUALITY BREAKDOWN:");
-            context.WriteInfo($"    [OK]   Clean / Full Coverage:       {s.Clean,4}  ({Percent(s.Clean, s.Total):0.0}%)  Both sides locked, no warnings");
-            context.WriteInfo($"    [WARN] Review Needed:               {s.Review,4}  ({Percent(s.Review, s.Total):0.0}%)");
+            m_report.Add(context, "");
+            m_report.Add(context, "  QUALITY BREAKDOWN:");
+            m_report.Add(context, $"    [OK]   Clean / Full Coverage:       {s.Clean,4}  ({Percent(s.Clean, s.Total):0.0}%)  Both sides locked, no warnings");
+            m_report.Add(context, $"    [WARN] Review Needed:               {s.Review,4}  ({Percent(s.Review, s.Total):0.0}%)");
 
             foreach (var (key, label) in TimingRefinerStats.NoteCategories)
                 PrintReviewLine(context, label, s.NoteCounts[key]);
 
-            context.WriteInfo("");
-            context.WriteInfo("  TIMING ADJUSTMENTS & ACCURACY:");
-            context.WriteInfo($"    - Avg Duration:                     {s.AvgOriginalDuration:0.00}s -> {s.AvgFinalDuration:0.00}s (diff: {(s.AvgFinalDuration - s.AvgOriginalDuration):+0.00;-0.00;0.00}s)");
-            context.WriteInfo($"    - Avg Start Drift:                  {s.AvgStartDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardStartDrift:0.00}s)");
-            context.WriteInfo($"    - Avg End Drift:                    {s.AvgEndDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardEndDrift:+0.00;-0.00;0.00}s)");
-            context.WriteInfo($"    - Overlaps / Squashed (<=0.05s):    {s.Overlaps} / {s.Squashed}");
-            context.WriteInfo(line);
+            m_report.Add(context, "");
+            m_report.Add(context, "  TIMING ADJUSTMENTS & ACCURACY:");
+            m_report.Add(context, $"    - Avg Duration:                     {s.AvgOriginalDuration:0.00}s -> {s.AvgFinalDuration:0.00}s (diff: {(s.AvgFinalDuration - s.AvgOriginalDuration):+0.00;-0.00;0.00}s)");
+            m_report.Add(context, $"    - Avg Start Drift:                  {s.AvgStartDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardStartDrift:0.00}s)");
+            m_report.Add(context, $"    - Avg End Drift:                    {s.AvgEndDrift:+0.00;-0.00;0.00}s (max outward: {s.MaxOutwardEndDrift:+0.00;-0.00;0.00}s)");
+            m_report.Add(context, $"    - Overlaps / Squashed (<=0.05s):    {s.Overlaps} / {s.Squashed}");
+            m_report.Add(context, line);
         }
 
         private static double Percent(int count, int total) => count * 100.0 / Math.Max(1, total);
 
-        private static void PrintReviewLine(SubtitleGeneratorContext context, string label, int count)
+        private void PrintReviewLine(SubtitleGeneratorContext context, string label, int count)
         {
             if (count > 0)
-                context.WriteInfo($"           - {(label + ":"),-33}{count,4}");
+                m_report.Add(context, $"           - {(label + ":"),-33}{count,4}");
+        }
+
+        /// <summary>
+        /// After refining, replays the refining with these settings, using this run's final timings as the truth (no AI call).
+        /// The real settings are simulated first, as a calibration.
+        /// </summary>
+        public TimingSimulationVariant[] Simulations { get; set; }
+
+        private void RunSimulations(SubtitleGeneratorContext context, Transcription transcription, TimingRefiner refiner)
+        {
+            // (the simulations replay the Full mode)
+            if (this.Simulations == null || this.Simulations.Length == 0 || this.RefineTiming.Mode != RefineMode.Full)
+                return;
+
+            var pcm = context.WIP.AudioExtractions
+                .First(f => f.Id == this.RefineTiming.SourceAudioIdForTerrain && f.IsFinished).PcmAudio;
+
+            var truths = refiner.Candidates
+                .Where(c => c.Origin == TimingOrigin.Original && c.OriginalItem != null)
+                .Select(c => new TimingSimulator.Truth
+                {
+                    Item = c.OriginalItem,
+                    Text = c.OriginalText,
+                    Start = c.Start.Current,
+                    End = c.End.Current,
+                });
+
+            var simulator = new TimingSimulator(pcm, refiner.TerrainMapping, this.RefineTiming.ValleyReach,
+                this.Validation, transcription, truths);
+
+            context.WriteInfo($"  Simulating {this.Simulations.Length} variant(s)...");
+            var results = new List<TimingSimulator.Result> { simulator.Run("REAL settings (calibration)", this.RefineTiming) };
+            foreach (var variant in this.Simulations)
+                results.Add(simulator.Run(variant.Name ?? "(unnamed)", variant.Apply(this.RefineTiming)));
+
+            const int SimulationAudioTokensPerSecond = 32;
+            TimingSimulator.Print(context, results, SimulationAudioTokensPerSecond, message => m_report.Add(context, message));
         }
     }
 }

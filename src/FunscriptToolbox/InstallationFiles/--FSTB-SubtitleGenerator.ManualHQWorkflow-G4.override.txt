@@ -192,6 +192,50 @@ _______________________________________=",
       "Lines": null
     },
     {
+      "$id": "TimingVerifySystemPrompt",
+      "$type": "AIPrompt",
+      "TextBefore": null,
+      "Text": "
+=_______________________________________
+# AUDIO CLIP VERIFIER
+
+### Role
+You are a precision audio verifier. For each subtitle node you listen to ONE audio clip and decide if it contains the spoken line. You do NOT choose any timing: the clip is what it is.
+
+### Input Fields per Node
+1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
+2. `OriginalText`: Rough-draft transcription of the clip. **Warning:** it may contain words that are not spoken or mishear syllables. Never let it make you hear words that are not there.
+   - If it has several lines starting with `- `, several people speak in this node (one line per speaker).
+3. `AudioClip`: the clip to verify. It was cut as tightly as possible around the line, so the first syllable or the last one may be slightly clipped: that is fine.
+
+### Decision Protocol
+1. Listen to `AudioClip` and compare it with `OriginalText`.
+2. If the spoken words match `OriginalText` (the same words, give or take the spelling, kanji versus kana, punctuation and a clipped first or last syllable), answer `"Verdict": "OK"` and OMIT `"HeardText"`.
+3. If the spoken words differ (different words, missing words, extra words), answer `"Verdict": "OK"` and give what you really hear as `"HeardText"` (natural Japanese, Kanji/Kana): the complete line, WITHOUT breaths. If `OriginalText` is empty, you MUST give `"HeardText"`.
+4. If the clip has no intelligible speech at all (only silence, noise, breathing), answer `"Verdict": "Inaudible"`.
+
+### Output Format
+Return a single valid JSON array with one object per input node:
+[
+  {
+    "StartTime": "00:00:32.150",
+    "Verdict": "OK"
+  },
+  {
+    "StartTime": "00:00:36.120",
+    "Verdict": "OK",
+    "HeardText": "それ買うねん。"
+  },
+  {
+    "StartTime": "00:00:41.500",
+    "Verdict": "Inaudible"
+  }
+]
+_______________________________________=",
+      "TextAfter": null,
+      "Lines": null
+    },
+    {
       "$id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
       "$type": "AIPrompt",
       "TextBefore": null,
@@ -603,6 +647,9 @@ _______________________________________=",
       "$insertAfter": "full-ai",
       "Enabled": true,
       "PrivateMetadataNames": "TimingTrace",
+      // [OPTION] If "CanBeUpdated" is set to true: the whole task is then run again everytime but, as long as the "RefineTiming" settings
+      // have not changed, no AI request is sent again (the answers are kept), so it can be used temporarily to adjust the
+      // "Validation" flags (warn / ignore) to your liking (delete .manual-input.srt if you want them to be recreated).
       "CanBeUpdated": false,
       "ExportMetadataSrt": true,
       "PromptUserOnError": true,
@@ -638,10 +685,30 @@ _______________________________________=",
         "FfmpegFilter": "crop=iw*0.20:ih*0.10:iw*0.15:ih*0.45"
       },
 
-      // Refines the Start and End of each subtitle: the AI picks between the choices that the terrain of the audio offers.
+      // Refines the Start and End of each subtitle, using the terrain of the audio (where the speech is).
+      // "Mode" is the main lever between the quality of the timings and the cost in AI tokens:
+      //   "Off"           => timings kept as they are. No terrain, no AI. (Validation can't be used.)
+      //   "SnapOnly"      => the initial snap of each boundary on the terrain, and nothing else. No AI request at all (free).
+      //                      Title card detection and Validation work. Expect many warnings (the text is never checked): ignore the
+      //                      codes that fire on almost every node, in Validation.Validations.
+      //   "SnapAndVerify" => SnapOnly, plus ONE AI request per subtitle with ONE clip (exactly the snapped start to the snapped end, no padding)
+      //                      and the text: the AI says if the clip contains the text (HeardText when it differs, Inaudible when nothing).
+      //                      The timings are kept whatever the answer: a problem is only flagged. Uses "InnerOptionsVerify".
+      //   "Full"          => the AI picks the best Start, then the best End, among options built on the terrain (several AI requests and
+      //                      clips per subtitle). Uses "InnerOptionsStart" and "InnerOptionsEnd". The settings below tune its cost:
+      //                        - MaxDipsInward / MaxDipsOutward: how many options around the snapped boundary are tried (fewer = cheaper,
+      //                          but a boundary that is further is flagged Missing instead of being found).
+      //                        - MaxTestsInRequest: how many options are in one request (more = bigger requests, fewer retries).
+      //                        - MaxExpansion: how far from the snapped boundary the options can go.
+      //                        - StartPassTailPadding: audio added after the end in the Start clips (more = more tokens).
       "RefineTiming": {
-        "Enabled": false,
+        "Mode": "Full",
         "SourceAudioIdForTerrain": "audio-clean-waveform",
+
+        // Ideally, MaxTestsInRequest should be greater then MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibilities.
+        "MaxTestsInRequest": 5,
+        "MaxDipsInward": 1,
+        "MaxDipsOutward": 3,
 
         // Start pass only: every clip ends this long after the initial End.
         "StartPassTailPadding": "00:00:00.8",
@@ -705,13 +772,40 @@ _______________________________________=",
           "NbContextItems": 0,
           "NbItemsMinimumReceivedToContinue": 15,
           "FieldsToInclude": "StartTime"
+        },
+
+        // ---------------- SnapAndVerify: the single request ----------------
+        "InnerOptionsVerify": {
+          "SystemPrompt": {
+            "$ref": "TimingVerifySystemPrompt"
+          },
+          "MetadataNeeded": "",
+          "MetadataAlwaysProduced": "Verdict",
+          "BinaryDataExtractors": [
+            {
+              "$type": "BinaryDataExtractorAudio",
+              "OutputFieldName": "AudioClip",
+              "Enabled": true,
+              "ExpandStart": "00:00:00",
+              "ExpandEnd": "00:00:00",
+              "KeepTemporaryFiles": false,
+              "SourceAudioId": "audio"
+            }
+          ],
+          "MaximumRequestsInBatch": 1000,
+          "BatchSize": 20,
+          "BatchSplitWindows": 0,
+          "BatchKeepTogetherThreshold": "00:00:00.0000000",
+          "NbContextItems": 0,
+          "NbItemsMinimumReceivedToContinue": 15,
+          "FieldsToInclude": "StartTime"
         }
       },
 
       // Checks the refined subtitles, flags what needs a look ([REVIEW] block in the node) and fixes some problems. Needs RefineTiming.
       // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
       "Validation": {
-        "Enabled": false,
+        "Enabled": true,
 
         // What to do for each kind of finding: "Warn" (the node gets a [REVIEW] block with the reason, and goes in the .REVIEW.srt),
         // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
@@ -758,8 +852,8 @@ _______________________________________=",
           "RepeatedTextMinChars": 8,
 
           // A subtitle made only of these words (one or several, in any order) gets "MaybePointless": it may not be worth a subtitle.
-          // Same format as TranscriptionToIgnorePatterns of full-ai: a regex on the text as it is (not case sensitive; katakana and hiragana
-          // are different characters). Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
+          // A regex on the text as it is (not case sensitive; katakana and hiragana are different characters).
+          // Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
           // Comment (//) the lines of the words that you want to keep. No list (or an empty one) = the check is not done.
           "MaybePointlessPatterns": [
             // Moans, grunt, etc

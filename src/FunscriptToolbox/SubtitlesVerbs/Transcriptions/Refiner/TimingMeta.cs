@@ -5,6 +5,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     {
         public const string BestStart = "BestStart";
         public const string BestEnd = "BestEnd";
+
+        /// <summary>SnapAndVerify answer: "OK" (the clip is judged, HeardText says what it contains) or "Inaudible".</summary>
+        public const string Verdict = "Verdict";
         public const string HeardText = "HeardText";
 
         /// <summary>Produced for each node: what the AI heard when it differs from VoiceText, otherwise VoiceText.</summary>

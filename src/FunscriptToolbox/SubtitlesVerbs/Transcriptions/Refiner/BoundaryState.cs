@@ -24,5 +24,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public int RetryCount { get; set; }
 
         public List<BoundaryDipCandidate> Dips { get; } = new List<BoundaryDipCandidate>();
+        public TimeSpan? OutwardLimit { get; internal set; }
+
     }
 }
