@@ -640,7 +640,7 @@ _______________________________________=",
 
       // Refines the Start and End of each subtitle: the AI picks between the choices that the terrain of the audio offers.
       "RefineTiming": {
-        "Enabled": true,
+        "Enabled": false,
         "SourceAudioIdForTerrain": "audio-clean-waveform",
 
         // Start pass only: every clip ends this long after the initial End.
@@ -711,7 +711,7 @@ _______________________________________=",
       // Checks the refined subtitles, flags what needs a look ([REVIEW] block in the node) and fixes some problems. Needs RefineTiming.
       // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
       "Validation": {
-        "Enabled": true,
+        "Enabled": false,
 
         // What to do for each kind of finding: "Warn" (the node gets a [REVIEW] block with the reason, and goes in the .REVIEW.srt),
         // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
@@ -762,6 +762,14 @@ _______________________________________=",
           // are different characters). Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
           // Comment (//) the lines of the words that you want to keep. No list (or an empty one) = the check is not done.
           "MaybePointlessPatterns": [
+            // Moans, grunt, etc
+            { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
+            { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+" },
+            { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
+            { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+" },
+            { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*" },
+            { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーは、。\\s…!！]+" },
+
             // Words said over and over
             { "Name": "Sugoi (すごい = incredible)", "Pattern": "(すご|スゴ|凄)[いイーっッ]+[、。\\s…!！?？]*" },
             { "Name": "Kimochii (きもちいい = it feels good)", "Pattern": "(きもち|キモチ|気持ち)[いイーっッ]+[、。\\s…!！?？]*" },
