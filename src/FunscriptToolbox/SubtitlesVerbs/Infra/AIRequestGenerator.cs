@@ -1,3 +1,4 @@
+using FunscriptToolbox.Core.Infra;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -57,7 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             foreach (var referenceTiming in r_referenceTimings)
             {
-                var workingOnItems = r_workingOnContainer.GetItems().Where(f => f.StartTime == referenceTiming.StartTime);
+                var workingOnItems = r_workingOnContainer.GetItems().Where(f => f.StartTime.IsAlmostEqual(referenceTiming.StartTime)); // Safety net: tolerate sub-ms drift in keys (e.g. older WIP files)
                 var workingOnItem = workingOnItems.LastOrDefault(); // Should we take the last??
 
                 var item = new TimedItemWithMetadataTagged(referenceTiming, workingOnItem?.Metadata);

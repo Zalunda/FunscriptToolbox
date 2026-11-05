@@ -12,6 +12,23 @@ namespace FunscriptToolbox.Core.Infra
             return source.Select(selector).Aggregate(TimeSpan.Zero, (acc, ts) => acc + ts);
         }
 
+        /// <summary>
+        /// Rounds to the nearest millisecond. .NET Framework did this implicitly in TimeSpan.FromSeconds/FromMilliseconds;
+        /// modern .NET keeps full tick precision, which breaks exact TimeSpan comparisons/keys in WIP files.
+        /// </summary>
+        public static TimeSpan RoundToMs(this TimeSpan value)
+        {
+            return TimeSpan.FromTicks((long)Math.Round(value.Ticks / (double)TimeSpan.TicksPerMillisecond) * TimeSpan.TicksPerMillisecond);
+        }
+
+        /// <summary>
+        /// True if both times are within the given tolerance (default 1 ms) of each other.
+        /// </summary>
+        public static bool IsAlmostEqual(this TimeSpan value, TimeSpan other, TimeSpan? tolerance = null)
+        {
+            return (value - other).Duration() <= (tolerance ?? TimeSpan.FromMilliseconds(1));
+        }
+
         public static TimeSpan Min(TimeSpan a, TimeSpan b)
         {
             return a < b ? a : b;

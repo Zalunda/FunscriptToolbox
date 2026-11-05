@@ -1,12 +1,16 @@
-﻿using System;
+﻿using FunscriptToolbox.Core.Infra;
+using System;
 using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public class TimedItemWithMetadata : ITiming
     {
-        public TimeSpan StartTime { get; set; }
-        public TimeSpan EndTime { get; set; }
+        private TimeSpan r_startTime;
+        private TimeSpan r_endTime;
+        // Always rounded to the millisecond: StartTime is used as a key in the WorkInProgress files.
+        public TimeSpan StartTime { get => r_startTime; set => r_startTime = value.RoundToMs(); }
+        public TimeSpan EndTime { get => r_endTime; set => r_endTime = value.RoundToMs(); }
         public TimeSpan Duration => EndTime - StartTime;
         public MetadataCollection Metadata { get; }
         public DateTime? CreationTime { get; }

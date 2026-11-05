@@ -702,13 +702,13 @@ _______________________________________=",
       //                        - MaxExpansion: how far from the snapped boundary the options can go.
       //                        - StartPassTailPadding: audio added after the end in the Start clips (more = more tokens).
       "RefineTiming": {
-        "Mode": "Full",
+        "Mode": "SnapOnly",
         "SourceAudioIdForTerrain": "audio-clean-waveform",
 
         // Ideally, MaxTestsInRequest should be greater then MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibilities.
         "MaxTestsInRequest": 5,
-        "MaxDipsInward": 1,
-        "MaxDipsOutward": 3,
+        "MaxDipsInward": 2,
+        "MaxDipsOutward": 2,
 
         // Start pass only: every clip ends this long after the initial End.
         "StartPassTailPadding": "00:00:00.8",
@@ -937,8 +937,9 @@ _______________________________________=",
         "TimingsSource": "timings",
         "Sources": "full,speakers,manual-input",
         "MergeRules": {
-          "full,VoiceText": "full-VoiceText",
-          "full,TimingValidation": null
+          "VoiceText": null,
+          "VoiceTextValidated": "full-VoiceText",
+          "VoiceTextForManualReview": null
         },
       },
       "Options": {
