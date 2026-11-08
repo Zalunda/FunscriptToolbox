@@ -83,7 +83,7 @@
             "threshold": "OFF"
           }
         ],
-        "generation_config": {
+        "generationConfig": {
           "thinkingConfig": {
             "includeThoughts": true
           },
@@ -150,7 +150,7 @@
             "threshold": "OFF"
           }
         ],
-        "generation_config": {
+        "generationConfig": {
           "thinkingConfig": {
             "includeThoughts": true
           },
@@ -221,7 +221,7 @@
             "threshold": "OFF"
           }
         ],
-        "generation_config": {
+        "generationConfig": {
           "thinkingConfig": {
             // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
             "includeThoughts": true
@@ -295,7 +295,7 @@
             "threshold": "OFF"
           }
         ],
-        "generation_config": {
+        "generationConfig": {
           "thinkingConfig": {
             // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
             "includeThoughts": true
