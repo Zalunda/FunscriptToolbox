@@ -980,6 +980,7 @@ _______________________________________=",
         },
         "BatchSize": 200,
         "BatchSplitWindows": 15,
+        "BatchMaxMBSize", 95,
         "NbContextItems": 10000,
         "NbItemsMinimumReceivedToContinue": 75
       }

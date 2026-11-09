@@ -24,6 +24,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public TimeSpan ExtractTime { get; }
 
         public override string ForSimplifiedFullPrompt() => $"[Audio, {Duration.TotalSeconds}]";
+        public override long EstimatedRequestBytes => JsonPartOverheadBytes + (((this.Content?.Length ?? 0) + 2) / 3) * 4; // base64
         public override double Units => this.Duration.TotalSeconds;
         public override string UnitName => "seconds";
         public override double EstimatedTokens => this.Units * AudioTokensPerSecond;

@@ -22,6 +22,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return nbCharsInResponse / 3.5;
         }
 
+        public override long EstimatedRequestBytes =>
+            JsonPartOverheadBytes + System.Text.Encoding.UTF8.GetByteCount(this.Content ?? string.Empty) + (this.Content?.Length ?? 0) / 20; // ~5% for JSON escaping
         public override double Units => this.Content.Length;
         public override string UnitName => "chars";
         public override double EstimatedTokens => GetEstimatedTokensFromChar(this.Units);

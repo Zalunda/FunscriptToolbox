@@ -271,10 +271,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                             nbImagesInBatch += itemParts.OfType<AIRequestPartImage>().Count();
                             audioSecondsInBatch += itemParts.OfType<AIRequestPartAudio>().Sum(a => a.Duration.TotalSeconds);
+                            var estimatedRequestBytes = r_options.BatchMaxMBSize.HasValue
+                                ? systemParts.Sum(p => p.EstimatedRequestBytes)
+                                    + userParts.Sum(p => p.EstimatedRequestBytes)
+                                    + itemParts.Sum(p => p.EstimatedRequestBytes)
+                                : 0L;
                             // Always include at least the minimum items received to continue.
                             if (itemsInBatch.Count > r_options.NbItemsMinimumReceivedToContinue
                                 && ((r_options.BatchMaxImages.HasValue && nbImagesInBatch > r_options.BatchMaxImages.Value)
-                                    || (r_options.BatchMaxAudioDuration.HasValue && audioSecondsInBatch > r_options.BatchMaxAudioDuration.Value.TotalSeconds)))
+                                    || (r_options.BatchMaxAudioDuration.HasValue && audioSecondsInBatch > r_options.BatchMaxAudioDuration.Value.TotalSeconds)
+                                    || (r_options.BatchMaxMBSize.HasValue && estimatedRequestBytes > r_options.BatchMaxMBSize.Value * 1024 * 1024)))
                             {
                                 break;
                             }

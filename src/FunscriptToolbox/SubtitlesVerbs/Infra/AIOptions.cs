@@ -33,14 +33,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public int? BatchMaxImages { get; set; }
         [JsonProperty(Order = 14)]
         public TimeSpan? BatchMaxAudioDuration { get; set; }
-
         [JsonProperty(Order = 15)]
-        public int? NbContextItems { get; set; } = 100000;
+        public double? BatchMaxMBSize { get; set; }
+
         [JsonProperty(Order = 16)]
-        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        public int? NbContextItems { get; set; } = 100000;
         [JsonProperty(Order = 17)]
-        public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
         [JsonProperty(Order = 18)]
+        public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        [JsonProperty(Order = 19)]
         public Dictionary<string, int> MetadataInContextLimits { get; set; }
 
         [JsonProperty(Order = 22)]
