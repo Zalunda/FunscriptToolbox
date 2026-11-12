@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -44,9 +45,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.Items.Clear();
             if (subtitleFile != null)
             {
-                transcription.Items.AddRange(
-                    ReadMetadataSubtitles(subtitleFile.Subtitles)
-                    .Select(item => new TranscribedItem(item.StartTime, item.EndTime, item.Metadata)));
+                // Subtitles past the end of the video are ignored, the ones that overlap the end are cut
+                // (not done when the duration is not known).
+                var videoDuration = context.WIP.TimelineMap.Duration;
+                var nbRemoved = 0;
+                var nbCut = 0;
+                foreach (var item in ReadMetadataSubtitles(subtitleFile.Subtitles))
+                {
+                    var endTime = item.EndTime;
+                    if (videoDuration > TimeSpan.Zero)
+                    {
+                        if (item.StartTime >= videoDuration)
+                        {
+                            nbRemoved++;
+                            continue;
+                        }
+                        if (endTime > videoDuration)
+                        {
+                            endTime = videoDuration;
+                            nbCut++;
+                        }
+                    }
+                    transcription.Items.Add(new TranscribedItem(item.StartTime, endTime, item.Metadata));
+                }
+
+                if (nbRemoved > 0 || nbCut > 0)
+                {
+                    context.WriteInfo($"  '{this.FileSuffix}': {nbRemoved} subtitle(s) after the end of the video ({videoDuration:hh\\:mm\\:ss\\.fff}) ignored, {nbCut} cut.", ConsoleColor.Yellow);
+                }
             }
             transcription.MarkAsFinished();
             context.WIP.Save();
