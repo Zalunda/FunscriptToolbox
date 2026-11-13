@@ -1,3 +1,4 @@
+using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using System;
@@ -57,6 +58,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public TimeSpan BleedDetectionMargin { get; }
         public TimeSpan StartPassTailPadding { get; }
 
+        /// <summary>Silence that every Start / End clip must have at its start / end (see TimingRefinerSettings).</summary>
+        public TimeSpan StartClipPadding { get; }
+        public TimeSpan EndClipPadding { get; }
+
+        /// <summary>The tail check of the chosen Ends is done (see TimingRefinerSettings.InnerOptionsEndTail).</summary>
+        public bool TailCheckEnabled { get; }
+        public TimeSpan EndTailMinExtra { get; }
+        public int EndTailMaxChecks { get; }
+        public float EndTailSilenceMaxSpeechRatio { get; }
+
         public AudioTerrainMapping TerrainMapping { get; }
         public TimeSpan AudioEndTime { get; }
 
@@ -94,6 +105,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             MaxTestsInRequest = settings.MaxTestsInRequest;
             BleedDetectionMargin = settings.BleedDetectionMargin;
             StartPassTailPadding = settings.StartPassTailPadding < TimeSpan.Zero ? TimeSpan.Zero : settings.StartPassTailPadding;
+            StartClipPadding = settings.StartClipPadding;
+            EndClipPadding = settings.EndClipPadding;
+            TailCheckEnabled = settings.TailCheckEnabled;
+            EndTailMinExtra = settings.EndTailMinExtra;
+            EndTailMaxChecks = settings.EndTailMaxChecks;
+            EndTailSilenceMaxSpeechRatio = settings.EndTailSilenceMaxSpeechRatio;
             AudioEndTime = fullPcmAudioForRefiner?.EndTime ?? TimeSpan.MaxValue;
 
             // Without refining there is no terrain: the refiner is then only the list of candidates
@@ -109,8 +126,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             {
                 TerrainMapping = new AudioTerrainMapping(fullPcmAudioForRefiner)
                 {
-                    SpeechRatio = SpeechRatio,
-                    PeakRatio = PeakRatio,
+                    //SpeechRatio = SpeechRatio,
+                    //PeakRatio = PeakRatio,
                     ValleyReach = settings.ValleyReach,
                 };
                 TerrainMapping.Compute();
@@ -834,13 +851,142 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     start = ClampToAudioBounds(end - MinClipDuration);
             }
 
-            round.Clips.Add(new TimingClipOption
+            var clip = new TimingClipOption
             {
                 FieldName = $"Audio_{optionId}",
                 OptionId = optionId,
                 Start = start,
                 End = end
-            });
+            };
+            AddClipPadding(clip, side);
+            round.Clips.Add(clip);
+        }
+
+        // ---------------------------------------------------------------------
+        // Clip padding: silence at the start (Start pass) / the end (End pass) of the audio sent to the AI
+        // ---------------------------------------------------------------------
+
+        /// <summary>A silence that is stolen is taken this far from its edges (the slopes of the speech next to it).</summary>
+        private static readonly TimeSpan StolenSilenceMargin = TimeSpan.FromMilliseconds(50);
+
+        /// <summary>How many silences, around the clip, are looked at to find one to steal from.</summary>
+        private const int MaxSilencesLookedAt = 2000;
+
+        /// <summary>
+        /// The clip must have at least StartClipPadding (Start pass) / EndClipPadding (End pass) of silence at its start / end:
+        /// the silence that really precedes / follows the clip is used first, and the rest is stolen from the nearest other silence
+        /// (spliced in front / after). Nothing is stolen when there is not enough silence anywhere (the padding is then shorter).
+        /// </summary>
+        private void AddClipPadding(TimingClipOption clip, BoundarySide side)
+        {
+            var padding = side == BoundarySide.Start ? StartClipPadding : EndClipPadding;
+            if (padding <= TimeSpan.Zero || TerrainMapping == null || TerrainMapping.Segments.Count == 0)
+                return;
+
+            var segments = TerrainMapping.Segments;
+            var oneMs = TimeSpan.FromMilliseconds(1);
+
+            // The silence that really touches the clip
+            int realIndex = side == BoundarySide.Start
+                ? SegmentIndexAt(clip.Start - oneMs)
+                : SegmentIndexAt(clip.End);
+            (TimeSpan From, TimeSpan To)? real = null;
+            if (realIndex >= 0 && segments[realIndex].IsSilence)
+            {
+                real = side == BoundarySide.Start
+                    ? (TimeSpanExtensions.Max(segments[realIndex].StartTime, clip.Start - padding), clip.Start)
+                    : (clip.End, TimeSpanExtensions.Min(segments[realIndex].EndTime, clip.End + padding));
+                if (real.Value.To <= real.Value.From)
+                    real = null;
+            }
+
+            var missing = padding - (real.HasValue ? real.Value.To - real.Value.From : TimeSpan.Zero);
+            (TimeSpan From, TimeSpan To)? stolen = missing > oneMs
+                ? FindSilenceToSteal(missing, side == BoundarySide.Start ? clip.Start : clip.End, realIndex)
+                : null;
+
+            if (side == BoundarySide.Start)
+            {
+                if (stolen.HasValue) clip.LeadingPieces.Add(stolen.Value);
+                if (real.HasValue) clip.LeadingPieces.Add(real.Value);
+            }
+            else
+            {
+                if (real.HasValue) clip.TrailingPieces.Add(real.Value);
+                if (stolen.HasValue) clip.TrailingPieces.Add(stolen.Value);
+            }
+        }
+
+        /// <summary>The index of the segment of the terrain that contains 'time' (-1 when before the first one).</summary>
+        private int SegmentIndexAt(TimeSpan time)
+        {
+            var segments = TerrainMapping.Segments;
+            int lo = 0, hi = segments.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (segments[mid].StartTime <= time) lo = mid + 1; else hi = mid;
+            }
+            return lo - 1;
+        }
+
+        /// <summary>
+        /// The nearest silence (to 'near') that is long enough, never a digital silence (the terrain has a level there),
+        /// and not the one already used: 'length' is taken from the middle of its longest truly silent stretch, away from the slopes of
+        /// the speech. A breath or a click inside the silence (they are merged in Segments) is never taken, not even partly.
+        /// </summary>
+        private (TimeSpan From, TimeSpan To)? FindSilenceToSteal(TimeSpan length, TimeSpan near, int excludedIndex)
+        {
+            var segments = TerrainMapping.Segments;
+            int center = Math.Max(0, SegmentIndexAt(near));
+
+            (TimeSpan From, TimeSpan To)? TryTake(int i)
+            {
+                if (i < 0 || i >= segments.Count || i == excludedIndex)
+                    return null;
+                var seg = segments[i];
+                if (!seg.IsSilence || seg.PeakLevel <= 0f || seg.Duration < length + StolenSilenceMargin + StolenSilenceMargin)
+                    return null;
+
+                // Only the pure silence pieces (not Breath, not Click) of the segment can be used
+                var detailed = TerrainMapping.DetailedSegments;
+                int lo = 0, hi = detailed.Count;
+                while (lo < hi)
+                {
+                    int mid = (lo + hi) / 2;
+                    if (detailed[mid].EndTime <= seg.StartTime) lo = mid + 1; else hi = mid;
+                }
+
+                TimeSpan bestStart = TimeSpan.Zero, bestDuration = TimeSpan.Zero;
+                for (int k = lo; k < detailed.Count && detailed[k].StartTime < seg.EndTime; k++)
+                {
+                    var piece = detailed[k];
+                    if (!piece.IsSilence || piece.PeakLevel <= 0f)
+                        continue;
+                    var start = TimeSpanExtensions.Max(piece.StartTime, seg.StartTime);
+                    var duration = TimeSpanExtensions.Min(piece.EndTime, seg.EndTime) - start;
+                    if (duration > bestDuration)
+                    {
+                        bestStart = start;
+                        bestDuration = duration;
+                    }
+                }
+                if (bestDuration < length + StolenSilenceMargin + StolenSilenceMargin)
+                    return null;
+
+                var from = bestStart + TimeSpan.FromTicks((bestDuration - length).Ticks / 2);
+                return (from, from + length);
+            }
+
+            for (int step = 0; step < MaxSilencesLookedAt; step++)
+            {
+                var taken = TryTake(center - step) ?? TryTake(center + step);
+                if (taken.HasValue)
+                    return taken;
+                if (center - step < 0 && center + step >= segments.Count)
+                    break;
+            }
+            return null;
         }
 
         /// <summary>The dips that were in play when the round was built, with their state after the AI's answer.</summary>
@@ -850,6 +996,142 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return string.Join(" ", cand[side].Dips
                 .Where(d => round.DipTimesAtStart.Contains(d.Time))
                 .Select(d => d.Format(initTime)));
+        }
+
+        // ---------------------------------------------------------------------
+        // Tail check: what did the chosen End append?
+        // ---------------------------------------------------------------------
+
+        /// <summary>Where the End of a candidate stands in the tail check: the option it rests on, and how many times it was moved back.</summary>
+        private class TailState
+        {
+            public TimeSpan Option;
+            public IReadOnlyCollection<TimeSpan> OfferedOptions;
+            public int Checks;
+
+            /// <summary>Requests built, answered or not (runaway guard: an unanswered request is built again).</summary>
+            public int Requests;
+            public bool Done;
+        }
+
+        private readonly Dictionary<TimingCandidate, TailState> r_tailStates = new Dictionary<TimingCandidate, TailState>();
+
+        /// <summary>
+        /// The AI chooses between dips, and sometimes the chosen End is a long way after the closest option before it (ex: after a
+        /// pause, a laugh, a breath or a noise that follows the last word). When the audio that the chosen End appends to that
+        /// option is at least EndTailMinExtra long, it is worth asking what it is, without the text: it is only judged by what it
+        /// sounds like. Call after the End pass; CurrentRound is set on the candidates to ask (null on the others).
+        /// </summary>
+        public void PrepareTailCheck()
+        {
+            foreach (var cand in Candidates)
+            {
+                cand.CurrentRound = null;
+                if (!cand.End.Locked || cand.End.Fixed || cand.Origin == TimingOrigin.TitleCard)
+                    continue;
+
+                if (!r_tailStates.TryGetValue(cand, out var state))
+                {
+                    state = CreateTailState(cand);
+                    r_tailStates[cand] = state;
+                }
+                if (state == null || state.Done)
+                    continue;
+                if (state.Checks >= EndTailMaxChecks || state.Requests >= EndTailMaxChecks * 2)
+                {
+                    state.Done = true;
+                    continue;
+                }
+
+                var end = cand.End.Current;
+                var from = state.OfferedOptions.Where(t => t < state.Option - TimeSpan.FromMilliseconds(1)).DefaultIfEmpty(TimeSpan.MaxValue).Max();
+                if (from == TimeSpan.MaxValue || from <= cand.Start.Current + MinClipDuration || end - from < EndTailMinExtra)
+                {
+                    state.Done = true;
+                    continue;
+                }
+
+                var round = new TimingRound
+                {
+                    Side = BoundarySide.End,
+                    RoundNumber = state.Checks + 1,
+                    Center = end,
+                    ClipAnchor = from,
+                    TailFrom = from,
+                    IsTailCheck = true,
+                    TextSent = "" // the text is not sent: the audio is judged by what it sounds like
+                };
+                state.Requests++;
+                round.Options["Tail"] = end;
+                round.Clips.Add(new TimingClipOption { FieldName = "AudioClip", OptionId = "Tail", Start = from, End = end });
+                cand.CurrentRound = round;
+            }
+        }
+
+        /// <summary>The state of a candidate's End at the start of its tail check (null when its End was not chosen by the AI between options).</summary>
+        private TailState CreateTailState(TimingCandidate cand)
+        {
+            var last = cand.Rounds.LastOrDefault(r => r.Side == BoundarySide.End && !r.IsTailCheck && r.Choice != null);
+            if (last == null || !last.Options.TryGetValue(NormalizeToken(last.Choice), out var option))
+                return null;
+
+            return new TailState { Option = option, OfferedOptions = last.Options.Values.ToList() };
+        }
+
+        public void ProcessTailCheckResults(IEnumerable<TranscribedItem> responseItems)
+        {
+            foreach (var item in responseItems)
+            {
+                var cand = r_byOriginalStart.TryGetValue(item.StartTime, out var exact) && exact.CurrentRound?.IsTailCheck == true
+                    ? exact
+                    : Candidates.FirstOrDefault(c => c.CurrentRound?.IsTailCheck == true
+                        && Math.Abs((c.OriginalStartTime - item.StartTime).TotalMilliseconds) < 50);
+                if (cand != null)
+                    ApplyTailCheck(cand, item);
+            }
+        }
+
+        private void ApplyTailCheck(TimingCandidate cand, TranscribedItem item)
+        {
+            var round = cand.CurrentRound;
+            var state = r_tailStates[cand];
+            round.Choice = GetTrimmedMeta(item, TimingMeta.TailKind);
+            cand.TailChecks.Add(round);
+            cand.CurrentRound = null;
+            state.Checks++;
+
+            var prevStart = cand.Start.Current;
+            var prevEnd = cand.End.Current;
+            var extra = $"{round.TailFrom:mm\\:ss\\.fff}-{round.Center:mm\\:ss\\.fff}";
+
+            // No answer: the End is kept, as it was chosen
+            bool noAnswer = string.IsNullOrWhiteSpace(round.Choice);
+            if (noAnswer || string.Equals(round.Choice, TimingMeta.TailKindSpeech, StringComparison.OrdinalIgnoreCase))
+            {
+                state.Done = true;
+                cand.Trace("Tail", prevStart, prevEnd, $"Extra {extra}: {(noAnswer ? "no answer" : round.Choice)}, End kept");
+                return;
+            }
+
+            // "Silence" but the terrain hears Speech (a laugh, a moan, a word are loud): the AI is wrong, the End is kept
+            if (EndTailSilenceMaxSpeechRatio > 0f && string.Equals(round.Choice, TimingMeta.TailKindSilence, StringComparison.OrdinalIgnoreCase))
+            {
+                var extraLength = round.Center - round.TailFrom;
+                var speech = TerrainMapping.SpeechDurationBetween(round.TailFrom, round.Center);
+                if (extraLength > TimeSpan.Zero && speech.TotalMilliseconds >= extraLength.TotalMilliseconds * EndTailSilenceMaxSpeechRatio)
+                {
+                    state.Done = true;
+                    cand.Trace("Tail", prevStart, prevEnd, $"Extra {extra}: {round.Choice} but terrain has {speech.TotalMilliseconds:0} ms of speech in {extraLength.TotalMilliseconds:0} ms, End kept");
+                    return;
+                }
+            }
+
+            // Not speech: the End goes back to the closest option (and is checked again against the one before it)
+            cand.End.Current = round.TailFrom;
+            state.Option = round.TailFrom;
+            MarkDipSelected(cand, BoundarySide.End, round.TailFrom);
+            TrimSilence(cand, BoundarySide.End);
+            cand.Trace("Tail", prevStart, prevEnd, $"Extra {extra}: {round.Choice}, End moved back");
         }
 
         // ---------------------------------------------------------------------

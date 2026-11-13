@@ -192,6 +192,48 @@ _______________________________________=",
       "Lines": null
     },
     {
+      "$id": "TimingEndTailSystemPrompt",
+      "$type": "AIPrompt",
+      "TextBefore": null,
+      "Text": "
+=_______________________________________
+# AUDIO TAIL CLASSIFIER
+
+### Role
+You are an audio classifier. For each node you hear ONE short audio clip and you say what it is. You are NOT given any text: judge only by what you hear.
+
+### Input Fields per Node
+1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
+2. `AudioClip`: a short clip (a few hundred milliseconds to a few seconds). It usually starts in a silence, or right after the last word of a sentence, and may contain a sound after it.
+
+### Decision Protocol (`TailKind`)
+Answer with exactly ONE of these values for the whole clip:
+- `"Speech"`: at least one intelligible spoken word or syllable (even short, even whispered, even a trailing particle such as ね, よ, か, ん); a person talking.
+- `"Laughter"`: laughing or giggling (ははは, ふふ, あはは), including the very beginning of one.
+- `"Moaning"`: moans, whimpers or voiced sounds without words (あっ, んっ used as a moan).
+- `"Breathing"`: breath, sigh, panting, gasp, lip or mouth noise, swallowing.
+- `"Noise"`: click, pop, rustle, bump, any non-vocal sound.
+- `"Silence"`: nothing, or only a faint constant room noise.
+
+If the clip contains spoken words AND something else, answer `"Speech"`. Otherwise answer what the clip is mostly made of. Do not try to guess what comes before or after the clip.
+
+### Output Format
+Return a single valid JSON array with one object per input node:
+[
+  {
+    "StartTime": "00:00:32.150",
+    "TailKind": "Breathing"
+  },
+  {
+    "StartTime": "00:00:36.120",
+    "TailKind": "Speech"
+  }
+]
+_______________________________________=",
+      "TextAfter": null,
+      "Lines": null
+    },
+    {
       "$id": "TimingVerifySystemPrompt",
       "$type": "AIPrompt",
       "TextBefore": null,
@@ -717,8 +759,10 @@ _______________________________________=",
         "BleedDetectionMargin": "00:00:03.0",
 
         // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
-        "TrimSilenceOnStart": false,
+        "TrimSilenceOnStart": true,
         "TrimSilenceOnEnd": true,
+		    "StartClipPadding": "00:00:00.300",
+		    "EndClipPadding": "00:00:00.300",
 
         // ---------------- Pass 1: START ----------------
         "InnerOptionsStart": {
@@ -754,6 +798,40 @@ _______________________________________=",
           },
           "MetadataNeeded": "",
           "MetadataAlwaysProduced": "BestEnd",
+          "BinaryDataExtractors": [
+            {
+              "$type": "BinaryDataExtractorAudio",
+              "OutputFieldName": "AudioClip",
+              "Enabled": true,
+              "ExpandStart": "00:00:00",
+              "ExpandEnd": "00:00:00",
+              "KeepTemporaryFiles": false,
+              "SourceAudioId": "audio"
+            }
+          ],
+          "MaximumRequestsInBatch": 1000,
+          "BatchSize": 20,
+          "BatchSplitWindows": 0,
+          "BatchKeepTogetherThreshold": "00:00:00.0000000",
+          "NbContextItems": 0,
+          "NbItemsMinimumReceivedToContinue": 15,
+          "FieldsToInclude": "StartTime"
+        },
+
+        // ---------------- After the End pass: what did the chosen End append? (optional: remove "InnerOptionsEndTail" to not do it) ----------------
+        // When the End chosen by the AI is at least "EndTailMinExtra" after the closest option before it, one request (no text) asks
+        // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
+        // to that option (then the new End is checked against the option before it, up to "EndTailMaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
+        // When the AI says "Silence" but the terrain finds Speech over at least this fraction of the extra audio, the End is kept (0 = never overrule the AI).
+        "EndTailSilenceMaxSpeechRatio": 0.3,
+        "EndTailMinExtra": "00:00:00.4",
+        "EndTailMaxChecks": 1,
+        "InnerOptionsEndTail": {
+          "SystemPrompt": {
+            "$ref": "TimingEndTailSystemPrompt"
+          },
+          "MetadataNeeded": "",
+          "MetadataAlwaysProduced": "TailKind",
           "BinaryDataExtractors": [
             {
               "$type": "BinaryDataExtractorAudio",
@@ -980,7 +1058,7 @@ _______________________________________=",
         },
         "BatchSize": 200,
         "BatchSplitWindows": 15,
-        "BatchMaxMBSize", 95,
+        "BatchMaxMBSize": 95,
         "NbContextItems": 10000,
         "NbItemsMinimumReceivedToContinue": 75
       }

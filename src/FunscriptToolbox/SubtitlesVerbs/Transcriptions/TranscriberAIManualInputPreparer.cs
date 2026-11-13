@@ -1,4 +1,6 @@
 using FunscriptToolbox.Core;
+using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner;
 using Newtonsoft.Json;
@@ -34,19 +36,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public string BestStart { get; set; }
             public string BestEnd { get; set; }
             public string HeardText { get; set; }
+            public string TailKind { get; set; }
 
-            public bool IsEmpty => BestStart == null && BestEnd == null && HeardText == null;
+            public bool IsEmpty => BestStart == null && BestEnd == null && HeardText == null && TailKind == null;
 
             public static CachedCandidateResponse FromMetadata(MetadataCollection metadata)
             {
                 metadata.TryGetValue(TimingMeta.BestStart, out var bestStart);
                 metadata.TryGetValue(TimingMeta.BestEnd, out var bestEnd);
                 metadata.TryGetValue(TimingMeta.HeardText, out var heardText);
+                metadata.TryGetValue(TimingMeta.TailKind, out var tailKind);
                 return new CachedCandidateResponse
                 {
                     BestStart = bestStart,
                     BestEnd = bestEnd,
-                    HeardText = heardText
+                    HeardText = heardText,
+                    TailKind = tailKind
                 };
             }
 
@@ -56,6 +61,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (BestStart != null) metadata[TimingMeta.BestStart] = BestStart;
                 if (BestEnd != null) metadata[TimingMeta.BestEnd] = BestEnd;
                 if (HeardText != null) metadata[TimingMeta.HeardText] = HeardText;
+                if (TailKind != null) metadata[TimingMeta.TailKind] = TailKind;
                 return metadata;
             }
         }
@@ -69,7 +75,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             public static string BuildKey(TimeSpan originalStart, TimingRound round)
             {
-                var clipsSig = string.Join(";", round.Clips.Select(c => $"{c.OptionId}:{c.Start:hh\\:mm\\:ss\\.fff}-{c.End:hh\\:mm\\:ss\\.fff}"));
+                // (the padding is part of the key: the same clip with another padding is another audio; nothing is added without padding)
+                var clipsSig = string.Join(";", round.Clips.Select(c => $"{c.OptionId}:{c.Start:hh\\:mm\\:ss\\.fff}-{c.End:hh\\:mm\\:ss\\.fff}{c.PaddingSignature}"));
                 return $"{originalStart:hh\\:mm\\:ss\\.fff}|{round.Side}|{round.Center:hh\\:mm\\:ss\\.fff}|{StableHash(round.TextSent)}|{clipsSig}";
             }
 
@@ -106,13 +113,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private class MultiClipBinaryDataExtractorCollection : BinaryDataExtractorCachedCollection
         {
             private readonly Dictionary<TimeSpan, List<TimingClipOption>> r_clipsByStartTime;
+            private readonly Func<BinaryDataExtractorAudio, AIRequestSection, TimingClipOption, bool, AIRequestPart[]> r_buildPaddedClip;
 
             public MultiClipBinaryDataExtractorCollection(
                 BinaryDataExtractorExtended[] extractors,
-                Dictionary<TimeSpan, List<TimingClipOption>> clipsByStartTime)
+                Dictionary<TimeSpan, List<TimingClipOption>> clipsByStartTime,
+                Func<BinaryDataExtractorAudio, AIRequestSection, TimingClipOption, bool, AIRequestPart[]> buildPaddedClip)
                 : base(extractors)
             {
                 r_clipsByStartTime = clipsByStartTime ?? new Dictionary<TimeSpan, List<TimingClipOption>>();
+                r_buildPaddedClip = buildPaddedClip;
             }
 
             public override Dictionary<string, AIRequestPart[]> GetNamedContentListForItem(
@@ -127,6 +137,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var result = new Dictionary<string, AIRequestPart[]>();
                     foreach (var clip in clips)
                     {
+                        // A padded clip is built from pieces (silence before / after): not the plain [Start, End] of the extractor
+                        if (clip.HasPadding && audioExtractor.Extractor is BinaryDataExtractorAudio paddedExtractor)
+                        {
+                            result[clip.FieldName] = r_buildPaddedClip(paddedExtractor, section, clip, silent);
+                            continue;
+                        }
+
                         var timing = new Timing(clip.Start, clip.End);
                         var clipData = GetNamedContentListForTiming(section, timing, text, silent);
                         if (clipData.TryGetValue(audioExtractor.Extractor.OutputFieldName, out var parts))
@@ -152,15 +169,60 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private Dictionary<TimeSpan, List<TimingClipOption>> m_activeClipsByStartTime;
+        private SubtitleGeneratorContext m_activeContext;
+        private readonly object m_paddedClipLock = new object();
 
         protected override BinaryDataExtractorCachedCollection CreateBinaryDataExtractorCollection(
             BinaryDataExtractorExtended[] extractors)
         {
             if (m_activeClipsByStartTime != null)
             {
-                return new MultiClipBinaryDataExtractorCollection(extractors, m_activeClipsByStartTime);
+                return new MultiClipBinaryDataExtractorCollection(extractors, m_activeClipsByStartTime, BuildPaddedClipAudio);
             }
             return base.CreateBinaryDataExtractorCollection(extractors);
+        }
+
+        /// <summary>
+        /// The audio of a clip with padding: [silence before] + [Start, End] + [silence after], cut in the audio of the extractor
+        /// (the pieces of silence were chosen by the refiner, see TimingRefiner.AddClipPadding) and joined in one .wav.
+        /// </summary>
+        private AIRequestPart[] BuildPaddedClipAudio(BinaryDataExtractorAudio extractor, AIRequestSection section, TimingClipOption clip, bool silent)
+        {
+            var context = m_activeContext ?? throw new InvalidOperationException("A padded clip was asked outside of a batch.");
+            var pcm = context.WIP.AudioExtractions
+                .FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished)?.PcmAudio
+                ?? throw new InvalidOperationException($"Audio extraction '{extractor.SourceAudioId}' is not done yet.");
+
+            lock (m_paddedClipLock)
+            {
+                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{clip.Start}", $"Generating padded .wav for {clip.Start} to {clip.End} (+{clip.TotalDuration - (clip.End - clip.Start):ss\\.fff}s of silence)");
+
+                var pieces = clip.LeadingPieces
+                    .Concat(new[] { (From: clip.Start, To: clip.End) })
+                    .Concat(clip.TrailingPieces)
+                    .Select(p => pcm.ExtractSnippet(p.From, p.To))
+                    .ToList();
+                var joined = new PcmAudio(pieces);
+
+                var tempWavFile = PathExtension.GetTempFileName(".wav");
+                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(joined, tempWavFile);
+                var bytes = File.ReadAllBytes(tempWavFile);
+                File.Delete(tempWavFile);
+
+                // To listen to what the AI hears (the silence spliced in front / after included)
+                if (extractor.KeepTemporaryFiles)
+                {
+                    var (_, filename, startInFile) = context.WIP.TimelineMap.GetPathAndPosition(clip.Start);
+                    File.WriteAllBytes(
+                        context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractor.OutputFieldName}_padded_{clip.OptionId}_{startInFile:hh\\-mm\\-ss\\-fff}.wav"),
+                        bytes);
+                }
+
+                return new AIRequestPart[]
+                {
+                    new AIRequestPartAudio(section, $"{clip.Start:hh\\-mm\\-ss\\-fff}.wav", bytes, joined.Duration, clip.Start)
+                };
+            }
         }
 
         // ---------------------------------------------------------------------
@@ -268,6 +330,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private class PhaseReport
         {
             public BoundarySide Side;
+
+            /// <summary>The tail check of the chosen Ends (after the End pass), not a pass on its own side.</summary>
+            public bool IsTailCheck;
+            public string Label => IsTailCheck ? "Tail" : Side.ToString();
             public int Iterations;
             public int Tests;     // field (not property) so it can be passed by ref
             public int FromCache; // the Tests that were answered by the cache
@@ -474,7 +540,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.ClearProgressUpdate();
             }
 
-            var cards = run.Task.GetAwaiter().GetResult(); // throws what went wrong in the detection
+            var cards = run.Task.GetAwaiter().GetResult() // throws what went wrong in the detection
+                .Where(c => IsIncludedInTest(c.StartTime, c.EndTime)) // (test mode: the cards outside of the test are left out)
+                .ToList();
             refiner.SpliceTitleCards(cards.Select(c => (c.StartTime, c.EndTime)));
             context.WriteInfo(run.StoppedByUser
                 ? $"  Title cards: {cards.Count} detected (stopped at {run.Processed:hh\\:mm\\:ss}: none after that)."
@@ -548,6 +616,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.RefineTiming.Enabled)
                 PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
             RunSimulations(context, transcription, refiner);
+            RunGroundTruthAnalysis(context, transcription, refiner);
             SaveReport(context, transcription.Id);
             transcription.MarkAsFinished();
             context.WIP.Save();
@@ -570,6 +639,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (!RunPhase(context, transcription, refiner, jobState, side, reports, exportProgress))
                     return false;
             }
+
+            if (refiner.TailCheckEnabled && !RunTailCheckPhase(context, transcription, refiner, jobState, reports, exportProgress))
+                return false;
 
             refiner.LockUnaskedBoundaries();
             return true;
@@ -630,6 +702,49 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
+        /// <summary>
+        /// After the End pass: for each End chosen far after the closest option before it, one request asks what the audio that it
+        /// appends is (Speech, Silence, Breathing, Laughter, Moaning, Noise), without the text. See TimingRefiner.PrepareTailCheck.
+        /// </summary>
+        /// <returns>false when the requests were interrupted (the caller must stop).</returns>
+        private bool RunTailCheckPhase(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            TimingRefiner refiner,
+            JobState jobState,
+            List<PhaseReport> reports,
+            bool exportProgress)
+        {
+            var report = new PhaseReport { Side = BoundarySide.End, IsTailCheck = true };
+            reports.Add(report);
+            var options = this.RefineTiming.InnerOptionsEndTail;
+
+            while (true)
+            {
+                refiner.PrepareTailCheck();
+                var candidatesToTest = refiner.Candidates.Where(c => c.CurrentRound != null).ToList();
+                if (candidatesToTest.Count == 0)
+                    break;
+
+                report.Iterations++;
+                context.WriteInfo($"  [End tail] Iteration {report.Iterations}: checking the audio appended by {candidatesToTest.Count} chosen Ends...");
+
+                var batch = BuildBatch(transcription, BoundarySide.End, report.Iterations, candidatesToTest, jobState, options, report, tailCheck: true);
+                if (!ExecuteBatch(context, transcription, jobState, batch, options))
+                    return false; // Interrupted
+
+                refiner.ProcessTailCheckResults(batch.Transcription.Items);
+            }
+
+            if (exportProgress)
+            {
+                UpdateTranscription(transcription, refiner.Candidates);
+                DoExportMetatadaSrt(context, transcription, false);
+            }
+            context.WriteInfo($"  [End tail] Check finished: {report.Tests} requests in {Math.Max(0, report.Iterations)} iterations.");
+            return true;
+        }
+
         private static JobState GetOrCreateJobState(Transcription transcription)
         {
             var jobState = transcription.CurrentJobState as JobState;
@@ -656,20 +771,53 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.RefineTiming.Enabled && sharedTerrain == null)
             {
                 var segments = refiner.TerrainMapping.Segments;
-                context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences.");
+                //context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences " +
+                //    $"(second pass: {refiner.TerrainMapping.SplitMountains} mountains split at calm valleys, {refiner.TerrainMapping.ShoulderSplits} at a quiet shoulder, " +
+                //    $"{refiner.TerrainMapping.AddedMountains} mountains added in all; the pieces are marked '+' in the TERRAIN-MAP).");
                 DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
             }
 
             return refiner;
         }
 
+        /// <summary>
+        /// Test only (to limit the tokens used): suffix of a subtitle file (ex: ".included-in-test.srt", one per video, loaded like the
+        /// other subtitle files, in the time of the whole timeline). When set, only the subtitles (and title cards) that overlap
+        /// a subtitle of that file are refined, validated, exported...: the others are left out as if they did not exist.
+        /// The file must exist. Not set: everything is included.
+        /// </summary>
+        public string IncludedInTestExtension { get; set; }
+
+        /// <summary>The time ranges of the file of IncludedInTestExtension (null = everything is included).</summary>
+        private List<(TimeSpan Start, TimeSpan End)> m_includedInTest;
+
+        private bool IsIncludedInTest(TimeSpan start, TimeSpan end)
+            => m_includedInTest == null || m_includedInTest.Any(r => start < r.End && end > r.Start);
+
         private List<RefineInput> LoadInputs(SubtitleGeneratorContext context)
         {
             var aggregation = this.Metadatas?.Aggregate(context);
-            return (aggregation?.ReferenceTimingsWithMetadata ?? Array.Empty<TimedItemWithMetadata>())
+            var inputs = (aggregation?.ReferenceTimingsWithMetadata ?? Array.Empty<TimedItemWithMetadata>())
                 .OrderBy(f => f.StartTime)
                 .Select(item => new RefineInput { Item = item, Origin = TimingOrigin.Original })
                 .ToList();
+
+            m_includedInTest = null;
+            if (string.IsNullOrWhiteSpace(this.IncludedInTestExtension))
+                return inputs;
+
+            var testFile = context.WIP.LoadVirtualSubtitleFile(this.IncludedInTestExtension)
+                ?? throw new InvalidOperationException(
+                    $"IncludedInTestExtension is '{this.IncludedInTestExtension}' but no such subtitle file was found (create it, or remove the setting to include every subtitle).");
+            m_includedInTest = testFile.Subtitles.Select(s => (s.StartTime, s.EndTime)).ToList();
+
+            var kept = inputs.Where(i => IsIncludedInTest(i.Item.StartTime, i.Item.EndTime)).ToList();
+            if (kept.Count == 0)
+                throw new InvalidOperationException(
+                    $"None of the {inputs.Count} subtitles overlaps a subtitle of '{this.IncludedInTestExtension}' ({m_includedInTest.Count} subtitles in that file): nothing would be refined.");
+
+            context.WriteInfo($"  TEST MODE: only {kept.Count} of the {inputs.Count} subtitles are included (the ones overlapping the {m_includedInTest.Count} subtitles of '{this.IncludedInTestExtension}'); the others are ignored.");
+            return kept;
         }
 
         private void LoadCandidates(SubtitleGeneratorContext context, TimingRefiner refiner, List<RefineInput> inputs)
@@ -723,9 +871,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             List<TimingCandidate> candidatesToTest,
             JobState jobState,
             AIOptions options,
-            PhaseReport report)
+            PhaseReport report,
+            bool tailCheck = false)
         {
-            string defaultProduced = this.RefineTiming.Mode == RefineMode.SnapAndVerify ? TimingMeta.Verdict
+            string defaultProduced = tailCheck ? TimingMeta.TailKind
+                : this.RefineTiming.Mode == RefineMode.SnapAndVerify ? TimingMeta.Verdict
                 : side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd;
             string metadataProduced = string.IsNullOrWhiteSpace(options.MetadataAlwaysProduced)
                 ? defaultProduced
@@ -744,7 +894,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             foreach (var candidate in candidatesToTest)
             {
                 var round = candidate.CurrentRound;
-                report.ClipDuration += round.Clips.Aggregate(TimeSpan.Zero, (sum, c) => sum + (c.End - c.Start));
+                report.ClipDuration += round.Clips.Aggregate(TimeSpan.Zero, (sum, c) => sum + c.TotalDuration);
                 if (jobState.TryGetCachedResult(candidate.OriginalStartTime, round, out var cached))
                 {
                     batch.Transcription.AddNewItem(candidate.OriginalStartTime, candidate.OriginalEndTime, cached.ToMetadata());
@@ -789,6 +939,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             AIOptions options)
         {
             m_activeClipsByStartTime = batch.ClipsByStartTime;
+            m_activeContext = context;
             try
             {
                 if (batch.ItemsToProcess.Count > 0)
@@ -802,6 +953,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             finally
             {
                 m_activeClipsByStartTime = null;
+                m_activeContext = null;
                 transcription.Costs.AddRange(batch.Transcription.Costs);
                 CacheNewResults(jobState, batch);
                 context.WIP.Save();
@@ -950,9 +1102,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             m_report.Add(context, $"  Audio clips tested: {FormatDuration(tested)} for {FormatDuration(original)} of original subtitles ({ratio:0.0}x), out of {FormatDuration(refiner.AudioEndTime)} of audio");
             foreach (var r in reports)
             {
-                var split = splitReports.FirstOrDefault(f => f.Side == r.Side);
+                var split = splitReports.FirstOrDefault(f => f.Label == r.Label);
                 var total = r.ClipDuration + (split?.ClipDuration ?? TimeSpan.Zero);
-                m_report.Add(context, $"    {r.Side,-5} pass: {FormatDuration(total)}");
+                m_report.Add(context, $"    {r.Label,-5} pass: {FormatDuration(total)}");
             }
         }
 
@@ -984,12 +1136,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             // "Requests" = answers of the AI, including the ones that came from the cache
             foreach (var r in reports)
             {
-                var text = $"  {r.Side,-5} pass requests: {r.Tests} ({((double)r.Tests / Math.Max(1, originalCount)):0.00} reqs/node";
+                var text = $"  {r.Label,-5} pass requests: {r.Tests} ({((double)r.Tests / Math.Max(1, originalCount)):0.00} reqs/node";
                 if (r.FromCache > 0)
                     text += $", {r.FromCache} from cache";
                 text += ")";
 
-                var split = splitReports.FirstOrDefault(f => f.Side == r.Side);
+                var split = splitReports.FirstOrDefault(f => f.Label == r.Label);
                 if (split != null)
                     text += $" + {split.Tests} for the {partCount} split parts ({((double)split.Tests / Math.Max(1, partCount)):0.00} reqs/part)";
 
@@ -1041,6 +1193,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// The real settings are simulated first, as a calibration.
         /// </summary>
         public TimingSimulationVariant[] Simulations { get; set; }
+
+        /// <summary>
+        /// Debug: suffix of the files (ex: ".manual-input.srt") that the user fixed by hand from the output of a previous run.
+        /// When set, the final timings are compared with them (the truth) and the differences are exported
+        /// (see <see cref="TimingGroundTruthAnalyzer"/>). Nothing is done when not set.
+        /// </summary>
+        public string GroundTruthExtension { get; set; }
+
+        private void RunGroundTruthAnalysis(SubtitleGeneratorContext context, Transcription transcription, TimingRefiner refiner)
+        {
+            if (string.IsNullOrWhiteSpace(this.GroundTruthExtension))
+                return;
+
+            new TimingGroundTruthAnalyzer(context, transcription.Id, message => m_report.Add(context, message))
+                .Run(refiner.Candidates, refiner.TerrainMapping, this.GroundTruthExtension);
+        }
 
         private void RunSimulations(SubtitleGeneratorContext context, Transcription transcription, TimingRefiner refiner)
         {

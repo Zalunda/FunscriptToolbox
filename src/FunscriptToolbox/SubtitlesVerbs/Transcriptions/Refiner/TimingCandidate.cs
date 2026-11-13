@@ -42,6 +42,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public TimingRound CurrentRound { get; set; }
         public List<TimingRound> Rounds { get; set; } = new List<TimingRound>();
 
+        /// <summary>The tail checks of the End (what the chosen End appended, and what the AI heard in it), see TimingRound.IsTailCheck.</summary>
+        public List<TimingRound> TailChecks { get; set; } = new List<TimingRound>();
+
         public List<ValidationNote> ValidationNotes { get; set; } = new List<ValidationNote>();
         public List<string> Traces { get; set; } = new List<string>();
 

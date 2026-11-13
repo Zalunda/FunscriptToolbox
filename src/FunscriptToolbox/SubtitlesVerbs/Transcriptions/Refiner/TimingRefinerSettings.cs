@@ -1,6 +1,7 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
@@ -52,6 +53,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         [JsonProperty(Order = 4)]
         public TimeSpan StartPassTailPadding { get; set; } = TimeSpan.FromSeconds(0.8);
 
+        /// <summary>
+        /// START pass only: every clip starts with at least this much silence (the AI needs a moment to settle in).
+        /// The silence that really precedes the clip is used first; when it is shorter, the rest is stolen from the nearest
+        /// other silence of the audio and spliced in front (never digital silence, the AI could react differently to it).
+        /// Zero = no padding.
+        /// </summary>
+        [JsonProperty(Order = 13)]
+        public TimeSpan StartClipPadding { get; set; } = TimeSpan.Zero;
+
+        /// <summary>
+        /// END pass only: every clip ends with at least this much silence (the AI understands a sound a moment after hearing it,
+        /// so it needs to hear what follows the end to recognise the last syllable). Same rules as StartClipPadding.
+        /// Zero = no padding.
+        /// </summary>
+        [JsonProperty(Order = 14)]
+        public TimeSpan EndClipPadding { get; set; } = TimeSpan.Zero;
+
         [JsonProperty(Order = 5)]
         public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
 
@@ -85,6 +103,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         [JsonProperty(Order = 22)]
         public AIOptions InnerOptionsVerify { get; set; } = new AIOptions();
 
+        /// <summary>
+        /// Optional (null = not done, Full mode only). After the End pass, when the End chosen by the AI is later than the closest
+        /// option before it by at least EndTailMinExtra, ONE more request asks what that extra audio is (the text is not sent):
+        /// Speech, Silence, Breathing, Laughter, Moaning or Noise. Anything but Speech moves the End back to that option
+        /// (then the new End is checked the same way). Must produce "TailKind".
+        /// </summary>
+        [JsonProperty(Order = 23)]
+        public AIOptions InnerOptionsEndTail { get; set; }
+
+        /// <summary>The extra audio appended by the chosen End must be at least this long to be checked (a shorter one is not worth a request).</summary>
+        [JsonProperty(Order = 15)]
+        public TimeSpan EndTailMinExtra { get; set; } = TimeSpan.FromMilliseconds(400);
+
+        /// <summary>How many times in a row the End of a subtitle can be moved back by the tail check.</summary>
+        [JsonProperty(Order = 16)]
+        public int EndTailMaxChecks { get; set; } = 1;
+
+        /// <summary>
+        /// When the AI says that the extra audio is "Silence" but the terrain finds Speech over at least this fraction of it (0 to 1),
+        /// the AI is wrong (a laugh, a moan or a word is loud) and the End is kept. 0 = never overrule the AI.
+        /// </summary>
+        [JsonProperty(Order = 17)]
+        public float EndTailSilenceMaxSpeechRatio { get; set; } = 0.3f;
+
+        /// <summary>The tail check is done.</summary>
+        [JsonIgnore]
+        public bool TailCheckEnabled => Mode == RefineMode.Full && InnerOptionsEndTail != null;
+
         /// <summary>The options of the requests of a side (in SnapAndVerify, the single verification request is a Start request).</summary>
         public AIOptions InnerOptionsFor(BoundarySide side)
             => Mode == RefineMode.SnapAndVerify ? this.InnerOptionsVerify
@@ -92,7 +138,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         /// <summary>The options that the mode uses (the others are not needed).</summary>
         [JsonIgnore]
-        public AIOptions[] InnerOptionsUsed => Mode == RefineMode.Full ? new[] { InnerOptionsStart, InnerOptionsEnd }
+        public AIOptions[] InnerOptionsUsed => Mode == RefineMode.Full ? new[] { InnerOptionsStart, InnerOptionsEnd }.Concat(InnerOptionsEndTail != null ? new[] { InnerOptionsEndTail } : new AIOptions[0]).ToArray()
             : Mode == RefineMode.SnapAndVerify ? new[] { InnerOptionsVerify }
             : new AIOptions[0];
 
@@ -108,6 +154,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 throw new InvalidOperationException("RefineTiming Mode is 'Full' but 'InnerOptionsStart' or 'InnerOptionsEnd' is not set.");
             if (Mode == RefineMode.SnapAndVerify && InnerOptionsVerify == null)
                 throw new InvalidOperationException("RefineTiming Mode is 'SnapAndVerify' but 'InnerOptionsVerify' is not set.");
+
+            if (EndTailSilenceMaxSpeechRatio < 0f || EndTailSilenceMaxSpeechRatio > 1f)
+                throw new InvalidOperationException("RefineTiming 'EndTailSilenceMaxSpeechRatio' must be between 0 and 1.");
+            if (EndTailMinExtra < TimeSpan.Zero || EndTailMaxChecks < 1)
+                throw new InvalidOperationException("RefineTiming 'EndTailMinExtra' can't be negative and 'EndTailMaxChecks' must be at least 1.");
+
+            if (StartClipPadding < TimeSpan.Zero || EndClipPadding < TimeSpan.Zero)
+                throw new InvalidOperationException("RefineTiming 'StartClipPadding' and 'EndClipPadding' can't be negative.");
+
+            // The padded clips are built by the refiner itself: the expansion of the extractor would be ignored
+            foreach (var (side, padding) in new[] { (BoundarySide.Start, StartClipPadding), (BoundarySide.End, EndClipPadding) })
+            {
+                if (padding <= TimeSpan.Zero || Mode != RefineMode.Full)
+                    continue;
+
+                foreach (var extractor in InnerOptionsFor(side).BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Enumerable.Empty<BinaryDataExtractorAudio>())
+                {
+                    if (extractor.ExpandStart != TimeSpan.Zero || extractor.ExpandEnd != TimeSpan.Zero || extractor.FillGapSmallerThen != TimeSpan.Zero)
+                        throw new InvalidOperationException(
+                            $"RefineTiming has a clip padding for the {side} pass, but its audio extractor '{extractor.OutputFieldName}' has ExpandStart, ExpandEnd or FillGapSmallerThen set: " +
+                            "they can't be combined (set them to 0 and use StartClipPadding / EndClipPadding).");
+                }
+            }
         }
     }
 }

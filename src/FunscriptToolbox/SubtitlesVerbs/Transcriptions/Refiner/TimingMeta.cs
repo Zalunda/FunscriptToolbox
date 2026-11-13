@@ -10,6 +10,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public const string Verdict = "Verdict";
         public const string HeardText = "HeardText";
 
+        /// <summary>
+        /// Answer of the tail check (what the audio appended at the end of a subtitle is): Speech, Silence, Breathing, Laughter, Moaning or Noise.
+        /// Only "Speech" keeps the end where it is.
+        /// </summary>
+        public const string TailKind = "TailKind";
+        public const string TailKindSpeech = "Speech";
+        public const string TailKindSilence = "Silence";
+
         /// <summary>Produced for each node: what the AI heard when it differs from VoiceText, otherwise VoiceText.</summary>
         public const string VoiceTextValidated = "VoiceTextValidated";
 

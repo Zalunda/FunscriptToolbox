@@ -34,6 +34,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>True when a previous answer is the only option left to offer (nothing new to compare it to).</summary>
         public bool IsIncumbentOnly { get; set; }
 
+        /// <summary>
+        /// True for the tail check of an End already chosen: ONE clip, what the chosen End appended to the closest option before it
+        /// (TailFrom .. Center), and the AI says what it is (see TimingMeta.TailKind) in Choice.
+        /// </summary>
+        public bool IsTailCheck { get; set; }
+
+        /// <summary>Tail check: the closest option before the chosen End (the End goes back there when the audio is not speech).</summary>
+        public TimeSpan TailFrom { get; set; }
+
         public string Choice { get; set; }
         public string HeardText { get; set; }
     }
