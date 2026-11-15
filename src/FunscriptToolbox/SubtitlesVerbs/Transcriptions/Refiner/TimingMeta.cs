@@ -16,7 +16,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// </summary>
         public const string TailKind = "TailKind";
         public const string TailKindSpeech = "Speech";
-        public const string TailKindSilence = "Silence";
 
         /// <summary>Produced for each node: what the AI heard when it differs from VoiceText, otherwise VoiceText.</summary>
         public const string VoiceTextValidated = "VoiceTextValidated";

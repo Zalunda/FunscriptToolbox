@@ -1,6 +1,7 @@
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
@@ -121,11 +122,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public int EndTailMaxChecks { get; set; } = 1;
 
         /// <summary>
-        /// When the AI says that the extra audio is "Silence" but the terrain finds Speech over at least this fraction of it (0 to 1),
-        /// the AI is wrong (a laugh, a moan or a word is loud) and the End is kept. 0 = never overrule the AI.
+        /// By answer of the AI (TailKind): when the terrain finds Speech over at least this fraction of the extra audio (0 to 1),
+        /// the answer is not trusted and the End is kept. Ex: "Silence" over loud audio is wrong; "Moaning" over continuous speech is
+        /// often the last word(s) misidentified. A kind that is not listed always moves the End back.
         /// </summary>
-        [JsonProperty(Order = 17)]
-        public float EndTailSilenceMaxSpeechRatio { get; set; } = 0.3f;
+        [JsonProperty(Order = 17, ObjectCreationHandling = ObjectCreationHandling.Replace)]
+        public Dictionary<string, float> EndTailKeepIfSpeechRatio { get; set; } = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Silence", 0.3f },
+            { "Moaning", 0.5f },
+        };
 
         /// <summary>The tail check is done.</summary>
         [JsonIgnore]
@@ -155,8 +161,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             if (Mode == RefineMode.SnapAndVerify && InnerOptionsVerify == null)
                 throw new InvalidOperationException("RefineTiming Mode is 'SnapAndVerify' but 'InnerOptionsVerify' is not set.");
 
-            if (EndTailSilenceMaxSpeechRatio < 0f || EndTailSilenceMaxSpeechRatio > 1f)
-                throw new InvalidOperationException("RefineTiming 'EndTailSilenceMaxSpeechRatio' must be between 0 and 1.");
+            if (EndTailKeepIfSpeechRatio != null && EndTailKeepIfSpeechRatio.Values.Any(v => v < 0f || v > 1f))
+                throw new InvalidOperationException("RefineTiming 'EndTailKeepIfSpeechRatio' values must be between 0 and 1.");
             if (EndTailMinExtra < TimeSpan.Zero || EndTailMaxChecks < 1)
                 throw new InvalidOperationException("RefineTiming 'EndTailMinExtra' can't be negative and 'EndTailMaxChecks' must be at least 1.");
 

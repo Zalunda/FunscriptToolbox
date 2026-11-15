@@ -209,12 +209,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var bytes = File.ReadAllBytes(tempWavFile);
                 File.Delete(tempWavFile);
 
-                // To listen to what the AI hears (the silence spliced in front / after included)
+                // To listen to what the AI hears (the silence spliced in front / after included).
+                // Named <video>_<field>_padded_<original start of the subtitle>_<start of the clip>_<option>, so the files of a
+                // subtitle are sorted together (by its original start), then by the position of each option.
                 if (extractor.KeepTemporaryFiles)
                 {
                     var (_, filename, startInFile) = context.WIP.TimelineMap.GetPathAndPosition(clip.Start);
+                    var owner = m_activeClipsByStartTime?.FirstOrDefault(kv => kv.Value.Contains(clip));
+                    var originalStart = owner?.Value != null ? owner.Value.Key : clip.Start;
+                    var (_, _, originalStartInFile) = context.WIP.TimelineMap.GetPathAndPosition(originalStart);
                     File.WriteAllBytes(
-                        context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractor.OutputFieldName}_padded_{clip.OptionId}_{startInFile:hh\\-mm\\-ss\\-fff}.wav"),
+                        context.GetPotentialVerboseFilePath($"{Path.GetFileNameWithoutExtension(filename)}_{extractor.OutputFieldName}_padded_{originalStartInFile:hh\\-mm\\-ss\\-fff}_{startInFile:hh\\-mm\\-ss\\-fff}_{clip.OptionId}.wav"),
                         bytes);
                 }
 
@@ -775,9 +780,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 //    $"(second pass: {refiner.TerrainMapping.SplitMountains} mountains split at calm valleys, {refiner.TerrainMapping.ShoulderSplits} at a quiet shoulder, " +
                 //    $"{refiner.TerrainMapping.AddedMountains} mountains added in all; the pieces are marked '+' in the TERRAIN-MAP).");
                 DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
+                SavePartsDuration(context);
             }
 
             return refiner;
+        }
+
+        /// <summary>
+        /// Exports the duration of each part (video) of the timeline, one line per part: "name duration" (ex: "HNVR-141-A 00:23:27.212").
+        /// Used by the external subtitles finalizing process (to know where the audio really ends).
+        /// </summary>
+        private void SavePartsDuration(SubtitleGeneratorContext context)
+        {
+            if (!this.ExportMetadataSrt)
+                return;
+
+            var lines = context.WIP.TimelineMap.Segments
+                .Select(s => $"{Path.GetFileNameWithoutExtension(s.Filename)} {s.Duration:hh\\:mm\\:ss\\.fff}")
+                .ToList();
+            File.WriteAllLines(context.WIP.BaseFilePath + ".parts-duration.txt", lines, new UTF8Encoding(true));
         }
 
         /// <summary>

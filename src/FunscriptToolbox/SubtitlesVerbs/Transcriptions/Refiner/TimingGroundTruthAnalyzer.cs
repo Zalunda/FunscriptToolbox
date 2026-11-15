@@ -73,7 +73,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             public Category Category;
             public string Detail;
 
-            public TimeSpan Delta => UserTime - FinalTime;
+            /// <summary>What the AI chose on its last round (null when it chose nothing): the boundary before the post-processing.</summary>
+            public TimeSpan? AiTime;
+
+            /// <summary>The AI was not on the user's time, but the final boundary is (the post-processing fixed it).</summary>
+            public bool PostProcessingFixed;
+
+            /// <summary>The AI was not on the user's time, and the final boundary is clearly closer to it (but still not on it).</summary>
+            public bool PostProcessingImproved;
+
+            /// <summary>Micro subtitles added after the difference (ex: the dips closest to the user's time), to see them in the editor.</summary>
+            public List<(TimeSpan Time, string Text)> Markers = new List<(TimeSpan, string)>();
+
+            /// <summary>How much more the refiner covers than the user: + = nothing is missing (Start earlier / End later than the user), - = some audio of the user's subtitle might be missing.</summary>
+            public TimeSpan Delta => Side == BoundarySide.End ? FinalTime - UserTime : UserTime - FinalTime;
         }
 
         private readonly SubtitleGeneratorContext r_context;
@@ -107,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             foreach (var (cand, user) in matches)
             {
                 foreach (var side in TimingCandidate.Sides)
-                    results.Add(Classify(cand, side, user));
+                    results.Add(Classify(cand, side, user, terrain));
             }
 
             Export(results);
@@ -196,7 +209,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         private static bool IsSame(TimeSpan a, TimeSpan b) => (a - b).Duration() <= SameTolerance;
 
-        private static BoundaryResult Classify(TimingCandidate cand, BoundarySide side, Subtitle user)
+        private static BoundaryResult Classify(TimingCandidate cand, BoundarySide side, Subtitle user, AudioTerrainMapping terrain)
         {
             var boundary = cand[side];
             var result = new BoundaryResult
@@ -209,8 +222,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             };
             var userTime = result.UserTime;
 
+            var aiRound = cand.Rounds.LastOrDefault(r => r.Side == side && r.Choice != null && r.Options.ContainsKey(r.Choice));
+            if (aiRound != null)
+            {
+                result.AiTime = aiRound.Options[aiRound.Choice];
+                if (!IsSame(userTime, result.AiTime.Value))
+                {
+                    result.PostProcessingFixed = IsSame(userTime, boundary.Current);
+                    result.PostProcessingImproved = !result.PostProcessingFixed
+                        && (boundary.Current - userTime).Duration() + SameTolerance < (result.AiTime.Value - userTime).Duration();
+                }
+            }
+
             if (IsSame(userTime, boundary.Current))
-                return With(result, Category.Unchanged, "");
+                return With(result, Category.Unchanged, result.PostProcessingFixed
+                    ? $"AI chose {aiRound.Choice} ({Fmt(result.AiTime.Value)}), the post-processing moved it to the user's time ({Fmt(boundary.Current)})"
+                    : "");
 
             if (boundary.Fixed)
                 return With(result, Category.Fixed, "");
@@ -260,10 +287,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             {
                 var beyond = userTime < min ? min - userTime : userTime - max;
                 var direction = (side == BoundarySide.Start) == (userTime < min) ? "outward" : "inward";
+                if (terrain != null)
+                {
+                    // The dip of the terrain nearest to the user's time, that was out of reach of the search
+                    var available = terrain.GetDips(side, userTime - CoverageSearchRange, userTime + CoverageSearchRange)
+                        .Select(d => (Time: d, Distance: (d - userTime).Duration()))
+                        .OrderBy(d => d.Distance)
+                        .FirstOrDefault();
+                    if (available.Time != TimeSpan.Zero)
+                        result.Markers.Add((available.Time, $"[{side}] dip out of the searched area, nearest to USER: {Fmt(available.Time)} ({SignedMs(available.Time - userTime)} from USER)"));
+                }
                 return With(result, Category.OutsideWindow,
                     $"{beyond.TotalSeconds:0.000}s {direction} beyond the searched area [{Fmt(min)} .. {Fmt(max)}]" +
                     (boundary.OutwardLimit.HasValue ? $", dips dropped beyond {Fmt(boundary.OutwardLimit.Value)}" : ""));
             }
+
+            var before = searched.Where(t => t < userTime).DefaultIfEmpty(TimeSpan.MinValue).Max();
+            var after = searched.Where(t => t >= userTime).DefaultIfEmpty(TimeSpan.MinValue).Min();
+            if (before != TimeSpan.MinValue)
+                result.Markers.Add((before, $"[{side}] closest dip/option before USER: {Fmt(before)} ({SignedMs(before - userTime)} from USER)"));
+            if (after != TimeSpan.MinValue)
+                result.Markers.Add((after, $"[{side}] closest dip/option after USER: {Fmt(after)} ({SignedMs(after - userTime)} from USER)"));
 
             return With(result, Category.NoDipNearby,
                 $"Nearest dip/option {Fmt(nearestAny)} is {(nearestAny - userTime).Duration().TotalMilliseconds:0}ms away");
@@ -276,30 +320,58 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             return result;
         }
 
+        private static string SignedMs(TimeSpan t) => $"{t.TotalMilliseconds:+0;-0;0}ms";
+
         private static string Fmt(TimeSpan t) => $"{t:hh\\:mm\\:ss\\.fff}";
 
         // ---------------------------------------------------------------------
         // Exports
         // ---------------------------------------------------------------------
 
+        /// <summary>The categories where the user's time was not reached, merged in two files (by the sign of the delta) instead of one per category.</summary>
+        private static readonly HashSet<Category> r_mergedCategories = new HashSet<Category>
+        {
+            Category.NoDipNearby, Category.OfferedNotChosen, Category.OutsideWindow, Category.PostProcessed,
+        };
+
         private void Export(List<BoundaryResult> results)
         {
-            foreach (var group in results
-                .Where(r => r.Category != Category.Unchanged)
+            var notUnchanged = results.Where(r => r.Category != Category.Unchanged).ToList();
+
+            // What the post-processing did right: the AI was off, the final boundary is on the user's time (or clearly closer to it)
+            Save(results.Where(r => r.PostProcessingFixed || r.PostProcessingImproved), "PostProcessing-Helped");
+
+            // One file per (side, category) for the rare categories
+            foreach (var group in notUnchanged
+                .Where(r => !r_mergedCategories.Contains(r.Category))
                 .GroupBy(r => (r.Side, r.Category)))
             {
-                var subtitles = group
-                    .OrderBy(r => r.UserSubtitle.StartTime)
-                    .SelectMany(r => new[] { ToDifference(r), ToSubtitle(r) })
-                    .ToList();
-
-                var virtualFile = r_context.WIP.CreateVirtualSubtitleFile();
-                virtualFile.Subtitles.AddRange(subtitles);
-                virtualFile.Save(
-                    r_context.WIP.ParentPath,
-                    $".Worker.{r_transcriptionId}.GROUNDTRUTH.{group.Key.Side}-{group.Key.Category}.srt",
-                    r_context.SoftDelete);
+                Save(group, $"{group.Key.Side}-{group.Key.Category}");
             }
+
+            // Two files for the others: "+REFINER" = the refiner covers more than the user (too much audio),
+            // "-REFINER" = some audio of the user's subtitles might be lost
+            var merged = notUnchanged.Where(r => r_mergedCategories.Contains(r.Category)).ToList();
+            Save(merged.Where(r => r.Delta >= TimeSpan.Zero), "+REFINER");
+            Save(merged.Where(r => r.Delta < TimeSpan.Zero), "-REFINER");
+        }
+
+        private void Save(IEnumerable<BoundaryResult> results, string name)
+        {
+            var subtitles = results
+                .OrderBy(r => r.UserSubtitle.StartTime)
+                .ThenBy(r => r.Side)
+                .SelectMany(r => new[] { ToDifference(r) }
+                    .Concat(r.Markers.Select(m => new Subtitle(m.Time, m.Time + MinSpanDuration, new[] { m.Text })))
+                    .Concat(new[] { ToSubtitle(r) }))
+                .ToList();
+
+            var virtualFile = r_context.WIP.CreateVirtualSubtitleFile();
+            virtualFile.Subtitles.AddRange(subtitles);
+            virtualFile.Save(
+                r_context.WIP.ParentPath,
+                $".Worker.{r_transcriptionId}.GROUNDTRUTH.{name}.srt",
+                r_context.SoftDelete);
         }
 
         /// <summary>The subtitle of the user (so the time shown is the truth), with what the refiner did as text.</summary>
@@ -332,7 +404,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             var times = r.FinalTime <= r.UserTime
                 ? $"REFINER {Fmt(r.FinalTime)}, USER {Fmt(r.UserTime)}"
                 : $"USER {Fmt(r.UserTime)}, REFINER {Fmt(r.FinalTime)}";
-            return new Subtitle(first, last, new[] { $"[{r.Side}] ({r.Delta.TotalMilliseconds:+0;-0;0}ms to USER) {times}" });
+            return new Subtitle(first, last, new[] { $"[{r.Side}] ({r.Delta.TotalMilliseconds:+0;-0;0}ms to REFINER) {times}" });
         }
 
         // ---------------------------------------------------------------------
@@ -368,6 +440,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                         text += $"  [median delta {deltas[deltas.Count / 2]:+0.000;-0.000;0.000}s]";
                     }
                     lines.Add(text);
+                }
+
+                // The post-processing (silence trim, overlaps, validation...) compared with the choice of the AI
+                var withAi = sideResults.Where(x => x.AiTime.HasValue && x.Category != Category.Fixed).ToList();
+                if (withAi.Count > 0)
+                {
+                    string Pct(int n) => $"{n,5} ({n * 100.0 / withAi.Count,5:0.0}%)";
+                    int fixedByPost = withAi.Count(x => x.PostProcessingFixed);
+                    int improved = withAi.Count(x => x.PostProcessingImproved);
+                    int ruined = withAi.Count(x => x.Category == Category.PostProcessed);
+                    int aiOnUser = withAi.Count(x => IsSame(x.UserTime, x.AiTime.Value));
+                    lines.Add($"    Post-processing, on the {withAi.Count} boundaries chosen by the AI ({aiOnUser} were on the user's time):");
+                    lines.Add($"      helped, now on the user's time {Pct(fixedByPost)}   helped, closer {Pct(improved)}   made worse (AI was on the user's time) {Pct(ruined)}");
                 }
             }
             lines.AddRange(coverageLines);

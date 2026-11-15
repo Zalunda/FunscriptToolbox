@@ -66,7 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public bool TailCheckEnabled { get; }
         public TimeSpan EndTailMinExtra { get; }
         public int EndTailMaxChecks { get; }
-        public float EndTailSilenceMaxSpeechRatio { get; }
+        public IReadOnlyDictionary<string, float> EndTailKeepIfSpeechRatio { get; }
 
         public AudioTerrainMapping TerrainMapping { get; }
         public TimeSpan AudioEndTime { get; }
@@ -110,7 +110,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             TailCheckEnabled = settings.TailCheckEnabled;
             EndTailMinExtra = settings.EndTailMinExtra;
             EndTailMaxChecks = settings.EndTailMaxChecks;
-            EndTailSilenceMaxSpeechRatio = settings.EndTailSilenceMaxSpeechRatio;
+            EndTailKeepIfSpeechRatio = new Dictionary<string, float>(
+                settings.EndTailKeepIfSpeechRatio ?? new Dictionary<string, float>(), StringComparer.OrdinalIgnoreCase);
             AudioEndTime = fullPcmAudioForRefiner?.EndTime ?? TimeSpan.MaxValue;
 
             // Without refining there is no terrain: the refiner is then only the list of candidates
@@ -872,6 +873,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>How many silences, around the clip, are looked at to find one to steal from.</summary>
         private const int MaxSilencesLookedAt = 2000;
 
+        /// <summary>A clean stretch of silence shorter than this is not worth splicing.</summary>
+        private static readonly TimeSpan MinSplicedStretch = TimeSpan.FromMilliseconds(30);
+
         /// <summary>
         /// The clip must have at least StartClipPadding (Start pass) / EndClipPadding (End pass) of silence at its start / end:
         /// the silence that really precedes / follows the clip is used first, and the rest is stolen from the nearest other silence
@@ -901,19 +905,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             }
 
             var missing = padding - (real.HasValue ? real.Value.To - real.Value.From : TimeSpan.Zero);
-            (TimeSpan From, TimeSpan To)? stolen = missing > oneMs
+            var stolen = missing > oneMs
                 ? FindSilenceToSteal(missing, side == BoundarySide.Start ? clip.Start : clip.End, realIndex)
-                : null;
+                : new List<(TimeSpan From, TimeSpan To)>();
 
             if (side == BoundarySide.Start)
             {
-                if (stolen.HasValue) clip.LeadingPieces.Add(stolen.Value);
+                clip.LeadingPieces.AddRange(stolen);
                 if (real.HasValue) clip.LeadingPieces.Add(real.Value);
             }
             else
             {
                 if (real.HasValue) clip.TrailingPieces.Add(real.Value);
-                if (stolen.HasValue) clip.TrailingPieces.Add(stolen.Value);
+                clip.TrailingPieces.AddRange(stolen);
             }
         }
 
@@ -931,24 +935,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         }
 
         /// <summary>
-        /// The nearest silence (to 'near') that is long enough, never a digital silence (the terrain has a level there),
-        /// and not the one already used: 'length' is taken from the middle of its longest truly silent stretch, away from the slopes of
-        /// the speech. A breath or a click inside the silence (they are merged in Segments) is never taken, not even partly.
+        /// Truly silent audio (never a digital silence, never a breath or a click, not even partly: they are merged in the Segments
+        /// of the terrain, so the pure Silence pieces of DetailedSegments are used) taken from the silences nearest to 'near', not
+        /// the one already used. When one stretch is long enough, 'length' is taken from its middle, away from the slopes of the speech.
+        /// Otherwise the nearest clean stretches are spliced together until 'length' is reached (a silence can be spliced), so the
+        /// padding is not shorter. Empty only when there is no clean silence at all.
         /// </summary>
-        private (TimeSpan From, TimeSpan To)? FindSilenceToSteal(TimeSpan length, TimeSpan near, int excludedIndex)
+        private List<(TimeSpan From, TimeSpan To)> FindSilenceToSteal(TimeSpan length, TimeSpan near, int excludedIndex)
         {
             var segments = TerrainMapping.Segments;
             int center = Math.Max(0, SegmentIndexAt(near));
 
-            (TimeSpan From, TimeSpan To)? TryTake(int i)
+            // The segments, nearest first
+            var order = new List<int>();
+            for (int step = 0; step < MaxSilencesLookedAt; step++)
             {
-                if (i < 0 || i >= segments.Count || i == excludedIndex)
-                    return null;
-                var seg = segments[i];
-                if (!seg.IsSilence || seg.PeakLevel <= 0f || seg.Duration < length + StolenSilenceMargin + StolenSilenceMargin)
-                    return null;
+                if (center - step < 0 && center + step >= segments.Count)
+                    break;
+                if (center - step >= 0) order.Add(center - step);
+                if (step > 0 && center + step < segments.Count) order.Add(center + step);
+            }
 
-                // Only the pure silence pieces (not Breath, not Click) of the segment can be used
+            // The clean stretches (digital silence excluded) of a segment, with the margin kept on each side
+            List<(TimeSpan From, TimeSpan To)> CleanStretches(int i)
+            {
+                var result = new List<(TimeSpan From, TimeSpan To)>();
+                if (i < 0 || i >= segments.Count || i == excludedIndex)
+                    return result;
+                var seg = segments[i];
+                if (!seg.IsSilence || seg.PeakLevel <= 0f)
+                    return result;
+
                 var detailed = TerrainMapping.DetailedSegments;
                 int lo = 0, hi = detailed.Count;
                 while (lo < hi)
@@ -956,37 +973,49 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     int mid = (lo + hi) / 2;
                     if (detailed[mid].EndTime <= seg.StartTime) lo = mid + 1; else hi = mid;
                 }
-
-                TimeSpan bestStart = TimeSpan.Zero, bestDuration = TimeSpan.Zero;
                 for (int k = lo; k < detailed.Count && detailed[k].StartTime < seg.EndTime; k++)
                 {
                     var piece = detailed[k];
                     if (!piece.IsSilence || piece.PeakLevel <= 0f)
                         continue;
-                    var start = TimeSpanExtensions.Max(piece.StartTime, seg.StartTime);
-                    var duration = TimeSpanExtensions.Min(piece.EndTime, seg.EndTime) - start;
-                    if (duration > bestDuration)
-                    {
-                        bestStart = start;
-                        bestDuration = duration;
-                    }
+                    var from = TimeSpanExtensions.Max(piece.StartTime, seg.StartTime) + StolenSilenceMargin;
+                    var to = TimeSpanExtensions.Min(piece.EndTime, seg.EndTime) - StolenSilenceMargin;
+                    if (to - from >= MinSplicedStretch)
+                        result.Add((from, to));
                 }
-                if (bestDuration < length + StolenSilenceMargin + StolenSilenceMargin)
-                    return null;
-
-                var from = bestStart + TimeSpan.FromTicks((bestDuration - length).Ticks / 2);
-                return (from, from + length);
+                return result;
             }
 
-            for (int step = 0; step < MaxSilencesLookedAt; step++)
+            // 1. One stretch that is long enough (the longest of the nearest segment that has one)
+            foreach (var i in order)
             {
-                var taken = TryTake(center - step) ?? TryTake(center + step);
-                if (taken.HasValue)
-                    return taken;
-                if (center - step < 0 && center + step >= segments.Count)
-                    break;
+                var stretches = CleanStretches(i);
+                if (stretches.Count == 0)
+                    continue;
+                var best = stretches.OrderByDescending(x => x.To - x.From).First();
+                if (best.To - best.From >= length)
+                {
+                    var from = best.From + TimeSpan.FromTicks((best.To - best.From - length).Ticks / 2);
+                    return new List<(TimeSpan From, TimeSpan To)> { (from, from + length) };
+                }
             }
-            return null;
+
+            // 2. Not one is long enough: splice the nearest clean stretches (each taken from its middle)
+            var pieces = new List<(TimeSpan From, TimeSpan To)>();
+            var remaining = length;
+            foreach (var i in order)
+            {
+                foreach (var stretch in CleanStretches(i).OrderBy(x => (x.From - near).Duration()))
+                {
+                    var take = TimeSpanExtensions.Min(stretch.To - stretch.From, remaining);
+                    var from = stretch.From + TimeSpan.FromTicks((stretch.To - stretch.From - take).Ticks / 2);
+                    pieces.Add((from, from + take));
+                    remaining -= take;
+                    if (remaining <= TimeSpan.FromMilliseconds(1))
+                        return pieces;
+                }
+            }
+            return pieces;
         }
 
         /// <summary>The dips that were in play when the round was built, with their state after the AI's answer.</summary>
@@ -1113,12 +1142,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 return;
             }
 
-            // "Silence" but the terrain hears Speech (a laugh, a moan, a word are loud): the AI is wrong, the End is kept
-            if (EndTailSilenceMaxSpeechRatio > 0f && string.Equals(round.Choice, TimingMeta.TailKindSilence, StringComparison.OrdinalIgnoreCase))
+            // The terrain hears Speech over most of the extra (ex: "Silence" over loud audio, "Moaning" over the last words):
+            // the answer is not trusted, the End is kept
+            if (EndTailKeepIfSpeechRatio.TryGetValue(round.Choice.Trim(), out var keepRatio) && keepRatio > 0f)
             {
                 var extraLength = round.Center - round.TailFrom;
                 var speech = TerrainMapping.SpeechDurationBetween(round.TailFrom, round.Center);
-                if (extraLength > TimeSpan.Zero && speech.TotalMilliseconds >= extraLength.TotalMilliseconds * EndTailSilenceMaxSpeechRatio)
+                if (extraLength > TimeSpan.Zero && speech.TotalMilliseconds >= extraLength.TotalMilliseconds * keepRatio)
                 {
                     state.Done = true;
                     cand.Trace("Tail", prevStart, prevEnd, $"Extra {extra}: {round.Choice} but terrain has {speech.TotalMilliseconds:0} ms of speech in {extraLength.TotalMilliseconds:0} ms, End kept");

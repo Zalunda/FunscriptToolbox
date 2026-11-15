@@ -462,6 +462,28 @@ Translate the erotic and emotional *reality* of the line, defaulting to evocativ
 * Maintain the character's roleplay dynamic from `OngoingContext` and strictly enforce the pronoun rule from `Vector:`.
 * **Zero Parentheticals:** Stage directions or sound tags (`(sighs)`, `(whispering)`, `[moan]`, `[gasp]`) are strictly forbidden in `TranslatedText`.
 
+**6. The Spoken-English Register (Sound Like a Real Person Talking, Not a Translation)**
+A subtitle is read in ~1-2 seconds while the viewer is watching the screen. It must read like something a real person would actually *say out loud* in casual conversation. Translate the **intent and the punch**, never the Japanese sentence structure. Before finalizing each `TranslatedText`, ask: *"Would a native English speaker really say it this way, in this mood, at this volume?"* If it sounds like a textbook, a manual, or a written essay, rewrite it shorter and looser.
+* **Always Contract:** Use contractions by default (`you're`, `I'm`, `it's`, `don't`, `can't`, `you've`, `that's`, `I'll`, `she'll`, `we'd`). Write the uncontracted form ONLY for deliberate emphasis (`"I do NOT want you to stop."`) or for a genuinely stiff/formal speaker defined in `OngoingContext`.
+* **Casual Speech Forms (Casual / Teasing / Playful / Aroused tones):** Freely use `gonna`, `wanna`, `gotta`, `kinda`, `c'mon`, `y'know`, `huh?`, `right?`, `Hey,` where they fit the speaker's mood. Do NOT use them for Shy / Submissive / Polite-register speakers, where clean contractions are enough.
+* **Clip the Question (Drop the Auxiliary and Subject):** Casual spoken questions are fragments. Prefer `"Feel good?"`, `"Getting turned on?"`, `"Wanna see more?"`, `"Hungry, Kou?"`, `"About the same age?"`, `"Gonna cum?"` over `"Does it feel good?"`, `"Are you getting turned on?"`, `"Do you want to see more?"`, `"Are you getting hungry, Kou?"`, `"Are you two about the same age?"`. Keep the full form only when the speaker is being deliberately polite, slow or serious.
+* **Prefer a Tagged Statement or a Fragment over a Formal Question:** `"You like boobs, huh?"` / `"You love 'em."` beat `"Do you like boobs?"`. `"No one's ever done that for you, huh?"` beats `"Have you never had it licked before?"`.
+* **Say What a Person Would Say (Plain, Short, Concrete Words):**
+  * Prefer short everyday words over polished ones: `"hard"` (not `"stiff"` / `"rigid"` / `"throbbing"` unless the Japanese is that specific), `"kidding"` (not `"teasing"`), `"hot"` (not `"warm"`), `"jerk off"` / `"touch yourself"` (not `"fantasize"` / `"pleasure yourself"`), `"cum"` (not `"climax"`).
+  * Avoid stiff glue words that nobody says in a bedroom: `"quite"`, `"rather"`, `"definitely"`, `"I wonder if"`, `"would you like to"`, `"is it okay if"` (when `"can I"` / `"wanna"` works), `"somewhat"`, `"in that case"`, `"as expected"`, `"after all"`.
+  * Do not ADD words that are not in the Japanese to sound "smooth" (`してみ？` -> `"Do it."` NOT `"right in front of me"`). Natural does not mean longer.
+* **Rewrite Structure the Way English Speakers Say It:** Flip Japanese-shaped clauses into the way English naturally expresses the same thing, and cut the possessives/subjects English doesn't need:
+  * `"You've gotten so big you barely fit in my mouth."` -> `"You're so big I can barely fit you in my mouth."` / `"I can barely fit you in my mouth."`
+  * `"I'll let you see my boobs too."` -> `"You can look at my boobs too."`
+  * `"Are you looking me in the eye when you say that?"` -> `"Say it while you look me in the eye."`
+  * `"I'm just teasing."` -> `"I'm kidding."`
+  * `"Do you fantasize about Rio when you do it?"` -> `"Do you jerk off thinking about Rio?"`
+  * `"Hey, can you handle spicy food?"` / `"Whose legs do you like better, mine or Rio's?"` -> `"Which one do you like more?"` when the viewer can see/hear the context.
+* **Punch Over Completeness (Match the Clip's Energy and Length):** On short clips (< ~2s), aim for **<= 4-6 words**. A teasing or aroused line should land with the same brevity as the Japanese (`"You're so bad."`, `"Look how huge you are."`, `"Hard as a rock."`), not be a complete explanatory sentence. When in doubt between two renderings, pick the shorter, blunter one.
+* **Exclamation Marks Are Earned:** Use `!` only for genuinely loud/excited/shouted delivery (`TranslationAnalysis` says shouted, cheerful call-out, Tier 3). A normal casual, whispered, or teasing line ends with `.` or `?`. Do not decorate every cheerful line with `!` or stretch words (`Okaaay!`) unless the Japanese itself is drawn out.
+* **Vary `ほら` / `ねえ` / `ね` Fillers (Never Spam `"Look."`):** `ほら` is not always `"Look."` Pick by function: attention -> `"Look."` / `"See?"`; encouragement -> `"Come on."` / `"Go on."`; offering -> `"Here."`; proving a point -> `"See?"`; or **drop it entirely** when the line already carries the meaning. The same English filler must not repeat 3+ times within a short span.
+* **Match the Speaker's Age & Role:** A teasing older sister / confident seductress uses relaxed, slangy, slightly bossy phrasing; a shy girlfriend uses softer, more hesitant but still contracted phrasing; neither uses essay-style English.
+
 ---
 
 ### Output Format
@@ -565,6 +587,7 @@ _______________________________________=",
 7. **Maverick Protocol Violations in `TranslatedText`:**
    * **Textbook Literalism:** Using dry, literal phrases like `"I'm going to make noise"` or `"I let out a loud voice"` instead of natural erotic English (`"I'm gonna moan"`, `"I moaned so loud"`).
    * **Parentheticals/Tags or Unicode Em-Dashes:** Including `(sighs)`, `[moan]`, or Unicode `—` (always use ASCII `--` for breaks and `-` for stutters).
+   * **Stiff, Written-Style English:** Uncontracted forms where a person would contract (`"you are"`, `"I will"`, `"do not"`), full textbook questions where a casual fragment fits (`"Does it feel good?"` instead of `"Feel good?"`, `"Do you want to see more?"` instead of `"Wanna see more?"`), padded smooth-sounding words not present in the Japanese, decorative `!` on calm lines, or repeating the same filler (`"Look."`) for every `ほら`. Apply the Spoken-English Register (Phase 3, rule 6).
    * **Bloated Tag Tails & Fluff:** Tacking on wordy question tails (`", isn't it?"`, `", don't you think?"`), adding `"for me"` onto imperatives, or using padding phrases (`be the one to`, `kind of`, `actually`).
    * **Vector Mismatch / 3rd-Person Drift:** Violating the pronoun rule (`You` vs. `He/His/It` vs. `I/She` for POV inner monologue) established in `Vector:`, or using bare `"he"` / `"him"` (`"He's getting harder and harder"`) when speaking to the POV-man instead of `"it"`, `"your cock"`, or `"you"`.
 8. **Sequence Collapse (Dropped Nodes):** Returning fewer nodes in the JSON array than received in the batch.
@@ -822,8 +845,12 @@ _______________________________________=",
         // When the End chosen by the AI is at least "EndTailMinExtra" after the closest option before it, one request (no text) asks
         // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
         // to that option (then the new End is checked against the option before it, up to "EndTailMaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
-        // When the AI says "Silence" but the terrain finds Speech over at least this fraction of the extra audio, the End is kept (0 = never overrule the AI).
-        "EndTailSilenceMaxSpeechRatio": 0.3,
+        // By answer of the AI: when the terrain finds Speech over at least this fraction of the extra audio, the answer is not trusted and the End is kept
+        // ("Silence" over loud audio is wrong, "Moaning" over continuous speech is often the last words misidentified). A kind not listed always moves the End back.
+        "EndTailKeepIfSpeechRatio": {
+          "Silence": 0.3,
+          "Moaning": 0.5
+        },
         "EndTailMinExtra": "00:00:00.4",
         "EndTailMaxChecks": 1,
         "InnerOptionsEndTail": {
