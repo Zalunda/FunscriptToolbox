@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
 using System;
 using System.IO;
 using System.Linq;
@@ -6,13 +7,29 @@ using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
+    /// <summary>What an ffmpeg audio conversion is for: it decides how many can run at the same time (see <see cref="SharedLocks"/>).</summary>
+    public enum FfmpegWorkload
+    {
+        /// <summary>A whole audio (saving an extraction, the input of a local tool, ...).</summary>
+        Audio,
+
+        /// <summary>A piece of audio cut from the PCM in memory and written in the temp folder (many, small).</summary>
+        Clip,
+    }
+
     public class FfmpegHelper
     {
         protected const int SamplingRate = 16000;
 
-        public FfmpegHelper()
-        {
+        private readonly SharedLocks r_locks;
 
+        /// <param name="locks">
+        /// When several videos are processed in parallel, the ffmpeg processes are limited, by kind of work (see <see cref="SharedLocks"/>):
+        /// reading the original video, working on a whole audio, cutting audio clips.
+        /// </param>
+        public FfmpegHelper(SharedLocks locks)
+        {
+            r_locks = locks;
         }
 
         /// <summary>The ffmpeg executable, from the folder given to Xabe.FFmpeg (a clear error when it is not configured or not there).</summary>
@@ -51,6 +68,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 throw new ArgumentException($"File '{inputPath}' doesn't exists.");
             }
 
+            using var localLock = r_locks.VideoSource.Acquire("ffmpeg: extracting audio from the video");
             var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
@@ -71,11 +89,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             }
         }
 
+        /// <param name="workload">Clip: a piece of audio cut from the PCM in memory (many, small). Audio: a whole audio.</param>
         public void ConvertPcmAudioToOtherFormat(
             PcmAudio pcmAudio,
             string outputFilepath,
-            string ffmpegParameters = null)
+            string ffmpegParameters = null,
+            FfmpegWorkload workload = FfmpegWorkload.Audio)
         {
+            using var localLock = (workload == FfmpegWorkload.Clip ? r_locks.Clips : r_locks.Audio)
+                .Acquire(workload == FfmpegWorkload.Clip ? "ffmpeg: writing an audio clip" : "ffmpeg: converting audio");
             var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
@@ -100,6 +122,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             PcmAudio pcmAudio, 
             string ffmpegParameters)
         {
+            using var localLock = r_locks.Audio.Acquire("ffmpeg: transforming audio");
             var tempPcmSourceFile = PathExtension.GetTempFileName(".pcm");
             var tempPcmDestinationFile = PathExtension.GetTempFileName(".pcm");
             try
@@ -126,6 +149,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 
         internal byte[] TakeScreenshotAsBytes(string videoPath, TimeSpan time, string extension = ".jpg", string filter = null)
         {
+            using var localLock = r_locks.VideoSource.Acquire("ffmpeg: taking screenshot");
             var tempFile = PathExtension.GetTempFileName(extension);
             try
             {

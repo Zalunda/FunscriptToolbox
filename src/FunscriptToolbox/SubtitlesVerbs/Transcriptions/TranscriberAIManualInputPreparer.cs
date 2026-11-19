@@ -1,5 +1,6 @@
 using FunscriptToolbox.Core;
 using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner;
@@ -193,6 +194,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .FirstOrDefault(f => f.Id == extractor.SourceAudioId && f.IsFinished)?.PcmAudio
                 ?? throw new InvalidOperationException($"Audio extraction '{extractor.SourceAudioId}' is not done yet.");
 
+            // (when the background holds m_paddedClipLock, it gets the priority of the request while the request waits for it)
+            using var waitingForBackground = silent ? null : LockPriority.ForegroundWaitingForBackground();
             lock (m_paddedClipLock)
             {
                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{clip.Start}", $"Generating padded .wav for {clip.Start} to {clip.End} (+{clip.TotalDuration - (clip.End - clip.Start):ss\\.fff}s of silence)");
@@ -205,7 +208,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var joined = new PcmAudio(pieces);
 
                 var tempWavFile = PathExtension.GetTempFileName(".wav");
-                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(joined, tempWavFile);
+                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(joined, tempWavFile, workload: FfmpegWorkload.Clip);
                 var bytes = File.ReadAllBytes(tempWavFile);
                 File.Delete(tempWavFile);
 
@@ -421,10 +424,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             public int Found => Volatile.Read(ref m_found);
 
+            /// <summary>The task of the detection (in the task tree / console progress line).</summary>
+            public ITaskNode Node;
+
             public void Report(TimeSpan processed, int found)
             {
                 Interlocked.Exchange(ref m_processedTicks, processed.Ticks);
                 Volatile.Write(ref m_found, found);
+                if (Total > TimeSpan.Zero)
+                {
+                    Node?.SetProgress((long)processed.TotalSeconds, (long)Total.TotalSeconds, "%");
+                }
+                Node?.SetStatus($"{found} title card(s) found");
             }
         }
 
@@ -446,7 +457,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var ct = run.Cancellation.Token;
 
             context.WriteInfo("  Starting title card detection (in the background)...");
+            // Its own task, started and disposed by the background code (the 'current task' of the main work is not changed)
+            var backgroundNode = context.PlanBackgroundStep("Title card detection");
+            run.Node = backgroundNode;
             run.Task = Task.Run(async () =>
+            {
+                // (lower priority on the shared ffmpeg locks than the requests being prepared, see LockPriority)
+                LockPriority.MarkAsBackgroundWork();
+                backgroundNode.Start();
+                try
+                {
+                    var foundCards = await DetectTitleCardsAsync();
+                    if (ct.IsCancellationRequested)
+                        backgroundNode.SetState(TaskState.Skipped, run.StoppedByUser ? "stopped by the user" : "stopped");
+                    return foundCards;
+                }
+                catch (Exception ex)
+                {
+                    backgroundNode.Fail(ex.Message);
+                    throw;
+                }
+                finally
+                {
+                    backgroundNode.Dispose();
+                }
+            });
+            return run;
+
+            async Task<List<TitleCardSegment>> DetectTitleCardsAsync()
             {
                 var cards = new List<TitleCardSegment>();
                 foreach (var timelineSegment in timelineSegments)
@@ -469,19 +507,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         try
                         {
-                            await detector.DetectAsync(
-                                Path.Combine(parentPath, timelineSegment.Filename),
-                                progress.ProcessedUntil,
-                                (found, processedUntil) =>
-                                {
-                                    context.WIP.ExecuteLocked(() =>
+                            // Reads the original video: limited like the other ffmpeg work on the video, when several videos are processed in parallel.
+                            using (context.Locks.VideoSource.Acquire("title card detection (ffmpeg)"))
+                            {
+                                await detector.DetectAsync(
+                                    Path.Combine(parentPath, timelineSegment.Filename),
+                                    progress.ProcessedUntil,
+                                    (found, processedUntil) =>
                                     {
-                                        progress.Segments.AddRange(found);
-                                        progress.ProcessedUntil = processedUntil;
-                                    });
-                                    run.Report(timelineSegment.Offset + processedUntil, cards.Count + progress.Segments.Count);
-                                },
-                                ct);
+                                        context.WIP.ExecuteLocked(() =>
+                                        {
+                                            progress.Segments.AddRange(found);
+                                            progress.ProcessedUntil = processedUntil;
+                                        });
+                                        run.Report(timelineSegment.Offset + processedUntil, cards.Count + progress.Segments.Count);
+                                    },
+                                    ct);
+                            }
                             context.WIP.ExecuteLocked(() => progress.Done = true);
                         }
                         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -496,8 +538,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     run.Report(timelineSegment.Offset + timelineSegment.Duration, cards.Count);
                 }
                 return cards;
-            });
-            return run;
+            }
         }
 
         private static IEnumerable<TitleCardSegment> ToTimeline(IEnumerable<TitleCardSegment> segments, TimeSpan offset)
@@ -520,6 +561,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 context.WriteInfo("  Waiting for the title card detection to finish (PRESS Q TO STOP IT: the manual-input file will then have no title card for the part that was not scanned)...");
 
                 var lastSave = DateTime.Now;
+                TaskScope.Current.SetCancellable("Stop the title card detection (the manual-input file will have no title card for the part that was not scanned).");
                 while (!run.Task.IsCompleted)
                 {
                     var percent = run.Total > TimeSpan.Zero ? 100.0 * run.Processed.Ticks / run.Total.Ticks : 0;
@@ -529,7 +571,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         null,
                         $"{percent:0}% scanned ({(int)run.Processed.TotalHours}:{run.Processed:mm\\:ss} of {(int)run.Total.TotalHours}:{run.Total:mm\\:ss}), {run.Found} title card(s) found.{stopText}");
 
-                    if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Q)
+                    if (context.PollStopRequest())
                     {
                         run.StoppedByUser = true;
                         run.Cancellation.Cancel();
@@ -543,6 +585,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     Task.WaitAny(new Task[] { run.Task }, TimeSpan.FromMilliseconds(250));
                 }
                 context.ClearProgressUpdate();
+                TaskScope.Current.SetCancellable(null);
             }
 
             var cards = run.Task.GetAwaiter().GetResult() // throws what went wrong in the detection
@@ -560,7 +603,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             JobState jobState,
             TitleCardRun titleCardRun)
         {
-            var inputs = LoadInputs(context);
+            var inputs = context.RunStep("Load the subtitles to refine", _ => LoadInputs(context));
 
             var refiner = CreateRefiner(context, transcription, null);
             var reports = new List<PhaseReport>();
@@ -574,7 +617,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (!RunPhases(context, transcription, refiner, jobState, reports, exportProgress: true))
                     return; // Interrupted
 
-                refiner.FinalizeOverlaps();
+                context.RunStep("Finalize the overlaps", _ => refiner.FinalizeOverlaps());
                 originalCount = refiner.Candidates.Count;
             }
             else
@@ -591,40 +634,63 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             // The long subtitles are split, and only the parts are refined (their outer edges are already validated)
             // (a split part gets its text from the AI: not possible without it)
-            var splits = this.Validation.Enabled && this.RefineTiming.UsesAI
-                ? new TimingValidator(refiner, this.Validation).PlanSplits()
-                : new List<TimingEdit>();
-            if (splits.Count > 0)
+            if (this.Validation.Enabled && this.RefineTiming.UsesAI)
             {
-                var partInputs = BuildPartInputs(splits);
-                partCount = partInputs.Count;
-                context.WriteInfo($"  Fixes: {splits.Count} subtitle(s) split into {partCount} parts. Refining the parts...");
+                var completed = context.RunStep("Split the long subtitles", splitNode =>
+                {
+                    var splits = new TimingValidator(refiner, this.Validation).PlanSplits();
+                    if (splits.Count == 0)
+                    {
+                        splitNode.SetState(TaskState.Skipped, "no subtitle to split");
+                        return true;
+                    }
 
-                var partsRefiner = CreateRefiner(context, transcription, refiner.TerrainMapping);
-                LoadCandidates(context, partsRefiner, partInputs);
-                if (!RunPhases(context, transcription, partsRefiner, jobState, splitReports, exportProgress: false))
+                    var partInputs = BuildPartInputs(splits);
+                    partCount = partInputs.Count;
+                    context.WriteInfo($"  Fixes: {splits.Count} subtitle(s) split into {partCount} parts. Refining the parts...");
+                    splitNode.SetStatus($"{splits.Count} subtitle(s) split into {partCount} parts");
+
+                    var partsRefiner = CreateRefiner(context, transcription, refiner.TerrainMapping);
+                    LoadCandidates(context, partsRefiner, partInputs);
+                    if (!RunPhases(context, transcription, partsRefiner, jobState, splitReports, exportProgress: false))
+                    {
+                        splitNode.SetState(TaskState.Cancelled, "interrupted");
+                        return false; // Interrupted
+                    }
+
+                    refiner.ReplaceCandidates(splits.Select(s => s.Replaces), partsRefiner.Candidates);
+                    refiner.FinalizeOverlaps();
+                    return true;
+                });
+                if (!completed)
                     return; // Interrupted
-
-                refiner.ReplaceCandidates(splits.Select(s => s.Replaces), partsRefiner.Candidates);
-                refiner.FinalizeOverlaps();
             }
 
-            SpliceTitleCards(context, refiner, titleCardRun);
+            if (titleCardRun != null)
+                context.RunStep("Add the title cards", _ => SpliceTitleCards(context, refiner, titleCardRun));
             if (this.Validation.Enabled)
-                new TimingValidator(refiner, this.Validation).Run();
+                context.RunStep("Validate the timings", _ => new TimingValidator(refiner, this.Validation).Run());
 
+            context.RunStep("Export the subtitles (CLEAN / REVIEW)", _ =>
+            {
+                if (this.RefineTiming.Enabled)
+                    refiner.AddFinalDipTraces();
+                UpdateTranscription(transcription, refiner.Candidates);
+                DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => !c.NeedsReview).Select(c => c.ToSubtitle()), "CLEAN");
+                DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => c.NeedsReview).Select(c => c.ToReviewSubtitle()), "REVIEW");
+            });
             if (this.RefineTiming.Enabled)
-                refiner.AddFinalDipTraces();
-            UpdateTranscription(transcription, refiner.Candidates);
-            DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => !c.NeedsReview).Select(c => c.ToSubtitle()), "CLEAN");
-            DoExportSrt(context, transcription.Id, refiner.Candidates.Where(c => c.NeedsReview).Select(c => c.ToReviewSubtitle()), "REVIEW");
-            if (this.RefineTiming.Enabled)
-                PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount);
-            RunSimulations(context, transcription, refiner);
-            RunGroundTruthAnalysis(context, transcription, refiner);
-            SaveReport(context, transcription.Id);
-            transcription.MarkAsFinished();
-            context.WIP.Save();
+                context.RunStep("Summary", _ => PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount));
+            if (this.Simulations != null && this.Simulations.Length > 0 && this.RefineTiming.Mode == RefineMode.Full)
+                context.RunStep("Simulations", _ => RunSimulations(context, transcription, refiner));
+            if (!string.IsNullOrWhiteSpace(this.GroundTruthExtension))
+                context.RunStep("Ground truth analysis", _ => RunGroundTruthAnalysis(context, transcription, refiner));
+            context.RunStep("Save the report", _ =>
+            {
+                SaveReport(context, transcription.Id);
+                transcription.MarkAsFinished();
+                context.WIP.Save();
+            });
         }
 
         /// <returns>false when the requests were interrupted (the caller must stop).</returns>
@@ -641,12 +707,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             foreach (var side in refiner.SidesToAsk)
             {
-                if (!RunPhase(context, transcription, refiner, jobState, side, reports, exportProgress))
+                var completed = context.RunStep($"{side} pass", passNode =>
+                {
+                    if (RunPhase(context, transcription, refiner, jobState, side, reports, exportProgress))
+                        return true;
+                    passNode.SetState(TaskState.Cancelled, "interrupted");
+                    return false;
+                });
+                if (!completed)
                     return false;
             }
 
-            if (refiner.TailCheckEnabled && !RunTailCheckPhase(context, transcription, refiner, jobState, reports, exportProgress))
-                return false;
+            if (refiner.TailCheckEnabled)
+            {
+                var completed = context.RunStep("End tail check", tailNode =>
+                {
+                    if (RunTailCheckPhase(context, transcription, refiner, jobState, reports, exportProgress))
+                        return true;
+                    tailNode.SetState(TaskState.Cancelled, "interrupted");
+                    return false;
+                });
+                if (!completed)
+                    return false;
+            }
 
             refiner.LockUnaskedBoundaries();
             return true;
@@ -684,16 +767,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (candidatesToTest.Count == 0)
                     break;
 
-                var batch = BuildBatch(transcription, side, report.Iterations, candidatesToTest, jobState, options, report);
-                if (!ExecuteBatch(context, transcription, jobState, batch, options))
-                    return false; // Interrupted
-
-                refiner.ProcessBatchResults(batch.Transcription.Items, side);
-                if (exportProgress)
+                var completed = context.RunStep($"Iteration {report.Iterations} ({candidatesToTest.Count} candidates)", iterationNode =>
                 {
-                    UpdateTranscription(transcription, refiner.Candidates);
-                    DoExportMetatadaSrt(context, transcription, false);
-                }
+                    var batch = BuildBatchStep(context, transcription, side, report.Iterations, candidatesToTest, jobState, options, report);
+                    if (!ExecuteBatch(context, transcription, jobState, batch, options))
+                    {
+                        iterationNode.SetState(TaskState.Cancelled, "interrupted");
+                        return false; // Interrupted
+                    }
+
+                    refiner.ProcessBatchResults(batch.Transcription.Items, side);
+                    if (exportProgress)
+                    {
+                        UpdateTranscription(transcription, refiner.Candidates);
+                        DoExportMetatadaSrt(context, transcription, false);
+                    }
+                    return true;
+                });
+                if (!completed)
+                    return false; // Interrupted
             }
 
             // Whatever is still open on this side is locked and flagged, so the next pass can rely on it
@@ -734,11 +826,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 report.Iterations++;
                 context.WriteInfo($"  [End tail] Iteration {report.Iterations}: checking the audio appended by {candidatesToTest.Count} chosen Ends...");
 
-                var batch = BuildBatch(transcription, BoundarySide.End, report.Iterations, candidatesToTest, jobState, options, report, tailCheck: true);
-                if (!ExecuteBatch(context, transcription, jobState, batch, options))
-                    return false; // Interrupted
+                var completed = context.RunStep($"Iteration {report.Iterations} ({candidatesToTest.Count} candidates)", iterationNode =>
+                {
+                    var batch = BuildBatchStep(context, transcription, BoundarySide.End, report.Iterations, candidatesToTest, jobState, options, report, tailCheck: true);
+                    if (!ExecuteBatch(context, transcription, jobState, batch, options))
+                    {
+                        iterationNode.SetState(TaskState.Cancelled, "interrupted");
+                        return false; // Interrupted
+                    }
 
-                refiner.ProcessTailCheckResults(batch.Transcription.Items);
+                    refiner.ProcessTailCheckResults(batch.Transcription.Items);
+                    return true;
+                });
+                if (!completed)
+                    return false; // Interrupted
             }
 
             if (exportProgress)
@@ -771,16 +872,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     .PcmAudio
                 : null;
 
-            var refiner = new TimingRefiner(fullPcmAudioForRefiner, this.RefineTiming, this.Validation, sharedTerrain);
+            // (the terrain of the audio is mapped by the refiner, unless the one of the previous pass is given)
+            var mapsTerrain = this.RefineTiming.Enabled && sharedTerrain == null;
+            var refiner = context.RunStep(
+                mapsTerrain ? "Map the audio terrain" : "Prepare the refiner",
+                _ => new TimingRefiner(fullPcmAudioForRefiner, this.RefineTiming, this.Validation, sharedTerrain));
 
-            if (this.RefineTiming.Enabled && sharedTerrain == null)
+            if (mapsTerrain)
             {
-                var segments = refiner.TerrainMapping.Segments;
-                //context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences " +
-                //    $"(second pass: {refiner.TerrainMapping.SplitMountains} mountains split at calm valleys, {refiner.TerrainMapping.ShoulderSplits} at a quiet shoulder, " +
-                //    $"{refiner.TerrainMapping.AddedMountains} mountains added in all; the pieces are marked '+' in the TERRAIN-MAP).");
-                DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
-                SavePartsDuration(context);
+                context.RunStep("Export the TERRAIN-MAP", _ =>
+                {
+                    var segments = refiner.TerrainMapping.Segments;
+                    //context.WriteInfo($"  Preparation: Terrain mapping has {segments.Count(f => !f.IsSilence)} possible speech segments, {segments.Count(f => f.IsSilence)} silences " +
+                    //    $"(second pass: {refiner.TerrainMapping.SplitMountains} mountains split at calm valleys, {refiner.TerrainMapping.ShoulderSplits} at a quiet shoulder, " +
+                    //    $"{refiner.TerrainMapping.AddedMountains} mountains added in all; the pieces are marked '+' in the TERRAIN-MAP).");
+                    DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
+                    SavePartsDuration(context);
+                });
             }
 
             return refiner;
@@ -844,11 +952,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private void LoadCandidates(SubtitleGeneratorContext context, TimingRefiner refiner, List<RefineInput> inputs)
         {
             context.WriteInfo($"  Preparation: Initializing acoustic bounds on {inputs.Count} candidates...");
-            foreach (var input in inputs)
+            context.RunStep("Load the candidates (acoustic bounds)", node =>
             {
-                input.Item.Metadata.TryGetValue(this.Options.MetadataNeeded, out var originalText);
-                refiner.AddCandidate(input.Item, originalText ?? "", input.Origin, input.FixedStart, input.FixedEnd);
-            }
+                node.SetProgress(0, inputs.Count, "candidates");
+                foreach (var input in inputs)
+                {
+                    input.Item.Metadata.TryGetValue(this.Options.MetadataNeeded, out var originalText);
+                    refiner.AddCandidate(input.Item, originalText ?? "", input.Origin, input.FixedStart, input.FixedEnd);
+                    node.IncrementProgress();
+                }
+            });
         }
 
         /// <summary>
@@ -884,6 +997,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // ---------------------------------------------------------------------
         // One iteration: build -> execute -> cache
         // ---------------------------------------------------------------------
+
+        /// <summary><see cref="BuildBatch"/>, as a step: what is asked, and what comes from the cache of the previous runs.</summary>
+        private RefineBatch BuildBatchStep(
+            SubtitleGeneratorContext context,
+            Transcription transcription,
+            BoundarySide side,
+            int iteration,
+            List<TimingCandidate> candidatesToTest,
+            JobState jobState,
+            AIOptions options,
+            PhaseReport report,
+            bool tailCheck = false)
+        {
+            return context.RunStep("Build the batch", node =>
+            {
+                var fromCacheBefore = report.FromCache;
+                var batch = BuildBatch(transcription, side, iteration, candidatesToTest, jobState, options, report, tailCheck);
+                node.SetStatus($"{batch.ItemsToProcess.Count} to ask the AI, {report.FromCache - fromCacheBefore} from the cache");
+                return batch;
+            });
+        }
 
         private RefineBatch BuildBatch(
             Transcription transcription,

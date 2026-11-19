@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.Progress;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         protected abstract string GetWorkerTypeName();
         protected abstract string GetExecutionVerb();
 
+        /// <summary>How the worker is shown in the task tree of the web UI.</summary>
+        internal string DisplayName => $"{GetWorkerTypeName()} '{GetId()}'";
+
         public void Execute(SubtitleGeneratorContext context)
         {
             // --- Pre-Execution Guards ---
@@ -29,10 +33,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 return;
             }
 
+            using var node = context.BeginWorkerTask(this, DisplayName);
+
             if (!IsPrerequisitesMet(context, out var reasonPrerequisites))
             {
                 context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
                 context.WriteInfo();
+                node.SetState(TaskState.Skipped, $"can't be done yet: {reasonPrerequisites}");
                 return;
             }
 
@@ -58,8 +65,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                     context.WriteInfo();
                 }
+                catch (UserStoppedWorkerException ex)
+                {
+                    node.SetState(TaskState.Cancelled, "stopped by the user");
+                    context.WriteError($"An error occured while {GetExecutionVerb().ToLower()} '{GetId()}':\n{ex.Message}");
+                    context.WriteLog(ex.ToString());
+                }
                 catch (Exception ex)
                 {
+                    node.Fail(null);
                     context.WriteError($"An error occured while {GetExecutionVerb().ToLower()} '{GetId()}':\n{ex.Message}");
                     context.WriteLog(ex.ToString());
                 }
@@ -78,6 +92,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
                 context.WriteInfoAlreadyDone();
                 AfterWork(context, wasAlreadyFinished: true);
+                node.SetState(TaskState.Skipped, "already done");
             }
         }
 

@@ -1,4 +1,10 @@
 {
+  "Global": {
+    // By default, the backup folder of a scene ('<scene>_Backup') is created next to the video.
+    // Remove '//' on next line to create them under another folder instead ('<BackupParentFolder>\\<scene>_Backup'). Must be a full path (with '\' doubled => '\\').
+    //"BackupParentFolder": "D:\\FSTB-Backups",
+  },
+
   "SharedObjects": [
     {
       "$id": "TranscriberToolPurfviewWhisper",

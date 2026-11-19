@@ -1,4 +1,5 @@
-﻿using log4net;
+﻿﻿using FunscriptToolbox.Progress;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -10,16 +11,20 @@ namespace FunscriptToolbox
         public VerbContext(
             ILog log,
             bool isVerbose,
-            string prefix)
+            string prefix,
+            IUserOutput output)
         {
             r_log = log;
             this.IsVerbose = isVerbose;
             this.Prefix = prefix;
+            this.Output = output;
             this.Errors = new List<string>();
         }
 
         private readonly ILog r_log;
-        private bool m_lastWriteIsProgress = false;
+
+        /// <summary>Where everything shown to the user goes (console, or web page in --ui mode).</summary>
+        public IUserOutput Output { get; }
 
         public string Prefix { get; private set; }
         public bool IsVerbose { get; }
@@ -30,59 +35,21 @@ namespace FunscriptToolbox
             this.Prefix = prefix;
         }
 
+        // In the web UI, the task tree already tells which video the message is about: no prefix needed.
+        private string ForDisplay(string message) => this.Output.IsWebUi ? message : this.Prefix + message;
+
         public void WriteInfo(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
-            message = this.Prefix + message;
-
-            if (m_lastWriteIsProgress)
-            {
-                Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
-            }
-
-            r_log.Info(message);
-            if (color != null) Console.ForegroundColor = color.Value;
-            if (isProgress)
-            {
-                var padding = Console.WindowWidth - message.Length - 1;
-                Console.Write(
-                    (padding < 0)
-                    ? $"{message.Substring(0, Console.WindowWidth - 1)}\r"
-                    : $"{message}{new string(' ', padding)}\r");
-            }
-            else
-            {
-                Console.WriteLine($"{message}");
-            }
-            Console.ResetColor();
-            m_lastWriteIsProgress = isProgress;
+            r_log.Info(this.Prefix + message);
+            this.Output.WriteInfo(ForDisplay(message), color, isProgress);
         }
 
         public void WriteVerbose(string message = "") => WriteVerbose(message, null, false);
 
         public void WriteVerbose(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
-            message = this.Prefix + message;
-
-            if (m_lastWriteIsProgress)
-            {
-                Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
-            }
-
-            r_log.Debug(message);
-            if (this.IsVerbose)
-            {
-                if (color != null) Console.ForegroundColor = color.Value;
-                if (isProgress)
-                {
-                    Console.Write($"{message}{new string(' ', Math.Max(0, Console.WindowWidth - message.Length - 1))}\r");
-                }
-                else
-                {
-                    Console.WriteLine(message);
-                }
-                Console.ResetColor();
-            }
-            m_lastWriteIsProgress = isProgress;
+            r_log.Debug(this.Prefix + message);
+            this.Output.WriteVerbose(ForDisplay(message), color, isProgress, this.IsVerbose);
         }
 
         public void WriteDebug(string message = "")
@@ -94,18 +61,12 @@ namespace FunscriptToolbox
 
         public void WriteError(string message = "")
         {
-            message = this.Prefix + message;
-
-            if (m_lastWriteIsProgress)
+            r_log.Error(this.Prefix + message);
+            this.Output.WriteError(ForDisplay(message));
+            lock (this.Errors)
             {
-                Console.Write($"{new string(' ', Math.Max(0, Console.WindowWidth - 1))}\r");
+                this.Errors.Add(this.Prefix + message);
             }
-
-            r_log.Error(message);
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine(message);
-            Console.ResetColor();
-            this.Errors.Add(message);
         }
 
         internal void WriteLog(string message = "")

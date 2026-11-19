@@ -41,6 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new Exception($"This engine does not support batching multiple request.");
             }
             var request = requests.First();
+            using var localResourceLock = AcquireLocalResourceLockIfNeeded(context);
             try
             {
                 using var client = new HttpClient();
@@ -56,11 +57,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     $"Base Address: {this.BaseAddress}\nModel: {this.Model}\n\n{request.FullPrompt}",
                     request.ProcessStartTime);
 
-                PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
+                PauseIfEnabled(context, this.PauseBeforeSendingRequest, request.FullPrompt);
 
                 return this.UseBatchMode
                     ? new[] { ProcessBatchResponse(context, client, request, verbosePrefix, configOverride) }
-                    : new[] { ProcessStreamingResponse(context, client, request, verbosePrefix, configOverride) };
+                    : RunStoppable(context, client, () => new[] { ProcessStreamingResponse(context, client, request, verbosePrefix, configOverride) });
             }
             catch (AggregateException ex)
             {
@@ -227,14 +228,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     while (DateTime.Now - waitStart < waitDuration)
                     {
-                        if (Console.KeyAvailable)
+                        if (context.PollStopRequest() && canCancel)
                         {
-                            var key = Console.ReadKey(intercept: true);
-                            if (canCancel && key.Key == ConsoleKey.Q)
-                            {
-                                waitDuration = TimeSpan.Zero;
-                                delayedCancel = true;
-                            }
+                            waitDuration = TimeSpan.Zero;
+                            delayedCancel = true;
                         }
                         Thread.Sleep(100);
                     }
@@ -405,6 +402,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 context.DefaultProgressUpdateHandler(ToolName, requestId, "Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
+                AttachToStopWatcher(response);
 
                 if (!response.IsSuccessStatusCode)
                     throw AIEngineAPIException.FromHttpStatusCode(response, this.EngineIdentifier);
@@ -440,7 +438,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             // Blank line → dispatch the accumulated event
                             if (waitingTimer != null)
                             {
-                                Console.WriteLine();
+                                context.WriteStreamLine();
                                 waitingTimer.Dispose();
                                 waitingTimer = null;
                             }
@@ -465,7 +463,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                         if (idxNewLine >= 0)
                                         {
                                             currentLineBuffer.Append(textToAppend.Substring(0, idxNewLine + 1));
-                                            Console.Write(AddRealTime(context, request.StartOffset,
+                                            context.WriteStream(AddRealTime(context, request.StartOffset,
                                                 currentLineBuffer.ToString()));
                                             currentLineBuffer.Clear();
                                             currentLineBuffer.Append(textToAppend.Substring(idxNewLine + 1));
@@ -502,8 +500,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 waitingTimer?.Dispose();
                 waitingTimer = null;
 
-                Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
-                Console.WriteLine();
+                context.WriteStream(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
+                context.WriteStreamLine();
 
                 if (stopReason != null)
                     extraContent.AppendLine($"StopReason: {stopReason}");
@@ -516,7 +514,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     extraContent.AppendLine($"OutputTokens: {usage.output_tokens,7}, {GetOutputCost(usage.output_tokens):C}");
                 }
 
-                Console.WriteLine(extraContent.ToString());
+                context.WriteStreamLine(extraContent.ToString());
 
                 var assistantMessageExtended = candidates.ToString() + extraContent.ToString();
 
@@ -543,7 +541,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     outputCandidatesTokens: usage?.output_tokens,
                     rawUsageInput: new Dictionary<string, int>());
 
-                PauseIfEnabled(this.PauseBeforeSavingResponse);
+                PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
                 return new AIResponse(request, assistantMessageExtended, cost, new List<Cost>());
             }
@@ -591,10 +589,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 extraContent.AppendLine($"OutputTokens: {usage.output_tokens,7}, {GetOutputCost(usage.output_tokens):C}");
             }
 
-            Console.WriteLine();
-            Console.WriteLine(thoughtContent.ToString());
-            Console.WriteLine(AddRealTime(context, request.StartOffset, candidates.ToString()));
-            Console.WriteLine(extraContent.ToString());
+            context.WriteStreamLine();
+            context.WriteStreamLine(thoughtContent.ToString());
+            context.WriteStreamLine(AddRealTime(context, request.StartOffset, candidates.ToString()));
+            context.WriteStreamLine(extraContent.ToString());
 
             var assistantMessageExtended = candidates.ToString() + extraContent.ToString();
 
@@ -621,7 +619,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 outputCandidatesTokens: usage?.output_tokens,
                 rawUsageInput: new Dictionary<string, int>());
 
-            PauseIfEnabled(this.PauseBeforeSavingResponse);
+            PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
             return new AIResponse(request, assistantMessageExtended, cost, new List<Cost>());
         }

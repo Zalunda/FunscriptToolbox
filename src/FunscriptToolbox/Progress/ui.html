@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FunscriptToolbox - Subtitle Creation</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --text: #1d2330; --muted: #6a7384; --border: #d9dde5;
+    --accent: #2f6fed; --ok: #1f9d55; --warn: #c78a00; --err: #d23b3b; --wait: #8a5cf5; --skip: #98a0ae;
+    --row-hover: #eef2fb; --row-sel: #dfe9ff; --code-bg: #f0f2f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171d; --panel: #1c2028; --text: #e4e8f0; --muted: #8c95a6; --border: #2c3240;
+      --accent: #6c9bff; --ok: #3cc47c; --warn: #e2b23a; --err: #ff6b6b; --wait: #b08cff; --skip: #6a7384;
+      --row-hover: #232936; --row-sel: #2a3550; --code-bg: #12151b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+  .chip b { color: var(--text); }
+  .chip.tog { cursor: pointer; user-select: none; }
+  .chip.tog:hover { border-color: var(--accent); }
+  .chip.tog.off { opacity: .45; text-decoration: line-through; }
+  #running { padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--panel); max-height: 180px; overflow: auto; }
+  #running h2 { font-size: 12px; margin: 0 0 4px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .run { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; font-size: 13px; }
+  .run:hover { background: var(--row-hover); }
+  .run .rname { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .run .rjob { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+  .run .rjob.WaitingForLock { color: var(--wait); }
+  .run .rjob.WaitingForUser { color: var(--warn); }
+  .spacer { flex: 1; }
+  button { font: inherit; padding: 3px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--err); }
+  #locks { display: flex; gap: 8px 16px; flex-wrap: wrap; padding: 6px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--panel); }
+  #locks .lock b { color: var(--text); }
+  #prompts { padding: 0 16px; }
+  .prompt { margin: 10px 0; padding: 12px; border: 2px solid var(--wait); border-radius: 8px; background: var(--panel); }
+  .prompt h3 { margin: 0 0 4px; font-size: 14px; }
+  .prompt .path { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .prompt pre { white-space: pre-wrap; margin: 6px 0; }
+  .prompt textarea { width: 100%; height: 220px; font: 12px/1.4 Consolas, monospace; background: var(--code-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
+  .prompt .editor { display: flex; height: 45vh; min-height: 220px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); overflow: hidden; }
+  .prompt .editor .gutter { flex: 0 0 auto; margin: 0; padding: 6px 6px 6px 8px; overflow: hidden; text-align: right; font: 12px/1.4 Consolas, monospace; color: var(--muted); border-right: 1px solid var(--border); user-select: none; white-space: pre; }
+  .prompt .editor .gutter .err { color: var(--err); font-weight: bold; }
+  .prompt .editor textarea { flex: 1 1 auto; height: 100%; border: 0; border-radius: 0; resize: none; white-space: pre; overflow: auto; outline: none; }
+  .prompt .caretpos { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .prompt .buttons { display: flex; gap: 8px; margin-top: 8px; }
+  main { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px 16px; }
+  #treePane { flex: 1 1 55%; min-width: 320px; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+  #detailPane { flex: 1 1 45%; min-width: 300px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
+  @media (max-width: 900px) { main { flex-direction: column; } #treePane, #detailPane { flex: 1 1 50%; min-width: 0; } }
+  .row { display: flex; align-items: center; gap: 8px; padding: 4px 10px; cursor: pointer; border-bottom: 1px solid transparent; }
+  .row:hover { background: var(--row-hover); }
+  .row.sel { background: var(--row-sel); }
+  .caret { width: 14px; text-align: center; color: var(--muted); user-select: none; flex: none; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--skip); }
+  .dot.Running { background: var(--accent); animation: pulse 1.2s infinite; }
+  .dot.Succeeded { background: var(--ok); }
+  .dot.Failed { background: var(--err); }
+  .dot.Cancelled { background: var(--warn); }
+  .dot.WaitingForLock { background: var(--wait); animation: pulse 1.8s infinite; }
+  .dot.WaitingForUser { background: var(--warn); animation: pulse .8s infinite; }
+  .dot.Pending { background: transparent; border: 2px solid var(--skip); }
+  .dot.Skipped { background: var(--skip); opacity: .5; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .name { flex: none; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .root > .name { font-weight: 600; }
+  .kind { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; flex: none; }
+  .status { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status.WaitingForLock { color: var(--wait); }
+  .status.WaitingForUser { color: var(--warn); }
+  .elapsed { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+  .bar { width: 70px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; flex: none; }
+  .bar > i { display: block; height: 100%; background: var(--ok); }
+  .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+  .bgtag { font-size: 10px; color: var(--wait); border: 1px dashed var(--wait); border-radius: 4px; padding: 0 4px; flex: none; }
+  .row.bg > .name { font-style: italic; }
+  .badge { background: var(--err); color: #fff; font-size: 11px; border-radius: 999px; padding: 0 6px; flex: none; }
+  .row button { padding: 0 8px; font-size: 12px; }
+  #detailHead { padding: 10px 12px 0; }
+  #detailHead .path { font-weight: 600; word-break: break-word; }
+  #detailHead .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  #tabs { display: flex; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab { padding: 4px 10px; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; color: var(--muted); font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab.active { color: var(--text); border-color: var(--border); background: var(--code-bg); }
+  #content { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 10px 12px; background: var(--code-bg); font: 12px/1.45 Consolas, "Cascadia Mono", monospace; white-space: pre-wrap; word-break: break-word; border-radius: 0 0 8px 8px; }
+  .ll { display: block; }
+  .ll .t { color: var(--muted); margin-right: 8px; }
+  .ll.err { color: var(--err); }
+  .ll.c-DarkGray { color: var(--muted); }
+  .ll.c-Green { color: var(--ok); }
+  .ll.c-Red { color: var(--err); }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FunscriptToolbox &middot; Subtitle Creation</h1>
+  <div class="chips" id="chips"></div>
+  <div class="spacer"></div>
+  <span id="finishedMsg" class="chip" style="display:none"></span>
+  <button id="closeBtn" class="primary" style="display:none">Close FunscriptToolbox</button>
+</header>
+<div id="locks"></div>
+<div id="running"></div>
+<div id="prompts"></div>
+<main>
+  <section id="treePane"><div id="tree"></div></section>
+  <section id="detailPane">
+    <div id="detailHead"><div class="path">Select a task</div><div class="sub">Click on a task in the tree to see its log, requests and responses.</div></div>
+    <div id="tabs"></div>
+    <div id="content"><div class="empty">Nothing selected.</div></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var state = { nodes: [], byId: {}, children: {}, roots: [], prompts: [], locks: [], finished: false, nowMs: 0 };
+  var clientOffset = 0;                 // serverNow - clientNow
+  var expanded = {};                    // id -> bool (explicit user choice)
+  var selectedId = null, activeTab = "Log", detail = null, lastVersion = -1;
+  var stickToBottom = true;
+  var filters = { running: true, waiting: true, done: true, failed: true, errors: true };   // which videos are shown in the tree
+  try { var saved = JSON.parse(localStorage.getItem("fstFilters") || "null"); if (saved) for (var k in filters) if (typeof saved[k] === "boolean") filters[k] = saved[k]; } catch (e) { }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var now = function () { return Date.now() + clientOffset; };
+
+  function fmtDur(ms) {
+    if (ms == null || ms < 0) return "";
+    var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); s = s % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
+  }
+  function fmtClock(ms) { var d = new Date(ms); return d.toLocaleTimeString([], { hour12: false }); }
+  function elapsed(n) { return n.startedMs == null ? "" : fmtDur((n.endedMs != null ? n.endedMs : now()) - n.startedMs); }
+  var terminal = { Succeeded: 1, Failed: 1, Cancelled: 1, Skipped: 1 };
+
+  function index(nodes) {
+    state.nodes = nodes; state.byId = {}; state.children = {}; state.roots = [];
+    nodes.forEach(function (n) { state.byId[n.id] = n; state.children[n.id] = []; });
+    nodes.forEach(function (n) {
+      if (n.parentId == null) state.roots.push(n);
+      else if (state.children[n.parentId]) state.children[n.parentId].push(n);
+    });
+  }
+  // Counter of the node itself (ex. 12/40 nodes), else the share of its sub-tasks that are done
+  function progressOf(n) {
+    if (n.progressTotal > 0) return Math.min(1, n.progressDone / n.progressTotal);
+    var kids = state.children[n.id] || [];
+    if (!kids.length) return null;
+    var done = kids.filter(function (k) { return terminal[k.state]; }).length;
+    return done / kids.length;
+  }
+  function isExpanded(n) {
+    if (expanded[n.id] != null) return expanded[n.id];
+    if (n.parentId == null) return true;               // sequences open by default
+    return n.state === "Running" || n.state === "WaitingForLock" || n.state === "WaitingForUser";
+  }
+  function hasActiveDescendant(n) { return (state.children[n.id] || []).some(function (k) { return !terminal[k.state] && k.state !== "Pending" || hasActiveDescendant(k); }); }
+
+  function isActive(n) { return n.state === "Running" || n.state === "WaitingForLock" || n.state === "WaitingForUser"; }
+  // The active sub-task to follow: the main work first, a background task only when nothing else is active
+  function activeChild(n) {
+    var active = (state.children[n.id] || []).filter(isActive);
+    return active.filter(function (k) { return !k.background; })[0] || active[0];
+  }
+  function leafOf(n) {
+    var cur = n;
+    for (;;) { var next = activeChild(cur); if (!next) return cur; cur = next; }
+  }
+  function countText(n) {
+    if (n.progressDone == null) return "";
+    if (n.progressUnit === "%" && n.progressTotal > 0) return Math.round(100 * n.progressDone / n.progressTotal) + "%";
+    return n.progressDone + (n.progressTotal != null ? "/" + n.progressTotal : "") + (n.progressUnit ? " " + n.progressUnit : "");
+  }
+  // The background tasks running under a node (any depth), ex. "audio clips 85/120"
+  function backgroundSummary(n) {
+    var out = [];
+    (function walk(cur) {
+      (state.children[cur.id] || []).forEach(function (k) {
+        if (k.background && isActive(k)) out.push(k.name + (countText(k) ? " " + countText(k) : ""));
+        walk(k);
+      });
+    })(n);
+    return out.join(", ");
+  }
+  // "waiting" = not finished but not doing anything itself (queued, waiting for a lock or for the user)
+  function category(n) {
+    if (n.state === "Succeeded" || n.state === "Skipped") return "done";
+    if (n.state === "Failed" || n.state === "Cancelled") return "failed";
+    if (n.state === "Pending") return "waiting";
+    var leaf = leafOf(n).state;
+    return leaf === "WaitingForLock" || leaf === "WaitingForUser" ? "waiting" : "running";
+  }
+  function isVisible(n) {
+    if (n.kind === "General") return true;
+    return filters[category(n)] && (filters.errors || !(n.errors > 0));
+  }
+  function runLine(r) {
+    var chain = [], cur = r, last = r;
+    for (;;) {
+      var next = activeChild(cur);
+      if (!next) break;
+      chain.push(next.name); last = next; cur = next;
+    }
+    var st = last.reason || last.status || countText(last);
+    var bg = backgroundSummary(r);
+    var job = chain.join(" › ") + (st ? " — " + st : "") + (bg ? " | bg: " + bg : "");
+    var p = progressOf(r);
+    return '<div class="run" data-run="' + r.id + '"><span class="dot ' + last.state + '"></span><span class="rname" title="' + esc(r.name) + '">' + esc(r.name) + '</span>' +
+      (p != null ? '<span class="bar" title="' + Math.round(p * 100) + '% of the steps done"><i style="width:' + Math.round(p * 100) + '%"></i></span>' : "") +
+      '<span class="rjob ' + last.state + '" title="' + esc(job) + '">' + esc(job) + '</span><span class="elapsed">' + elapsed(r) + '</span></div>';
+  }
+  function renderRunning() {
+    var seqs = state.roots.filter(function (n) { return n.kind !== "General" && isActive(n); });
+    var run = seqs.filter(function (n) { return category(n) === "running"; });
+    var wait = seqs.filter(function (n) { return category(n) === "waiting"; });
+    $("running").innerHTML = '<h2>Running (' + run.length + ')</h2>' +
+      (run.length ? run.map(runLine).join("") : '<div class="empty" style="padding:4px;text-align:left">Nothing is running right now.</div>') +
+      (wait.length ? '<h2 style="margin-top:6px">Waiting (' + wait.length + ')</h2>' + wait.map(runLine).join("") : "");
+  }
+  function renderChips() {
+    var seqs = state.roots.filter(function (n) { return n.kind !== "General"; });
+    var c = function (st) { return seqs.filter(function (n) { return n.state === st; }).length; };
+    var errors = seqs.reduce(function (a, n) { return a + (n.errors || 0); }, 0);
+    var tog = function (key, count, label, tip) {
+      return '<span class="chip tog ' + (filters[key] ? "" : "off") + '" data-filter="' + key + '" title="' + tip + '"><b>' + count + '</b> ' + label + '</span>';
+    };
+    $("chips").innerHTML =
+      '<span class="chip"><b>' + seqs.length + '</b> videos</span>' +
+      tog("running", seqs.filter(function (n) { return category(n) === "running"; }).length, "running", "Click to show/hide the videos that are doing something") +
+      tog("waiting", seqs.filter(function (n) { return category(n) === "waiting"; }).length, "waiting", "Click to show/hide the videos waiting for a lock, for you, or not started") +
+      tog("done", c("Succeeded") + c("Skipped"), "done", "Click to show/hide the finished videos") +
+      tog("failed", c("Failed") + c("Cancelled"), "failed/stopped", "Click to show/hide the failed or stopped videos") +
+      tog("errors", errors, "errors", "Click to show/hide the videos that have errors");
+    $("finishedMsg").style.display = state.finished ? "" : "none";
+    $("finishedMsg").textContent = "All sequences finished";
+    $("closeBtn").style.display = state.finished ? "" : "none";
+  }
+  function renderLocks() {
+    $("locks").innerHTML = state.locks.map(function (l) {
+      var holder = l.holder ? 'used by <b>' + esc(l.holder) + '</b>' : 'free';
+      var wait = l.waiting && l.waiting.length ? ' &middot; ' + l.waiting.length + ' waiting' : '';
+      return '<span class="lock">&#128274; ' + esc(l.name) + ': ' + holder + wait + '</span>';
+    }).join("");
+    $("locks").style.display = state.locks.length ? "" : "none";
+  }
+  function renderPrompts() {
+    var host = $("prompts");
+    var ids = state.prompts.map(function (p) { return p.id; }).join(",");
+    if (host.dataset.ids === ids) return;           // keep what the user is typing
+    host.dataset.ids = ids;
+    host.innerHTML = "";
+    state.prompts.forEach(function (p) {
+      var div = document.createElement("div"); div.className = "prompt";
+      div.innerHTML = '<h3>' + esc(p.title) + '</h3><div class="path">' + esc(p.nodePath) + '</div>' +
+        (p.message ? '<pre>' + esc(p.message) + '</pre>' : '') +
+        (p.editableText != null
+          ? '<div class="editor"><pre class="gutter"></pre><textarea spellcheck="false" wrap="off"></textarea></div><div class="caretpos"></div>'
+          : '') +
+        '<div class="buttons"></div>';
+      var buttons = div.querySelector(".buttons");
+      (p.choices || []).forEach(function (choice, i) {
+        var b = document.createElement("button"); b.textContent = choice; if (i === 0) b.className = "primary";
+        b.onclick = function () {
+          var ta = div.querySelector("textarea");
+          fetch("/api/answer/" + p.id, { method: "POST", body: JSON.stringify({ choice: choice, text: ta ? ta.value : null }) });
+        };
+        buttons.appendChild(b);
+      });
+      host.appendChild(div);
+      if (p.editableText != null) setupEditor(div, p);
+    });
+  }
+  // The text to fix, with the line numbers, the position of the cursor and, when the message gives one
+  // (ex. "... line 1532, position 12 ..."), the cursor already on the line of the error (like the WPF window).
+  function setupEditor(div, p) {
+    var ta = div.querySelector("textarea"), gutter = div.querySelector(".gutter"), caretPos = div.querySelector(".caretpos");
+    ta.value = p.editableText;
+    var m = /line (\d+),\s*position (\d+)/i.exec(p.message || "");
+    var errLine = m ? parseInt(m[1], 10) : 0;
+    var nbLines = -1;
+    function updateGutter() {
+      var n = ta.value.split("\n").length;
+      if (n === nbLines) return;
+      nbLines = n;
+      var parts = [];
+      for (var i = 1; i <= n; i++) parts.push(i === errLine ? '<span class="err">' + i + '</span>' : String(i));
+      gutter.innerHTML = parts.join("\n") + "\n";   // (extra line: room for the horizontal scrollbar of the textarea)
+      gutter.scrollTop = ta.scrollTop;
+    }
+    function updateCaretPos() {
+      var before = ta.value.substring(0, ta.selectionStart);
+      var line = before.split("\n").length;
+      var col = before.length - before.lastIndexOf("\n");
+      caretPos.textContent = "Line " + line + ", Column " + col + (errLine ? "  ·  error on line " + errLine : "");
+    }
+    ta.addEventListener("input", function () { updateGutter(); updateCaretPos(); });
+    ta.addEventListener("scroll", function () { gutter.scrollTop = ta.scrollTop; });
+    ["keyup", "click", "select", "focus"].forEach(function (ev) { ta.addEventListener(ev, updateCaretPos); });
+    updateGutter();
+
+    var target = ta.value.length;
+    if (m) {
+      var lines = ta.value.split("\n");
+      var line = errLine - 1, pos = parseInt(m[2], 10) - 1;   // (1-based to 0-based, like the WPF window)
+      if (line >= 0 && line < lines.length) {
+        var lineStart = 0;
+        for (var i = 0; i < line; i++) lineStart += lines[i].length + 1;
+        var idx = lineStart + Math.max(0, pos);
+        if (idx <= ta.value.length) target = idx;
+      }
+    }
+    ta.focus();
+    ta.setSelectionRange(target, target);
+    if (m) {
+      // Shows the line of the error in the middle of the editor
+      var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 16.8;
+      ta.scrollTop = Math.max(0, (errLine - 1) * lineHeight - ta.clientHeight / 2);
+      gutter.scrollTop = ta.scrollTop;
+    }
+    updateCaretPos();
+  }
+  function rowHtml(n, depth) {
+    var kids = state.children[n.id] || [];
+    var open = isExpanded(n);
+    var p = progressOf(n);
+    var status = n.reason && !terminal[n.state] ? n.reason : (n.status || n.reason || "");
+    if (n.state === "Skipped" && n.reason) status = n.reason;
+    var cancel = n.cancelHint && !terminal[n.state]
+      ? '<button class="danger" data-cancel="' + n.id + '" title="' + esc(n.cancelHint) + '">Stop' + (n.cancelRequests ? ' (' + n.cancelRequests + ')' : '') + '</button>' : "";
+    var count = countText(n);
+    return '<div class="row ' + (n.parentId == null ? "root " : "") + (n.background ? "bg " : "") + (n.id === selectedId ? "sel" : "") + '" data-id="' + n.id + '" style="padding-left:' + (10 + depth * 18) + 'px">' +
+      '<span class="caret" data-toggle="' + n.id + '">' + (kids.length ? (open ? "&#9662;" : "&#9656;") : "") + '</span>' +
+      '<span class="dot ' + n.state + '" title="' + n.state + '"></span>' +
+      '<span class="name" title="' + esc(n.name) + '">' + esc(n.name) + '</span>' +
+      '<span class="kind">' + esc(n.kind) + '</span>' +
+      (n.background ? '<span class="bgtag" title="Runs in the background, beside the main work">bg</span>' : "") +
+      (p != null ? '<span class="bar" title="' + Math.round(p * 100) + '%"><i style="width:' + Math.round(p * 100) + '%"></i></span>' : "") +
+      (count ? '<span class="count">' + esc(count) + '</span>' : "") +
+      '<span class="status ' + n.state + '" title="' + esc(status) + '">' + esc(status) + '</span>' +
+      (n.errors ? '<span class="badge" title="errors in this task or its sub-tasks">' + n.errors + '</span>' : "") +
+      cancel +
+      '<span class="elapsed">' + elapsed(n) + '</span></div>';
+  }
+  function treeHtml(nodes, depth) {
+    return nodes.map(function (n) {
+      var html = rowHtml(n, depth);
+      if (isExpanded(n)) html += treeHtml(state.children[n.id] || [], depth + 1);
+      return html;
+    }).join("");
+  }
+  function renderTree() {
+    var roots = state.roots.filter(function (n) { return isVisible(n) && (n.kind !== "General" || (state.children[n.id] || []).length || n.errors); });
+    var html = treeHtml(roots, 0);
+    $("tree").innerHTML = html || '<div class="empty">Waiting for work to start...</div>';
+  }
+  function renderDetail() {
+    var n = selectedId != null ? state.byId[selectedId] : null;
+    if (!n || !detail || detail.id !== selectedId) return;
+    $("detailHead").innerHTML = '<div class="path">' + esc(detail.path) + '</div><div class="sub">' + esc(n.state) +
+      (n.startedMs ? ' &middot; started ' + fmtClock(n.startedMs) : '') + (n.startedMs ? ' &middot; ' + elapsed(n) : '') +
+      (n.reason ? ' &middot; ' + esc(n.reason) : '') + '</div>';
+    var tabs = ["Log"].concat(detail.details.map(function (d) { return d.name; }));
+    if (tabs.indexOf(activeTab) < 0) activeTab = "Log";
+    $("tabs").innerHTML = tabs.map(function (t) { return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</div>'; }).join("");
+    var box = $("content");
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    if (activeTab === "Log") {
+      box.innerHTML = detail.log.length ? detail.log.map(function (l) {
+        return '<span class="ll ' + (l.error ? "err " : "") + (l.color ? "c-" + esc(l.color) : "") + '"><span class="t">' + fmtClock(l.t) + '</span>' + esc(l.text) + '</span>';
+      }).join("") : '<div class="empty">No log line for this task (select a child task or another tab).</div>';
+    } else {
+      var d = detail.details.filter(function (x) { return x.name === activeTab; })[0];
+      box.textContent = d ? d.content : "";
+    }
+    if (atBottom || stickToBottom) box.scrollTop = box.scrollHeight;
+    stickToBottom = false;
+  }
+
+  function fetchDetail() {
+    if (selectedId == null) return Promise.resolve();
+    return fetch("/api/node/" + selectedId).then(function (r) { return r.json(); }).then(function (d) { detail = d; renderDetail(); }).catch(function () { });
+  }
+  function poll() {
+    fetch("/api/state").then(function (r) { return r.json(); }).then(function (s) {
+      clientOffset = s.nowMs - Date.now();
+      state.prompts = s.prompts; state.locks = s.locks; state.finished = s.finished;
+      index(s.nodes);
+      renderChips(); renderRunning(); renderLocks(); renderPrompts(); renderTree();
+      if (selectedId != null && s.version !== lastVersion) fetchDetail();
+      lastVersion = s.version;
+      if (selectedId != null && state.byId[selectedId]) renderDetailHead();
+    }).catch(function () { $("finishedMsg").style.display = ""; $("finishedMsg").textContent = "Disconnected (is FunscriptToolbox still running?)"; })
+      .then(function () { setTimeout(poll, 700); });
+  }
+  function renderDetailHead() { if (detail && detail.id === selectedId) renderDetail(); }
+
+  $("tree").addEventListener("click", function (e) {
+    var cancelId = e.target.getAttribute && e.target.getAttribute("data-cancel");
+    if (cancelId) { fetch("/api/cancel/" + cancelId, { method: "POST" }); e.stopPropagation(); return; }
+    var toggle = e.target.getAttribute && e.target.getAttribute("data-toggle");
+    if (toggle) { var n = state.byId[toggle]; expanded[toggle] = !isExpanded(n); renderTree(); e.stopPropagation(); return; }
+    var row = e.target.closest ? e.target.closest(".row") : null;
+    if (row) { selectedId = parseInt(row.getAttribute("data-id"), 10); detail = null; activeTab = "Log"; stickToBottom = true; renderTree(); fetchDetail(); }
+  });
+  $("chips").addEventListener("click", function (e) {
+    var f = e.target.closest ? e.target.closest("[data-filter]") : null;
+    if (!f) return;
+    var key = f.getAttribute("data-filter");
+    filters[key] = !filters[key];
+    try { localStorage.setItem("fstFilters", JSON.stringify(filters)); } catch (ex) { }
+    renderChips(); renderTree();
+  });
+  $("running").addEventListener("click", function (e) {
+    var r = e.target.closest ? e.target.closest("[data-run]") : null;
+    if (!r) return;
+    var id = parseInt(r.getAttribute("data-run"), 10), n = state.byId[id];
+    if (!n) return;
+    var key = category(n); if (!filters[key]) { filters[key] = true; renderChips(); }
+    selectedId = id; detail = null; activeTab = "Log"; stickToBottom = true; expanded[id] = true;
+    renderTree(); fetchDetail();
+    var row = $("tree").querySelector('.row[data-id="' + id + '"]'); if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+  });
+  $("tabs").addEventListener("click", function (e) {
+    var t = e.target.getAttribute && e.target.getAttribute("data-tab");
+    if (t) { activeTab = t; stickToBottom = true; renderDetail(); }
+  });
+  $("closeBtn").onclick = function () { fetch("/api/exit", { method: "POST" }).then(function () { document.body.innerHTML = '<div class="empty">FunscriptToolbox is closed. You can close this tab.</div>'; }); };
+  setInterval(function () { renderTree(); renderRunning(); }, 1000);   // keeps the elapsed times moving
+  poll();
+})();
+</script>
+</body>
+</html>

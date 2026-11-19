@@ -1,3 +1,4 @@
+using FunscriptToolbox.Progress;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -45,39 +46,94 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 int requestNumber = 1;
                 do
                 {
-                    requests = requestsGenerator.CreateNextRequests(r_context, ref requestNumber, lastResponsesReceived, binaryDataExtractors);
+                    // Building the nodes of the request (and waiting for their audio clips / screenshots, when they are not ready yet)
+                    using (var prepareNode = r_context.BeginStep($"Prepare request #{requestNumber}"))
+                    {
+                        try
+                        {
+                            requests = requestsGenerator.CreateNextRequests(r_context, ref requestNumber, lastResponsesReceived, binaryDataExtractors);
+                        }
+                        catch (UserStoppedWorkerException)
+                        {
+                            prepareNode.SetState(TaskState.Cancelled, "stopped by the user");
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            prepareNode.Fail(ex.Message);
+                            throw;
+                        }
+                        if (requests == null || requests.Length == 0)
+                        {
+                            prepareNode.SetState(TaskState.Skipped, "nothing left to ask");
+                        }
+                    }
+
                     if (requests != null && requests.Length > 0)
                     {
                         var watch = Stopwatch.StartNew();
-                        var responses = r_engine.Execute(r_context, requests, r_engineConfigOverride);
+                        AIResponse[] responses;
+                        var firstRequest = requests[0];
+                        using (var requestNode = r_context.BeginTask(
+                            "AI request",
+                            requests.Length == 1
+                                ? $"{firstRequest.TaskId}, {firstRequest.UpdateMessage}, request #{firstRequest.Number}"
+                                : $"{firstRequest.TaskId}, {firstRequest.UpdateMessage}, batch of {requests.Length} requests"))
+                        {
+                            requestNode.SetCancellable("Streaming/normal request: aborts the connection right away (the answer is lost). Batch request: the first click stops after the answer is received (or cancels the batch if still queued), a second click cancels right away.");
+                            try
+                            {
+                                responses = r_engine.Execute(r_context, requests, r_engineConfigOverride);
+                            }
+                            catch (UserStoppedWorkerException)
+                            {
+                                requestNode.SetState(TaskState.Cancelled, "stopped by the user");
+                                throw;
+                            }
+                            catch (Exception ex)
+                            {
+                                requestNode.Fail(ex.Message);
+                                throw;
+                            }
+                        }
                         watch.Stop();
 
                         lastResponsesReceived = responses;
                         var capturedExceptions = new List<AIResponseException>();
 
-                        foreach (var response in responses)
+                        using (var parseNode = r_context.BeginStep(responses.Length == 1 ? "Read the response" : $"Read the {responses.Length} responses"))
                         {
-                            r_workingOnContainer.Costs.Add(response.Cost);
-                            r_workingOnContainer.Costs.AddRange(response.AdditionalCosts);
-
-                            if (response.AssistantMessage != null)
+                            parseNode.SetProgress(0, responses.Length, "responses");
+                            foreach (var response in responses)
                             {
-                                try
+                                r_workingOnContainer.Costs.Add(response.Cost);
+                                r_workingOnContainer.Costs.AddRange(response.AdditionalCosts);
+
+                                if (response.AssistantMessage != null)
                                 {
-                                    var itemsAdded = ParseAssistantMessageAndAddItems(
-                                        requestsGenerator.GetTimings(),
-                                        response.AssistantMessage,
-                                        response.Request,
-                                        () => response.Cost.NbItemsInResponse++);
+                                    try
+                                    {
+                                        var itemsAdded = ParseAssistantMessageAndAddItems(
+                                            requestsGenerator.GetTimings(),
+                                            response.AssistantMessage,
+                                            response.Request,
+                                            () => response.Cost.NbItemsInResponse++);
+                                    }
+                                    catch (AIResponseException ex)
+                                    {
+                                        SaveErrorAndCreateTodo(ex);
+                                        capturedExceptions.Add(ex);
+                                    }
                                 }
-                                catch (AIResponseException ex)
-                                {
-                                    SaveErrorAndCreateTodo(ex);
-                                    capturedExceptions.Add(ex);
-                                }
+                                parseNode.IncrementProgress();
+                            }
+                            r_context.WIP.Save();
+
+                            if (capturedExceptions.Count > 0)
+                            {
+                                parseNode.Fail(capturedExceptions[0].Message);
                             }
                         }
-                        r_context.WIP.Save();
 
                         if (capturedExceptions.Count > 0)
                         {
@@ -293,7 +349,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     if (r_promptUserOnError)
                     {
-                        string userFixedText = JsonCorrectionHelper.PromptForFix(fullErrorMsg, fixedJson ?? textToParse);
+                        string userFixedText = JsonCorrectionHelper.PromptForFix(r_context, fullErrorMsg, fixedJson ?? textToParse);
                         if (userFixedText != null)
                         {
                             textToParse = userFixedText;

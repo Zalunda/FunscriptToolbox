@@ -1,4 +1,5 @@
 using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -126,6 +127,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
             }
 
+            // Only one sequence prepares its request(s) at a time, and it keeps the 'key' until all the nodes of its request(s)
+            // are ready (with several videos in parallel, the screenshots / clips would otherwise be done one video after
+            // the other, one at a time each, and every request would take a long time to be ready).
+            // Released at the end of this method: not held while the request is sent.
+            // The background preparation never asks for it, so it never 'hogs' it (it only has a lower priority on the ffmpeg locks).
+            // Only when there are binary data (screenshots / clips) to gather: a text-only request is ready right away.
+            var needsBinaryData = binaryDataExtractors?.HasExtractors == true;
+            using var preparationLock = needsBinaryData
+                ? context.Locks.RequestPreparation.Acquire(
+                    $"preparing request #{requestNumber} of '{r_workingOnContainer.Id}'",
+                    cancellable: context.Output.IsWebUi)
+                : null; // 'using' accepts null
+            // Meanwhile, the background work of the other sequences doesn't get the ffmpeg locks (even when they are free for a moment).
+            using var preparation = needsBinaryData ? LockPriority.BeginPreparation() : null;
+
             var requests = new List<AIRequest>();
             var scheduledInThisPass = new HashSet<TimedItemWithMetadataTagged>();
             int totalItemsCount = itemsAlreadyDone.Length + itemsToDo.Length;
@@ -189,6 +205,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                     }
                 }
+
+                // Shown on the 'Prepare request' step (the batch can end sooner: size limits)
+                var progressNode = TaskScope.Current;
+                var expectedNodes = Math.Min(optimalBatchSize, remainingToDo.Length);
+                progressNode.SetProgress(0, expectedNodes, requests.Count == 0 ? "nodes" : $"nodes (request {requests.Count + 1})");
 
                 var waitingForFirstToDo = true;
                 var itemsInBatch = new List<TimedItemWithMetadata>();
@@ -288,6 +309,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             userParts.AddRange(itemParts);
                             itemsInBatch.Add(item);
                             scheduledInThisPass.Add(item);
+                            progressNode.SetProgress(itemsInBatch.Count, Math.Max(expectedNodes, itemsInBatch.Count));
                         }
                     }
 

@@ -1,3 +1,4 @@
+using FunscriptToolbox.Progress;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -11,7 +12,37 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// On Windows: launches an interactive WPF correction window with Retry, Set Empty ([]), and Cancel.
         /// On Linux/macOS: writes the invalid JSON with error details to a temporary file and opens the default text editor.
         /// </summary>
-        public static string PromptForFix(string errorMessage, string jsonText)
+        public static string PromptForFix(SubtitleGeneratorContext context, string errorMessage, string jsonText)
+        {
+            if (context.Output.IsWebUi)
+            {
+                // Several sequences can fail at the same time: one prompt at a time (the others wait, and can be cancelled).
+                using (context.EnterUserInteraction("JSON correction"))
+                {
+                    var answer = context.Output.Ask(new UserPrompt
+                    {
+                        Title = "AI JSON parsing error: fix the JSON and retry",
+                        Message = errorMessage,
+                        EditableText = jsonText ?? string.Empty,
+                        Choices = new[] { "Retry with my changes", "Set empty ([])", "Cancel / Fail" }
+                    });
+                    switch (answer.Choice)
+                    {
+                        case "Retry with my changes": return answer.Text ?? jsonText;
+                        case "Set empty ([])": return "[]";
+                        default: return null;
+                    }
+                }
+            }
+
+            // (also in the console: the task is 'waiting for the user', so the progress line is not drawn over the prompt)
+            using (context.EnterUserInteraction("JSON correction"))
+            {
+                return PromptForFix(errorMessage, jsonText);
+            }
+        }
+
+        private static string PromptForFix(string errorMessage, string jsonText)
         {
 #if WINDOWS
             if (OperatingSystem.IsWindows())

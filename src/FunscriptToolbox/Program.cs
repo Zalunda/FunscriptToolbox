@@ -103,7 +103,7 @@ namespace FunscriptToolbox
                     break;
 
                 case 50:
-                    var prefix = "*MDVR-375-A*";
+                    var prefix = "**";
                     args = new[]
                     {
                         "subtitles.create",
@@ -112,6 +112,7 @@ namespace FunscriptToolbox
                         "--skipupdate",
                         "--autovseq",
                         "--config", ".\\--FSTB-SubtitleGenerator.config",
+                        "--ui", "5055",
                         $"{prefix}.vseq",
                         $"{prefix}.mp4"
                     };

@@ -58,6 +58,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 throw new Exception($"Cannot find application '{this.ApplicationFullPath}'.");
             }
 
+            // Only one tool using the local machine at a time (when several videos are processed in parallel)
+            using var localResourceLock = context.UseLocalResource($"{ToolName}");
+
             // Only allows one thread doing transcription at a times
             lock (r_lock)
             {
@@ -71,14 +74,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     // Convert each input PCM audio to WAV format and store as temporary files
                     var indexAudio = 0;
                     var totalDuration = TimeSpan.Zero;
-                    foreach (var audio in audios)
+                    context.RunStep("Convert the audio to .wav", convertNode =>
                     {
-                        var audioId = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
-                        var tempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_{audioId}.wav", processStartTime);
-                        tempFiles.Add(tempFile);
-                        context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
-                        totalDuration += audio.Duration;
-                    }
+                        convertNode.SetProgress(0, audios.Length, "files");
+                        foreach (var audio in audios)
+                        {
+                            var audioId = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
+                            var tempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_{audioId}.wav", processStartTime);
+                            tempFiles.Add(tempFile);
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
+                            totalDuration += audio.Duration;
+                            convertNode.IncrementProgress();
+                        }
+                    });
 
                     // Construct command-line arguments for transcription
                     var arguments = new StringBuilder();
@@ -129,10 +137,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                     process.ErrorDataReceived += dataHandler;
                     process.OutputDataReceived += dataHandler;
-                    process.Start();
-                    process.BeginErrorReadLine();
-                    process.BeginOutputReadLine();
-                    process.WaitForExit();
+                    // (the output of the tool is shown as the status of this step)
+                    context.RunStep($"Run {ToolName}", _ =>
+                    {
+                        process.Start();
+                        process.BeginErrorReadLine();
+                        process.BeginOutputReadLine();
+                        process.WaitForExit();
+                    });
 
                     dynamic customInfos = new ExpandoObject();
                     customInfos.TotalDuration = $"{totalDuration:hh\\:mm\\:ss\\.fff}";

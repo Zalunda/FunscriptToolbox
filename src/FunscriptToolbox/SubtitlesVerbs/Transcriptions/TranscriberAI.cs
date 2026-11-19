@@ -1,4 +1,6 @@
 using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using System;
@@ -88,6 +90,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var extractionLock = new object();
 
+            // What the background preparation did (shown on its task)
+            int backgroundGenerated = 0;
+            int backgroundFromCache = 0;
+
             var binaryDataExtractors = CreateBinaryDataExtractorCollection(
                 (options.BinaryDataExtractors ?? Array.Empty<BinaryDataExtractor>()).Select(extractor =>
                 {
@@ -99,6 +105,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                         getDataFunc = (section, timing, _, silent) =>
                         {
+                            // (not silent = the request being prepared needs it now: the background didn't get to it yet)
+                            if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Audio clip not ready yet, waiting for ffmpeg...");
+                            // (when the background holds extractionLock, it gets the priority of the request while the request waits for it)
+                            using var waitingForBackground = silent ? null : LockPriority.ForegroundWaitingForBackground();
                             lock (extractionLock)
                             {
                                 var gapDuration = allItems.FirstOrDefault(f => f.StartTime > timing.StartTime)?.StartTime - timing.EndTime ?? TimeSpan.Zero;
@@ -118,6 +128,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 if (File.Exists(backupFilePath))
                                 {
                                     if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached audio.");
+                                    else Interlocked.Increment(ref backgroundFromCache);
                                     var audioBytes = File.ReadAllBytes(backupFilePath);
                                     return new[]
                                     {
@@ -132,10 +143,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                                 // 2. Extract from PCM & generate .wav
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
+                                else Interlocked.Increment(ref backgroundGenerated);
 
                                 var tempWavFile = PathExtension.GetTempFileName(".wav");
                                 var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
-                                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
+                                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile, workload: FfmpegWorkload.Clip);
 
                                 var audioBytesGenerated = File.ReadAllBytes(tempWavFile);
                                 File.Delete(tempWavFile);
@@ -159,6 +171,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         getDataFunc = (section, timing, text, silent) =>
                         {
+                            if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Screenshot not ready yet, waiting for ffmpeg...");
+                            // (when the background holds extractionLock, it gets the priority of the request while the request waits for it)
+                            using var waitingForBackground = silent ? null : LockPriority.ForegroundWaitingForBackground();
                             lock (extractionLock)
                             {
                                 var middleTime = TimeSpan.FromMilliseconds((timing.StartTime.TotalMilliseconds + timing.EndTime.TotalMilliseconds) / 2);
@@ -170,6 +185,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 if (File.Exists(backupFilePath))
                                 {
                                     if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Used cached screenshot.");
+                                    else Interlocked.Increment(ref backgroundFromCache);
                                     var image = File.ReadAllBytes(backupFilePath);
                                     return new[]
                                     {
@@ -183,6 +199,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                                 // 2. Take screenshot via ffmpeg
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Taking screenshot.");
+                                else Interlocked.Increment(ref backgroundGenerated);
                                 try
                                 {
                                     var image = context.FfmpegHelper.TakeScreenshotAsBytes(
@@ -225,32 +242,40 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var parts = new AIRequestPartCollection();
                     if (extractor.MetadataForTraining != null)
                     {
-                        if (extractor.TextBeforeTrainingData != null)
+                        context.RunStep($"Prepare the training data ({extractor.OutputFieldName})", trainingNode =>
                         {
-                            parts.AddText(AIRequestSection.Training, extractor.TextBeforeTrainingData + "\n");
-                        }
-
-                        var nbTrainingItems = 0;
-                        foreach (var item in allItems)
-                        {
-                            if (item.Metadata.TryGetValue(extractor.MetadataForTraining, out var text))
+                            if (extractor.TextBeforeTrainingData != null)
                             {
-                                parts.AddText(AIRequestSection.Training, $"{text}\n");
-                                parts.AddRange(getDataFunc(AIRequestSection.Training, item, null, false));
-                                parts.AddText(AIRequestSection.Training, "\n---------------------\n");
-                                nbTrainingItems++;
+                                parts.AddText(AIRequestSection.Training, extractor.TextBeforeTrainingData + "\n");
                             }
-                        }
 
-                        if (extractor.TextAfterTrainingData != null)
-                        {
-                            parts.AddText(AIRequestSection.Training, "\n" + extractor.TextAfterTrainingData + "\n");
-                        }
+                            var trainingItems = allItems.Where(item => item.Metadata.ContainsKey(extractor.MetadataForTraining)).ToArray();
+                            trainingNode.SetProgress(0, trainingItems.Length, "items");
 
-                        if (nbTrainingItems == 0)
-                        {
-                            parts.Clear();
-                        }
+                            var nbTrainingItems = 0;
+                            foreach (var item in allItems)
+                            {
+                                if (item.Metadata.TryGetValue(extractor.MetadataForTraining, out var text))
+                                {
+                                    parts.AddText(AIRequestSection.Training, $"{text}\n");
+                                    parts.AddRange(getDataFunc(AIRequestSection.Training, item, null, false));
+                                    parts.AddText(AIRequestSection.Training, "\n---------------------\n");
+                                    nbTrainingItems++;
+                                    trainingNode.IncrementProgress();
+                                }
+                            }
+
+                            if (extractor.TextAfterTrainingData != null)
+                            {
+                                parts.AddText(AIRequestSection.Training, "\n" + extractor.TextAfterTrainingData + "\n");
+                            }
+
+                            if (nbTrainingItems == 0)
+                            {
+                                parts.Clear();
+                                trainingNode.SetState(TaskState.Skipped, "no training item");
+                            }
+                        });
                     }
 
                     return new BinaryDataExtractorExtended
@@ -261,52 +286,82 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     };
                 }).ToArray());
 
+            // The audio clips / screenshots of the nodes to do are prepared in advance, in the background, while the requests are built and sent.
+            // (its own task: started and disposed by the background code, so the 'current task' of the requests is not changed)
             var cts = new CancellationTokenSource();
-            var backgroundTask = Task.Run(() =>
+            var extractorKinds = (options.BinaryDataExtractors ?? Array.Empty<BinaryDataExtractor>())
+                .Where(e => e.Enabled)
+                .Select(e => e is BinaryDataExtractorAudio ? "audio clips" : e is BinaryDataExtractorImage ? "screenshots" : e.OutputFieldName)
+                .Distinct()
+                .ToArray();
+            var backgroundNode = (extractorKinds.Length > 0 && itemsToDo.Length > 0)
+                ? context.PlanBackgroundStep($"Prepare the {string.Join(" and ", extractorKinds)} in advance")
+                : null;
+            var backgroundTask = backgroundNode == null ? Task.CompletedTask : Task.Run(() =>
             {
+                // (lower priority on the shared ffmpeg locks than the requests being prepared, see LockPriority)
+                LockPriority.MarkAsBackgroundWork();
+                backgroundNode.Start();
                 try
                 {
-                    if (binaryDataExtractors != null)
+                    var previousEndTime = TimeSpan.Zero;
+                    var todoStartTimes = new System.Collections.Generic.HashSet<TimeSpan>(itemsToDo.Select(f => f.StartTime));
+                    backgroundNode.SetProgress(0, todoStartTimes.Count, "nodes");
+                    foreach (var itemTodo in allItems)
                     {
-                        var previousEndTime = TimeSpan.Zero;
-                        var todoStartTimes = new System.Collections.Generic.HashSet<TimeSpan>(itemsToDo.Select(f => f.StartTime));
-                        foreach (var itemTodo in allItems)
+                        if (cts.IsCancellationRequested)
                         {
-                            if (cts.IsCancellationRequested)
-                            {
-                                break;
-                            }
-
-                            var gapStartTime = previousEndTime;
-                            previousEndTime = itemTodo.EndTime;
-                            if (!todoStartTimes.Contains(itemTodo.StartTime))
-                            {
-                                continue;
-                            }
-
-                            // Same gap as AIRequestGenerator uses for the "context only" nodes.
-                            binaryDataExtractors.GetContextOnlyNodes(
-                                AIRequestSection.ContextNodes,
-                                new Timing(gapStartTime, itemTodo.StartTime),
-                                itemTodo.Metadata,
-                                t => t.ToString(@"hh\:mm\:ss\.fff"),
-                                silent: true).ToArray();
-
-                            // Force extraction and caching of future nodes.
-                            binaryDataExtractors.GetNamedContentListForItem(
-                                AIRequestSection.PrimaryNodes,
-                                itemTodo,
-                                itemTodo.StartTime.ToString(@"hh\:mm\:ss\.fff"),
-                                silent: true);
+                            break;
                         }
+
+                        var gapStartTime = previousEndTime;
+                        previousEndTime = itemTodo.EndTime;
+                        if (!todoStartTimes.Contains(itemTodo.StartTime))
+                        {
+                            continue;
+                        }
+
+                        // Same gap as AIRequestGenerator uses for the "context only" nodes.
+                        binaryDataExtractors.GetContextOnlyNodes(
+                            AIRequestSection.ContextNodes,
+                            new Timing(gapStartTime, itemTodo.StartTime),
+                            itemTodo.Metadata,
+                            t => t.ToString(@"hh\:mm\:ss\.fff"),
+                            silent: true).ToArray();
+
+                        // Force extraction and caching of future nodes.
+                        binaryDataExtractors.GetNamedContentListForItem(
+                            AIRequestSection.PrimaryNodes,
+                            itemTodo,
+                            itemTodo.StartTime.ToString(@"hh\:mm\:ss\.fff"),
+                            silent: true);
+
+                        backgroundNode.IncrementProgress();
+                        // (not counted when the extractors build their data themselves, ex. the padded clips of the manual-input preparer)
+                        var generated = Volatile.Read(ref backgroundGenerated);
+                        var fromCache = Volatile.Read(ref backgroundFromCache);
+                        if (generated + fromCache > 0)
+                            backgroundNode.SetStatus($"{generated} generated, {fromCache} read from the temporary files");
+                    }
+
+                    if (cts.IsCancellationRequested)
+                    {
+                        backgroundNode.SetState(TaskState.Skipped, "stopped: the requests are finished (or were stopped)");
                     }
                 }
                 catch (OperationCanceledException)
                 {
+                    backgroundNode.SetState(TaskState.Skipped, "stopped: the requests are finished (or were stopped)");
                 }
                 catch (Exception ex)
                 {
+                    // Not fatal: what is missing is done when the request needs it
+                    backgroundNode.SetState(TaskState.Failed, ex.Message);
                     context.WriteInfo($"Background extraction error: {ex.Message}", ConsoleColor.Yellow);
+                }
+                finally
+                {
+                    backgroundNode.Dispose();
                 }
             }, cts.Token);
 
@@ -317,6 +372,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             finally
             {
                 cts.Cancel();
+                // The worker must not end while its background task is still running (it stops after the clip / screenshot in progress)
+                try { backgroundTask.Wait(TimeSpan.FromSeconds(10)); } catch (AggregateException) { }
+                cts.Dispose();
             }
 
             return requestGenerator;

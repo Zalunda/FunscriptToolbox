@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using log4net;
 using Newtonsoft.Json;
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs
@@ -31,6 +33,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             [Option("config", Required = true, HelpText = "Path to the main configuration file (e.g., 'FSTB.config').")]
             public string ConfigPath { get; set; }
+
+            [Option("ui", Required = false, HelpText = "Process all the videos in parallel and show the progress on a web page served on this port (e.g., --ui 5055). A browser is opened on it.")]
+            public int? UiPort { get; set; }
         }
 
         private readonly Options r_options;
@@ -198,69 +203,213 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var privateConfig = SubtitleGeneratorPrivateConfig.FromFile(
                     Path.ChangeExtension(r_options.ConfigPath, ".private.config"));
 
-            var context = new SubtitleGeneratorContext(
-                rs_log,
-                r_options.Verbose,
-                new FfmpegHelper(),
-                privateConfig);
-
-            var errors = new List<string>();
-            var userTodoList = new List<string>();
-            foreach (var videoSequence in ToVideoSequences(
-                r_options.AutoVseq,
-                r_options
-                .Input
-                .SelectMany(file => HandleStarAndRecusivity(
-                    file, 
-                    r_options.Recursive, 
-                    WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
-                .Where(file => !file.EndsWith(".FAST.mp4", StringComparison.OrdinalIgnoreCase))
-                .Distinct()
-                .OrderBy(f => f))
-                .OrderBy(vs => vs.ContainerFullPath))
+            var locks = new SharedLocks();
+            var webOutput = r_options.UiPort != null ? new WebUiOutput(locks) : null;
+            IUserOutput output = (IUserOutput)webOutput ?? new ConsoleUserOutput();
+            WebUiServer webServer = null;
+            if (webOutput != null)
             {
-                try
+                webServer = new WebUiServer(webOutput, r_options.UiPort.Value);
+                webServer.Start();
+                Console.WriteLine($"Progress UI available on {webServer.Url}");
+                webServer.OpenBrowser();
+            }
+
+            try
+            {
+                var ffmpegHelper = new FfmpegHelper(locks);
+                SubtitleGeneratorContext CreateContext(IUserOutput contextOutput) => new SubtitleGeneratorContext(
+                    rs_log,
+                    r_options.Verbose,
+                    ffmpegHelper,
+                    privateConfig,
+                    contextOutput,
+                    locks);
+
+                // The sequences are listed once, before anything is started (creating the .vseq files, if needed).
+                var videoSequences = ToVideoSequences(
+                    r_options.AutoVseq,
+                    r_options
+                    .Input
+                    .SelectMany(file => HandleStarAndRecusivity(
+                        file,
+                        r_options.Recursive,
+                        WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
+                    .Where(file => !file.EndsWith(".FAST.mp4", StringComparison.OrdinalIgnoreCase))
+                    .Distinct()
+                    .OrderBy(f => f))
+                    .OrderBy(vs => vs.ContainerFullPath)
+                    // The merged configuration is read first: if all its workers are disabled, there is nothing
+                    // to do for the item (the .wipsubtitles is not loaded and the item is not added to the UI).
+                    .Select(vs => (Sequence: vs, Config: TryLoadConfig(vs)))
+                    .Where(item => item.Config == null || item.Config.Workers?.Any(w => w.Enabled) == true)
+                    .ToList();
+
+                var context = CreateContext(output);
+                if (webOutput == null)
                 {
-                    var watchGlobal = Stopwatch.StartNew();
+                    // Console mode: one video at a time, using a single context.
+                    foreach (var (videoSequence, config) in videoSequences)
+                    {
+                        // (in the console, the tasks of the sequence are combined in the progress line)
+                        using var sequenceNode = output.CreateRootNode("Sequence", GetDisplayName(videoSequence));
+                        sequenceNode.Start();
+                        ProcessSequence(context, videoSequence, config, showHeader: true);
+                    }
+                }
+                else
+                {
+                    // Web UI mode: all the videos at the same time, each one on its own thread with its own context.
+                    // (dedicated threads because the AI/HTTP code blocks while waiting: no thread pool starvation)
+                    var sequenceContexts = new List<SubtitleGeneratorContext>();
+                    var threads = new List<Thread>();
+                    foreach (var (videoSequence, config) in videoSequences)
+                    {
+                        var sequenceContext = CreateContext(output);
+                        var sequenceNode = output.CreateRootNode("Sequence", GetDisplayName(videoSequence));
+                        sequenceContexts.Add(sequenceContext);
 
-                    var wipsubFullpath = Path.ChangeExtension(
-                        videoSequence.ContainerFullPath,
-                        WorkInProgressSubtitles.Extension);
+                        var sequence = videoSequence;
+                        var sequenceConfig = config;
+                        var sequenceOrdinal = sequenceContexts.Count;
+                        var thread = new Thread(() =>
+                        {
+                            // The first sequences have priority on the shared resources (ffmpeg, GPU, ...): they finish first,
+                            // instead of having all the sequences progressing slowly, one screenshot/clip at a time each.
+                            LockPriority.SetForSequence(sequenceOrdinal);
+                            sequenceNode.Start();
+                            try
+                            {
+                                ProcessSequence(sequenceContext, sequence, sequenceConfig, showHeader: false);
+                                if (sequenceContext.Errors.Count > 0)
+                                {
+                                    sequenceNode.SetState(TaskState.Failed, $"{sequenceContext.Errors.Count} error(s)");
+                                }
+                            }
+                            finally
+                            {
+                                sequenceNode.Dispose();
+                            }
+                        })
+                        { Name = $"Sequence {sequenceContexts.Count}" };
+                        threads.Add(thread);
+                    }
+                    threads.ForEach(t => t.Start());
+                    threads.ForEach(t => t.Join());
 
-                    context.ChangeCurrentFile(null, null);
-                    Console.WriteLine($"------ {PathExtension.GetRelativePath(Environment.CurrentDirectory, Path.ChangeExtension(Path.GetFullPath(wipsubFullpath), null))} ------");
+                    foreach (var sequenceContext in sequenceContexts)
+                    {
+                        context.Errors.AddRange(sequenceContext.Errors);
+                        context.UserTodoList.AddRange(sequenceContext.UserTodoList);
+                    }
+                }
 
+                context.ForgetCurrentFile();
+
+                // Write final report
+                WriteFinalReport(context);
+                if (webOutput != null)
+                {
+                    // Also on the console (the web page already has it, in the 'General' task).
+                    var consoleContext = CreateContext(new ConsoleUserOutput());
+                    consoleContext.Errors.AddRange(context.Errors);
+                    consoleContext.UserTodoList.AddRange(context.UserTodoList);
+                    WriteFinalReport(consoleContext);
+
+                    webOutput.MarkFinished();
+                    Console.WriteLine($"All done. The progress UI is still available on {webServer.Url}");
+                    Console.WriteLine("Click on 'Close FunscriptToolbox' in the page, or press ENTER here, to exit.");
+                    webServer.WaitForExitRequest();
+                }
+                return base.NbErrors;
+            }
+            finally
+            {
+                webServer?.Dispose();
+            }
+        }
+
+        private static string GetDisplayName(VideoSequence videoSequence)
+        {
+            var wipsubFullpath = Path.ChangeExtension(videoSequence.ContainerFullPath, WorkInProgressSubtitles.Extension);
+            return PathExtension.GetRelativePath(Environment.CurrentDirectory, Path.ChangeExtension(Path.GetFullPath(wipsubFullpath), null))?.ToString();
+        }
+
+        /// <summary>
+        /// Reads the merged configuration of an item. Returns null if it cannot be loaded
+        /// (the item is then processed normally, so that the loading error is reported as usual).
+        /// </summary>
+        private SubtitleGeneratorConfig TryLoadConfig(VideoSequence videoSequence)
+        {
+            try
+            {
+                return SubtitleGeneratorConfigLoader.LoadHierarchically(
+                    r_options.ConfigPath,
+                    videoSequence.ContainerFullPath);
+            }
+            catch (Exception ex)
+            {
+                rs_log.Error($"Error while loading the configuration for '{videoSequence.ContainerFullPath}'.", ex);
+                return null;
+            }
+        }
+
+        private void ProcessSequence(SubtitleGeneratorContext context, VideoSequence videoSequence, SubtitleGeneratorConfig preloadedConfig, bool showHeader)
+        {
+            try
+            {
+                var watchGlobal = Stopwatch.StartNew();
+
+                var wipsubFullpath = Path.ChangeExtension(
+                    videoSequence.ContainerFullPath,
+                    WorkInProgressSubtitles.Extension);
+
+                context.ChangeCurrentFile(null, null);
+                if (showHeader)
+                {
+                    context.Output.WriteInfo($"------ {GetDisplayName(videoSequence)} ------", null, false);
+                }
+
+                context.RunStep("Load the .wipsubtitles and the configuration", _ =>
+                {
                     var wipsub = File.Exists(wipsubFullpath)
                         ? WorkInProgressSubtitles.FromFile(wipsubFullpath)
                         : new WorkInProgressSubtitles(wipsubFullpath, videoSequence.VideoFullPaths);
                     wipsub.FinalizeLoad();
 
-                    var config = SubtitleGeneratorConfigLoader.LoadHierarchically(
+                    var config = preloadedConfig ?? SubtitleGeneratorConfigLoader.LoadHierarchically(
                                             r_options.ConfigPath,
                                             videoSequence.ContainerFullPath);
+                    wipsub.SetBackupParentFolder(config.Global?.BackupParentFolder);
                     context.ChangeCurrentFile(config, wipsub);
                     UpdateWipSubFileIfNeeded(context);
+                });
 
-                    if (context.Config.Workers != null)
+                if (context.Config.Workers != null)
+                {
+                    // Shows all the steps in the task tree of the web UI right away (as 'pending')
+                    foreach (var worker in context.Config.Workers.Where(w => w.Enabled))
                     {
-                        foreach (var worker in context.Config.Workers)
-                        {
-                            worker.Execute(context);
-                        }
+                        context.PlanWorkerTask(worker, worker.DisplayName);
                     }
 
-                    context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
-                    context.WriteInfo();
+                    foreach (var worker in context.Config.Workers)
+                    {
+                        worker.Execute(context);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    context.WriteError($"Unexpected exception occured: {ex}");
-                }
+
+                context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
+                context.WriteInfo();
             }
+            catch (Exception ex)
+            {
+                context.WriteError($"Unexpected exception occured: {ex}");
+            }
+        }
 
-            context.ForgetCurrentFile();
-
-            // Write final report
+        private static void WriteFinalReport(SubtitleGeneratorContext context)
+        {
             context.WriteInfo();
             if (context.Errors.Count > 0)
             {
@@ -284,7 +433,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
                 context.WriteInfo();
             }
-            return base.NbErrors;
         }
 
         private void UpdateWipSubFileIfNeeded(SubtitleGeneratorContext context)

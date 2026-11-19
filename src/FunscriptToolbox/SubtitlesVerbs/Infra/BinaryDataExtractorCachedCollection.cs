@@ -22,6 +22,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 .ToDictionary(item => item.Extractor.OutputFieldName, item => item);
         }
 
+        /// <summary>True when at least one (enabled) extractor is in the collection.</summary>
+        public bool HasExtractors => r_extractors.Count > 0;
+
         internal BinaryDataType? GetDefaultDataType()
         {
             return r_extractors.Count == 1

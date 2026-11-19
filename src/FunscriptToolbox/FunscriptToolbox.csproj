@@ -51,6 +51,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <EmbeddedResource Include="Progress\ui.html" LogicalName="FunscriptToolbox.Progress.ui.html" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareScriptForRelease.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-GenericCmd.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />

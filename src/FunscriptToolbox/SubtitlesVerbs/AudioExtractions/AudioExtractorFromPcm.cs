@@ -45,8 +45,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             {
                 var originalPcmAudio = GetPcmAudio(context);
 
-                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(originalPcmAudio, tempPcmFile, $"-f s16le -ar {originalPcmAudio.SamplingRate} " + this.FfmpegParameters);
-                var newPcmAudio = new PcmAudio(originalPcmAudio.SamplingRate, File.ReadAllBytes(tempPcmFile));
+                var newPcmAudio = context.RunStep($"Transform the audio of '{this.SourceAudioId}'", _ =>
+                {
+                    context.FfmpegHelper.ConvertPcmAudioToOtherFormat(originalPcmAudio, tempPcmFile, $"-f s16le -ar {originalPcmAudio.SamplingRate} " + this.FfmpegParameters);
+                    return new PcmAudio(originalPcmAudio.SamplingRate, File.ReadAllBytes(tempPcmFile));
+                });
 
                 audioExtraction.SetPcmAudio(context, newPcmAudio);
                 if (this.SaveAsFileSuffixe != null)
@@ -54,13 +57,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                     // Need to resplit using TimelineMap
                     foreach (var segment in context.WIP.TimelineMap.Segments)
                     {
-                        context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
-                            newPcmAudio.ExtractSnippet(
-                                segment.Offset, 
-                                segment.Offset + segment.Duration),
-                            Path.Combine(
-                                context.WIP.ParentPath, 
-                                Path.ChangeExtension(segment.Filename, this.SaveAsFileSuffixe)));
+                        var saveAsFilename = Path.ChangeExtension(segment.Filename, this.SaveAsFileSuffixe);
+                        context.RunStep($"Save the audio as '{saveAsFilename}'", _ =>
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(
+                                newPcmAudio.ExtractSnippet(
+                                    segment.Offset,
+                                    segment.Offset + segment.Duration),
+                                Path.Combine(
+                                    context.WIP.ParentPath,
+                                    saveAsFilename)));
                     }
                 }
 

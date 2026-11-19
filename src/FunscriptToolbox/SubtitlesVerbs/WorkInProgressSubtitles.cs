@@ -79,6 +79,28 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.BackupFolder = $"{BaseFilePath}{BACKUP_FOLDER_SUFFIX}";
         }
 
+        /// <summary>
+        /// Moves the backup folder under another parent folder (see SubtitleGeneratorGlobalSettings.BackupParentFolder).
+        /// null: the backup folder stays next to the video.
+        /// </summary>
+        public void SetBackupParentFolder(string backupParentFolder)
+        {
+            if (backupParentFolder == null)
+            {
+                this.BackupFolder = $"{BaseFilePath}{BACKUP_FOLDER_SUFFIX}";
+                return;
+            }
+
+            if (!Path.IsPathFullyQualified(backupParentFolder))
+            {
+                throw new Exception($"The configuration 'Global.BackupParentFolder' must be a full path (ex. \"D:\\\\FSTB-Backups\"), received: '{backupParentFolder}'.");
+            }
+
+            this.BackupFolder = Path.Combine(
+                backupParentFolder,
+                $"{Path.GetFileName(BaseFilePath)}{BACKUP_FOLDER_SUFFIX}");
+        }
+
         [JsonIgnore]
         public string OriginalFilePath { get; private set; }
         [JsonIgnore]

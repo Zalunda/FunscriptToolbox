@@ -151,15 +151,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
             if (!isFinished)
             {
-                isFinished = Test.SpeakerCorrection(
-                    workItems,
-                    time => {
-                        var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
-                        var fullpath = Path.Combine(context.WIP.ParentPath, filename);
-                        return (File.Exists(fullpath + ".FAST.mp4") ? fullpath + ".FAST.mp4" : fullpath, adjustedTime);
-                    },
-                    UpdateAndSave,
-                    Undo);
+                // One dialog at a time when several videos are processed in parallel (the node shows 'waiting for user')
+                using (context.EnterUserInteraction("Speaker correction dialog"))
+                {
+                    isFinished = Test.SpeakerCorrection(
+                        workItems,
+                        time => {
+                            var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
+                            var fullpath = Path.Combine(context.WIP.ParentPath, filename);
+                            return (File.Exists(fullpath + ".FAST.mp4") ? fullpath + ".FAST.mp4" : fullpath, adjustedTime);
+                        },
+                        UpdateAndSave,
+                        Undo);
+                }
             }
 #else
             if (!isFinished)

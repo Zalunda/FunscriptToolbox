@@ -27,6 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new Exception($"This engine does not support batching multiple request.");
             }
             var request = requests.First();
+            using var localResourceLock = AcquireLocalResourceLockIfNeeded(context);
             try
             {
                 using var client = new HttpClient();
@@ -48,11 +49,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.txt", $"Base Adress: {this.BaseAddress}\nModel: {this.Model}\n\n{request.FullPrompt}", request.ProcessStartTime);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
-                PauseIfEnabled(this.PauseBeforeSendingRequest, request.FullPrompt);
+                PauseIfEnabled(context, this.PauseBeforeSendingRequest, request.FullPrompt);
 
-                var responses = UseStreaming == true
+                var responses = RunStoppable(context, client, () => UseStreaming == true
                     ? new[] { (AIResponse) ProcessStreamingResponse(client, request, requestBodyAsJson, context, verbosePrefix) }
-                    : new[] { (AIResponse) ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix) };
+                    : new[] { (AIResponse) ProcessNormalResponse(client, request, requestBodyAsJson, context, verbosePrefix) });
 
                 return responses;
             }
@@ -157,6 +158,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 new Uri(client.BaseAddress, "chat/completions"),
                 new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
             ).Result;
+            AttachToStopWatcher(response);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -204,12 +206,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             var assistantMessageExtended = sb.ToString();
             context.CreateVerboseTextFile($"{verbosePrefix}-Resp.txt", assistantMessageExtended, request.ProcessStartTime);
-            Console.WriteLine();
-            Console.WriteLine(AddRealTime(context, request.StartOffset, assistantMessageExtended));
-            Console.WriteLine();
-            Console.WriteLine();
+            context.WriteStreamLine();
+            context.WriteStreamLine(AddRealTime(context, request.StartOffset, assistantMessageExtended));
+            context.WriteStreamLine();
+            context.WriteStreamLine();
 
-            PauseIfEnabled(this.PauseBeforeSavingResponse);
+            PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
             return new AIResponse(
                 request,
@@ -259,6 +261,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
+                AttachToStopWatcher(response);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -323,12 +326,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             // Stop the timer on first content token
                                             if (waitingTimer != null)
                                             {
-                                                Console.WriteLine();
+                                                context.WriteStreamLine();
                                                 waitingTimer?.Dispose();
                                                 waitingTimer = null;
                                             }
                                             thoughtContent.Append(reasoningContentChunk);
-                                            Console.Write(reasoningContentChunk);
+                                            context.WriteStream(reasoningContentChunk);
                                         }
                                         else if (delta?.content != null)
                                         {
@@ -337,7 +340,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             // Stop the timer on first content token
                                             if (waitingTimer != null)
                                             {
-                                                Console.WriteLine();
+                                                context.WriteStreamLine();
                                                 waitingTimer?.Dispose();
                                                 waitingTimer = null;
                                             }
@@ -355,7 +358,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                             if (indexOfLastNewLine >= 0)
                                             {
                                                 currentLineBuffer.Append(contentChunk.Substring(0, indexOfLastNewLine + 1));
-                                                Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
+                                                context.WriteStream(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                                                 currentLineBuffer.Clear();
                                                 currentLineBuffer.Append(contentChunk.Substring(indexOfLastNewLine + 1));
                                             }
@@ -398,8 +401,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     throw AIEngineAPIException.FromErrorInResponseBody(chunkError, this.EngineIdentifier);
                 }
 
-                Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
-                Console.WriteLine();
+                context.WriteStream(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
+                context.WriteStreamLine();
 
                 if (finish_reason != null)
                 {
@@ -413,7 +416,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     extraContent.AppendLine($"CompletionsTokens: {completionTokens}, {GetOutputCost(completionTokens.Value):C}");
                 }
 
-                Console.WriteLine(extraContent.ToString());
+                context.WriteStreamLine(extraContent.ToString());
 
                 string assistantMessageExtended = fullContent.ToString() + extraContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
@@ -428,7 +431,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         $"   [config]   {this.Model}");
                 }
 
-                PauseIfEnabled(this.PauseBeforeSavingResponse);
+                PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
                 return new AIResponse(
                     request,

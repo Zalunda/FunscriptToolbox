@@ -35,7 +35,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 string fullPartPath = Path.Combine(context.WIP.ParentPath, segment.Filename);
 
                 context.WriteInfo($"   Extracting PCM audio from '{Path.GetFileName(fullPartPath)}'...");
-                PcmAudio partPcm = context.FfmpegHelper.ExtractPcmAudio(fullPartPath, this.FfmpegParameters);
+                PcmAudio partPcm = context.RunStep(
+                    $"Extract the audio from '{Path.GetFileName(fullPartPath)}'",
+                    _ => context.FfmpegHelper.ExtractPcmAudio(fullPartPath, this.FfmpegParameters));
                 mergedPcmStream.Write(partPcm.Data, 0, partPcm.Data.Length);
 
                 // Add the updated segment with its real duration to our new list.
@@ -45,7 +47,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 if (this.SaveAsFileSuffixe != null)
                 {
                     var saveAsPath = Path.ChangeExtension(fullPartPath, this.SaveAsFileSuffixe);
-                    context.FfmpegHelper.ConvertPcmAudioToOtherFormat(partPcm, saveAsPath);
+                    context.RunStep(
+                        $"Save the audio as '{Path.GetFileName(saveAsPath)}'",
+                        _ => context.FfmpegHelper.ConvertPcmAudioToOtherFormat(partPcm, saveAsPath));
                 }
             }
 

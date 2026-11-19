@@ -1,8 +1,11 @@
 ﻿using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Net.Http;
+using System.Threading;
 using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
@@ -43,6 +46,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         [JsonIgnore]
         protected virtual double CostSaving => 1.0;
+
+        /// <summary>
+        /// Set to true when this engine uses the local machine (ex. a local AI server). In --ui mode (several videos
+        /// processed in parallel), only one request at a time is then sent to this kind of engine.
+        /// </summary>
+        [JsonProperty(Order = 19)]
+        public bool UseLocalResourceLock { get; set; } = false;
+
+        protected IDisposable AcquireLocalResourceLockIfNeeded(SubtitleGeneratorContext context)
+        {
+            return this.UseLocalResourceLock
+                ? context.UseLocalResource($"AI engine '{EngineIdentifier}'")
+                : null; // 'using' accepts null
+        }
 
         [JsonProperty(Order = 20)]
         public bool PauseBeforeSendingRequest { get; set; } = false;
@@ -122,19 +139,128 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 });
         }
 
-        protected void PauseIfEnabled(bool isEnabled, string content = null)
+        /// <summary>
+        /// Web UI mode only: lets the user stop a request that is not a batch (streaming/normal), by clicking 'Stop'
+        /// on its task. Aborts the connection (disposing the response is what unblocks a pending read).
+        /// Batch requests handle the stop request themselves in their polling loop (they must not be used with this).
+        /// </summary>
+        protected T RunStoppable<T>(SubtitleGeneratorContext context, HttpClient client, Func<T> work)
         {
-            if (isEnabled)
+            if (!context.Output.IsWebUi)
             {
-                if (content != null)
-                {
-                    Console.WriteLine("\n\n" + content);
-                }
-                Console.WriteLine("\n\nPress Q to stop this worker. Any other key to continue.");
-                var keyInfo = Console.ReadKey(true);
-                if (keyInfo.Key == ConsoleKey.Q)
+                return work();
+            }
+
+            using var watcher = new StopWatcher(context, client);
+            try
+            {
+                var result = work();
+                if (watcher.Stopped)
                 {
                     throw new UserStoppedWorkerException();
+                }
+                return result;
+            }
+            catch (Exception) when (watcher.Stopped)
+            {
+                // The abort made the pending read/send fail: that's the stop, not an error.
+                throw new UserStoppedWorkerException();
+            }
+        }
+
+        /// <summary>Gives the response to abort if the user asks to stop (see <see cref="RunStoppable"/>).</summary>
+        protected static void AttachToStopWatcher(HttpResponseMessage response)
+        {
+            StopWatcher.Current?.Attach(response);
+        }
+
+        private sealed class StopWatcher : IDisposable
+        {
+            private static readonly AsyncLocal<StopWatcher> rs_current = new AsyncLocal<StopWatcher>();
+            public static StopWatcher Current => rs_current.Value;
+
+            private readonly HttpClient r_client;
+            private readonly Timer r_timer;
+            private HttpResponseMessage m_response;
+            private volatile bool m_stopped;
+
+            public bool Stopped => m_stopped;
+
+            public StopWatcher(SubtitleGeneratorContext context, HttpClient client)
+            {
+                r_client = client;
+                rs_current.Value = this;
+                // (the timer keeps the current task of this thread, so the poll finds the Stop button of the right task)
+                r_timer = new Timer(_ =>
+                {
+                    if (!m_stopped && context.PollStopRequest())
+                    {
+                        Stop();
+                    }
+                }, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+            }
+
+            public void Attach(HttpResponseMessage response)
+            {
+                m_response = response;
+                if (m_stopped)
+                {
+                    TryDispose(response);
+                }
+            }
+
+            private void Stop()
+            {
+                m_stopped = true;
+                try { r_client.CancelPendingRequests(); } catch { }
+                TryDispose(m_response);
+            }
+
+            private static void TryDispose(HttpResponseMessage response)
+            {
+                try { response?.Dispose(); } catch { }
+            }
+
+            public void Dispose()
+            {
+                r_timer.Dispose();
+                rs_current.Value = null;
+            }
+        }
+
+        protected void PauseIfEnabled(SubtitleGeneratorContext context, bool isEnabled, string content = null)
+        {
+            if (isEnabled && context.Output.IsWebUi)
+            {
+                using (context.EnterUserInteraction("Paused"))
+                {
+                    var answer = context.Output.Ask(new UserPrompt
+                    {
+                        Title = "Paused (PauseBeforeSendingRequest / PauseBeforeSavingResponse)",
+                        Message = content,
+                        Choices = new[] { "Continue", "Stop this worker" }
+                    });
+                    if (answer.Choice != "Continue")
+                    {
+                        throw new UserStoppedWorkerException();
+                    }
+                }
+            }
+            else if (isEnabled)
+            {
+                // (the task is 'waiting for the user', so the progress line is not drawn over the prompt)
+                using (context.EnterUserInteraction("Paused"))
+                {
+                    if (content != null)
+                    {
+                        Console.WriteLine("\n\n" + content);
+                    }
+                    Console.WriteLine("\n\nPress Q to stop this worker. Any other key to continue.");
+                    var keyInfo = Console.ReadKey(true);
+                    if (keyInfo.Key == ConsoleKey.Q)
+                    {
+                        throw new UserStoppedWorkerException();
+                    }
                 }
             }
         }

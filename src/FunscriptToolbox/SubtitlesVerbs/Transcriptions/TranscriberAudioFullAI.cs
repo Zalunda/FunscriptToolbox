@@ -1,4 +1,6 @@
 using FunscriptToolbox.Core.Infra;
+using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -76,7 +78,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                             var tempWavFile = PathExtension.GetTempFileName(".wav");
                             var snippet = fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime);
-                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile);
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile, workload: FfmpegWorkload.Clip);
 
                             var audioBytes = File.ReadAllBytes(tempWavFile);
                             var data = new[]
@@ -116,13 +118,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var chunkTiming = new Timing(
                         chunkStartTime,
                         chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime);
-                var request = CreateRequestForFullAudio(
-                    context,
-                    processStartTime,
-                    requestNumber++,
-                    chunkTiming,
-                    binaryDataExtractors);
-                var response = this.Engine.Execute(context, request, this.EngineConfigOverride);
+                var chunkName = $"chunk {chunkTiming.StartTime:hh\\:mm\\:ss} to {chunkTiming.EndTime:hh\\:mm\\:ss}";
+                var request = context.RunStep(
+                    $"Prepare request #{requestNumber} ({chunkName})",
+                    _ => CreateRequestForFullAudio(
+                        context,
+                        processStartTime,
+                        requestNumber++,
+                        chunkTiming,
+                        binaryDataExtractors));
+                AIResponse response;
+                using (var requestNode = context.BeginTask("AI request", $"{transcription.Id}, {chunkName}, request #{request.Number}"))
+                {
+                    requestNode.SetCancellable("Aborts the connection right away (the answer is lost).");
+                    try
+                    {
+                        response = this.Engine.Execute(context, request, this.EngineConfigOverride);
+                    }
+                    catch (UserStoppedWorkerException)
+                    {
+                        requestNode.SetState(TaskState.Cancelled, "stopped by the user");
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        requestNode.Fail(ex.Message);
+                        throw;
+                    }
+                }
                 if (response.AssistantMessage == null)
                 {
                     throw new Exception($"'{this.GetType().Name}' does not support AIEngine type '{this.Engine.GetType().Name}'.");
@@ -136,7 +159,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     response.Cost.CustomInfos = customInfos;
                 }
                 var itemCountBeforeChunk = transcription.Items.Count;
-                HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime); 
+                context.RunStep("Read the response", _ => HandleResponse(context, transcription, response, chunkStartTime, chunkEndTime));
 
                 // Items produced by THIS chunk only (don't rely on list order or on previous chunks' items)
                 var chunkItems = transcription.Items.Skip(itemCountBeforeChunk).ToList();
@@ -334,7 +357,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     if (this.PromptUserOnError)
                     {
                         // Show the UI with the partially fixed JSON (if available) or the raw text
-                        string userFixedText = JsonCorrectionHelper.PromptForFix(ex.Message, fixedJson ?? textToParse);
+                        string userFixedText = JsonCorrectionHelper.PromptForFix(context, ex.Message, fixedJson ?? textToParse);
 
                         if (userFixedText != null)
                         {

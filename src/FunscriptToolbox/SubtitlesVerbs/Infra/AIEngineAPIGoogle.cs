@@ -49,6 +49,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new NotSupportedException("Multiple requests in IndependentMode are only supported when UseBatchMode is true.");
             }
 
+            using var localResourceLock = AcquireLocalResourceLockIfNeeded(context);
+
             if (this._stopWorkerRequested)
             {
                 this._stopWorkerRequested = false;
@@ -68,12 +70,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     var reqPrefix = req.GetVerbosePrefix();
                     context.CreateVerboseTextFile($"{reqPrefix}-Req.txt", $"Base Adress: {this.BaseAddress}\nModel: {this.Model}\n\n{req.FullPrompt}", req.ProcessStartTime);
-                    PauseIfEnabled(this.PauseBeforeSendingRequest, req.FullPrompt);
+                    PauseIfEnabled(context, this.PauseBeforeSendingRequest, req.FullPrompt);
                 }
 
                 return this.UseBatchMode
                     ? ProcessBatchResponses(context, client, requests, configOverride: configOverride)
-                    : new[] { ProcessStreamingResponse(context, client, requests[0], requests[0].GetVerbosePrefix(), configOverride: configOverride) };
+                    : RunStoppable(context, client, () => new[] { ProcessStreamingResponse(context, client, requests[0], requests[0].GetVerbosePrefix(), configOverride: configOverride) });
             }
             catch (AggregateException ex)
             {
@@ -301,10 +303,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     while (DateTime.Now - waitStart < waitDuration)
                     {
-                        if (Console.KeyAvailable)
+                        // Q key (console mode) or 'Stop' button of the task (web UI mode)
                         {
-                            var keyInfo = Console.ReadKey(intercept: true);
-                            if (keyInfo.Key == ConsoleKey.Q)
+                            if (context.PollStopRequest())
                             {
                                 var isCurrentlyQueuing = operation?.GetState() != "BATCH_STATE_RUNNING";
                                 if (isCurrentlyQueuing)
@@ -473,9 +474,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                     }
 
-                    Console.WriteLine();
-                    Console.WriteLine(thoughtContent.ToString());
-                    Console.WriteLine(AddRealTime(context, req.StartOffset, candidates.ToString()));
+                    context.WriteStreamLine();
+                    context.WriteStreamLine(thoughtContent.ToString());
+                    context.WriteStreamLine(AddRealTime(context, req.StartOffset, candidates.ToString()));
 
                     extraContent.AppendLine($"PendingTime: {pendingWatch.Elapsed}");
                     extraContent.AppendLine($"RunningTime: {runningTime}");
@@ -496,7 +497,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         extraContent.AppendLine($"   Candidates: {googleUsageMetadata.CandidatesTokenCount,7}");
                     }
 
-                    Console.WriteLine(extraContent.ToString());
+                    context.WriteStreamLine(extraContent.ToString());
 
                     string assistantMessageExtended = candidates.ToString() + extraContent.ToString();
                     var reqVerbosePrefix = req.GetVerbosePrefix() + jsonSuffix;
@@ -558,7 +559,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     context.WriteInfo("Stop requested: current batch answer processed. Worker will stop before processing the next request.");
                 }
 
-                PauseIfEnabled(this.PauseBeforeSavingResponse);
+                PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
                 return results.ToArray();
             }
@@ -601,6 +602,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
+                AttachToStopWatcher(response);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -629,7 +631,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             {
                                 if (waitingTimer != null)
                                 {
-                                    Console.WriteLine();
+                                    context.WriteStreamLine();
                                     waitingTimer?.Dispose();
                                     waitingTimer = null;
                                 }
@@ -655,7 +657,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                     if (indexOfLastNewLine >= 0)
                                     {
                                         currentLineBuffer.Append(part.Text.Substring(0, indexOfLastNewLine + 1));
-                                        Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
+                                        context.WriteStream(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
                                         currentLineBuffer.Clear();
                                         currentLineBuffer.Append(part.Text.Substring(indexOfLastNewLine + 1));
                                     }
@@ -695,8 +697,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 waitingTimer?.Dispose();
                 waitingTimer = null;
 
-                Console.Write(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
-                Console.WriteLine();
+                context.WriteStream(AddRealTime(context, request.StartOffset, currentLineBuffer.ToString()));
+                context.WriteStreamLine();
 
                 extraContent.AppendLine($"RunningTime: {watch.Elapsed}");
 
@@ -713,7 +715,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     extraContent.AppendLine($"   Candidates: {googleUsageMetadata.CandidatesTokenCount,7}");
                 }
 
-                Console.WriteLine(extraContent.ToString());
+                context.WriteStreamLine(extraContent.ToString());
 
                 string assistantMessageExtended = candidates.ToString() + extraContent.ToString();
                 context.CreateVerboseTextFile($"{verbosePrefix}-Resp.json", chunksReceived.ToString(), request.ProcessStartTime);
@@ -764,7 +766,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                 }
 
-                PauseIfEnabled(this.PauseBeforeSavingResponse);
+                PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
                 return new AIResponse(request, assistantMessageExtended, unfilteredResponseCost, additionalCostsForImageValidation);
             }
