@@ -12,7 +12,30 @@ namespace FunscriptToolbox.Progress
         Succeeded,
         Skipped,
         Failed,
-        Cancelled
+        Cancelled,
+        /// <summary>Could not be done yet: something it needs is missing (ex. a worker whose prerequisites are not met).</summary>
+        Blocked
+    }
+
+    public static class TaskStateExtensions
+    {
+        /// <summary>A state that ends the task (it can't change anymore).</summary>
+        public static bool IsTerminal(this TaskState state)
+        {
+            return state == TaskState.Succeeded
+                || state == TaskState.Skipped
+                || state == TaskState.Failed
+                || state == TaskState.Cancelled
+                || state == TaskState.Blocked;
+        }
+
+        /// <summary>A task that is started and not finished.</summary>
+        public static bool IsActive(this TaskState state)
+        {
+            return state == TaskState.Running
+                || state == TaskState.WaitingForLock
+                || state == TaskState.WaitingForUser;
+        }
     }
 
     /// <summary>
@@ -63,6 +86,12 @@ namespace FunscriptToolbox.Progress
         bool ConsumeCancelRequest();
 
         void Fail(string message);
+
+        /// <summary>
+        /// The task only refreshes what was already done (ex. a worker with 'CanBeUpdated' that runs again):
+        /// in the UI, a scene where nothing else was done is 'untouched'.
+        /// </summary>
+        void MarkAsRefreshOnly();
     }
 
     public sealed class NullTaskNode : ITaskNode
@@ -83,6 +112,7 @@ namespace FunscriptToolbox.Progress
         public void SetCancellable(string hint) { }
         public bool ConsumeCancelRequest() => false;
         public void Fail(string message) { }
+        public void MarkAsRefreshOnly() { }
         public void Dispose() { }
     }
 

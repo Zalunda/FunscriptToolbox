@@ -113,6 +113,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var nextStartTime = jobState.NextStartTime;
             while (nextStartTime < fullPcmAudio.EndTime)
             {
+                // (safe point: the previous chunk is saved. When the application is closing, no new request is sent)
+                context.PauseIfClosing();
+
                 var chunkStartTime = nextStartTime;
                 var chunkEndTime = nextStartTime + this.MaxChunkDuration;
                 var chunkTiming = new Timing(

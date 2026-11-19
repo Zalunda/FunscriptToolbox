@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -34,8 +35,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
             [Option("config", Required = true, HelpText = "Path to the main configuration file (e.g., 'FSTB.config').")]
             public string ConfigPath { get; set; }
 
-            [Option("ui", Required = false, HelpText = "Process all the videos in parallel and show the progress on a web page served on this port (e.g., --ui 5055). A browser is opened on it.")]
+            [Option("ui", Required = false, HelpText = "Process all the videos in parallel and show the progress on a web page served on this port (e.g., --ui 5055).")]
             public int? UiPort { get; set; }
+
+            [Option("openbrowser", Required = false, HelpText = "With --ui: open the progress page in the default browser at the start.", Default = false)]
+            public bool OpenBrowser { get; set; }
+
+            [Option("background", Required = false, HelpText = "With --ui (or --runasserver): runs without a console. The application starts itself again, hidden, and this one ends right away: the page is the only way to follow it. If it's already running on this port, it only opens the browser (with --openbrowser) and ends.", Default = false)]
+            public bool Background { get; set; }
+
+            [Option("runasserver", Required = false, HelpText = "Runs as a server (the web UI is implied): '<host>[:<port>]', ex. 'localhost:5055' (only this machine) or '*:5055' (the page can be opened from other machines: needs an URL reservation, see the message if it fails, and the firewall). The port can also be given with --ui. The page has no 'Close' button (only 'Pause all'): the application keeps running, 'Rescan' starts the new scenes; stop it by ending its process. Warning: there is no password, use it only on a trusted network.")]
+            public string RunAsServer { get; set; }
+
+            /// <summary>--runasserver is used.</summary>
+            public bool IsServer => RunAsServer != null;
+
+            /// <summary>(internal) The copy started by --background.</summary>
+            [Option("backgroundchild", Required = false, Hidden = true, Default = false)]
+            public bool IsBackgroundChild { get; set; }
         }
 
         private readonly Options r_options;
@@ -46,9 +63,101 @@ namespace FunscriptToolbox.SubtitlesVerbs
             r_options = options;
         }
 
+        // The web UI: port and host (from --ui and --runasserver)
+        private int? m_uiPort;
+        private string m_uiHost;
+
         public int Execute()
         {
+            m_uiPort = r_options.UiPort;
+            m_uiHost = null;
+            if (r_options.IsServer)
+            {
+                // '<host>[:<port>]' (the port can also come from --ui)
+                var value = r_options.RunAsServer.Trim();
+                var colon = value.LastIndexOf(':');
+                m_uiHost = colon >= 0 ? value.Substring(0, colon) : value;
+                if (colon >= 0)
+                {
+                    if (!int.TryParse(value.Substring(colon + 1), out var port))
+                    {
+                        WriteError($"Invalid port in --runasserver '{r_options.RunAsServer}' (expected '<host>[:<port>]', ex. '*:5055').");
+                        return 1;
+                    }
+                    if (m_uiPort != null && m_uiPort != port)
+                    {
+                        WriteError($"--runasserver '{r_options.RunAsServer}' and --ui {m_uiPort} give two different ports: give it only once.");
+                        return 1;
+                    }
+                    m_uiPort = port;
+                }
+                if (m_uiPort == null)
+                {
+                    WriteError($"--runasserver '{r_options.RunAsServer}' needs a port: '<host>:<port>' (ex. '*:5055'), or --ui <port>.");
+                    return 1;
+                }
+            }
+
+            if (r_options.Background && m_uiPort == null)
+            {
+                WriteError("--background can only be used with --ui or --runasserver (the page is the only way to follow the work).");
+                return 1;
+            }
+            if (r_options.Background && !r_options.IsBackgroundChild)
+            {
+                return StartInBackground();
+            }
             return Task.Run<int>(() => ExecuteAsync()).Result;
+        }
+
+        /// <summary>
+        /// --background: starts the application again, without a console window (with the same arguments), and ends right away.
+        /// If it's already running on this port: only opens the browser on it (with --openbrowser).
+        /// </summary>
+        private int StartInBackground()
+        {
+            var localUrl = $"http://localhost:{m_uiPort.Value}/";
+            if (WebUiServer.IsAnswering(localUrl))
+            {
+                Console.WriteLine($"FunscriptToolbox is already running on {localUrl}: nothing else is started.");
+                if (r_options.OpenBrowser)
+                {
+                    WebUiServer.OpenBrowser(localUrl);
+                }
+                return 0;
+            }
+
+            // The same arguments, without --background (the copy knows it's the one in the background)
+            var arguments = (Program.EffectiveArguments ?? Environment.GetCommandLineArgs().Skip(1).ToArray())
+                .Where(arg => !string.Equals(arg, "--background", StringComparison.OrdinalIgnoreCase))
+                .Concat(new[] { "--backgroundchild" })
+                .ToList();
+
+            // (started with 'dotnet FunscriptToolbox.dll': the copy too)
+            var processPath = Environment.ProcessPath;
+            var startInfo = new ProcessStartInfo(processPath)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Environment.CurrentDirectory
+            };
+            if (string.Equals(Path.GetFileNameWithoutExtension(processPath), "dotnet", StringComparison.OrdinalIgnoreCase))
+            {
+                startInfo.ArgumentList.Add(Environment.GetCommandLineArgs()[0]);
+            }
+            foreach (var arg in arguments)
+            {
+                startInfo.ArgumentList.Add(arg);
+            }
+
+            var process = Process.Start(startInfo)
+                ?? throw new Exception("Can't start FunscriptToolbox in the background.");
+            var message = r_options.IsServer
+                ? $"FunscriptToolbox started in the background, as a server (process {process.Id}). Follow it on {localUrl} (its log is in the log file). It can't be closed from the page: end its process to stop it."
+                : $"FunscriptToolbox started in the background (process {process.Id}). Follow it, and close it, on {localUrl} (its log is in the log file).";
+            rs_log.Info(message);
+            Console.WriteLine(message);
+            return 0;
         }
 
         private class VideoSequence
@@ -203,16 +312,29 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var privateConfig = SubtitleGeneratorPrivateConfig.FromFile(
                     Path.ChangeExtension(r_options.ConfigPath, ".private.config"));
 
-            var locks = new SharedLocks();
-            var webOutput = r_options.UiPort != null ? new WebUiOutput(locks) : null;
+            // What is shared by all the scenes (ex. how many ffmpeg at the same time): read once, from the main configuration only.
+            var globalShared = SubtitleGeneratorConfigLoader.LoadGlobalShared(r_options.ConfigPath);
+            var locks = new SharedLocks(globalShared?.MaxConcurrent);
+            // (as a server: no 'Close' in the page, only 'Pause all')
+            var webOutput = m_uiPort != null ? new WebUiOutput(locks) { IsServer = r_options.IsServer } : null;
             IUserOutput output = (IUserOutput)webOutput ?? new ConsoleUserOutput();
             WebUiServer webServer = null;
             if (webOutput != null)
             {
-                webServer = new WebUiServer(webOutput, r_options.UiPort.Value);
+                webServer = new WebUiServer(webOutput, m_uiPort.Value, m_uiHost);
                 webServer.Start();
-                Console.WriteLine($"Progress UI available on {webServer.Url}");
-                webServer.OpenBrowser();
+                Console.WriteLine($"Progress UI available on {webServer.Url}"
+                    + (webServer.IsReachableFromNetwork ? $" (from another machine: http://{(webServer.Host == "*" || webServer.Host == "+" ? Environment.MachineName : webServer.Host)}:{webServer.Port}/)" : string.Empty));
+                rs_log.Info($"Progress UI listening on {webServer.ListenUrl}");
+                if (r_options.OpenBrowser)
+                {
+                    webServer.OpenBrowser();
+                }
+                // (warns in the console if nobody opens the page; in the background, there is no console to warn)
+                if (!r_options.IsBackgroundChild)
+                {
+                    webServer.StartClientWatcher();
+                }
             }
 
             try
@@ -226,24 +348,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     contextOutput,
                     locks);
 
-                // The sequences are listed once, before anything is started (creating the .vseq files, if needed).
-                var videoSequences = ToVideoSequences(
-                    r_options.AutoVseq,
-                    r_options
-                    .Input
-                    .SelectMany(file => HandleStarAndRecusivity(
-                        file,
-                        r_options.Recursive,
-                        WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
-                    .Where(file => !file.EndsWith(".FAST.mp4", StringComparison.OrdinalIgnoreCase))
-                    .Distinct()
-                    .OrderBy(f => f))
-                    .OrderBy(vs => vs.ContainerFullPath)
-                    // The merged configuration is read first: if all its workers are disabled, there is nothing
-                    // to do for the item (the .wipsubtitles is not loaded and the item is not added to the UI).
-                    .Select(vs => (Sequence: vs, Config: TryLoadConfig(vs)))
-                    .Where(item => item.Config == null || item.Config.Workers?.Any(w => w.Enabled) == true)
-                    .ToList();
+                // The sequences are listed before anything is started (creating the .vseq files, if needed).
+                var videoSequences = ListVideoSequences();
+
+                // How each scene is named in the UI (short name, metadata from its path). A configuration problem is reported once.
+                var reportedConfigErrors = new HashSet<string>();
+                RootNodeInfo GetRootNodeInfo(VideoSequence videoSequence, SubtitleGeneratorConfig config)
+                {
+                    var info = BuildRootNodeInfo(videoSequence, config);
+                    if (info.ConfigError != null && reportedConfigErrors.Add(info.ConfigError))
+                    {
+                        rs_log.Error(info.ConfigError);
+                        output.WriteError(info.ConfigError);
+                    }
+                    return info;
+                }
 
                 var context = CreateContext(output);
                 if (webOutput == null)
@@ -252,7 +371,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     foreach (var (videoSequence, config) in videoSequences)
                     {
                         // (in the console, the tasks of the sequence are combined in the progress line)
-                        using var sequenceNode = output.CreateRootNode("Sequence", GetDisplayName(videoSequence));
+                        using var sequenceNode = output.CreateRootNode("Sequence", GetDisplayName(videoSequence), GetRootNodeInfo(videoSequence, config));
                         sequenceNode.Start();
                         ProcessSequence(context, videoSequence, config, showHeader: true);
                     }
@@ -261,26 +380,31 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     // Web UI mode: all the videos at the same time, each one on its own thread with its own context.
                     // (dedicated threads because the AI/HTTP code blocks while waiting: no thread pool starvation)
-                    var sequenceContexts = new List<SubtitleGeneratorContext>();
-                    var threads = new List<Thread>();
-                    foreach (var (videoSequence, config) in videoSequences)
+                    var scenes = new List<WebUiScene>();
+                    void StartScene(VideoSequence videoSequence, SubtitleGeneratorConfig config, WebUiScene sceneToRestart)
                     {
-                        var sequenceContext = CreateContext(output);
-                        var sequenceNode = output.CreateRootNode("Sequence", GetDisplayName(videoSequence));
-                        sequenceContexts.Add(sequenceContext);
+                        var info = GetRootNodeInfo(videoSequence, config);
+                        var scene = sceneToRestart ?? new WebUiScene { Ordinal = scenes.Count + 1 };
+                        scene.Sequence = videoSequence;
+                        scene.Context = CreateContext(output);
+                        // (a scene started again keeps its place in the list: its old tasks are replaced)
+                        scene.Node = sceneToRestart == null
+                            ? output.CreateRootNode("Sequence", GetDisplayName(videoSequence), info)
+                            : webOutput.ReplaceRootNode(sceneToRestart.Node, "Sequence", GetDisplayName(videoSequence), info);
+                        if (sceneToRestart == null)
+                            scenes.Add(scene);
 
-                        var sequence = videoSequence;
-                        var sequenceConfig = config;
-                        var sequenceOrdinal = sequenceContexts.Count;
-                        var thread = new Thread(() =>
+                        var sequenceContext = scene.Context;
+                        var sequenceNode = scene.Node;
+                        scene.Thread = new Thread(() =>
                         {
                             // The first sequences have priority on the shared resources (ffmpeg, GPU, ...): they finish first,
                             // instead of having all the sequences progressing slowly, one screenshot/clip at a time each.
-                            LockPriority.SetForSequence(sequenceOrdinal);
+                            LockPriority.SetForSequence(scene.Ordinal);
                             sequenceNode.Start();
                             try
                             {
-                                ProcessSequence(sequenceContext, sequence, sequenceConfig, showHeader: false);
+                                ProcessSequence(sequenceContext, videoSequence, config, showHeader: false);
                                 if (sequenceContext.Errors.Count > 0)
                                 {
                                     sequenceNode.SetState(TaskState.Failed, $"{sequenceContext.Errors.Count} error(s)");
@@ -291,35 +415,183 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 sequenceNode.Dispose();
                             }
                         })
-                        { Name = $"Sequence {sequenceContexts.Count}" };
-                        threads.Add(thread);
+                        {
+                            Name = $"Sequence {scene.Ordinal}",
+                            // (background: a 'Force close' can end the process while scenes are running; otherwise, the main thread waits for them)
+                            IsBackground = true
+                        };
+                        scene.Thread.Start();
                     }
-                    threads.ForEach(t => t.Start());
-                    threads.ForEach(t => t.Join());
 
-                    foreach (var sequenceContext in sequenceContexts)
+                    foreach (var (videoSequence, config) in videoSequences)
                     {
-                        context.Errors.AddRange(sequenceContext.Errors);
-                        context.UserTodoList.AddRange(sequenceContext.UserTodoList);
+                        StartScene(videoSequence, config, null);
+                    }
+
+                    // 'Rescan' (button of the page): the new scenes on disk are started, and the blocked scenes are checked again
+                    // (ex. their manual-input file is now there). The other scenes are not touched (running, finished, failed, stopped).
+                    void Rescan()
+                    {
+                        var nbNew = 0;
+                        var nbRetried = 0;
+                        foreach (var (videoSequence, config) in ListVideoSequences())
+                        {
+                            var existing = scenes.FirstOrDefault(s => string.Equals(s.Sequence.ContainerFullPath, videoSequence.ContainerFullPath, StringComparison.OrdinalIgnoreCase));
+                            if (existing == null)
+                            {
+                                StartScene(videoSequence, config, null);
+                                nbNew++;
+                            }
+                            else if (!existing.Thread.IsAlive && existing.Context.BlockedWorkers.Count > 0 && existing.Context.Errors.Count == 0)
+                            {
+                                StartScene(videoSequence, config, existing);
+                                nbRetried++;
+                            }
+                        }
+                        var result = $"Rescan: {nbNew} new scene(s) started, {nbRetried} blocked scene(s) checked again.";
+                        output.WriteInfo(result, null, false);
+                        webOutput.SetRescanState(isRescanning: false, result);
+                    }
+
+                    var isReported = false;
+                    while (true)
+                    {
+                        // (closing: nothing new is started, even what was asked just before)
+                        if (webOutput.ConsumeRescanRequest() && !webOutput.IsClosing)
+                        {
+                            try
+                            {
+                                Rescan();
+                            }
+                            catch (Exception ex)
+                            {
+                                output.WriteError($"Error during the rescan: {ex.Message}");
+                                webOutput.SetRescanState(isRescanning: false, $"Rescan failed: {ex.Message} (see the General log)");
+                            }
+                        }
+                        else if (webOutput.IsRescanning && webOutput.IsClosing)
+                        {
+                            // (asked just before 'Close': not done)
+                            webOutput.SetRescanState(isRescanning: false, "Rescan not done: the application is closing.");
+                        }
+
+                        // 'Retry' (button of a scene in the page): the scene is started again, whatever its state (except if it's still running).
+                        // Its configuration is read again.
+                        for (var retryId = webOutput.ConsumeRetryRequest(); retryId != null; retryId = webOutput.ConsumeRetryRequest())
+                        {
+                            var scene = scenes.FirstOrDefault(s => webOutput.GetNodeId(s.Node) == retryId);
+                            if (scene == null || webOutput.IsClosing)
+                                continue; // (already replaced: ex. two clicks; or closing: nothing new is started)
+                            if (scene.Thread.IsAlive)
+                            {
+                                output.WriteInfo($"Retry: '{GetDisplayName(scene.Sequence)}' is still running, it was not started again.", null, false);
+                                continue;
+                            }
+                            try
+                            {
+                                StartScene(scene.Sequence, TryLoadConfig(scene.Sequence), scene);
+                                output.WriteInfo($"Retry: '{GetDisplayName(scene.Sequence)}' started again.", null, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                output.WriteError($"Error while starting '{GetDisplayName(scene.Sequence)}' again: {ex.Message}");
+                            }
+                        }
+
+                        // Final report (also on the console: the web page has it in the 'General' log)
+                        // (the full report goes in the log file; the page shows it in 'What went wrong' / 'What's next':
+                        // the console only gets a summary)
+                        void WriteReport()
+                        {
+                            var reportContext = CreateContext(output);
+                            foreach (var scene in scenes)
+                            {
+                                reportContext.Errors.AddRange(scene.Context.Errors);
+                                reportContext.UserTodoList.AddRange(scene.Context.UserTodoList);
+                            }
+                            WriteFinalReport(reportContext);
+                            context.Errors.Clear();
+                            context.Errors.AddRange(reportContext.Errors);
+
+                            var nbErrors = reportContext.Errors.Count;
+                            var nbTodos = reportContext.UserTodoList.Count + scenes.Count(s => s.Context.BlockedWorkers.Count > 0 && s.Context.Errors.Count == 0);
+                            if (nbErrors > 0 || nbTodos > 0)
+                            {
+                                Console.ForegroundColor = nbErrors > 0 ? ConsoleColor.Red : ConsoleColor.Yellow;
+                                Console.WriteLine($"{nbErrors} error(s), {nbTodos} thing(s) to do: see 'What went wrong' / 'What's next' on {webServer.Url}");
+                                Console.ResetColor();
+                            }
+                        }
+
+                        // What went wrong / what's next, by scene (the 2 buttons of the page), always up to date
+                        // (the text without the prefix of the scene: the page shows its short name)
+                        static string[] WithoutPrefix(IEnumerable<string> lines, string prefix) => lines
+                            .Select(line => !string.IsNullOrEmpty(prefix) && line.StartsWith(prefix) ? line.Substring(prefix.Length) : line)
+                            .ToArray();
+                        webOutput.SetSceneReports(scenes.Select(s =>
+                        {
+                            string[] errors, todos;
+                            lock (s.Context.Errors) { errors = WithoutPrefix(s.Context.Errors, s.Context.Prefix); }
+                            lock (s.Context.UserTodoList) { todos = WithoutPrefix(s.Context.UserTodoList, s.Context.Prefix); }
+                            return (s.Node, errors, todos);
+                        }).ToArray());
+
+                        var isAllDone = scenes.All(s => !s.Thread.IsAlive);
+                        if (isAllDone && !isReported)
+                        {
+                            WriteReport();
+                            webOutput.SetFinished(true);
+                            isReported = true;
+                            Console.WriteLine($"All done. The progress UI is still available on {webServer.Url} ('Rescan' can start the new / blocked scenes).");
+                            if (!r_options.IsBackgroundChild)
+                            {
+                                Console.WriteLine(r_options.IsServer
+                                    ? "Press ENTER here to exit (--runasserver: the page can't close the application)."
+                                    : "Click on 'Close' in the page, or press ENTER here, to exit.");
+                                webServer.StartConsoleExitListener();
+                            }
+                            // (in the background, there is no console: only 'Close' in the page)
+                        }
+                        else if (!isAllDone && isReported)
+                        {
+                            // (a rescan started something)
+                            webOutput.SetFinished(false);
+                            isReported = false;
+                        }
+
+                        // 'Close': right away when nothing is running. Otherwise 'closing' mode: each scene pauses at its next safe point
+                        // (between two steps / AI requests: what was received is saved), and the application closes when all the scenes
+                        // still alive are paused. 'Force close': right away.
+                        var nbAlive = scenes.Count(s => s.Thread.IsAlive);
+                        if (webOutput.IsClosing && !webOutput.IsForceClose && nbAlive > 0 && webOutput.NbPausedForClose >= nbAlive)
+                        {
+                            WriteReport();
+                            var message = $"Closed: {nbAlive} scene(s) were paused between two steps (what was done is saved, they'll continue from there on the next run).";
+                            rs_log.Info(message);
+                            Console.WriteLine(message);
+                            break;
+                        }
+                        if (webOutput.IsForceClose && !isAllDone)
+                        {
+                            var nbRunning = scenes.Count(s => s.Thread.IsAlive);
+                            var message = $"Force close: {nbRunning} scene(s) were still running (what they were doing is lost, the programs they started, ex. ffmpeg, can still be running).";
+                            rs_log.Warn(message);
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine(message);
+                            Console.ResetColor();
+                            break;
+                        }
+                        if (webOutput.IsClosing && isAllDone)
+                            break;
+
+                        webOutput.WaitForRequest(TimeSpan.FromMilliseconds(500));
                     }
                 }
 
-                context.ForgetCurrentFile();
-
-                // Write final report
-                WriteFinalReport(context);
-                if (webOutput != null)
+                if (webOutput == null)
                 {
-                    // Also on the console (the web page already has it, in the 'General' task).
-                    var consoleContext = CreateContext(new ConsoleUserOutput());
-                    consoleContext.Errors.AddRange(context.Errors);
-                    consoleContext.UserTodoList.AddRange(context.UserTodoList);
-                    WriteFinalReport(consoleContext);
-
-                    webOutput.MarkFinished();
-                    Console.WriteLine($"All done. The progress UI is still available on {webServer.Url}");
-                    Console.WriteLine("Click on 'Close FunscriptToolbox' in the page, or press ENTER here, to exit.");
-                    webServer.WaitForExitRequest();
+                    context.ForgetCurrentFile();
+                    WriteFinalReport(context);
                 }
                 return base.NbErrors;
             }
@@ -329,10 +601,134 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
+        /// <summary>A scene of the web UI mode: it can be started again by a 'Rescan' (when blocked).</summary>
+        private class WebUiScene
+        {
+            public int Ordinal;
+            public VideoSequence Sequence;
+            public SubtitleGeneratorContext Context;
+            public ITaskNode Node;
+            public Thread Thread;
+        }
+
+        /// <summary>
+        /// The scenes to process, with their merged configuration (creating the .vseq files, if needed).
+        /// If all the workers of a scene are disabled, there is nothing to do for it: it's not in the list
+        /// (the .wipsubtitles is not loaded and the scene is not added to the UI).
+        /// </summary>
+        private List<(VideoSequence Sequence, SubtitleGeneratorConfig Config)> ListVideoSequences()
+        {
+            return ToVideoSequences(
+                r_options.AutoVseq,
+                r_options
+                .Input
+                .SelectMany(file => HandleStarAndRecusivity(
+                    file,
+                    r_options.Recursive,
+                    WorkInProgressSubtitles.BACKUP_FOLDER_SUFFIX))
+                .Where(file => !file.EndsWith(".FAST.mp4", StringComparison.OrdinalIgnoreCase))
+                .Distinct()
+                .OrderBy(f => f))
+                .OrderBy(vs => vs.ContainerFullPath)
+                .Select(vs => (Sequence: vs, Config: TryLoadConfig(vs)))
+                .Where(item => item.Config == null || item.Config.Workers?.Any(w => w.Enabled) == true)
+                .ToList();
+        }
+
         private static string GetDisplayName(VideoSequence videoSequence)
         {
             var wipsubFullpath = Path.ChangeExtension(videoSequence.ContainerFullPath, WorkInProgressSubtitles.Extension);
             return PathExtension.GetRelativePath(Environment.CurrentDirectory, Path.ChangeExtension(Path.GetFullPath(wipsubFullpath), null))?.ToString();
+        }
+
+        // A display name template: "[...]" = optional part, "{Name}" = a metadata.
+        private static readonly Regex rs_displayNameTemplateRegex = new Regex(@"\[(?<optional>[^\[\]]*)\]|\{(?<name>[^{}]+)\}", RegexOptions.Compiled);
+        private static readonly Regex rs_displayNameMetadataRegex = new Regex(@"\{(?<name>[^{}]+)\}", RegexOptions.Compiled);
+
+        /// <summary>
+        /// The short name and the metadata of a scene, from 'Global.SceneMetadata' / 'Global.SceneDisplayName' of its merged configuration.
+        /// - Not configured, or no pattern matches the path of this scene: the file name.
+        /// - A pattern matches, but a metadata used by the display name is missing (or a pattern is invalid): the file name, with an error.
+        /// The patterns are applied to the path relative to the folder of the main configuration file (the root of the override files),
+        /// ex. "03-REDO\3DSVR-1072\3DSVR-1072- - ....vseq".
+        /// </summary>
+        private RootNodeInfo BuildRootNodeInfo(VideoSequence videoSequence, SubtitleGeneratorConfig config)
+        {
+            var fullPath = Path.GetFullPath(videoSequence.ContainerFullPath);
+            var configFolder = Path.GetDirectoryName(Path.GetFullPath(r_options.ConfigPath));
+            var relativePath = Path.GetRelativePath(configFolder, fullPath);
+            var fileName = Path.GetFileNameWithoutExtension(fullPath);
+            var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["FileName"] = fileName };
+            var info = new RootNodeInfo { ShortName = fileName, Metadata = metadata };
+
+            var global = config?.Global;
+            var anyPatternMatched = false;
+            var foundByPattern = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pattern in global?.SceneMetadata ?? Array.Empty<string>())
+            {
+                Regex regex;
+                try
+                {
+                    regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                }
+                catch (ArgumentException ex)
+                {
+                    info.ConfigError = $"Invalid regular expression in 'Global.SceneMetadata': '{pattern}' ({ex.Message}).";
+                    return info;
+                }
+
+                var match = regex.Match(relativePath);
+                if (!match.Success)
+                    continue;
+
+                anyPatternMatched = true;
+                foreach (var groupName in regex.GetGroupNames().Where(name => !int.TryParse(name, out _)))
+                {
+                    // The first pattern that finds a metadata wins: the next ones are fallbacks (ex. "ABC-123", else "ABC123").
+                    var group = match.Groups[groupName];
+                    if (group.Success && !foundByPattern.Contains(groupName))
+                    {
+                        metadata[groupName] = group.Value;
+                        foundByPattern.Add(groupName);
+                    }
+                }
+            }
+
+            if (global?.SceneDisplayName != null && (anyPatternMatched || global.SceneMetadata == null || global.SceneMetadata.Length == 0))
+            {
+                // "{Name}": required. "[...]": optional part, removed when a metadata used inside is not found (ex. "{ShortName}[ ({Type})]").
+                var missing = new List<string>();
+                string Expand(string text, List<string> missingNames) => rs_displayNameMetadataRegex.Replace(text, m =>
+                {
+                    var name = m.Groups["name"].Value;
+                    if (metadata.TryGetValue(name, out var value))
+                        return value;
+                    missingNames.Add(name);
+                    return m.Value;
+                });
+                var displayName = rs_displayNameTemplateRegex.Replace(global.SceneDisplayName, m =>
+                {
+                    if (m.Groups["optional"].Success)
+                    {
+                        var missingInOptional = new List<string>();
+                        var expanded = Expand(m.Groups["optional"].Value, missingInOptional);
+                        return missingInOptional.Count == 0 ? expanded : string.Empty;
+                    }
+                    return Expand(m.Value, missing);
+                }).Trim();
+
+                if (missing.Count > 0)
+                {
+                    info.ConfigError = $"'Global.SceneDisplayName' ('{global.SceneDisplayName}') uses {string.Join(", ", missing.Select(name => $"'{name}'"))}, "
+                        + "not found in the path of some scenes (see 'Global.SceneMetadata'). Their file name is shown instead.";
+                }
+                else
+                {
+                    info.ShortName = displayName;
+                }
+            }
+
+            return info;
         }
 
         /// <summary>
@@ -395,6 +791,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     foreach (var worker in context.Config.Workers)
                     {
+                        // (safe point between two workers: when the application is closing, the next worker is not started)
+                        if (worker.Enabled)
+                            context.PauseIfClosing();
                         worker.Execute(context);
                     }
                 }

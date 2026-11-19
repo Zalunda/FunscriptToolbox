@@ -39,9 +39,9 @@ namespace FunscriptToolbox.Progress
             }
         }
 
-        internal bool IsActive => State == TaskState.Running || State == TaskState.WaitingForLock || State == TaskState.WaitingForUser;
+        internal bool IsActive => State.IsActive();
 
-        private bool IsTerminal => State == TaskState.Succeeded || State == TaskState.Failed || State == TaskState.Cancelled || State == TaskState.Skipped;
+        private bool IsTerminal => State.IsTerminal();
 
         public ITaskNode AddPendingChild(string kind, string name, bool isBackground = false)
             => new ConsoleTaskNode(r_owner, this, kind, name, isBackground);
@@ -67,7 +67,7 @@ namespace FunscriptToolbox.Progress
             lock (r_owner.Gate)
             {
                 if (IsTerminal) return;
-                if (state == TaskState.Succeeded || state == TaskState.Skipped || state == TaskState.Failed || state == TaskState.Cancelled)
+                if (state.IsTerminal())
                 {
                     Finish(state);
                 }
@@ -119,6 +119,9 @@ namespace FunscriptToolbox.Progress
         public bool ConsumeCancelRequest() => false;
 
         public void Fail(string message) => SetState(TaskState.Failed, message);
+
+        // (only used by the web UI)
+        public void MarkAsRefreshOnly() { }
 
         private void Finish(TaskState finalState)
         {

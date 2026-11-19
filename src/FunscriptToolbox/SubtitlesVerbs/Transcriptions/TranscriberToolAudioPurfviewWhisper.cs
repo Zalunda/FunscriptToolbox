@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Core;
+using FunscriptToolbox.Progress;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;
@@ -16,6 +17,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     public class TranscriberToolAudioPurfviewWhisper : TranscriberToolAudio
     {
         private object r_lock = new object();
+
+        // Ex. "  2% |  126/5384 | 00:01<<01:17 | 68.03 audio seconds/s"
+        private static readonly Regex rs_progressRegex = new Regex(
+            @"^\s*(?<Percent>\d+)%\s*\|\s*(?<Done>\d+)/(?<Total>\d+)\s*\|\s*(?<Elapsed>[\d:]+)<<(?<Remaining>[\d:]+)\s*\|\s*(?<Speed>.*?)\s*$",
+            RegexOptions.Compiled);
 
         private const string ToolName = "PurfviewWhisper";
 
@@ -82,7 +88,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             var audioId = (audios.Length == 1) ? "all" : indexAudio++.ToString("D5");
                             var tempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_{audioId}.wav", processStartTime);
                             tempFiles.Add(tempFile);
-                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, tempFile);
+                            // (the step counts the files: no ffmpeg % on it)
+                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(audio, tempFile, showProgress: false);
                             totalDuration += audio.Duration;
                             convertNode.IncrementProgress();
                         }
@@ -117,6 +124,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     errorMessageIfJsonMissing.AppendLine();
                     errorMessageIfJsonMissing.AppendLine("Output:");
                     int currentFileIndex = 0;
+                    ITaskNode runNode = null; // (the task of the tool: the output is received on another thread)
                     void dataHandler(object s, DataReceivedEventArgs e)
                     {
                         logs.AppendLine(e.Data);
@@ -126,6 +134,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         if (match.Success)
                         {
                             currentFileIndex = int.Parse(match.Groups["Index"].Value) + 1;
+                        }
+
+                        // Progress lines of the tool, ex. "  2% |  126/5384 | 00:01<<01:17 | 68.03 audio seconds/s" (seconds of audio done / total)
+                        var progressMatch = rs_progressRegex.Match(e.Data ?? string.Empty);
+                        if (progressMatch.Success && runNode != null)
+                        {
+                            runNode.SetProgress(int.Parse(progressMatch.Groups["Percent"].Value), 100, "%");
+                            runNode.SetStatus(
+                                (audios.Length > 1 ? $"file {currentFileIndex}/{audios.Length}, " : string.Empty)
+                                + $"{progressMatch.Groups["Done"].Value}/{progressMatch.Groups["Total"].Value} s of audio, "
+                                + $"{progressMatch.Groups["Remaining"].Value} left, {progressMatch.Groups["Speed"].Value}");
+                            if (!context.Output.IsWebUi)
+                            {
+                                context.DefaultProgressUpdateHandler(ToolName, audios.Length == 1 ? "all" : $"{currentFileIndex}/{audios.Length}", e.Data);
+                            }
+                            return;
                         }
 
                         context.DefaultProgressUpdateHandler(
@@ -138,8 +162,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     process.ErrorDataReceived += dataHandler;
                     process.OutputDataReceived += dataHandler;
                     // (the output of the tool is shown as the status of this step)
-                    context.RunStep($"Run {ToolName}", _ =>
+                    context.RunStep($"Run {ToolName}", node =>
                     {
+                        runNode = node;
                         process.Start();
                         process.BeginErrorReadLine();
                         process.BeginOutputReadLine();

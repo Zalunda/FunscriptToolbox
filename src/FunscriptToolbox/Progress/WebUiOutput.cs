@@ -41,20 +41,230 @@ namespace FunscriptToolbox.Progress
         internal long Version => Interlocked.Read(ref m_version);
         internal void Touch() => Interlocked.Increment(ref m_version);
 
-        public void MarkFinished()
+        /// <summary>True when all the scenes are done (false again when a 'Rescan' starts something).</summary>
+        public void SetFinished(bool isFinished)
         {
             lock (this.Gate)
             {
-                this.IsFinished = true;
+                this.IsFinished = isFinished;
                 Touch();
             }
         }
 
-        public ITaskNode CreateRootNode(string kind, string name)
+        // ---- 'Rescan' (asked from the page, done by the main thread) ----
+
+        private readonly ManualResetEventSlim r_requestReceived = new ManualResetEventSlim(false);
+        private int m_rescanRequested;
+
+        internal void RequestRescan()
+        {
+            if (IsClosing)
+                return; // (closing: nothing new is started)
+            Interlocked.Exchange(ref m_rescanRequested, 1);
+            // (shown right away in the page: the scan of the disk can take a few seconds)
+            SetRescanState(isRescanning: true, result: null);
+            r_requestReceived.Set();
+        }
+
+        // ---- What went wrong / what's next, by scene (for the 2 buttons of the page) ----
+
+        private object[] m_sceneReports = Array.Empty<object>();
+
+        /// <summary>The errors and the 'to do' of each scene (only the scenes that have some), for the 'What went wrong' / 'What's next' views.</summary>
+        public void SetSceneReports(IEnumerable<(ITaskNode Node, string[] Errors, string[] Todos)> reports)
+        {
+            var list = reports
+                .Where(r => r.Errors.Length > 0 || r.Todos.Length > 0)
+                .Select(r => (object)new { sceneId = (r.Node as UiNode)?.Id, errors = r.Errors, todos = r.Todos })
+                .ToArray();
+            var changed = JsonConvertForCompare(list) != JsonConvertForCompare(m_sceneReports);
+            lock (this.Gate)
+            {
+                m_sceneReports = list;
+                if (changed) Touch();
+            }
+        }
+
+        private static string JsonConvertForCompare(object value) => Newtonsoft.Json.JsonConvert.SerializeObject(value);
+
+        /// <summary>True from the click on 'Rescan' until the scenes on disk are listed again (and the new / blocked ones started).</summary>
+        public bool IsRescanning { get; private set; }
+
+        /// <summary>What the last 'Rescan' did (ex. "2 new scene(s) started, 1 blocked scene(s) checked again"), shown for a moment in the page.</summary>
+        public string LastRescanResult { get; private set; }
+        private long m_lastRescanResultMs;
+
+        public void SetRescanState(bool isRescanning, string result)
         {
             lock (this.Gate)
             {
-                var node = new UiNode(this, null, kind, name);
+                IsRescanning = isRescanning;
+                if (result != null)
+                {
+                    LastRescanResult = result;
+                    m_lastRescanResultMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                }
+                Touch();
+            }
+        }
+
+        /// <summary>Wakes up the main thread waiting in <see cref="WaitForRequest"/> (ex. 'Close' was clicked).</summary>
+        internal void RequestWakeUp() => r_requestReceived.Set();
+
+        // ---- 'Close' ----
+
+        /// <summary>
+        /// 'Closing' mode: the application closes when the running scenes are finished, and nothing new is started
+        /// meanwhile ('Rescan' and 'Retry' are refused). The user can leave this mode ('Don't close').
+        /// </summary>
+        public bool IsClosing { get; private set; }
+
+        /// <summary>The user confirmed to close right away, even if some scenes are still running.</summary>
+        public bool IsForceClose { get; private set; }
+
+        /// <summary>
+        /// --runasserver: the page has no 'Close' button (its close requests are refused), only 'Pause all' / 'Resume all'.
+        /// </summary>
+        public bool IsServer { get; set; }
+
+        /// <summary>False as a server: the page can't close the application.</summary>
+        public bool AllowCloseFromPage => !IsServer;
+
+        /// <summary>'Pause all' (server): the scenes pause at their next safe point, until 'Resume all'. The application stays open.</summary>
+        public bool IsPausedAll { get; private set; }
+
+        internal void SetPausedAll(bool isPaused)
+        {
+            lock (this.Gate)
+            {
+                IsPausedAll = isPaused;
+                Touch();
+            }
+        }
+
+        public string PauseAtSafePointReason =>
+            IsClosing ? "paused: the application closes when the running steps are finished"
+            : IsPausedAll ? "paused: 'Pause all' (click on 'Resume all' to continue)"
+            : null;
+
+        internal void RequestClose(bool force)
+        {
+            lock (this.Gate)
+            {
+                IsClosing = true;
+                IsForceClose |= force;
+                Touch();
+            }
+            r_requestReceived.Set();
+        }
+
+        private int m_nbPausedForClose;
+
+        /// <summary>How many scenes are paused at a safe point, waiting for the application to close.</summary>
+        public int NbPausedForClose => Volatile.Read(ref m_nbPausedForClose);
+
+        public IDisposable EnterPauseForClose()
+        {
+            Interlocked.Increment(ref m_nbPausedForClose);
+            Touch();
+            r_requestReceived.Set(); // (the main thread checks if all the scenes are paused)
+            return new PauseReleaser(this);
+        }
+
+        private sealed class PauseReleaser : IDisposable
+        {
+            private WebUiOutput m_owner;
+            public PauseReleaser(WebUiOutput owner) { m_owner = owner; }
+            public void Dispose()
+            {
+                var owner = Interlocked.Exchange(ref m_owner, null);
+                if (owner != null)
+                {
+                    Interlocked.Decrement(ref owner.m_nbPausedForClose);
+                    owner.Touch();
+                }
+            }
+        }
+
+        /// <summary>Leaves the 'closing' mode (not possible after a force close).</summary>
+        internal void CancelClose()
+        {
+            lock (this.Gate)
+            {
+                if (!IsForceClose) IsClosing = false;
+                Touch();
+            }
+        }
+
+        /// <summary>True once for each 'Rescan' asked by the user.</summary>
+        public bool ConsumeRescanRequest() => Interlocked.Exchange(ref m_rescanRequested, 0) == 1;
+
+        // ---- 'Retry' of one scene (asked from the page, done by the main thread) ----
+
+        private readonly System.Collections.Concurrent.ConcurrentQueue<int> r_retryRequests = new System.Collections.Concurrent.ConcurrentQueue<int>();
+
+        internal bool RequestRetry(int rootNodeId)
+        {
+            lock (this.Gate)
+            {
+                if (IsClosing)
+                    return false; // (closing: nothing new is started)
+                if (!m_nodesById.TryGetValue(rootNodeId, out var node) || node.Parent != null || !m_roots.Contains(node))
+                    return false;
+            }
+            r_retryRequests.Enqueue(rootNodeId);
+            r_requestReceived.Set();
+            return true;
+        }
+
+        /// <summary>The id of the first-level node (scene) that the user asked to start again, or null.</summary>
+        public int? ConsumeRetryRequest() => r_retryRequests.TryDequeue(out var id) ? id : (int?)null;
+
+        /// <summary>The id of a node in the page (null: not a node of the web UI).</summary>
+        public int? GetNodeId(ITaskNode node) => (node as UiNode)?.Id;
+
+        /// <summary>Waits for a request from the page (ex. 'Rescan'), at most for the given time.</summary>
+        public void WaitForRequest(TimeSpan timeout)
+        {
+            if (r_requestReceived.Wait(timeout))
+            {
+                r_requestReceived.Reset();
+            }
+        }
+
+        /// <summary>
+        /// Replaces a first-level node that is finished by a new one, at the same place in the list (ex. a blocked scene
+        /// started again by a 'Rescan'). The old node and all its sub-tasks are forgotten.
+        /// </summary>
+        public ITaskNode ReplaceRootNode(ITaskNode oldNode, string kind, string name, RootNodeInfo info = null)
+        {
+            lock (this.Gate)
+            {
+                var old = oldNode as UiNode;
+                var index = old != null ? m_roots.IndexOf(old) : -1;
+                if (old != null)
+                {
+                    foreach (var forgotten in old.GetSelfAndDescendants())
+                    {
+                        m_nodesById.Remove(forgotten.Id);
+                    }
+                }
+
+                var node = new UiNode(this, null, kind, name) { Info = info };
+                if (index >= 0)
+                    m_roots[index] = node;
+                else
+                    m_roots.Add(node);
+                Touch();
+                return node;
+            }
+        }
+
+        public ITaskNode CreateRootNode(string kind, string name, RootNodeInfo info = null)
+        {
+            lock (this.Gate)
+            {
+                var node = new UiNode(this, null, kind, name) { Info = info };
                 m_roots.Add(node);
                 return node;
             }
@@ -88,24 +298,19 @@ namespace FunscriptToolbox.Progress
 
         public void WriteError(string message)
         {
+            // (only in the page: 'What went wrong'. They are also in the log file. The console only gets a summary at the end)
             CurrentNode.AddLogLine(message, ConsoleColor.Red, isError: true);
-            // Also on the console, so errors are not lost if the page is not open.
-            lock (this.Gate)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine(message);
-                Console.ResetColor();
-            }
         }
 
+        // The text streamed by the AIs goes in the log of the task (as lines, the last one can be incomplete).
         public void WriteStream(string text)
         {
-            if (!string.IsNullOrEmpty(text)) CurrentNode.AppendDetail("Live output", text);
+            if (!string.IsNullOrEmpty(text)) CurrentNode.AppendStream(text);
         }
 
         public void WriteStreamLine(string text)
         {
-            CurrentNode.AppendDetail("Live output", (text ?? string.Empty) + "\n");
+            CurrentNode.AppendStream((text ?? string.Empty) + "\n");
         }
 
         public bool PollStopRequest() => CurrentNode.ConsumeCancelRequest();
@@ -172,6 +377,18 @@ namespace FunscriptToolbox.Progress
                     version = Version,
                     nowMs,
                     finished = IsFinished,
+                    closing = IsClosing,
+                    canClose = AllowCloseFromPage,
+                    server = IsServer,
+                    pausedAll = IsPausedAll,
+                    rescanning = IsRescanning,
+                    sceneReports = m_sceneReports,
+                    // The errors that are not about a scene (ex. a configuration problem), shown in 'What went wrong'
+                    generalErrors = m_general.GetErrorLines(),
+                    lastRescan = LastRescanResult == null ? null : new { text = LastRescanResult, ms = m_lastRescanResultMs },
+                    pausedForClose = NbPausedForClose,
+                    // (the scenes in their order of the list: a scene started again keeps its place)
+                    rootOrder = m_roots.Select(r => r.Id).ToArray(),
                     nodes = m_nodesById.Values.OrderBy(n => n.Id).Select(n => n.ToSnapshot()).ToArray(),
                     prompts = m_prompts.Select(p => new
                     {
@@ -183,11 +400,19 @@ namespace FunscriptToolbox.Progress
                         editableText = p.Prompt.EditableText,
                         choices = p.Prompt.Choices
                     }).ToArray(),
-                    locks = this.Locks.All.Select(l => new
+                    locks = this.Locks.All.Select(l =>
                     {
-                        name = l.Name,
-                        holder = l.CurrentHolderDescription,
-                        waiting = l.WaitingDescriptions
+                        // (the lock state is copied under its own lock: no node is called while it is held)
+                        var (holders, waiters) = l.GetUsage();
+                        return new
+                        {
+                            name = l.Name,
+                            shortName = l.ShortName,
+                            description = l.Description,
+                            max = l.MaxConcurrent,
+                            holders = holders.Select(h => new { nodeId = (h.Node as UiNode)?.Id, description = h.Description }).ToArray(),
+                            waiters = waiters.Select(w => new { nodeId = (w.Node as UiNode)?.Id, description = w.Description }).ToArray()
+                        };
                     }).ToArray()
                 };
             }
@@ -219,7 +444,14 @@ namespace FunscriptToolbox.Progress
             public string Text;
             public string Color;
             public bool IsError;
+            /// <summary>Text streamed by an AI (its response, shown a bit lighter).</summary>
+            public bool IsStream;
         }
+
+        private const int MaxCombinedLogLines = 5000;
+
+        /// <summary>The kinds of tasks whose start / end are shown in the combined log of a parent task (the 'high level' view).</summary>
+        private static readonly HashSet<string> rs_kindsWithEvents = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Worker", "AI request", "Background" };
 
         private class DetailContent
         {
@@ -250,6 +482,8 @@ namespace FunscriptToolbox.Progress
             private int m_cancelConsumed;
             public int ErrorCount { get; private set; }
             public bool IsBackground { get; }
+            /// <summary>Only for the first-level nodes (videos): short name, metadata.</summary>
+            public RootNodeInfo Info { get; set; }
             private long m_progressDone;
             private long? m_progressTotal;
             private string m_progressUnit;
@@ -270,7 +504,7 @@ namespace FunscriptToolbox.Progress
                 }
             }
 
-            private bool IsTerminal => State == TaskState.Succeeded || State == TaskState.Failed || State == TaskState.Cancelled || State == TaskState.Skipped;
+            private bool IsTerminal => State.IsTerminal();
 
             public string GetPath() => Parent == null ? Name : $"{Parent.GetPath()} > {Name}";
 
@@ -302,7 +536,7 @@ namespace FunscriptToolbox.Progress
                 lock (r_owner.Gate)
                 {
                     if (IsTerminal) return;
-                    if (state == TaskState.Succeeded || state == TaskState.Skipped || state == TaskState.Failed || state == TaskState.Cancelled)
+                    if (state.IsTerminal())
                     {
                         if (StartedAt == null) StartedAt = DateTime.UtcNow;
                         Finish(state, reason);
@@ -345,16 +579,51 @@ namespace FunscriptToolbox.Progress
                 }
             }
 
+            private readonly StringBuilder r_streamPartial = new StringBuilder();
+            private long m_streamPartialTimeMs;
+
+            /// <summary>Streamed text: each complete line becomes a log line (the incomplete one is shown at the end of the log).</summary>
+            public void AppendStream(string text)
+            {
+                lock (r_owner.Gate)
+                {
+                    if (r_streamPartial.Length == 0) m_streamPartialTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    r_streamPartial.Append(text);
+                    var content = r_streamPartial.ToString();
+                    var lastNewLine = content.LastIndexOf('\n');
+                    if (lastNewLine >= 0)
+                    {
+                        foreach (var line in content.Substring(0, lastNewLine).Split('\n'))
+                        {
+                            AddLogLineInternal(line.TrimEnd('\r'), null, false, isStream: true);
+                        }
+                        r_streamPartial.Clear();
+                        r_streamPartial.Append(content.Substring(lastNewLine + 1));
+                        m_streamPartialTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    }
+                    r_owner.Touch();
+                }
+            }
+
             public void AddLogLine(string text, ConsoleColor? color = null, bool isError = false)
             {
                 lock (r_owner.Gate)
+                {
+                    AddLogLineInternal(text, color, isError, isStream: false);
+                }
+            }
+
+            private void AddLogLineInternal(string text, ConsoleColor? color, bool isError, bool isStream)
+            {
+                // Called with the gate held.
                 {
                     r_log.Add(new LogLine
                     {
                         TimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                         Text = text ?? string.Empty,
                         Color = color?.ToString(),
-                        IsError = isError
+                        IsError = isError,
+                        IsStream = isStream
                     });
                     if (r_log.Count > MaxLogLinesPerNode) r_log.RemoveRange(0, r_log.Count - MaxLogLinesPerNode);
                     if (isError)
@@ -445,6 +714,19 @@ namespace FunscriptToolbox.Progress
                 }
             }
 
+            /// <summary>See <see cref="ITaskNode.MarkAsRefreshOnly"/>.</summary>
+            public bool IsRefreshOnly { get; private set; }
+
+            public void MarkAsRefreshOnly()
+            {
+                lock (r_owner.Gate)
+                {
+                    IsRefreshOnly = true;
+                    Reason ??= "refresh only (CanBeUpdated)";
+                    r_owner.Touch();
+                }
+            }
+
             public void Fail(string message)
             {
                 lock (r_owner.Gate)
@@ -510,19 +792,96 @@ namespace FunscriptToolbox.Progress
                     background = IsBackground,
                     progressDone = (m_progressTotal != null || m_progressDone > 0) ? m_progressDone : (long?)null,
                     progressTotal = m_progressTotal,
-                    progressUnit = m_progressUnit
+                    progressUnit = m_progressUnit,
+                    refreshOnly = IsRefreshOnly,
+                    logLines = r_log.Count,
+                    shortName = Info?.ShortName,
+                    meta = Info?.Metadata,
+                    configError = Info?.ConfigError
                 };
             }
 
             public object ToDetail()
             {
+                // Called with the gate held.
+                // A task with sub-tasks: its log is combined with the log of all its sub-tasks (including the responses streamed by the AIs),
+                // with a line when an important sub-task starts / ends (worker, AI request, background task): a 'high level' view.
+                var lines = new List<(long t, long order, object line)>();
+                long order = 0;
+                foreach (var l in r_log)
+                {
+                    lines.Add((l.TimeMs, order++, new { t = l.TimeMs, text = l.Text, color = l.Color, error = l.IsError, stream = l.IsStream }));
+                }
+                if (r_streamPartial.Length > 0)
+                {
+                    lines.Add((m_streamPartialTimeMs, order++, new { t = m_streamPartialTimeMs, text = r_streamPartial.ToString(), stream = true }));
+                }
+                foreach (var descendant in GetDescendants())
+                {
+                    var task = descendant.GetPathFrom(this);
+                    foreach (var l in descendant.r_log)
+                    {
+                        lines.Add((l.TimeMs, order++, new { t = l.TimeMs, text = l.Text, color = l.Color, error = l.IsError, stream = l.IsStream, task }));
+                    }
+                    if (descendant.r_streamPartial.Length > 0)
+                    {
+                        // (the line of the response that is being received)
+                        lines.Add((descendant.m_streamPartialTimeMs, order++, new { t = descendant.m_streamPartialTimeMs, text = descendant.r_streamPartial.ToString(), stream = true, task }));
+                    }
+                    foreach (var ev in descendant.GetEvents())
+                    {
+                        lines.Add((ev.t, order++, new { t = ev.t, text = ev.text, ev = ev.kind, task }));
+                    }
+                }
+
                 return new
                 {
                     id = Id,
                     path = GetPath(),
-                    log = r_log.Select(l => new { t = l.TimeMs, text = l.Text, color = l.Color, error = l.IsError }).ToArray(),
+                    combined = r_children.Count > 0,
+                    log = lines.OrderBy(x => x.t).ThenBy(x => x.order).Select(x => x.line).TakeLast(MaxCombinedLogLines).ToArray(),
                     details = r_details.Select(d => new { name = d.Key, content = d.Value.Content.ToString(), truncated = d.Value.Truncated }).ToArray()
                 };
+            }
+
+            /// <summary>The error lines of the log of this task (called with the gate held).</summary>
+            internal string[] GetErrorLines() => r_log.Where(l => l.IsError).Select(l => l.Text).ToArray();
+
+            internal IEnumerable<UiNode> GetSelfAndDescendants() => new[] { this }.Concat(GetDescendants());
+
+            private IEnumerable<UiNode> GetDescendants()
+            {
+                foreach (var child in r_children)
+                {
+                    yield return child;
+                    foreach (var descendant in child.GetDescendants())
+                        yield return descendant;
+                }
+            }
+
+            private string GetPathFrom(UiNode ancestor) => Parent == null || Parent == ancestor ? Name : $"{Parent.GetPathFrom(ancestor)} > {Name}";
+
+            /// <summary>The start / end of this task, for the combined log of a parent (only the important tasks, and what went wrong).</summary>
+            private IEnumerable<(long t, string text, string kind)> GetEvents()
+            {
+                var important = rs_kindsWithEvents.Contains(Kind);
+                if (important && StartedAt != null && State != TaskState.Skipped && State != TaskState.Blocked)
+                {
+                    yield return (ToMs(StartedAt).Value, $"Started: {Name}", "start");
+                }
+                if (EndedAt == null)
+                    yield break;
+
+                var duration = StartedAt != null ? $" ({EndedAt.Value - StartedAt.Value:hh\\:mm\\:ss})" : string.Empty;
+                var reason = string.IsNullOrEmpty(Reason) ? string.Empty : $": {Reason}";
+                switch (State)
+                {
+                    case TaskState.Failed: yield return (ToMs(EndedAt).Value, $"Failed: {Name}{reason}", "fail"); break;
+                    case TaskState.Cancelled: yield return (ToMs(EndedAt).Value, $"Stopped: {Name}{reason}", "stop"); break;
+                    case TaskState.Blocked: yield return (ToMs(EndedAt).Value, $"Blocked: {Name}{reason}", "block"); break;
+                    case TaskState.Succeeded when important: yield return (ToMs(EndedAt).Value, $"Finished: {Name}{duration}", "ok"); break;
+                    case TaskState.Skipped when important && Kind == "Worker": yield return (ToMs(EndedAt).Value, $"Skipped: {Name}{reason}", "skip"); break;
+                }
             }
         }
     }

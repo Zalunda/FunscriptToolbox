@@ -27,63 +27,137 @@ namespace FunscriptToolbox.Progress
 
         private readonly WebUiOutput r_output;
         private readonly HttpListener r_listener = new HttpListener();
-        private readonly ManualResetEventSlim r_exitRequested = new ManualResetEventSlim(false);
         private Thread m_thread;
 
         public int Port { get; }
+
+        /// <summary>'localhost' (only this machine), '*' (all the network interfaces), or a name / address of this machine.</summary>
+        public string Host { get; }
+
+        /// <summary>The address to open the page on this machine.</summary>
         public string Url => $"http://localhost:{Port}/";
 
-        public WebUiServer(WebUiOutput output, int port)
+        /// <summary>What the server listens to (ex. "http://*:5055/").</summary>
+        public string ListenUrl => $"http://{Host}:{Port}/";
+
+        /// <summary>True when the page can be opened from another machine.</summary>
+        public bool IsReachableFromNetwork => !string.Equals(Host, "localhost", StringComparison.OrdinalIgnoreCase) && Host != "127.0.0.1";
+
+        public WebUiServer(WebUiOutput output, int port, string host = null)
         {
             if (port < 1 || port > 65535)
                 throw new ArgumentException($"Invalid port '{port}' for --ui (must be between 1 and 65535).");
+            if (host != null && (host.Length == 0 || host.IndexOfAny(new[] { '/', ':', ' ' }) >= 0))
+                throw new ArgumentException($"Invalid host '{host}' for --runasserver (ex. 'localhost:5055', '*:5055', a name or an address of this machine).");
 
             r_output = output;
             Port = port;
+            Host = host ?? "localhost";
         }
 
         public void Start()
         {
-            r_listener.Prefixes.Add(Url);
+            r_listener.Prefixes.Add(ListenUrl);
             try
             {
                 r_listener.Start();
             }
+            catch (HttpListenerException ex) when (ex.ErrorCode == 5 && IsReachableFromNetwork)
+            {
+                // Access denied: on Windows, listening on the network needs an URL reservation (once, as administrator)
+                throw new Exception(
+                    $"Can't start the web UI on '{ListenUrl}': access denied. To allow it, run this once in a command prompt opened as administrator:\n"
+                    + $"    netsh http add urlacl url={ListenUrl} user=\"{Environment.UserDomainName}\\{Environment.UserName}\"\n"
+                    + $"(and allow the port {Port} in the firewall, for the other machines)", ex);
+            }
             catch (HttpListenerException ex)
             {
-                throw new Exception($"Can't start the web UI on '{Url}' (is the port already used?): {ex.Message}", ex);
+                throw new Exception($"Can't start the web UI on '{ListenUrl}' (is the port already used?): {ex.Message}", ex);
             }
 
             m_thread = new Thread(Loop) { IsBackground = true, Name = "WebUiServer" };
             m_thread.Start();
         }
 
-        public void OpenBrowser()
+        public void OpenBrowser() => OpenBrowser(Url);
+
+        public static void OpenBrowser(string url)
         {
             try
             {
-                Process.Start(new ProcessStartInfo(Url) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Can't open the browser automatically ({ex.Message}). Open '{Url}' manually.");
+                Console.WriteLine($"Can't open the browser automatically ({ex.Message}). Open '{url}' manually.");
             }
         }
 
-        /// <summary>Blocks until the user clicks 'Close' in the page, or presses ENTER in the console.</summary>
-        public void WaitForExitRequest()
+        /// <summary>True when a FunscriptToolbox page answers on this address (ex. an instance already running in the background).</summary>
+        public static bool IsAnswering(string url)
         {
-            if (!Console.IsInputRedirected)
+            try
             {
-                var consoleTask = new Thread(() =>
-                {
-                    try { Console.ReadLine(); } catch { }
-                    r_exitRequested.Set();
-                })
-                { IsBackground = true };
-                consoleTask.Start();
+                using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+                using var response = client.GetAsync(url.TrimEnd('/') + "/api/state").GetAwaiter().GetResult();
+                return response.IsSuccessStatusCode;
             }
-            r_exitRequested.Wait();
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        // ---- Is the page open somewhere? ----
+
+        private int m_hasClient;
+
+        /// <summary>True once a page has asked for the state (i.e. the progress page is open in a browser).</summary>
+        public bool HasClient => Volatile.Read(ref m_hasClient) == 1;
+
+        /// <summary>
+        /// When nobody opens the page: a warning in the console after 15 seconds, then a red line after 30 seconds
+        /// (the browser is not opened automatically, unless --openbrowser).
+        /// </summary>
+        public void StartClientWatcher()
+        {
+            var watcher = new Thread(() =>
+            {
+                var steps = new (int delaySeconds, ConsoleColor color, string text)[]
+                {
+                    (15, ConsoleColor.Yellow, $"Nobody is looking at the progress page yet: open {Url} in your browser (or use --openbrowser)."),
+                    (15, ConsoleColor.Red, $"Still nobody on the progress page: open {Url} in your browser to follow the work, answer the prompts and close the application."),
+                };
+                foreach (var (delaySeconds, color, text) in steps)
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
+                    if (HasClient)
+                        return;
+                    Console.ForegroundColor = color;
+                    Console.WriteLine(text);
+                    Console.ResetColor();
+                }
+            })
+            { IsBackground = true, Name = "WebUiClientWatcher" };
+            watcher.Start();
+        }
+
+        private int m_consoleListenerStarted;
+
+        /// <summary>From now on, pressing ENTER in the console is like 'Close' in the page. Only one listener at a time.</summary>
+        public void StartConsoleExitListener()
+        {
+            if (Console.IsInputRedirected || Interlocked.Exchange(ref m_consoleListenerStarted, 1) == 1)
+                return;
+
+            var consoleTask = new Thread(() =>
+            {
+                try { Console.ReadLine(); } catch { }
+                Interlocked.Exchange(ref m_consoleListenerStarted, 0);
+                r_output.RequestClose(force: false);
+            })
+            { IsBackground = true };
+            consoleTask.Start();
         }
 
         private void Loop()
@@ -118,6 +192,11 @@ namespace FunscriptToolbox.Progress
                 }
                 else if (method == "GET" && path == "/api/state")
                 {
+                    if (Interlocked.Exchange(ref m_hasClient, 1) == 0)
+                    {
+                        // (so it's clear why there is no warning: ex. a tab of a previous run reconnected by itself)
+                        Console.WriteLine($"The progress page is open in a browser ({Url}).");
+                    }
                     WriteJson(context, r_output.CreateSnapshot());
                 }
                 else if (method == "GET" && path.StartsWith("/api/node/"))
@@ -142,10 +221,37 @@ namespace FunscriptToolbox.Progress
                         && r_output.AnswerPrompt(promptId, (string)json["choice"], (string)json["text"]);
                     WriteResponse(context, ok ? 200 : 404, "text/plain", ok ? "OK" : "Unknown prompt.");
                 }
+                else if (method == "POST" && path.StartsWith("/api/exit") && !r_output.AllowCloseFromPage)
+                {
+                    // --runasserver: the page can't close the application
+                    WriteResponse(context, 403, "text/plain", "Closing from the page is disabled (--runasserver).");
+                }
+                else if (method == "POST" && (path == "/api/pause" || path == "/api/resume"))
+                {
+                    // 'Pause all' / 'Resume all' (server): the scenes pause at their next safe point, the application stays open
+                    r_output.SetPausedAll(path == "/api/pause");
+                    WriteResponse(context, 200, "text/plain", "OK");
+                }
                 else if (method == "POST" && path == "/api/exit")
                 {
+                    // Closes when the running scenes are finished ('closing' mode). ?force=1: closes right away, even if scenes are running.
                     WriteResponse(context, 200, "text/plain", "OK");
-                    r_exitRequested.Set();
+                    r_output.RequestClose(force: context.Request.QueryString["force"] == "1");
+                }
+                else if (method == "POST" && path == "/api/exit/cancel")
+                {
+                    r_output.CancelClose();
+                    WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && path == "/api/rescan")
+                {
+                    r_output.RequestRescan();
+                    WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && path.StartsWith("/api/retry/"))
+                {
+                    var ok = int.TryParse(path.Substring("/api/retry/".Length), out var nodeId) && r_output.RequestRetry(nodeId);
+                    WriteResponse(context, ok ? 200 : 404, "text/plain", ok ? "OK" : "Unknown scene.");
                 }
                 else
                 {

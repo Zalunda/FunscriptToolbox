@@ -33,8 +33,9 @@ namespace FunscriptToolbox.Progress
 
         public bool IsWebUi => false;
 
-        public ITaskNode CreateRootNode(string kind, string name)
+        public ITaskNode CreateRootNode(string kind, string name, RootNodeInfo info = null)
         {
+            // (the console shows the full name: the short name is for the web UI)
             lock (r_lock)
             {
                 var node = new ConsoleTaskNode(this, null, kind, name, isBackground: false);
@@ -185,6 +186,10 @@ namespace FunscriptToolbox.Progress
         {
             throw new NotSupportedException("Prompts are only supported by the web UI.");
         }
+
+        // (the console closes with Ctrl+C: no 'closing' mode, no 'Pause all')
+        public string PauseAtSafePointReason => null;
+        public IDisposable EnterPauseForClose() => null;
 
         // ---- The progress line of the tasks ----
 

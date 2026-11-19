@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
@@ -102,6 +103,46 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             var toolActionString = toolAction == null ? string.Empty : $"[{toolAction}]";
             WriteInfo($"    [{toolName}]{toolActionString} {message}", isProgress: false);
+        }
+
+        /// <summary>
+        /// A safe point (between two steps: what was received is already saved, no lock is held): when the application is closing,
+        /// the scene pauses here, until the application closes, or until the user cancels the close (then it continues normally).
+        /// </summary>
+        internal void PauseIfClosing()
+        {
+            var reason = this.Output.PauseAtSafePointReason;
+            if (reason == null)
+                return;
+
+            var node = TaskScope.Current;
+            node.SetState(TaskState.WaitingForLock, reason);
+            using (this.Output.EnterPauseForClose())
+            {
+                string currentReason;
+                while ((currentReason = this.Output.PauseAtSafePointReason) != null)
+                {
+                    // (ex. 'Pause all', then 'Close': the reason shown changes)
+                    if (currentReason != reason)
+                    {
+                        reason = currentReason;
+                        node.SetState(TaskState.WaitingForLock, reason);
+                    }
+                    Thread.Sleep(250);
+                }
+            }
+            node.SetState(TaskState.Running);
+        }
+
+        /// <summary>The workers that could not run yet (prerequisites not met). A blocked scene can be checked again ('Rescan' in the web UI).</summary>
+        public List<string> BlockedWorkers { get; } = new List<string>();
+
+        internal void AddBlockedWorker(string workerName)
+        {
+            lock (this.BlockedWorkers)
+            {
+                this.BlockedWorkers.Add(workerName);
+            }
         }
 
         internal void AddUserTodo(string message)

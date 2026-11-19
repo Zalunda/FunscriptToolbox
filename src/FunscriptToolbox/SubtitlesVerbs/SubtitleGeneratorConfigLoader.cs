@@ -52,36 +52,75 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// <param name="baseConfigPath">The full path to the main configuration file.</param>
         /// <param name="targetFileFullPath">The full path of the video/wipsub file being processed.</param>
         /// <returns>A fully resolved and merged SubtitleGeneratorConfig object.</returns>
-        public static SubtitleGeneratorConfig LoadHierarchically(string baseConfigPath, string targetFileFullPath)
+        // Helper function to read and parse a config file.
+        private static JObject ReadHybridJsonFile(string path)
         {
-            // Helper function to read and parse a config file.
-            static JObject ReadHybridJsonFile(string path)
+            var content = File.ReadAllText(path);
+            var adjustedContent = PreprocessHybridJsonFile(content);
+            // We'll define a local version of HandleJsonException for simplicity.
+            try
             {
-                var content = File.ReadAllText(path);
-                var adjustedContent = PreprocessHybridJsonFile(content);
-                // We'll define a local version of HandleJsonException for simplicity.
-                try
+                // Use JsonLoadSettings to enable line number tracking.
+                var settings = new JsonLoadSettings
                 {
-                    // Use JsonLoadSettings to enable line number tracking.
-                    var settings = new JsonLoadSettings
-                    {
-                        LineInfoHandling = LineInfoHandling.Load
-                    };
+                    LineInfoHandling = LineInfoHandling.Load
+                };
 
-                    // Use a JsonTextReader to apply the settings.
-                    using (var reader = new JsonTextReader(new StringReader(adjustedContent)))
-                    {
-                        return JObject.Load(reader, settings);
-                    }
-                }
-                catch (JsonException ex)
+                // Use a JsonTextReader to apply the settings.
+                using (var reader = new JsonTextReader(new StringReader(adjustedContent)))
                 {
-                    var adjustedFileName = path + ".as.json";
-                    File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + adjustedContent);
-                    throw new Exception($"Error parsing configuration file '{path}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
+                    return JObject.Load(reader, settings);
                 }
             }
+            catch (JsonException ex)
+            {
+                var adjustedFileName = path + ".as.json";
+                File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + adjustedContent);
+                throw new Exception($"Error parsing configuration file '{path}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
+            }
+        }
 
+        /// <summary>
+        /// The settings shared by all the scenes processed at the same time ('GlobalShared' section): only read from the main
+        /// configuration file and the '.override.config' in the same folder (one value for the whole run).
+        /// </summary>
+        public static SubtitleGeneratorGlobalSharedSettings LoadGlobalShared(string baseConfigPath)
+        {
+            var config = ReadHybridJsonFile(baseConfigPath);
+            var overrideConfigPath = Path.Combine(
+                Path.GetDirectoryName(Path.GetFullPath(baseConfigPath)),
+                Path.GetFileNameWithoutExtension(baseConfigPath) + ".override.config");
+            if (File.Exists(overrideConfigPath))
+            {
+                MergeConfigs(config, ReadHybridJsonFile(overrideConfigPath));
+            }
+
+            var section = config.Property(GlobalSharedSectionName, StringComparison.OrdinalIgnoreCase)?.Value;
+            try
+            {
+                return section?.ToObject<SubtitleGeneratorGlobalSharedSettings>(rs_serializer);
+            }
+            catch (JsonException ex)
+            {
+                throw new Exception($"Error in the '{GlobalSharedSectionName}' section of '{baseConfigPath}' (or its .override.config): {ex.Message}", ex);
+            }
+        }
+
+        private const string GlobalSharedSectionName = "GlobalShared";
+
+        /// <summary>A 'GlobalShared' section in a configuration file of a sub-folder can't be applied (one value for the whole run): error.</summary>
+        private static void EnsureNoGlobalShared(JObject config, string path)
+        {
+            if (config.Property(GlobalSharedSectionName, StringComparison.OrdinalIgnoreCase) != null)
+            {
+                throw new Exception(
+                    $"The '{GlobalSharedSectionName}' section is only read from the main configuration file (and the .override.config in the same folder), "
+                    + $"because it applies to all the scenes at the same time. Remove it from '{path}'.");
+            }
+        }
+
+        public static SubtitleGeneratorConfig LoadHierarchically(string baseConfigPath, string targetFileFullPath)
+        {
             // 1. Load the base configuration file.
             var finalConfig = ReadHybridJsonFile(baseConfigPath);
             var lastFullPath = baseConfigPath;
@@ -136,12 +175,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
                 }
 
+                // (the 'GlobalShared' section is only allowed in the folder of the main configuration)
+                var isMainFolder = string.Equals(Path.GetFullPath(dirPath).TrimEnd('\\'), baseConfigDir.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+
                 var rootConfigPath = Path.Combine(dirPath, rootConfigFileName);
                 if (File.Exists(rootConfigPath))
                 {
                     // Replace the config for the one we just found.
                     finalConfig = ReadHybridJsonFile(rootConfigPath);
                     lastFullPath = rootConfigPath;
+                    if (!isMainFolder) EnsureNoGlobalShared(finalConfig, rootConfigPath);
                 }
 
                 // Now, check for an override file in the same directory.
@@ -150,6 +193,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 if (File.Exists(overrideConfigPath))
                 {
                     var overrideConfig = ReadHybridJsonFile(overrideConfigPath);
+                    if (!isMainFolder) EnsureNoGlobalShared(overrideConfig, overrideConfigPath);
                     lastFullPath = overrideConfigPath;
                     MergeConfigs(finalConfig, overrideConfig);
                 }

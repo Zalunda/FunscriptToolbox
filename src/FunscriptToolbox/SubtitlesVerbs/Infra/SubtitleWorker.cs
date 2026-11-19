@@ -39,13 +39,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
                 context.WriteInfo();
-                node.SetState(TaskState.Skipped, $"can't be done yet: {reasonPrerequisites}");
+                node.SetState(TaskState.Blocked, reasonPrerequisites);
+                context.AddBlockedWorker(DisplayName);
                 return;
             }
 
             // --- Core Execution Logic ---
+            // Already finished: runs again only when something changed since the last run, or when the worker can be updated.
+            // In the second case, it's only a refresh (the UI doesn't count the scene as changed).
             string reasonNeedsToRun = null;
-            if (!IsFinished(context) || NeedsToRun(context, out reasonNeedsToRun))
+            var wasFinished = IsFinished(context);
+            var needsToRun = !wasFinished;
+            if (wasFinished)
+            {
+                if (HasChangedSinceLastRun(context, out reasonNeedsToRun))
+                {
+                    needsToRun = true;
+                }
+                else if (this.CanBeUpdated)
+                {
+                    needsToRun = true;
+                    reasonNeedsToRun = "worker is updatable";
+                    node.MarkAsRefreshOnly();
+                }
+            }
+
+            if (needsToRun)
             {
                 var added = reasonNeedsToRun != null ? $" ({reasonNeedsToRun})" : string.Empty;
                 context.WriteInfo($"{GetExecutionVerb()} '{GetId()}'...{added}");
@@ -104,14 +123,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         protected virtual void AfterWork(SubtitleGeneratorContext context, bool wasAlreadyFinished) 
         { 
         }
-        protected virtual bool NeedsToRun(SubtitleGeneratorContext context, out string reason)
+        /// <summary>
+        /// For a worker already finished: true when something it depends on changed since its last run (it must run again).
+        /// (a worker with 'CanBeUpdated' also runs again, but only as a refresh: see Execute)
+        /// </summary>
+        protected virtual bool HasChangedSinceLastRun(SubtitleGeneratorContext context, out string reason)
         {
-            if (this.CanBeUpdated)
-            {
-                reason = "worker is updatable";
-                return true;
-            }
-            reason = "worker is not updatable";
+            reason = null;
             return false;
         }
         protected virtual IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context) 

@@ -74,11 +74,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             {
                 IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(inputPath).GetAwaiter().GetResult();
                 IStream audioStream = mediaInfo.AudioStreams.FirstOrDefault();
-                FFmpeg.Conversions.New()
+                var conversion = FFmpeg.Conversions.New()
                     .AddStream(audioStream)
                     .SetOverwriteOutput(true)
                     .AddParameter($"-f s16le -acodec pcm_s16le -vn -ac 1 -ar {SamplingRate} {extractionParameters}")
-                    .SetOutput(tempPcmFile)
+                    .SetOutput(tempPcmFile);
+                // The input is the real video (its duration is known): the progress of ffmpeg is shown on the current task.
+                // (the node is taken now: the event is raised on another thread)
+                var node = TaskScope.Current;
+                conversion.OnProgress += (_, args) => node.SetProgress(args.Percent, 100, "%");
+                conversion
                     .Start()
                     .Wait();
                 return new PcmAudio(samplingRate, File.ReadAllBytes(tempPcmFile));
@@ -90,11 +95,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         }
 
         /// <param name="workload">Clip: a piece of audio cut from the PCM in memory (many, small). Audio: a whole audio.</param>
+        /// <param name="showProgress">Shows the progress of ffmpeg (%) on the current task (false when the task already counts something else, ex. files).</param>
         public void ConvertPcmAudioToOtherFormat(
             PcmAudio pcmAudio,
             string outputFilepath,
             string ffmpegParameters = null,
-            FfmpegWorkload workload = FfmpegWorkload.Audio)
+            FfmpegWorkload workload = FfmpegWorkload.Audio,
+            bool showProgress = true)
         {
             using var localLock = (workload == FfmpegWorkload.Clip ? r_locks.Clips : r_locks.Audio)
                 .Acquire(workload == FfmpegWorkload.Clip ? "ffmpeg: writing an audio clip" : "ffmpeg: converting audio");
@@ -105,10 +112,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 {
                     writer.Write(pcmAudio.Data, 0, pcmAudio.Data.Length);
                 }
-                FFmpeg.Conversions.New()
+                var conversion = FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
                     .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -vn -ar 16000 {ffmpegParameters}")
-                    .SetOutput(outputFilepath)
+                    .SetOutput(outputFilepath);
+                if (workload == FfmpegWorkload.Audio && showProgress)
+                {
+                    // (a clip is too short to show a progress)
+                    ShowProgressOnCurrentTask(conversion, pcmAudio.Duration);
+                }
+                conversion
                     .Start()
                     .Wait();
             }
@@ -131,10 +144,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 {
                     writer.Write(pcmAudio.Data, 0, pcmAudio.Data.Length);
                 }
-                FFmpeg.Conversions.New()
+                var conversion = FFmpeg.Conversions.New()
                     .SetOverwriteOutput(true)
                     .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmSourceFile}\" {ffmpegParameters} -f s16le -acodec pcm_s16le -vn -ar {pcmAudio.SamplingRate} -ac 1")
-                    .SetOutput(tempPcmDestinationFile)
+                    .SetOutput(tempPcmDestinationFile);
+                ShowProgressOnCurrentTask(conversion, pcmAudio.Duration);
+                conversion
                     .Start()
                     .Wait();
                 return new PcmAudio(pcmAudio.SamplingRate, File.ReadAllBytes(tempPcmDestinationFile));
@@ -145,6 +160,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 File.Delete(tempPcmSourceFile);
                 File.Delete(tempPcmDestinationFile);
             }
+        }
+
+        /// <summary>
+        /// The input is raw PCM: ffmpeg doesn't know its duration (no percent), but we do. The progress is computed from
+        /// the position reached by ffmpeg, and shown on the current task (taken now: the event is raised on another thread).
+        /// </summary>
+        private static void ShowProgressOnCurrentTask(IConversion conversion, TimeSpan inputDuration)
+        {
+            if (inputDuration <= TimeSpan.Zero)
+                return;
+
+            var node = TaskScope.Current;
+            conversion.OnProgress += (_, args) =>
+            {
+                var percent = Math.Max(0, Math.Min(100, (int)(100 * args.Duration.TotalSeconds / inputDuration.TotalSeconds)));
+                node.SetProgress(percent, 100, "%");
+            };
         }
 
         internal byte[] TakeScreenshotAsBytes(string videoPath, TimeSpan time, string extension = ".jpg", string filter = null)

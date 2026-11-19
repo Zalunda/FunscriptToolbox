@@ -7,88 +7,169 @@
 <style>
   :root {
     --bg: #f5f6f8; --panel: #ffffff; --text: #1d2330; --muted: #6a7384; --border: #d9dde5;
-    --accent: #2f6fed; --ok: #1f9d55; --warn: #c78a00; --err: #d23b3b; --wait: #8a5cf5; --skip: #98a0ae;
-    --row-hover: #eef2fb; --row-sel: #dfe9ff; --code-bg: #f0f2f6;
+    --accent: #2f6fed; --ok: #1f9d55; --warn: #c78a00; --err: #d23b3b; --wait: #8a5cf5; --skip: #98a0ae; --block: #d9822b;
+    --row-hover: #eef2fb; --row-sel: #dfe9ff; --code-bg: #f0f2f6; --chip-bg: #eef1f6;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #14171d; --panel: #1c2028; --text: #e4e8f0; --muted: #8c95a6; --border: #2c3240;
-      --accent: #6c9bff; --ok: #3cc47c; --warn: #e2b23a; --err: #ff6b6b; --wait: #b08cff; --skip: #6a7384;
-      --row-hover: #232936; --row-sel: #2a3550; --code-bg: #12151b;
+      --accent: #6c9bff; --ok: #3cc47c; --warn: #e2b23a; --err: #ff6b6b; --wait: #b08cff; --skip: #6a7384; --block: #f0a04b;
+      --row-hover: #232936; --row-sel: #2a3550; --code-bg: #12151b; --chip-bg: #252b37;
     }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body { background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
-  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--muted); }
-  .chip b { color: var(--text); }
-  .chip.tog { cursor: pointer; user-select: none; }
-  .chip.tog:hover { border-color: var(--accent); }
-  .chip.tog.off { opacity: .45; text-decoration: line-through; }
-  #running { padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--panel); max-height: 180px; overflow: auto; }
-  #running h2 { font-size: 12px; margin: 0 0 4px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-  .run { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; font-size: 13px; }
-  .run:hover { background: var(--row-hover); }
-  .run .rname { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-  .run .rjob { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
-  .run .rjob.WaitingForLock { color: var(--wait); }
-  .run .rjob.WaitingForUser { color: var(--warn); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---- Header: title, search, state filters, lock capacity ---- */
+  header { display: flex; flex-direction: column; gap: 6px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  header .hrow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
+  #search { width: 220px; font: inherit; font-size: 13px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  #count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap; }
+  .pill:hover { border-color: var(--accent); }
+  .pill b { color: var(--text); min-width: 1.2em; text-align: right; font-variant-numeric: tabular-nums; }
+  .pill.off { opacity: .4; }
+  .pill.zero b { color: var(--muted); }
+  .sd { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .sd.needs { background: var(--warn); } .sd.running { background: var(--accent); } .sd.waiting { background: var(--wait); }
+  .sd.blocked { background: var(--block); } .sd.stopped { background: var(--skip); } .sd.failed { background: var(--err); } .sd.finished { background: var(--ok); }
+  .sd.untouched { background: transparent; border: 1.5px solid var(--ok); }
   .spacer { flex: 1; }
+  .caps { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cap { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 6px; background: var(--chip-bg); font-size: 11px; color: var(--muted); white-space: nowrap; cursor: default; }
+  .cap .ln { font-weight: 600; color: var(--text); letter-spacing: .03em; }
+  .cap { --c: var(--accent); }
+  .cap .slots { display: inline-flex; align-items: center; gap: 2px; }
+  .cap .slots i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--muted); display: inline-block; }
+  .cap .slots i.on { background: var(--c); border-color: var(--c); }
+  .cap .slots i.big { width: 10px; height: 10px; }
+  .cap .slots i.big.on { border-color: var(--c); }
+  .cap.full { --c: var(--warn); background: color-mix(in srgb, var(--warn) 22%, transparent); }
+  .cap .q { color: var(--wait); font-weight: 600; }
+  .cap .capn { font-variant-numeric: tabular-nums; color: var(--text); }
   button { font: inherit; padding: 3px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   button.danger { color: var(--err); }
-  #locks { display: flex; gap: 8px 16px; flex-wrap: wrap; padding: 6px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--panel); }
-  #locks .lock b { color: var(--text); }
+  button.mini { padding: 0 7px; font-size: 11px; line-height: 16px; }
+  #finishedMsg { font-size: 12px; color: var(--muted); }
+  #closingBox, #serverBox { display: inline-flex; align-items: center; gap: 6px; }
+  .closing { padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
+    color: var(--warn); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .nbadge { background: var(--block); color: #fff; font-size: 10px; border-radius: 999px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+  /* 'What went wrong' / 'What's next' views */
+  #content .rs { margin: 10px 0 2px; font: 600 13px system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #content .rs:first-child { margin-top: 0; }
+  #content .scn { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  #content .ri { padding-left: 14px; }
+  #content .ri.err { color: var(--err); }
+  #content .ri.blk { color: var(--block); }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Prompts (JSON correction, pauses) ---- */
   #prompts { padding: 0 16px; }
-  .prompt { margin: 10px 0; padding: 12px; border: 2px solid var(--wait); border-radius: 8px; background: var(--panel); }
+  .prompt { margin: 10px 0; padding: 12px; border: 2px solid var(--warn); border-radius: 8px; background: var(--panel); }
   .prompt h3 { margin: 0 0 4px; font-size: 14px; }
   .prompt .path { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
   .prompt pre { white-space: pre-wrap; margin: 6px 0; }
-  .prompt textarea { width: 100%; height: 220px; font: 12px/1.4 Consolas, monospace; background: var(--code-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
   .prompt .editor { display: flex; height: 45vh; min-height: 220px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); overflow: hidden; }
   .prompt .editor .gutter { flex: 0 0 auto; margin: 0; padding: 6px 6px 6px 8px; overflow: hidden; text-align: right; font: 12px/1.4 Consolas, monospace; color: var(--muted); border-right: 1px solid var(--border); user-select: none; white-space: pre; }
   .prompt .editor .gutter .err { color: var(--err); font-weight: bold; }
-  .prompt .editor textarea { flex: 1 1 auto; height: 100%; border: 0; border-radius: 0; resize: none; white-space: pre; overflow: auto; outline: none; }
+  .prompt .editor textarea { flex: 1 1 auto; height: 100%; border: 0; border-radius: 0; resize: none; white-space: pre; overflow: auto; outline: none; padding: 6px; font: 12px/1.4 Consolas, monospace; background: var(--code-bg); color: var(--text); }
   .prompt .caretpos { color: var(--muted); font-size: 12px; margin-top: 4px; }
   .prompt .buttons { display: flex; gap: 8px; margin-top: 8px; }
-  main { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px 16px; }
-  #treePane { flex: 1 1 55%; min-width: 320px; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
-  #detailPane { flex: 1 1 45%; min-width: 300px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
-  @media (max-width: 900px) { main { flex-direction: column; } #treePane, #detailPane { flex: 1 1 50%; min-width: 0; } }
-  .row { display: flex; align-items: center; gap: 8px; padding: 4px 10px; cursor: pointer; border-bottom: 1px solid transparent; }
+
+  /* ---- Scene board (scenes grouped by state) ---- */
+  #board { flex: none; max-height: 48vh; overflow: auto; padding: 6px 16px 2px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  .sec { margin: 2px 0 6px; }
+  .sec > h2 { display: flex; align-items: center; gap: 6px; font-size: 11px; margin: 0 0 3px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .tile { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .tile:hover { border-color: var(--accent); background: var(--row-hover); }
+  .tile.sel { background: var(--row-sel); }
+  .tile .tn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .tile .tx { color: var(--muted); overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  .runs { display: flex; flex-direction: column; gap: 2px; }
+  .run { padding: 3px 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+  .run:hover { background: var(--row-hover); }
+  .run.sel { background: var(--row-sel); }
+  .run .rh { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .run .rh .tn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+  .run .rh .wk { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+  .tl { display: flex; align-items: center; gap: 6px; padding-left: 18px; font-size: 12px; min-width: 0; height: 20px; }
+  /* Reserved for one lock + one progress chip (the usual maximum): a 2nd lock (rare) makes it grow for that line only */
+  .tl .lead { display: inline-flex; align-items: center; gap: 4px; flex: none; min-width: 125px; }
+  .tl .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 60px; max-width: 50%; }
+  .tl.bgl .lbl { font-style: italic; color: var(--muted); }
+  .tl .st { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .tag { font-size: 10px; border-radius: 4px; padding: 0 4px; flex: none; border: 1px dashed var(--wait); color: var(--wait); }
+
+  /* Progress chip ("nodes 101/234"), lock pills */
+  .pg { position: relative; display: inline-flex; align-items: center; height: 16px; min-width: 64px; padding: 0 6px; border-radius: 4px; background: var(--chip-bg); font-size: 11px; color: var(--text); overflow: hidden; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pg > i { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--ok) 35%, transparent); }
+  .pg > span { position: relative; }
+  .pg .u { color: var(--muted); margin-left: 3px; }
+  .lk { display: inline-flex; align-items: center; gap: 2px; height: 16px; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: .03em; flex: none; white-space: nowrap; }
+  .lk.held { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+  .lk.wait { border: 1px dashed var(--wait); color: var(--wait); }
+  .badge { background: var(--err); color: #fff; font-size: 10px; border-radius: 999px; padding: 0 6px; flex: none; font-variant-numeric: tabular-nums; }
+  .cfgerr { color: var(--warn); font-weight: 700; flex: none; }
+  .el { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 44px; text-align: right; }
+
+  /* ---- Tree + details ---- */
+  main { flex: 1; min-height: 0; display: flex; gap: 0; padding: 4px 16px 10px; }
+  #treePane { flex: 1 1 40%; min-width: 300px; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+  #detailPane { flex: 1 1 60%; min-width: 320px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
+  @media (max-width: 900px) { main { flex-direction: column; gap: 12px; } #treePane, #detailPane { flex: 1 1 50% !important; min-width: 0; } }
+  .row { display: flex; align-items: center; gap: 7px; padding: 3px 10px; cursor: pointer; height: 26px; }
   .row:hover { background: var(--row-hover); }
   .row.sel { background: var(--row-sel); }
   .caret { width: 14px; text-align: center; color: var(--muted); user-select: none; flex: none; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--skip); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--skip); }
   .dot.Running { background: var(--accent); animation: pulse 1.2s infinite; }
   .dot.Succeeded { background: var(--ok); }
   .dot.Failed { background: var(--err); }
   .dot.Cancelled { background: var(--warn); }
+  .dot.Blocked { background: var(--block); }
   .dot.WaitingForLock { background: var(--wait); animation: pulse 1.8s infinite; }
   .dot.WaitingForUser { background: var(--warn); animation: pulse .8s infinite; }
   .dot.Pending { background: transparent; border: 2px solid var(--skip); }
   .dot.Skipped { background: var(--skip); opacity: .5; }
+  /* already done (in a previous run): a thin green ring, empty center (filled green = done in this run) */
+  .dot.Skipped.done { opacity: 1; background: transparent; border: 1.5px solid var(--ok); }
+  /* only refreshed ('CanBeUpdated'): a green ring with a small green center */
+  .dot.Succeeded.refresh { background: radial-gradient(circle, var(--ok) 0 2px, transparent 2.5px); border: 1.5px solid var(--ok); }
   @keyframes pulse { 50% { opacity: .35; } }
-  .name { flex: none; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .root > .name { font-weight: 600; }
-  .kind { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; flex: none; }
+  .name { flex: 0 1 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.root > .name { font-weight: 600; }
+  .row.bg > .name { font-style: italic; }
+  .kind { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; flex: none; }
   .status { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status.WaitingForLock { color: var(--wait); }
   .status.WaitingForUser { color: var(--warn); }
-  .elapsed { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
-  .bar { width: 70px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; flex: none; }
-  .bar > i { display: block; height: 100%; background: var(--ok); }
-  .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
-  .bgtag { font-size: 10px; color: var(--wait); border: 1px dashed var(--wait); border-radius: 4px; padding: 0 4px; flex: none; }
-  .row.bg > .name { font-style: italic; }
-  .badge { background: var(--err); color: #fff; font-size: 11px; border-radius: 999px; padding: 0 6px; flex: none; }
-  .row button { padding: 0 8px; font-size: 12px; }
+  .status.Blocked { color: var(--block); }
   #detailHead { padding: 10px 12px 0; }
+  #detailHead .hl { display: flex; align-items: flex-start; gap: 10px; }
+  #detailHead .hl .path { flex: 1; }
   #detailHead .path { font-weight: 600; word-break: break-word; }
+
+  /* Movable separators (drag; double-click = back to the default size) */
+  .split-h { flex: none; height: 7px; cursor: row-resize; position: relative; }
+  .split-v { flex: none; width: 12px; cursor: col-resize; position: relative; align-self: stretch; }
+  .split-h::after, .split-v::after { content: ""; position: absolute; background: var(--border); border-radius: 2px; }
+  .split-h::after { left: 50%; top: 2px; width: 40px; height: 3px; margin-left: -20px; }
+  .split-v::after { top: 50%; left: 4px; width: 3px; height: 40px; margin-top: -20px; }
+  .split-h:hover::after, .split-v:hover::after, body.dragging .split-h.active::after, body.dragging .split-v.active::after { background: var(--accent); }
+  .split-h:hover::after, body.dragging .split-h.active::after { left: 0; width: 100%; margin-left: 0; }
+  .split-v:hover::after, body.dragging .split-v.active::after { top: 0; height: 100%; margin-top: 0; }
+  body.dragging { user-select: none; }
+  @media (max-width: 900px) { .split-v { display: none; } }
   #detailHead .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
   #tabs { display: flex; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .tab { padding: 4px 10px; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; color: var(--muted); font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -100,163 +181,373 @@
   .ll.c-DarkGray { color: var(--muted); }
   .ll.c-Green { color: var(--ok); }
   .ll.c-Red { color: var(--err); }
-  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  .ll .tk { display: inline-block; vertical-align: bottom; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--wait); margin-right: 8px; }
+  .ll.ev { font-weight: 600; }
+  .ll.ev-start { color: var(--accent); } .ll.ev-ok { color: var(--ok); } .ll.ev-fail { color: var(--err); }
+  .ll.ev-stop { color: var(--warn); } .ll.ev-block { color: var(--block); } .ll.ev-skip { color: var(--muted); }
+  .ll.stream { opacity: .8; }
+  .empty { color: var(--muted); padding: 12px; text-align: center; font-size: 12px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>FunscriptToolbox &middot; Subtitle Creation</h1>
-  <div class="chips" id="chips"></div>
-  <div class="spacer"></div>
-  <span id="finishedMsg" class="chip" style="display:none"></span>
-  <button id="closeBtn" class="primary" style="display:none">Close FunscriptToolbox</button>
+  <!-- 1st line: name and actions -->
+  <div class="hrow">
+    <h1>FunscriptToolbox &middot; Subtitles</h1>
+    <button id="rescanBtn" class="mini" title="Looks again for scenes on disk: the new ones are started, and the blocked ones are checked again (ex. their manual-input file is now there). The other scenes are not touched.">&#8635; Rescan</button>
+    <button id="closeBtn" class="mini">Close</button>
+    <span id="serverBox" style="display:none">
+      <span class="tag" title="Started with --runasserver: the application can't be closed from the page (it keeps running, 'Rescan' starts the new scenes). Stop it by ending its process.">server</span>
+      <button id="pauseAllBtn" class="mini" title="The scenes pause at their next safe point (between two steps / AI requests: what was received is saved). The application stays open.">&#9208; Pause all</button>
+      <button id="resumeAllBtn" class="mini primary" style="display:none" title="The paused scenes continue">&#9654; Resume all</button>
+      <span id="pausedText" class="closing" style="display:none"></span>
+    </span>
+    <span id="closingBox" style="display:none">
+      <span id="closingText" class="closing" title="Each scene pauses at its next safe point (between two steps / AI requests: what was received is saved). Nothing new is started meanwhile (Rescan and Retry are disabled)."></span>
+      <button id="cancelCloseBtn" class="mini" title="Leave the closing mode: the paused scenes continue">Don't close</button>
+      <button id="forceCloseBtn" class="mini danger" title="Close right away: what the running scenes are doing is lost (what is already saved is kept)">Force close now</button>
+    </span>
+    <span id="finishedMsg" style="display:none"></span>
+    <!-- (right after 'All scenes finished': the perfect moment to see what went wrong and what to do next) -->
+    <button id="wrongBtn" class="mini" style="display:none" title="The errors of all the scenes">&#9888; What went wrong</button>
+    <button id="nextBtn" class="mini" style="display:none" title="What you need to do: the blocked scenes (and what they wait for), and the tasks asked by the workers">&#10140; What's next</button>
+    <div class="spacer"></div>
+  </div>
+  <!-- 2nd line: search, states, locks -->
+  <div class="hrow">
+    <input id="search" type="search" placeholder="Search scenes (* = anything)" spellcheck="false">
+    <span id="count"></span>
+    <div class="pills" id="pills"></div>
+    <div class="spacer"></div>
+    <div class="caps" id="caps"></div>
+  </div>
 </header>
-<div id="locks"></div>
-<div id="running"></div>
 <div id="prompts"></div>
+<div id="board"></div>
+<div class="split-h" id="splitH" title="Drag to resize (double-click: default size)"></div>
 <main>
-  <section id="treePane"><div id="tree"></div></section>
   <section id="detailPane">
-    <div id="detailHead"><div class="path">Select a task</div><div class="sub">Click on a task in the tree to see its log, requests and responses.</div></div>
+    <div id="detailHead"><div class="path">Select a scene</div><div class="sub">Click on a scene above to see what it did (log, requests and responses sent to the AIs).</div></div>
     <div id="tabs"></div>
     <div id="content"><div class="empty">Nothing selected.</div></div>
   </section>
+  <div class="split-v" id="splitV" title="Drag to resize (double-click: default size)"></div>
+  <section id="treePane"><div id="tree"></div></section>
 </main>
 
 <script>
 (function () {
   "use strict";
-  var state = { nodes: [], byId: {}, children: {}, roots: [], prompts: [], locks: [], finished: false, nowMs: 0 };
+  var state = { nodes: [], byId: {}, children: {}, roots: [], prompts: [], locks: [], finished: false };
   var clientOffset = 0;                 // serverNow - clientNow
   var expanded = {};                    // id -> bool (explicit user choice)
   var selectedId = null, activeTab = "Log", detail = null, lastVersion = -1;
   var stickToBottom = true;
-  var filters = { running: true, waiting: true, done: true, failed: true, errors: true };   // which videos are shown in the tree
-  try { var saved = JSON.parse(localStorage.getItem("fstFilters") || "null"); if (saved) for (var k in filters) if (typeof saved[k] === "boolean") filters[k] = saved[k]; } catch (e) { }
+  var heldBy = {}, waitBy = {};         // nodeId -> [lock]: the locks held / waited by each task
+
+  // The states of a scene (in the order of the sections)
+  var STATES = ["needs", "running", "waiting", "blocked", "stopped", "failed", "finished", "untouched"];
+  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched" };
+  var TIPS = {
+    needs: "A prompt or a dialog is waiting for you",
+    running: "Working right now",
+    waiting: "Waiting for a shared resource (lock), or not started yet",
+    blocked: "Done for now, but a worker can't run yet (something it needs is missing)",
+    stopped: "Stopped by you",
+    failed: "Ended with an error",
+    finished: "All the enabled workers ran (or were already done), and something was done in this run",
+    untouched: "Nothing new in this run: all the workers were already done (or only refreshed, because of 'CanBeUpdated')"
+  };
+  var filters = {}; STATES.forEach(function (s) { filters[s] = true; });
+  var search = "";
+  try {
+    var saved = JSON.parse(localStorage.getItem("fstFilters2") || "null");
+    if (saved) STATES.forEach(function (s) { if (typeof saved[s] === "boolean") filters[s] = saved[s]; });
+    search = localStorage.getItem("fstSearch") || "";
+  } catch (e) { }
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   var now = function () { return Date.now() + clientOffset; };
+  var terminal = { Succeeded: 1, Failed: 1, Cancelled: 1, Skipped: 1, Blocked: 1 };
+  var isActive = function (n) { return n.state === "Running" || n.state === "WaitingForLock" || n.state === "WaitingForUser"; };
+  var kids = function (n) { return state.children[n.id] || []; };
 
   function fmtDur(ms) {
     if (ms == null || ms < 0) return "";
     var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); s = s % 60;
     return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
   }
-  function fmtClock(ms) { var d = new Date(ms); return d.toLocaleTimeString([], { hour12: false }); }
-  function elapsed(n) { return n.startedMs == null ? "" : fmtDur((n.endedMs != null ? n.endedMs : now()) - n.startedMs); }
-  var terminal = { Succeeded: 1, Failed: 1, Cancelled: 1, Skipped: 1 };
+  function fmtClock(ms) { return new Date(ms).toLocaleTimeString([], { hour12: false }); }
+  function elapsedText(n) { return n.startedMs == null ? "" : fmtDur((n.endedMs != null ? n.endedMs : now()) - n.startedMs); }
+  // The elapsed time of a running task is updated by the ticker only (so the HTML of the row doesn't change every second)
+  function elapsedSpan(n) {
+    if (n.startedMs == null) return '<span class="el"></span>';
+    if (n.endedMs != null) return '<span class="el">' + elapsedText(n) + '</span>';
+    return '<span class="el" data-s="' + n.startedMs + '">' + elapsedText(n) + '</span>';
+  }
+  function tick() {
+    var t = now();
+    document.querySelectorAll(".el[data-s]").forEach(function (el) { el.textContent = fmtDur(t - parseInt(el.getAttribute("data-s"), 10)); });
+  }
 
-  function index(nodes) {
+  // Keyed update of a list: the elements are reused, and only rewritten when their HTML changed
+  // (the page doesn't jump, the scroll / hover / selection of text are kept).
+  function sync(container, items) {
+    var existing = {};
+    Array.prototype.slice.call(container.children).forEach(function (el) {
+      if (el.dataset && el.dataset.key != null) existing[el.dataset.key] = el; else el.remove();
+    });
+    var prev = null;
+    items.forEach(function (it) {
+      var el = existing[it.key];
+      if (!el) { el = document.createElement(it.tag || "div"); el.dataset.key = it.key; }
+      delete existing[it.key];
+      var cls = it.cls || "";
+      if (el.className !== cls) el.className = cls;
+      if (it.title != null && el.title !== it.title) el.title = it.title;
+      if (el._html !== it.html) { el.innerHTML = it.html; el._html = it.html; }
+      var expected = prev ? prev.nextSibling : container.firstChild;
+      if (el !== expected) container.insertBefore(el, expected);
+      prev = el;
+    });
+    for (var k in existing) existing[k].remove();
+  }
+
+  function index(nodes, rootOrder) {
     state.nodes = nodes; state.byId = {}; state.children = {}; state.roots = [];
     nodes.forEach(function (n) { state.byId[n.id] = n; state.children[n.id] = []; });
     nodes.forEach(function (n) {
       if (n.parentId == null) state.roots.push(n);
       else if (state.children[n.parentId]) state.children[n.parentId].push(n);
     });
+    // The scenes in the order of the list (a scene started again by 'Rescan' keeps its place; 'General' first)
+    var pos = {}; (rootOrder || []).forEach(function (id, i) { pos[id] = i; });
+    state.roots.sort(function (a, b) { return (pos[a.id] != null ? pos[a.id] : -1) - (pos[b.id] != null ? pos[b.id] : -1); });
+    heldBy = {}; waitBy = {};
+    state.locks.forEach(function (l) {
+      l.holders.forEach(function (h) { if (h.nodeId != null) (heldBy[h.nodeId] = heldBy[h.nodeId] || []).push(l); });
+      l.waiters.forEach(function (w) { if (w.nodeId != null) (waitBy[w.nodeId] = waitBy[w.nodeId] || []).push(l); });
+    });
   }
-  // Counter of the node itself (ex. 12/40 nodes), else the share of its sub-tasks that are done
-  function progressOf(n) {
-    if (n.progressTotal > 0) return Math.min(1, n.progressDone / n.progressTotal);
-    var kids = state.children[n.id] || [];
-    if (!kids.length) return null;
-    var done = kids.filter(function (k) { return terminal[k.state]; }).length;
-    return done / kids.length;
+  function rootOf(n) { while (n && n.parentId != null) n = state.byId[n.parentId]; return n; }
+  function sceneName(n) { return n.shortName || n.name; }
+  function sceneTip(n) {
+    var lines = [n.name];
+    if (n.meta) for (var k in n.meta) if (k !== "FileName") lines.push(k + ": " + n.meta[k]);
+    if (n.configError) lines.push("", "Configuration problem: " + n.configError);
+    return lines.join("\n");
   }
-  function isExpanded(n) {
-    if (expanded[n.id] != null) return expanded[n.id];
-    if (n.parentId == null) return true;               // sequences open by default
-    return n.state === "Running" || n.state === "WaitingForLock" || n.state === "WaitingForUser";
+  function anyDesc(n, pred, skipBackground) {
+    return kids(n).some(function (k) { return !(skipBackground && k.background) && (pred(k) || anyDesc(k, pred, skipBackground)); });
   }
-  function hasActiveDescendant(n) { return (state.children[n.id] || []).some(function (k) { return !terminal[k.state] && k.state !== "Pending" || hasActiveDescendant(k); }); }
-
-  function isActive(n) { return n.state === "Running" || n.state === "WaitingForLock" || n.state === "WaitingForUser"; }
-  // The active sub-task to follow: the main work first, a background task only when nothing else is active
-  function activeChild(n) {
-    var active = (state.children[n.id] || []).filter(isActive);
-    return active.filter(function (k) { return !k.background; })[0] || active[0];
-  }
-  function leafOf(n) {
-    var cur = n;
-    for (;;) { var next = activeChild(cur); if (!next) return cur; cur = next; }
-  }
-  function countText(n) {
-    if (n.progressDone == null) return "";
-    if (n.progressUnit === "%" && n.progressTotal > 0) return Math.round(100 * n.progressDone / n.progressTotal) + "%";
-    return n.progressDone + (n.progressTotal != null ? "/" + n.progressTotal : "") + (n.progressUnit ? " " + n.progressUnit : "");
-  }
-  // The background tasks running under a node (any depth), ex. "audio clips 85/120"
-  function backgroundSummary(n) {
-    var out = [];
-    (function walk(cur) {
-      (state.children[cur.id] || []).forEach(function (k) {
-        if (k.background && isActive(k)) out.push(k.name + (countText(k) ? " " + countText(k) : ""));
-        walk(k);
-      });
-    })(n);
-    return out.join(", ");
-  }
-  // "waiting" = not finished but not doing anything itself (queued, waiting for a lock or for the user)
-  function category(n) {
-    if (n.state === "Succeeded" || n.state === "Skipped") return "done";
-    if (n.state === "Failed" || n.state === "Cancelled") return "failed";
-    if (n.state === "Pending") return "waiting";
-    var leaf = leafOf(n).state;
-    return leaf === "WaitingForLock" || leaf === "WaitingForUser" ? "waiting" : "running";
-  }
-  function isVisible(n) {
-    if (n.kind === "General") return true;
-    return filters[category(n)] && (filters.errors || !(n.errors > 0));
-  }
-  function runLine(r) {
-    var chain = [], cur = r, last = r;
+  // The task the main work is doing: follows the active sub-tasks that are not in the background
+  function fgLeaf(n) {
     for (;;) {
-      var next = activeChild(cur);
-      if (!next) break;
-      chain.push(next.name); last = next; cur = next;
+      var next = kids(n).filter(function (k) { return isActive(k) && !k.background; })[0];
+      if (!next) return n;
+      n = next;
     }
-    var st = last.reason || last.status || countText(last);
-    var bg = backgroundSummary(r);
-    var job = chain.join(" › ") + (st ? " — " + st : "") + (bg ? " | bg: " + bg : "");
-    var p = progressOf(r);
-    return '<div class="run" data-run="' + r.id + '"><span class="dot ' + last.state + '"></span><span class="rname" title="' + esc(r.name) + '">' + esc(r.name) + '</span>' +
-      (p != null ? '<span class="bar" title="' + Math.round(p * 100) + '% of the steps done"><i style="width:' + Math.round(p * 100) + '%"></i></span>' : "") +
-      '<span class="rjob ' + last.state + '" title="' + esc(job) + '">' + esc(job) + '</span><span class="elapsed">' + elapsed(r) + '</span></div>';
   }
-  function renderRunning() {
-    var seqs = state.roots.filter(function (n) { return n.kind !== "General" && isActive(n); });
-    var run = seqs.filter(function (n) { return category(n) === "running"; });
-    var wait = seqs.filter(function (n) { return category(n) === "waiting"; });
-    $("running").innerHTML = '<h2>Running (' + run.length + ')</h2>' +
-      (run.length ? run.map(runLine).join("") : '<div class="empty" style="padding:4px;text-align:left">Nothing is running right now.</div>') +
-      (wait.length ? '<h2 style="margin-top:6px">Waiting (' + wait.length + ')</h2>' + wait.map(runLine).join("") : "");
+  // The active background tasks of a scene (the outermost ones)
+  function bgTasks(n) {
+    var out = [];
+    (function walk(cur) { kids(cur).forEach(function (k) { if (k.background && isActive(k)) out.push(k); else walk(k); }); })(n);
+    return out;
   }
-  function renderChips() {
-    var seqs = state.roots.filter(function (n) { return n.kind !== "General"; });
-    var c = function (st) { return seqs.filter(function (n) { return n.state === st; }).length; };
-    var errors = seqs.reduce(function (a, n) { return a + (n.errors || 0); }, 0);
-    var tog = function (key, count, label, tip) {
-      return '<span class="chip tog ' + (filters[key] ? "" : "off") + '" data-filter="' + key + '" title="' + tip + '"><b>' + count + '</b> ' + label + '</span>';
-    };
-    $("chips").innerHTML =
-      '<span class="chip"><b>' + seqs.length + '</b> videos</span>' +
-      tog("running", seqs.filter(function (n) { return category(n) === "running"; }).length, "running", "Click to show/hide the videos that are doing something") +
-      tog("waiting", seqs.filter(function (n) { return category(n) === "waiting"; }).length, "waiting", "Click to show/hide the videos waiting for a lock, for you, or not started") +
-      tog("done", c("Succeeded") + c("Skipped"), "done", "Click to show/hide the finished videos") +
-      tog("failed", c("Failed") + c("Cancelled"), "failed/stopped", "Click to show/hide the failed or stopped videos") +
-      tog("errors", errors, "errors", "Click to show/hide the videos that have errors");
-    $("finishedMsg").style.display = state.finished ? "" : "none";
-    $("finishedMsg").textContent = "All sequences finished";
-    $("closeBtn").style.display = state.finished ? "" : "none";
+
+  // ---- State of a scene ----
+  function sceneState(r) {
+    if (r.state === "Pending") return "waiting";                       // not started yet
+    if (!terminal[r.state]) {
+      if (r.state === "WaitingForUser" || anyDesc(r, function (k) { return k.state === "WaitingForUser"; })) return "needs";
+      return fgLeaf(r).state === "WaitingForLock" ? "waiting" : "running";
+    }
+    var direct = kids(r);
+    if (direct.some(function (k) { return k.state === "Failed"; })) return "failed";
+    if (anyDesc(r, function (k) { return k.state === "Cancelled"; }, true)) return "stopped";
+    if (r.errors > 0) return "failed";
+    if (direct.some(function (k) { return k.kind === "Worker" && k.state === "Blocked"; })) return "blocked";
+    // Untouched: no worker really did something (all already done, or only refreshed because of 'CanBeUpdated')
+    var workers = direct.filter(function (k) { return k.kind === "Worker"; });
+    if (workers.every(function (k) { return k.state === "Skipped" || (k.state === "Succeeded" && k.refreshOnly); })) return "untouched";
+    return "finished";
   }
-  function renderLocks() {
-    $("locks").innerHTML = state.locks.map(function (l) {
-      var holder = l.holder ? 'used by <b>' + esc(l.holder) + '</b>' : 'free';
-      var wait = l.waiting && l.waiting.length ? ' &middot; ' + l.waiting.length + ' waiting' : '';
-      return '<span class="lock">&#128274; ' + esc(l.name) + ': ' + holder + wait + '</span>';
-    }).join("");
-    $("locks").style.display = state.locks.length ? "" : "none";
+
+  // ---- Search ("*" = anything, case-insensitive, on the short name, the full name and the metadata) ----
+  var searchRegex = null;
+  function updateSearch() {
+    var s = search.trim();
+    searchRegex = s ? new RegExp(s.split("*").map(function (p) { return p.replace(/[.+?^${}()|[\]\\]/g, "\\$&"); }).join(".*"), "i") : null;
   }
+  function matchesSearch(r) {
+    if (!searchRegex) return true;
+    var hay = [r.shortName || "", r.name];
+    if (r.meta) for (var k in r.meta) hay.push(r.meta[k]);
+    return searchRegex.test(hay.join("\n"));
+  }
+
+  // ---- Small UI elements ----
+  function pgChip(n) {
+    if (n.progressDone == null) return "";
+    var pct = n.progressTotal > 0 ? Math.min(100, 100 * n.progressDone / n.progressTotal) : null;
+    var text = n.progressUnit === "%" && n.progressTotal > 0
+      ? Math.round(pct) + "%"
+      : n.progressDone + (n.progressTotal != null ? "/" + n.progressTotal : "");
+    var unit = n.progressUnit && n.progressUnit !== "%" ? '<span class="u">' + esc(n.progressUnit) + '</span>' : "";
+    return '<span class="pg" title="' + esc(n.name) + '">' + (pct != null ? '<i style="width:' + pct.toFixed(1) + '%"></i>' : "") +
+      '<span>' + text + unit + '</span></span>';
+  }
+  function holdersText(l) {
+    return l.holders.map(function (h) {
+      var n = h.nodeId != null ? state.byId[h.nodeId] : null, r = n ? rootOf(n) : null;
+      return "- " + (r ? sceneName(r) + ": " : "") + h.description;
+    }).join("\n");
+  }
+  function lockPill(l, waiting) {
+    var tip = l.shortName + " = " + l.description + "\n" + (waiting ? "Waiting for it. Used by:\n" + (holdersText(l) || "- (nobody: a scene with a higher priority goes first)") : "Held by this task.");
+    return '<span class="lk ' + (waiting ? "wait" : "held") + '" title="' + esc(tip) + '">' + (waiting ? "&#8987;" : "&#128274;") + esc(l.shortName) + '</span>';
+  }
+  function lockPills(chain) {
+    var html = "";
+    chain.forEach(function (n) {
+      (heldBy[n.id] || []).forEach(function (l) { html += lockPill(l, false); });
+      (waitBy[n.id] || []).forEach(function (l) { html += lockPill(l, true); });
+    });
+    return html;
+  }
+  function chainFrom(top, leaf) {
+    var out = [];
+    for (var c = leaf; c; c = c.parentId != null ? state.byId[c.parentId] : null) { out.unshift(c); if (c === top) break; }
+    return out;
+  }
+  function stopButton(chain) {
+    for (var i = chain.length - 1; i >= 0; i--) {
+      var n = chain[i];
+      if (n.cancelHint && !terminal[n.state])
+        return '<button class="danger mini" data-cancel="' + n.id + '" title="' + esc(n.cancelHint) + '">Stop' + (n.cancelRequests ? " (" + n.cancelRequests + ")" : "") + '</button>';
+    }
+    return "";
+  }
+  // One line of a running scene: what a task chain is doing, with its progress, its locks and its Stop button
+  function taskLine(chain, isBg) {
+    var leaf = chain[chain.length - 1];
+    var names = chain.map(function (n) { return n.name; });
+    var label = names.length > 2 ? names.slice(-2).join(" › ") : names.join(" › ");
+    var status = (leaf.state === "WaitingForLock" ? "" : (leaf.state !== "Running" && leaf.reason) || leaf.status || "");
+    // (only the progress of the deepest task that has one: the line stays short)
+    var chips = chain.filter(function (n) { return n.progressDone != null; }).slice(-1).map(pgChip).join("");
+    // (the progress and the locks first, in a column of fixed width: the names stay aligned)
+    return '<div class="tl' + (isBg ? " bgl" : "") + '">' +
+      // (the locks before the progress: a lock that appears doesn't move the progress chip, and the other way around)
+      '<span class="lead">' + (isBg ? '<span class="tag" title="Runs in the background, beside the main work">bg</span>' : "") + lockPills(chain) + chips + '</span>' +
+      '<span class="lbl" title="' + esc(names.join(" › ")) + '">' + esc(label) + '</span>' +
+      '<span class="st" title="' + esc(status) + '">' + esc(status) + '</span>' + stopButton(chain) + '</div>';
+  }
+
+  // ---- Header ----
+  var MAX_DOTS = 10;
+  function renderHeader(scenes) {
+    var counts = {}; STATES.forEach(function (s) { counts[s] = 0; });
+    scenes.forEach(function (x) { counts[x.st]++; });
+    var shown = scenes.filter(function (x) { return x.match; }).length;
+    $("count").textContent = (searchRegex ? shown + " / " : "") + scenes.length + " scenes";
+    sync($("pills"), STATES.map(function (s) {
+      return {
+        key: s, tag: "span", cls: "pill" + (filters[s] ? "" : " off") + (counts[s] ? "" : " zero"),
+        title: TIPS[s] + " (click to show/hide)",
+        html: '<span class="sd ' + s + '"></span><b>' + counts[s] + '</b> ' + LABELS[s]
+      };
+    }));
+    sync($("caps"), state.locks.map(function (l) {
+      // One dot per slot, up to MAX_DOTS dots. With more slots, the last dot is bigger: it stands for all the remaining
+      // slots, and fills up (like a pie) as they are taken (full only when the last slot is taken).
+      var used = l.holders.length, slots = "";
+      var nbDots = Math.min(l.max, MAX_DOTS);
+      for (var i = 0; i < nbDots; i++) {
+        if (l.max > MAX_DOTS && i === MAX_DOTS - 1) {
+          var rest = l.max - (MAX_DOTS - 1), usedRest = Math.max(0, used - (MAX_DOTS - 1));
+          var pct = Math.min(100, 100 * usedRest / rest);
+          slots += '<i class="big' + (usedRest > 0 ? " on" : "") + '" style="background:conic-gradient(var(--c) ' + pct.toFixed(2) + '%, transparent 0)"></i>';
+        } else {
+          slots += '<i' + (i < used ? ' class="on"' : "") + '></i>';
+        }
+      }
+      var tip = l.shortName + " = " + l.description + "\n" + used + "/" + l.max + " used" + (l.waiters.length ? ", " + l.waiters.length + " waiting" : "") +
+        (used ? "\n" + holdersText(l) : "");
+      return {
+        key: l.shortName, tag: "span", cls: "cap" + (used >= l.max ? " full" : ""), title: tip,
+        html: '<span class="ln">' + esc(l.shortName) + '</span><span class="slots">' + slots + '</span>' + (l.waiters.length ? '<span class="q">+' + l.waiters.length + '</span>' : "")
+      };
+    }));
+    // 'What went wrong' (errors, including the ones not about a scene) / 'What's next' (blocked scenes + tasks for the user): only when there is something
+    var nbErrors = (state.sceneReports || []).reduce(function (a, r) { return a + r.errors.length; }, 0) + (state.generalErrors || []).length;
+    var nbNext = (state.sceneReports || []).reduce(function (a, r) { return a + r.todos.length; }, 0) + blockedWorkers().length;
+    var wrongHtml = '&#9888; What went wrong <span class="badge">' + nbErrors + '</span>';
+    var nextHtml = '&#10140; What\'s next <span class="nbadge">' + nbNext + '</span>';
+    if ($("wrongBtn")._html !== wrongHtml) { $("wrongBtn").innerHTML = wrongHtml; $("wrongBtn")._html = wrongHtml; }
+    if ($("nextBtn")._html !== nextHtml) { $("nextBtn").innerHTML = nextHtml; $("nextBtn")._html = nextHtml; }
+    $("wrongBtn").style.display = nbErrors ? "" : "none";
+    $("nextBtn").style.display = nbNext ? "" : "none";
+    $("wrongBtn").className = "mini" + (reportView === "wrong" ? " primary" : "");
+    $("nextBtn").className = "mini" + (reportView === "next" ? " primary" : "");
+    renderCloseButton(scenes);
+  }
+
+  // ---- Board: the scenes, grouped by state ----
+  function ensureSections() {
+    var board = $("board");
+    if (board.children.length) return;
+    STATES.forEach(function (s) {
+      var sec = document.createElement("div"); sec.className = "sec"; sec.id = "sec-" + s;
+      sec.innerHTML = '<h2><span class="sd ' + s + '"></span><span class="h"></span></h2><div class="' + (s === "running" || s === "needs" ? "runs" : "tiles") + '"></div>';
+      board.appendChild(sec);
+    });
+  }
+  function nameHtml(r) {
+    return '<span class="tn">' + esc(sceneName(r)) + '</span>' + (r.configError ? '<span class="cfgerr" title="' + esc(r.configError) + '">!</span>' : "");
+  }
+  function sceneItem(x) {
+    var r = x.root, sel = selectedId != null && rootOf(state.byId[selectedId]) === r ? " sel" : "";
+    var errors = r.errors ? '<span class="badge" title="errors in this scene">' + r.errors + '</span>' : "";
+    if (x.st === "running" || x.st === "needs") {
+      var leaf = fgLeaf(r), lines = "";
+      // (the chain of the main work: from the worker down to what it is doing right now)
+      if (leaf !== r) lines += taskLine(chainFrom(r, leaf).slice(1), false);
+      bgTasks(r).forEach(function (b) { lines += taskLine(chainFrom(b, fgLeaf(b)), true); });
+      var worker = kids(r).filter(isActive).filter(function (k) { return !k.background; })[0];
+      return {
+        key: r.id, cls: "run" + sel, title: sceneTip(r),
+        html: '<div class="rh"><span class="sd ' + x.st + '"></span>' + nameHtml(r) + errors +
+          '<span class="wk">' + esc(worker ? worker.name : "") + '</span>' + elapsedSpan(r) + '</div>' + lines
+      };
+    }
+    var extra = "";
+    if (x.st === "waiting") {
+      if (r.state === "Pending") extra = '<span class="tx">not started</span>';
+      else { var wl = fgLeaf(r); extra = lockPills(chainFrom(r, wl)) || '<span class="tx">' + esc(wl.reason || "") + '</span>'; }
+    } else if (x.st === "blocked") {
+      var blocked = kids(r).filter(function (k) { return k.kind === "Worker" && k.state === "Blocked"; })[0];
+      if (blocked) extra = '<span class="tx" title="' + esc(blocked.name + ": " + (blocked.reason || "")) + '">' + esc(blocked.name) + '</span>';
+    } else if (x.st === "failed") {
+      var failed = kids(r).filter(function (k) { return k.state === "Failed"; })[0];
+      if (failed) extra = '<span class="tx" title="' + esc(failed.name + (failed.reason ? ": " + failed.reason : "")) + '">' + esc(failed.name) + '</span>';
+    }
+    return { key: r.id, tag: "span", cls: "tile" + sel, title: sceneTip(r), html: nameHtml(r) + extra + errors };
+  }
+  function renderBoard(scenes) {
+    ensureSections();
+    STATES.forEach(function (s) {
+      var list = scenes.filter(function (x) { return x.st === s && x.match; });
+      var sec = $("sec-" + s);
+      var visible = filters[s] && list.length > 0;
+      sec.style.display = visible ? "" : "none";
+      sec.querySelector(".h").textContent = LABELS[s] + " (" + list.length + ")";
+      sync(sec.querySelector(".runs, .tiles"), visible ? list.map(sceneItem) : []);
+    });
+  }
+
+  // ---- Prompts ----
   function renderPrompts() {
     var host = $("prompts");
     var ids = state.prompts.map(function (p) { return p.id; }).join(",");
@@ -264,8 +555,9 @@
     host.dataset.ids = ids;
     host.innerHTML = "";
     state.prompts.forEach(function (p) {
+      var node = state.byId[p.nodeId], r = node ? rootOf(node) : null;
       var div = document.createElement("div"); div.className = "prompt";
-      div.innerHTML = '<h3>' + esc(p.title) + '</h3><div class="path">' + esc(p.nodePath) + '</div>' +
+      div.innerHTML = '<h3>' + (r && r.kind !== "General" ? esc(sceneName(r)) + " &middot; " : "") + esc(p.title) + '</h3><div class="path">' + esc(p.nodePath) + '</div>' +
         (p.message ? '<pre>' + esc(p.message) + '</pre>' : '') +
         (p.editableText != null
           ? '<div class="editor"><pre class="gutter"></pre><textarea spellcheck="false" wrap="off"></textarea></div><div class="caretpos"></div>'
@@ -333,113 +625,377 @@
     }
     updateCaretPos();
   }
-  function rowHtml(n, depth) {
-    var kids = state.children[n.id] || [];
-    var open = isExpanded(n);
-    var p = progressOf(n);
+
+  // ---- Tree (all the tasks of the visible scenes) ----
+  function isExpanded(n) {
+    if (expanded[n.id] != null) return expanded[n.id];
+    if (n.parentId == null) return isActive(n);         // the running scenes are open by default
+    return isActive(n);
+  }
+  function rowItem(n, depth) {
+    var open = isExpanded(n), hasKids = kids(n).length > 0;
     var status = n.reason && !terminal[n.state] ? n.reason : (n.status || n.reason || "");
-    if (n.state === "Skipped" && n.reason) status = n.reason;
-    var cancel = n.cancelHint && !terminal[n.state]
-      ? '<button class="danger" data-cancel="' + n.id + '" title="' + esc(n.cancelHint) + '">Stop' + (n.cancelRequests ? ' (' + n.cancelRequests + ')' : '') + '</button>' : "";
-    var count = countText(n);
-    return '<div class="row ' + (n.parentId == null ? "root " : "") + (n.background ? "bg " : "") + (n.id === selectedId ? "sel" : "") + '" data-id="' + n.id + '" style="padding-left:' + (10 + depth * 18) + 'px">' +
-      '<span class="caret" data-toggle="' + n.id + '">' + (kids.length ? (open ? "&#9662;" : "&#9656;") : "") + '</span>' +
-      '<span class="dot ' + n.state + '" title="' + n.state + '"></span>' +
-      '<span class="name" title="' + esc(n.name) + '">' + esc(n.name) + '</span>' +
-      '<span class="kind">' + esc(n.kind) + '</span>' +
-      (n.background ? '<span class="bgtag" title="Runs in the background, beside the main work">bg</span>' : "") +
-      (p != null ? '<span class="bar" title="' + Math.round(p * 100) + '%"><i style="width:' + Math.round(p * 100) + '%"></i></span>' : "") +
-      (count ? '<span class="count">' + esc(count) + '</span>' : "") +
-      '<span class="status ' + n.state + '" title="' + esc(status) + '">' + esc(status) + '</span>' +
-      (n.errors ? '<span class="badge" title="errors in this task or its sub-tasks">' + n.errors + '</span>' : "") +
-      cancel +
-      '<span class="elapsed">' + elapsed(n) + '</span></div>';
+    if ((n.state === "Skipped" || n.state === "Blocked") && n.reason) status = n.reason;
+    var name = n.parentId == null && n.kind !== "General" ? sceneName(n) : n.name;
+    return {
+      key: n.id, cls: "row" + (n.parentId == null ? " root" : "") + (n.background ? " bg" : "") + (n.id === selectedId ? " sel" : ""),
+      html: '<span style="width:' + (depth * 16) + 'px;flex:none"></span>' +
+        '<span class="caret" data-toggle="' + n.id + '">' + (hasKids ? (open ? "&#9662;" : "&#9656;") : "") + '</span>' +
+        '<span class="dot ' + n.state + (n.state === "Skipped" && n.reason === "already done" ? " done" : "") + (n.refreshOnly ? " refresh" : "") +
+          '" title="' + esc((n.state === "Skipped" || n.refreshOnly) && n.reason ? n.state + ": " + n.reason : n.state) + '"></span>' +
+        '<span class="name" title="' + esc(n.parentId == null ? sceneTip(n) : n.name) + '">' + esc(name) + '</span>' +
+        '<span class="kind">' + esc(n.kind) + '</span>' +
+        (n.background ? '<span class="tag" title="Runs in the background, beside the main work">bg</span>' : "") +
+        lockPills([n]) + pgChip(n) +
+        '<span class="status ' + n.state + '" title="' + esc(status) + '">' + esc(status) + '</span>' +
+        (n.errors ? '<span class="badge" title="errors in this task or its sub-tasks">' + n.errors + '</span>' : "") +
+        stopButton([n]) + elapsedSpan(n)
+    };
   }
-  function treeHtml(nodes, depth) {
-    return nodes.map(function (n) {
-      var html = rowHtml(n, depth);
-      if (isExpanded(n)) html += treeHtml(state.children[n.id] || [], depth + 1);
-      return html;
-    }).join("");
-  }
+  // Only the tasks of the selected scene (the list of the scenes is above)
   function renderTree() {
-    var roots = state.roots.filter(function (n) { return isVisible(n) && (n.kind !== "General" || (state.children[n.id] || []).length || n.errors); });
-    var html = treeHtml(roots, 0);
-    $("tree").innerHTML = html || '<div class="empty">Waiting for work to start...</div>';
+    var items = [];
+    function add(n, depth) { items.push(rowItem(n, depth)); if (isExpanded(n)) kids(n).forEach(function (k) { add(k, depth + 1); }); }
+    var selected = selectedId != null ? state.byId[selectedId] : null;
+    var root = selected ? rootOf(selected) : null;
+    if (root) { expanded[root.id] = true; add(root, 0); }
+    else items.push({ key: "empty", cls: "empty", html: "Select a scene to see its tasks." });
+    sync($("tree"), items);
   }
+
+  // ---- 'What went wrong' / 'What's next' (shown in the details pane, instead of a task) ----
+  var reportView = null;   // null, "wrong" or "next"
+  // The first worker that can't run yet of each scene (the next ones usually wait for it), in the order of the scenes: { scene, worker }
+  function blockedWorkers() {
+    var out = [];
+    state.roots.forEach(function (r) {
+      if (r.kind === "General" || !terminal[r.state]) return;
+      var first = kids(r).filter(function (k) { return k.kind === "Worker" && k.state === "Blocked"; })[0];
+      if (first) out.push({ scene: r, worker: first });
+    });
+    return out;
+  }
+  function reportOf(sceneId) { return (state.sceneReports || []).filter(function (x) { return x.sceneId === sceneId; })[0]; }
+  function renderReport() {
+    var lines = [], title, sub;
+    var sceneLink = function (r) { return '<a class="scn" data-scene="' + r.id + '" title="' + esc(sceneTip(r)) + '">' + esc(sceneName(r)) + '</a>'; };
+    if (reportView === "wrong") {
+      title = "What went wrong";
+      sub = "The errors of each scene (click on a scene to see its log).";
+      // (first, the errors that are not about a scene: ex. a configuration problem)
+      if ((state.generalErrors || []).length) {
+        lines.push('<div class="rs">General (not about a specific scene)</div>');
+        state.generalErrors.forEach(function (e) { lines.push('<div class="ri err">' + esc(e) + '</div>'); });
+      }
+      state.roots.forEach(function (r) {
+        var rep = reportOf(r.id);
+        if (!rep || !rep.errors.length) return;
+        lines.push('<div class="rs">' + sceneLink(r) + '</div>');
+        rep.errors.forEach(function (e) { lines.push('<div class="ri err">' + esc(e) + '</div>'); });
+      });
+    } else {
+      title = "What's next";
+      sub = "What you need to do: the blocked scenes (what they wait for), and the tasks asked by the workers. 'Rescan' checks the blocked scenes again.";
+      var blocked = blockedWorkers();
+      state.roots.forEach(function (r) {
+        var rep = reportOf(r.id);
+        var mine = blocked.filter(function (b) { return b.scene === r; });
+        if (!mine.length && !(rep && rep.todos.length)) return;
+        lines.push('<div class="rs">' + sceneLink(r) + '</div>');
+        mine.forEach(function (b) { lines.push('<div class="ri blk"><b>' + esc(b.worker.name) + '</b> can\'t run yet: ' + esc(b.worker.reason || "") + '</div>'); });
+        (rep ? rep.todos : []).forEach(function (t) { lines.push('<div class="ri todo">' + esc(t) + '</div>'); });
+      });
+    }
+    var head = '<div class="hl"><div class="path">' + esc(title) + '</div></div><div class="sub">' + esc(sub) + '</div>';
+    if ($("detailHead")._html !== head) { $("detailHead").innerHTML = head; $("detailHead")._html = head; }
+    if ($("tabs")._html !== "") { $("tabs").innerHTML = ""; $("tabs")._html = ""; }
+    var html = lines.length ? lines.join("") : '<div class="empty">Nothing.</div>';
+    var box = $("content");
+    if (box._html !== html) { box.innerHTML = html; box._html = html; }
+  }
+  function showReport(view) {
+    reportView = view; selectedId = null; selectedRootName = null; detail = null;
+    renderAll();
+  }
+
+  // ---- Details of the selected task ----
   function renderDetail() {
+    if (reportView) { renderReport(); return; }
     var n = selectedId != null ? state.byId[selectedId] : null;
     if (!n || !detail || detail.id !== selectedId) return;
-    $("detailHead").innerHTML = '<div class="path">' + esc(detail.path) + '</div><div class="sub">' + esc(n.state) +
-      (n.startedMs ? ' &middot; started ' + fmtClock(n.startedMs) : '') + (n.startedMs ? ' &middot; ' + elapsed(n) : '') +
-      (n.reason ? ' &middot; ' + esc(n.reason) : '') + '</div>';
+    var r = rootOf(n);
+    // 'Retry': only for a scene that is not running anymore (it's started again from the start, its configuration is read again)
+    var retry = r && r.kind !== "General" && terminal[r.state] && !state.closing
+      ? '<button class="mini" data-retry="' + r.id + '" title="Starts this scene again (its configuration is read again). What is already done is not done again, but what failed can send new AI requests.">&#8635; Retry this scene</button>'
+      : "";
+    var head = '<div class="hl"><div class="path">' + esc(r && r !== n ? sceneName(r) + " > " + detail.path.split(" > ").slice(1).join(" > ") : detail.path) + '</div>' + retry + '</div><div class="sub">' + esc(n.state) +
+      (n.startedMs ? ' &middot; started ' + fmtClock(n.startedMs) + ' &middot; ' + elapsedText(n) : '') + (n.reason ? ' &middot; ' + esc(n.reason) : '') + '</div>';
+    if ($("detailHead")._html !== head) { $("detailHead").innerHTML = head; $("detailHead")._html = head; }
     var tabs = ["Log"].concat(detail.details.map(function (d) { return d.name; }));
     if (tabs.indexOf(activeTab) < 0) activeTab = "Log";
-    $("tabs").innerHTML = tabs.map(function (t) { return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</div>'; }).join("");
+    var tabsHtml = tabs.map(function (t) { return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</div>'; }).join("");
+    if ($("tabs")._html !== tabsHtml) { $("tabs").innerHTML = tabsHtml; $("tabs")._html = tabsHtml; }
     var box = $("content");
-    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    var html;
     if (activeTab === "Log") {
-      box.innerHTML = detail.log.length ? detail.log.map(function (l) {
-        return '<span class="ll ' + (l.error ? "err " : "") + (l.color ? "c-" + esc(l.color) : "") + '"><span class="t">' + fmtClock(l.t) + '</span>' + esc(l.text) + '</span>';
+      // (a task with sub-tasks: the log of all its sub-tasks, with the start / end of the important ones; the sub-task is shown before the text)
+      html = detail.log.length ? detail.log.map(function (l) {
+        var cls = "ll" + (l.error ? " err" : "") + (l.color ? " c-" + esc(l.color) : "") + (l.ev ? " ev ev-" + esc(l.ev) : "") + (l.stream ? " stream" : "");
+        var task = "";
+        if (l.task) {
+          var parts = l.task.split(" > ");
+          task = '<span class="tk" title="' + esc(l.task) + '">' + esc(parts.length > 1 ? parts[0] + " › " + parts[parts.length - 1] : parts[0]) + '</span>';
+        }
+        return '<span class="' + cls + '"><span class="t">' + fmtClock(l.t) + '</span>' + task + esc(l.text) + '</span>';
       }).join("") : '<div class="empty">No log line for this task (select a child task or another tab).</div>';
     } else {
       var d = detail.details.filter(function (x) { return x.name === activeTab; })[0];
-      box.textContent = d ? d.content : "";
+      html = esc(d ? d.content : "");
     }
+    if (box._html === html && !stickToBottom) return;   // (unchanged: the selection of text and the scroll are kept)
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    box.innerHTML = html; box._html = html;
     if (atBottom || stickToBottom) box.scrollTop = box.scrollHeight;
     stickToBottom = false;
   }
-
   function fetchDetail() {
     if (selectedId == null) return Promise.resolve();
     return fetch("/api/node/" + selectedId).then(function (r) { return r.json(); }).then(function (d) { detail = d; renderDetail(); }).catch(function () { });
   }
+
+  // ---- Main loop ----
+  // A scene that waits for a lock for a moment (ex. between two screenshots) stays in 'running':
+  // it only moves to 'waiting' after WAIT_HOLD_MS of waiting (otherwise the sections would keep jumping).
+  var WAIT_HOLD_MS = 2000, waitSince = {};
+  function stableState(r) {
+    var st = sceneState(r);
+    if (st === "waiting" && r.state !== "Pending") {
+      if (waitSince[r.id] == null) waitSince[r.id] = now();
+      if (now() - waitSince[r.id] < WAIT_HOLD_MS) return "running";
+    } else {
+      delete waitSince[r.id];
+    }
+    return st;
+  }
+  function computeScenes() {
+    var list = state.roots.filter(function (r) { return r.kind !== "General"; }).map(function (r) { return { root: r, st: stableState(r), match: matchesSearch(r) }; });
+    list.byRoot = {};
+    list.forEach(function (x) { list.byRoot[x.root.id] = x; });
+    return list;
+  }
+  function renderAll() {
+    var scenes = computeScenes();
+    renderHeader(scenes); renderPrompts(); renderBoard(scenes); renderTree();
+    if (reportView || (selectedId != null && state.byId[selectedId])) renderDetail();
+    tick();
+  }
+  // The page lost the application (it was closed, or it stopped): when an application answers again on this port
+  // (ex. a new run), the page is reloaded (a fresh page for the new run, instead of an old one that shows nothing).
+  var isDisconnected = false;
   function poll() {
     fetch("/api/state").then(function (r) { return r.json(); }).then(function (s) {
+      if (isDisconnected) { location.reload(); return; }
       clientOffset = s.nowMs - Date.now();
-      state.prompts = s.prompts; state.locks = s.locks; state.finished = s.finished;
-      index(s.nodes);
-      renderChips(); renderRunning(); renderLocks(); renderPrompts(); renderTree();
+      state.prompts = s.prompts; state.locks = s.locks; state.finished = s.finished; state.closing = s.closing; state.pausedForClose = s.pausedForClose;
+      state.canClose = s.canClose; state.server = s.server; state.pausedAll = s.pausedAll;
+      state.rescanning = s.rescanning; state.lastRescan = s.lastRescan; state.sceneReports = s.sceneReports; state.generalErrors = s.generalErrors;
+      try {
+        index(s.nodes, s.rootOrder);
+        // The selected scene was started again ('Rescan'): its tasks are new, the same scene is selected again
+        if (selectedId != null && !state.byId[selectedId] && selectedRootName != null) {
+          var again = state.roots.filter(function (r) { return r.name === selectedRootName; })[0];
+          if (again) { selectedId = again.id; detail = null; stickToBottom = true; lastVersion = -1; }
+        }
+        renderAll();
+      } catch (ex) {
+        // A bug of the page itself (not a connection problem): shown, and the polling continues
+        console.error(ex);
+        $("finishedMsg").style.display = ""; $("finishedMsg").textContent = "UI error: " + (ex && ex.message ? ex.message : ex);
+      }
       if (selectedId != null && s.version !== lastVersion) fetchDetail();
       lastVersion = s.version;
-      if (selectedId != null && state.byId[selectedId]) renderDetailHead();
-    }).catch(function () { $("finishedMsg").style.display = ""; $("finishedMsg").textContent = "Disconnected (is FunscriptToolbox still running?)"; })
+    }, function () {
+      isDisconnected = true;
+      // (in closing mode, the application closes by itself when the last scene is finished)
+      if (state.closing) { showClosed(); return; }
+      var msg = $("finishedMsg");
+      if (msg) { msg.style.display = ""; msg.textContent = "Disconnected (is FunscriptToolbox still running?)"; }
+    })
+      .catch(function () { })   // (whatever happens, the polling continues)
       .then(function () { setTimeout(poll, 700); });
   }
-  function renderDetailHead() { if (detail && detail.id === selectedId) renderDetail(); }
 
-  $("tree").addEventListener("click", function (e) {
+  var selectedRootName = null;   // (to select the same scene again when it is started again by 'Rescan')
+  function select(id, scroll) {
+    reportView = null;
+    selectedId = id; detail = null; activeTab = "Log"; stickToBottom = true;
+    var selectedRoot = rootOf(state.byId[id]);
+    selectedRootName = selectedRoot ? selectedRoot.name : null;
+    for (var n = state.byId[id]; n; n = n.parentId != null ? state.byId[n.parentId] : null) if (n.id !== id) expanded[n.id] = true;
+    renderAll(); fetchDetail();
+    if (scroll) { var row = $("tree").querySelector('[data-key="' + id + '"]'); if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" }); }
+  }
+  function onCancelClick(e) {
     var cancelId = e.target.getAttribute && e.target.getAttribute("data-cancel");
-    if (cancelId) { fetch("/api/cancel/" + cancelId, { method: "POST" }); e.stopPropagation(); return; }
+    if (!cancelId) return false;
+    fetch("/api/cancel/" + cancelId, { method: "POST" }); e.stopPropagation();
+    return true;
+  }
+  $("tree").addEventListener("click", function (e) {
+    if (onCancelClick(e)) return;
     var toggle = e.target.getAttribute && e.target.getAttribute("data-toggle");
-    if (toggle) { var n = state.byId[toggle]; expanded[toggle] = !isExpanded(n); renderTree(); e.stopPropagation(); return; }
+    if (toggle) { var n = state.byId[toggle]; expanded[toggle] = !isExpanded(n); renderAll(); e.stopPropagation(); return; }
     var row = e.target.closest ? e.target.closest(".row") : null;
-    if (row) { selectedId = parseInt(row.getAttribute("data-id"), 10); detail = null; activeTab = "Log"; stickToBottom = true; renderTree(); fetchDetail(); }
+    if (row && row.dataset.key) select(parseInt(row.dataset.key, 10), false);
   });
-  $("chips").addEventListener("click", function (e) {
-    var f = e.target.closest ? e.target.closest("[data-filter]") : null;
-    if (!f) return;
-    var key = f.getAttribute("data-filter");
-    filters[key] = !filters[key];
-    try { localStorage.setItem("fstFilters", JSON.stringify(filters)); } catch (ex) { }
-    renderChips(); renderTree();
+  $("board").addEventListener("click", function (e) {
+    if (onCancelClick(e)) return;
+    var item = e.target.closest ? e.target.closest("[data-key]") : null;
+    if (!item) return;
+    var id = parseInt(item.dataset.key, 10);
+    expanded[id] = true;
+    select(id, true);
   });
-  $("running").addEventListener("click", function (e) {
-    var r = e.target.closest ? e.target.closest("[data-run]") : null;
-    if (!r) return;
-    var id = parseInt(r.getAttribute("data-run"), 10), n = state.byId[id];
-    if (!n) return;
-    var key = category(n); if (!filters[key]) { filters[key] = true; renderChips(); }
-    selectedId = id; detail = null; activeTab = "Log"; stickToBottom = true; expanded[id] = true;
-    renderTree(); fetchDetail();
-    var row = $("tree").querySelector('.row[data-id="' + id + '"]'); if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+  $("pills").addEventListener("click", function (e) {
+    var p = e.target.closest ? e.target.closest("[data-key]") : null;
+    if (!p) return;
+    filters[p.dataset.key] = !filters[p.dataset.key];
+    try { localStorage.setItem("fstFilters2", JSON.stringify(filters)); } catch (ex) { }
+    renderAll();
+  });
+  $("search").value = search;
+  $("search").addEventListener("input", function () {
+    search = $("search").value; updateSearch();
+    try { localStorage.setItem("fstSearch", search); } catch (ex) { }
+    renderAll();
   });
   $("tabs").addEventListener("click", function (e) {
     var t = e.target.getAttribute && e.target.getAttribute("data-tab");
     if (t) { activeTab = t; stickToBottom = true; renderDetail(); }
   });
-  $("closeBtn").onclick = function () { fetch("/api/exit", { method: "POST" }).then(function () { document.body.innerHTML = '<div class="empty">FunscriptToolbox is closed. You can close this tab.</div>'; }); };
-  setInterval(function () { renderTree(); renderRunning(); }, 1000);   // keeps the elapsed times moving
+  $("detailHead").addEventListener("click", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-retry");
+    if (!id) return;
+    var r = state.byId[id];
+    if (!r || !window.confirm("Start '" + sceneName(r) + "' again?\n\nWhat is already done is not done again, but what failed can send new AI requests.")) return;
+    fetch("/api/retry/" + id, { method: "POST" });
+  });
+
+  // ---- Movable separators (the sizes are remembered by the browser) ----
+  function loadSize(key) { try { var v = parseFloat(localStorage.getItem(key)); return isNaN(v) ? null : v; } catch (e) { return null; } }
+  function saveSize(key, v) { try { if (v == null) localStorage.removeItem(key); else localStorage.setItem(key, String(v)); } catch (e) { } }
+  function applyBoardHeight(px) {
+    var board = $("board");
+    if (px == null) { board.style.height = ""; board.style.maxHeight = ""; }
+    else { board.style.height = px + "px"; board.style.maxHeight = "none"; }
+  }
+  function applyDetailWidth(pct) {
+    $("detailPane").style.flex = pct == null ? "" : "0 0 " + pct + "%";
+    $("treePane").style.flex = pct == null ? "" : "1 1 0";
+  }
+  function makeSplitter(handle, onMove, onDone) {
+    handle.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      document.body.classList.add("dragging"); handle.classList.add("active");
+      function move(ev) { onMove(ev); }
+      function up() {
+        document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
+        document.body.classList.remove("dragging"); handle.classList.remove("active");
+        onDone();
+      }
+      document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    });
+  }
+  var boardHeight = loadSize("fstBoardHeight"), detailWidth = loadSize("fstDetailWidth");
+  applyBoardHeight(boardHeight); applyDetailWidth(detailWidth);
+  makeSplitter($("splitH"), function (ev) {
+    var top = $("board").getBoundingClientRect().top;
+    boardHeight = Math.round(Math.max(40, Math.min(window.innerHeight - 160, ev.clientY - top)));
+    applyBoardHeight(boardHeight);
+  }, function () { saveSize("fstBoardHeight", boardHeight); });
+  makeSplitter($("splitV"), function (ev) {
+    var rect = document.querySelector("main").getBoundingClientRect();
+    detailWidth = Math.round(1000 * Math.max(0.2, Math.min(0.85, (ev.clientX - rect.left) / rect.width))) / 10;
+    applyDetailWidth(detailWidth);
+  }, function () { saveSize("fstDetailWidth", detailWidth); });
+  $("splitH").addEventListener("dblclick", function () { boardHeight = null; applyBoardHeight(null); saveSize("fstBoardHeight", null); });
+  $("splitV").addEventListener("dblclick", function () { detailWidth = null; applyDetailWidth(null); saveSize("fstDetailWidth", null); });
+
+  // (until the server says it's rescanning: at most a few seconds, in case the request is lost)
+  var rescanClickedUntil = 0;
+  $("rescanBtn").onclick = function () {
+    rescanClickedUntil = Date.now() + 3000;
+    renderAll();
+    fetch("/api/rescan", { method: "POST" }).catch(function () { rescanClickedUntil = 0; });
+  };
+  $("wrongBtn").onclick = function () { showReport("wrong"); };
+  $("nextBtn").onclick = function () { showReport("next"); };
+  // (in the 'What went wrong' / 'What's next' view: a click on a scene shows it)
+  $("content").addEventListener("click", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-scene");
+    if (id) select(parseInt(id, 10), false);
+  });
+  // 'Close': right away when nothing is running. Otherwise, 'closing' mode: the application closes when the running scenes
+  // are finished, and nothing new is started meanwhile. The user can leave this mode ('Don't close') or close right away ('Force close now').
+  var nbActiveScenes = 0;
+  function renderCloseButton(scenes) {
+    nbActiveScenes = scenes.filter(function (x) { return !terminal[x.root.state]; }).length;
+    var closing = !!state.closing;
+    // (--runasserver: no 'Close' button at all, 'Pause all' / 'Resume all' instead)
+    var canClose = state.canClose !== false;
+    $("closeBtn").style.display = closing || !canClose ? "none" : "";
+    $("serverBox").style.display = state.server ? "inline-flex" : "none";
+    $("pauseAllBtn").style.display = state.pausedAll ? "none" : "";
+    $("resumeAllBtn").style.display = state.pausedAll ? "" : "none";
+    var nbPaused = state.pausedForClose || 0, nbStillBusy = Math.max(0, nbActiveScenes - nbPaused);
+    var pausedText = "⏸ Paused: " + nbPaused + " scene(s) paused" + (nbStillBusy ? ", " + nbStillBusy + " finishing their current step" : "");
+    $("pausedText").style.display = state.pausedAll ? "" : "none";
+    if (state.pausedAll && $("pausedText").textContent !== pausedText) $("pausedText").textContent = pausedText;
+    $("closeBtn").className = "mini" + (state.finished ? " primary" : "");
+    $("closeBtn").title = nbActiveScenes > 0
+      ? nbActiveScenes + " scene(s) still running: the application will close when they have finished their current step (nothing new is started meanwhile)."
+      : "Closes FunscriptToolbox.";
+    $("closingBox").style.display = closing ? "" : "none";
+    var nbBusy = Math.max(0, nbActiveScenes - (state.pausedForClose || 0));
+    var text = "⏻ Closing: waiting for " + nbBusy + " scene(s) to finish their current step" + (state.pausedForClose ? " (" + state.pausedForClose + " paused)" : "");
+    if (closing && $("closingText").textContent !== text) $("closingText").textContent = text;
+    // 'Rescan': "Rescanning..." from the click until the server has listed the scenes again (it can take a few seconds)
+    var rescanning = !!state.rescanning || Date.now() < rescanClickedUntil;
+    if (state.rescanning) rescanClickedUntil = 0;   // (the server took it: its state is used from now on)
+    var rescanHtml = rescanning ? '<span class="spin">&#8635;</span> Rescanning...' : "&#8635; Rescan";
+    if ($("rescanBtn")._html !== rescanHtml) { $("rescanBtn").innerHTML = rescanHtml; $("rescanBtn")._html = rescanHtml; }
+    $("rescanBtn").disabled = closing || rescanning;
+    $("rescanBtn").title = closing
+      ? "Not while closing: nothing new is started ('Don't close' to use it again)."
+      : rescanning
+        ? "Looking for scenes on disk..."
+        : "Looks again for scenes on disk: the new ones are started, and the blocked ones are checked again (ex. their manual-input file is now there). The other scenes are not touched.";
+
+    // The result of the last rescan, for a few seconds (it's also in the General log). Otherwise: 'All scenes finished'.
+    var msg = $("finishedMsg"), msgText = null;
+    if (rescanning) msgText = null;
+    else if (state.lastRescan && now() - state.lastRescan.ms < 8000) msgText = state.lastRescan.text;
+    else if (state.finished) msgText = "All scenes finished";
+    msg.style.display = msgText ? "" : "none";
+    if (msgText && msg.textContent !== msgText) msg.textContent = msgText;
+  }
+  function showClosed() {
+    isDisconnected = true;   // (if FunscriptToolbox is started again on this port, this tab reloads by itself)
+    document.body.innerHTML = '<div class="empty">FunscriptToolbox is closed. You can close this tab (it will come back by itself if FunscriptToolbox is started again).</div>';
+  }
+  $("closeBtn").onclick = function () {
+    fetch("/api/exit", { method: "POST" }).then(function () { if (nbActiveScenes === 0) showClosed(); });
+  };
+  $("cancelCloseBtn").onclick = function () { fetch("/api/exit/cancel", { method: "POST" }); };
+  $("pauseAllBtn").onclick = function () { fetch("/api/pause", { method: "POST" }); };
+  $("resumeAllBtn").onclick = function () { fetch("/api/resume", { method: "POST" }); };
+  $("forceCloseBtn").onclick = function () {
+    var nbBusy = Math.max(0, nbActiveScenes - (state.pausedForClose || 0));
+    if (!window.confirm("Close right away?\n\n" + nbBusy + " scene(s) are still in the middle of a step: what they are doing is lost (what is already saved is kept).")) return;
+    fetch("/api/exit?force=1", { method: "POST" }).then(showClosed);
+  };
+  updateSearch();
+  setInterval(tick, 1000);   // keeps the elapsed times moving (only their text: the rows are not rewritten)
   poll();
 })();
 </script>

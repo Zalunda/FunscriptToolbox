@@ -46,6 +46,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 int requestNumber = 1;
                 do
                 {
+                    // (safe point: the previous responses are saved. When the application is closing, no new request is prepared / sent)
+                    r_context.PauseIfClosing();
+
                     // Building the nodes of the request (and waiting for their audio clips / screenshots, when they are not ready yet)
                     using (var prepareNode = r_context.BeginStep($"Prepare request #{requestNumber}"))
                     {

@@ -25,10 +25,14 @@ namespace FunscriptToolbox
             return -1;
         }
 
+        /// <summary>The arguments really used (in debug, they can be replaced by the code below), ex. to start the application again in the background.</summary>
+        public static string[] EffectiveArguments { get; private set; }
+
         static int Main(string[] args)
         {
 #if DEBUG
-            int test = 50;
+            // (the copy started by --background keeps the arguments it received: otherwise it would start another copy, and so on)
+            int test = args.Contains("--backgroundchild") ? -1 : 50;
 
             Environment.CurrentDirectory = @"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles";
             switch (test)
@@ -113,6 +117,7 @@ namespace FunscriptToolbox
                         "--autovseq",
                         "--config", ".\\--FSTB-SubtitleGenerator.config",
                         "--ui", "5055",
+                        //"--openbrowser",
                         $"{prefix}.vseq",
                         $"{prefix}.mp4"
                     };
@@ -200,6 +205,7 @@ namespace FunscriptToolbox
                 {
                     rs_log.Info($"   {arg}");
                 }
+                EffectiveArguments = args;
                 var result = Parser.Default.ParseArguments<
                     VerbInstallation.Options,
 

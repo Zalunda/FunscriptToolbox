@@ -41,7 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             reason = null;
             return true;
         }
-        protected override bool NeedsToRun(SubtitleGeneratorContext context, out string reason)
+        protected override bool HasChangedSinceLastRun(SubtitleGeneratorContext context, out string reason)
         {
             var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
             var jobState = transcription.CurrentJobState as JobState;
@@ -50,7 +50,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 reason = $"sourceId changed: {jobState?.SourceIdUsed} => {this.SourceId}";
                 return true;
             }
-            return base.NeedsToRun(context, out reason);
+            return base.HasChangedSinceLastRun(context, out reason);
         }
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)

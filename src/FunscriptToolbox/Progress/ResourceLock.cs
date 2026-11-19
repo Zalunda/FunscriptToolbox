@@ -143,11 +143,15 @@ namespace FunscriptToolbox.Progress
         private sealed class Holder
         {
             public string Description;
+            /// <summary>The task that took the lock (shown in the UI).</summary>
+            public ITaskNode Node;
         }
 
         private sealed class Waiter
         {
             public string Description;
+            /// <summary>The task that waits for the lock (shown in the UI).</summary>
+            public ITaskNode Node;
             public bool IsBackground;
             public LockPriority Priority;
             public long Arrival;
@@ -175,19 +179,39 @@ namespace FunscriptToolbox.Progress
         private long m_nextArrival;
 
         public string Name { get; }
+
+        /// <summary>A few letters, shown in the UI (ex. "GPU").</summary>
+        public string ShortName { get; }
+
+        /// <summary>What the lock protects, shown as a tooltip in the UI.</summary>
+        public string Description { get; }
+
         public TaskState StateWhileHolding { get; }
 
         /// <summary>How many holders at the same time.</summary>
         public int MaxConcurrent { get; }
 
-        public ResourceLock(string name, TaskState stateWhileHolding = TaskState.Running, int maxConcurrent = 1)
+        public ResourceLock(string name, string shortName, string description, TaskState stateWhileHolding = TaskState.Running, int maxConcurrent = 1)
         {
             if (maxConcurrent < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxConcurrent), "A lock needs at least one holder at a time.");
 
             this.Name = name;
+            this.ShortName = shortName;
+            this.Description = description;
             this.StateWhileHolding = stateWhileHolding;
             this.MaxConcurrent = maxConcurrent;
+        }
+
+        /// <summary>Who holds the lock and who waits for it, right now (a copy: the nodes are not called while the lock state is locked).</summary>
+        public (IReadOnlyList<(string Description, ITaskNode Node)> Holders, IReadOnlyList<(string Description, ITaskNode Node)> Waiters) GetUsage()
+        {
+            lock (r_stateLock)
+            {
+                return (
+                    r_holders.Select(h => (h.Description, h.Node)).ToArray(),
+                    r_waiting.OrderBy(w => w.Rank).Select(w => (w.Description, w.Node)).ToArray());
+            }
         }
 
         /// <summary>What the current holders are doing (null when nobody holds the lock).</summary>
@@ -228,10 +252,11 @@ namespace FunscriptToolbox.Progress
 
             var node = TaskScope.Current;
             var label = $"{description}";
-            var holder = new Holder { Description = label };
+            var holder = new Holder { Description = label, Node = node };
             var waiter = new Waiter
             {
                 Description = label,
+                Node = node,
                 IsBackground = LockPriority.IsBackgroundWork,
                 Priority = LockPriority.Current
             };
@@ -358,38 +383,103 @@ namespace FunscriptToolbox.Progress
     /// <summary>The locks shared by all the sequences processed at the same time.</summary>
     public class SharedLocks
     {
-        // How many of each kind of work at the same time. Constants for now (to be moved to a configuration).
+        // How many of each kind of work at the same time, by default (can be changed in the configuration: GlobalShared.MaxConcurrent).
         // The more a kind of work weighs on the machine, the fewer at a time.
 
+        /// <summary>Only one thing that uses the local machine (local whisper, local AI server, ...) at a time.</summary>
+        public const int DefaultLocalResourceConcurrency = 1;
+
         /// <summary>Reading the original video with ffmpeg (taking a screenshot, extracting the audio the first time): hard on the disk.</summary>
-        public const int VideoSourceConcurrency = 1;
+        public const int DefaultVideoSourceConcurrency = 1;
 
         /// <summary>ffmpeg working on an audio that is already extracted (converting or filtering a whole audio): a lot less demanding.</summary>
-        public const int AudioConcurrency = 3;
+        public const int DefaultAudioConcurrency = 3;
 
         /// <summary>Cutting an audio clip from the PCM in memory and writing it in the temp folder (which should be on an SSD): small and many.</summary>
-        public const int ClipConcurrency = 8;
+        public const int DefaultClipConcurrency = 8;
 
-        /// <summary>Only one thing that uses the local machine (local whisper, local AI server, ...) at a time.</summary>
-        public ResourceLock LocalResource { get; } = new ResourceLock("local resource (GPU)");
+        /// <summary>One sequence at a time prepares its AI request(s).</summary>
+        public const int DefaultRequestPreparationConcurrency = 1;
 
-        /// <summary>ffmpeg reading the original video (see <see cref="VideoSourceConcurrency"/>).</summary>
-        public ResourceLock VideoSource { get; } = new ResourceLock("video source (ffmpeg on the video)", maxConcurrent: VideoSourceConcurrency);
+        /// <param name="maxConcurrent">
+        /// How many at the same time, by short name of lock (GPU, VID, AUD, CLIP, PREP). A lock not listed keeps its default value.
+        /// An unknown name, 'USER', or a value lower than 1 is an error.
+        /// </param>
+        public SharedLocks(IReadOnlyDictionary<string, int> maxConcurrent = null)
+        {
+            var configurable = new[] { "GPU", "VID", "AUD", "CLIP", "PREP" };
+            var limits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in maxConcurrent ?? new Dictionary<string, int>())
+            {
+                if (!configurable.Contains(kvp.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    throw new Exception($"Unknown lock '{kvp.Key}' in 'GlobalShared.MaxConcurrent' (the locks that can be changed: {string.Join(", ", configurable)}; 'USER' is always 1).");
+                }
+                if (kvp.Value < 1)
+                {
+                    throw new Exception($"'GlobalShared.MaxConcurrent.{kvp.Key}' must be at least 1 (received: {kvp.Value}).");
+                }
+                limits[kvp.Key] = kvp.Value;
+            }
+            int Get(string shortName, int defaultValue) => limits.TryGetValue(shortName, out var value) ? value : defaultValue;
+            static string AtATime(int n) => n == 1 ? "One at a time." : $"{n} at a time.";
 
-        /// <summary>ffmpeg on a whole audio (see <see cref="AudioConcurrency"/>).</summary>
-        public ResourceLock Audio { get; } = new ResourceLock("audio (ffmpeg on audio)", maxConcurrent: AudioConcurrency);
+            var gpu = Get("GPU", DefaultLocalResourceConcurrency);
+            this.LocalResource = new ResourceLock(
+                "local resource (GPU)", "GPU",
+                $"Local machine (GPU): local transcription tool (Purfview whisper), AI engines with 'UseLocalResourceLock'. {AtATime(gpu)}",
+                maxConcurrent: gpu);
 
-        /// <summary>Audio clips cut from the PCM in memory (see <see cref="ClipConcurrency"/>).</summary>
-        public ResourceLock Clips { get; } = new ResourceLock("audio clips (temp folder)", maxConcurrent: ClipConcurrency);
+            var vid = Get("VID", DefaultVideoSourceConcurrency);
+            this.VideoSource = new ResourceLock(
+                "video source (ffmpeg on the video)", "VID",
+                $"ffmpeg reading the original video: screenshots, audio extraction, title card detection. {AtATime(vid)}",
+                maxConcurrent: vid);
+
+            var aud = Get("AUD", DefaultAudioConcurrency);
+            this.Audio = new ResourceLock(
+                "audio (ffmpeg on audio)", "AUD",
+                $"ffmpeg on a whole audio already extracted (conversion, filters). {AtATime(aud)}",
+                maxConcurrent: aud);
+
+            var clip = Get("CLIP", DefaultClipConcurrency);
+            this.Clips = new ResourceLock(
+                "audio clips (temp folder)", "CLIP",
+                $"ffmpeg writing the small audio clips sent to the AIs (temp folder). {AtATime(clip)}",
+                maxConcurrent: clip);
+
+            this.UserInteraction = new ResourceLock(
+                "user interaction", "USER",
+                "A prompt or a dialog shown to you (JSON correction, pause, speaker correction). One at a time.",
+                TaskState.WaitingForUser);
+
+            var prep = Get("PREP", DefaultRequestPreparationConcurrency);
+            this.RequestPreparation = new ResourceLock(
+                "AI request preparation", "PREP",
+                $"Preparing an AI request (gathering the screenshots / audio clips of its nodes). {(prep == 1 ? "One video at a time." : $"{prep} videos at a time.")}",
+                maxConcurrent: prep);
+        }
+
+        /// <summary>The things that use the local machine (local whisper, local AI server, ...).</summary>
+        public ResourceLock LocalResource { get; }
+
+        /// <summary>ffmpeg reading the original video.</summary>
+        public ResourceLock VideoSource { get; }
+
+        /// <summary>ffmpeg on a whole audio.</summary>
+        public ResourceLock Audio { get; }
+
+        /// <summary>Audio clips cut from the PCM in memory.</summary>
+        public ResourceLock Clips { get; }
 
         /// <summary>Only one prompt/dialog shown to the user at a time.</summary>
-        public ResourceLock UserInteraction { get; } = new ResourceLock("user interaction", TaskState.WaitingForUser);
+        public ResourceLock UserInteraction { get; }
 
         /// <summary>
-        /// Only one sequence prepares its AI request(s) at a time (gathering the screenshots / clips of all its nodes).
+        /// The sequences that prepare their AI request(s) (gathering the screenshots / clips of all their nodes).
         /// Only the main work asks for it (never the background work): see AIRequestGenerator.CreateNextRequests.
         /// </summary>
-        public ResourceLock RequestPreparation { get; } = new ResourceLock("AI request preparation");
+        public ResourceLock RequestPreparation { get; }
 
         public IEnumerable<ResourceLock> All => new[] { LocalResource, VideoSource, Audio, Clips, UserInteraction, RequestPreparation };
     }
