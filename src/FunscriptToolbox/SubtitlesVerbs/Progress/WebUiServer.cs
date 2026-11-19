@@ -9,7 +9,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     /// <summary>
     /// A tiny local web server (HttpListener, no extra dependency) that serves the progress page.
@@ -17,7 +17,7 @@ namespace FunscriptToolbox.Progress
     /// </summary>
     public class WebUiServer : IDisposable
     {
-        private const string PageResourceName = "FunscriptToolbox.Progress.ui.html";
+        private const string PageResourceName = "FunscriptToolbox.SubtitlesVerbs.Progress.ui.html";
 
         private static readonly JsonSerializerSettings rs_jsonSettings = new JsonSerializerSettings
         {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     /// <summary>
     /// The historical behavior: everything goes to the console.

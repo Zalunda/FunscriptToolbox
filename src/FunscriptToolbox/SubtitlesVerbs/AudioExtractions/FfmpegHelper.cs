@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.Progress;
 using System;
 using System.IO;
 using System.Linq;

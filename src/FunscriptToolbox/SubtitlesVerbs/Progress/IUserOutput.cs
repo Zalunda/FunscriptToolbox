@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     public class UserPrompt
     {

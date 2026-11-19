@@ -1,6 +1,6 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.Progress;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using log4net;
 using Newtonsoft.Json;

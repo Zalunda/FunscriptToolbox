@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.Core;
-using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.Progress;
 using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using Newtonsoft.Json;

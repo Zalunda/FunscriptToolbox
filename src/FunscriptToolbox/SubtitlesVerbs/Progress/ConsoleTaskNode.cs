@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     /// <summary>
     /// A task of the console mode. Only keeps what the console progress line needs (state, status, counter):

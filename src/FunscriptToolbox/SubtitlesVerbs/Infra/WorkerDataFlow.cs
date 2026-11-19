@@ -1,4 +1,4 @@
-using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.Progress;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
 using FunscriptToolbox.SubtitlesVerbs.Translations;
 using System;

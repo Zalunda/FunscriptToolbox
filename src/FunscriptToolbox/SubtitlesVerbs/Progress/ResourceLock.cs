@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     /// <summary>
     /// Who has priority when several flows are waiting for the same <see cref="ResourceLock"/>.

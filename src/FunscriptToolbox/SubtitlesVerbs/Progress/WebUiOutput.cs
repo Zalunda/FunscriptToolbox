@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     /// <summary>
     /// Keeps the tree of tasks in memory so a web page can display it (see <see cref="WebUiServer"/>).

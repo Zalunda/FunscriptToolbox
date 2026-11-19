@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace FunscriptToolbox.Progress
+namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     public enum TaskState
     {
