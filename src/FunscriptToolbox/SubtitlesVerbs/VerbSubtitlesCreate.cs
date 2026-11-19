@@ -789,6 +789,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         context.PlanWorkerTask(worker, worker.DisplayName);
                     }
 
+                    // The 'Flow' view of the web UI: the workers of this scene and the data between them
+                    // (built from the configuration really used, with the planned tasks: their states come from the tree)
+                    if (context.Output.IsWebUi)
+                    {
+                        try
+                        {
+                            TaskScope.Current.SetFlowGraph(Infra.SceneFlowGraph.Build(context.Config, context.GetPlannedWorkerTask));
+                            // (the items of a box, read when the user clicks on it: from the configuration and the .wipsubtitles of this scene)
+                            TaskScope.Current.SetFlowInspector(key => Infra.SceneFlowInspector.Inspect(context, key));
+                            // (the number of items of each transcription / translation: in a corner of their box)
+                            TaskScope.Current.SetFlowCounter(() => Infra.SceneFlowInspector.CountItems(context));
+                        }
+                        catch (Exception ex)
+                        {
+                            // (only a view: the work continues)
+                            rs_log.Error("Can't build the flow graph of the scene.", ex);
+                        }
+                    }
+
                     foreach (var worker in context.Config.Workers)
                     {
                         // (safe point between two workers: when the application is closing, the next worker is not started)

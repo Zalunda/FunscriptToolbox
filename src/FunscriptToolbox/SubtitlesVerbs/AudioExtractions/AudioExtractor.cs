@@ -14,6 +14,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         protected override string GetWorkerTypeName() => "Audio extraction";
         protected override string GetExecutionVerb() => "Extracting audio";
 
+        protected override void DescribeDataFlow(WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Output(DataKind.Audio, this.AudioExtractionId);
+        }
+
         protected override bool IsFinished(SubtitleGeneratorContext context)
         {
             var audioExtraction = context.WIP.AudioExtractions.FirstOrDefault(t => t.Id == this.AudioExtractionId);

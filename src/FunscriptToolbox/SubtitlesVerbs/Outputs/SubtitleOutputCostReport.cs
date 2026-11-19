@@ -26,6 +26,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 12)]
         public bool IsGlobalTranslationReport { get; set; } = false;
 
+        // (a report on all the transcriptions / translations: no arrow from each of them, only its file)
+        protected override void DescribeDataFlow(WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Output(DataKind.File, this.FileSuffix);
+        }
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)

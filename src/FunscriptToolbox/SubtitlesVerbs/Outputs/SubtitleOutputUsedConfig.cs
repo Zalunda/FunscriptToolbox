@@ -13,6 +13,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 7)]
         public bool RemoveUnusedSharedObjects { get; set; } = true;
 
+        protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Output(Infra.DataKind.File, this.FileSuffix);
+        }
+
         protected override bool IsPrerequisitesMet(SubtitleGeneratorContext context, out string reason)
         {
             reason = null;

@@ -9,6 +9,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string SourceAudioId { get; internal set; }
 
+        protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Input(Infra.DataKind.Audio, this.SourceAudioId, "audio");
+        }
+
         internal bool IsPrerequisitesForAudioMet(SubtitleGeneratorContext context, out string reason)
         {
             if (GetPcmAudio(context) == null)

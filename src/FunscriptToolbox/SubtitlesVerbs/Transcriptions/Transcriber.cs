@@ -25,6 +25,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         protected override string GetExecutionVerb() => "Transcribing";
         protected abstract string GetMetadataProduced();
 
+        protected override void DescribeDataFlow(WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Output(DataKind.Transcription, this.TranscriptionId);
+            if (this.ExportMetadataSrt)
+                flow.Output(DataKind.File, $".Worker.{this.TranscriptionId}.srt");
+        }
+
         protected override bool IsFinished(SubtitleGeneratorContext context)
         {
             return context.WIP.Transcriptions.Any(t => t.Id == this.TranscriptionId && t.IsFinished);

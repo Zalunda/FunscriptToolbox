@@ -418,12 +418,47 @@ namespace FunscriptToolbox.Progress
             }
         }
 
+        /// <summary>The items of a box of the 'Flow' graph of a scene (null: unknown scene, or no inspector).</summary>
+        internal object InspectFlow(int sceneNodeId, string key)
+        {
+            Func<string, object> inspector;
+            lock (this.Gate)
+            {
+                if (!m_nodesById.TryGetValue(sceneNodeId, out var node)) return null;
+                inspector = node.FlowInspector;
+            }
+            if (inspector == null) return null;
+
+            // (called without the gate: it reads the .wipsubtitles of the scene, the scene can be using it and writing in the page)
+            try
+            {
+                return inspector(key);
+            }
+            catch (Exception ex)
+            {
+                return new { title = key, note = $"Can't read it right now: {ex.Message}", sections = Array.Empty<object>() };
+            }
+        }
+
         internal object CreateNodeDetail(int nodeId)
         {
+            // A scene: the number of items of the boxes of its graph (read without the gate: it reads the .wipsubtitles of the scene)
+            Func<object> counter;
+            lock (this.Gate)
+            {
+                if (!m_nodesById.TryGetValue(nodeId, out var found)) return null;
+                counter = found.FlowCounter;
+            }
+            object flowCounts = null;
+            if (counter != null)
+            {
+                try { flowCounts = counter(); } catch (Exception) { /* (only an indicator: not shown this time) */ }
+            }
+
             lock (this.Gate)
             {
                 if (!m_nodesById.TryGetValue(nodeId, out var node)) return null;
-                return node.ToDetail();
+                return node.ToDetail(flowCounts);
             }
         }
 
@@ -714,6 +749,42 @@ namespace FunscriptToolbox.Progress
                 }
             }
 
+            int? ITaskNode.Id => Id;
+
+            /// <summary>See <see cref="ITaskNode.SetFlowGraph"/> (sent with the details of the node).</summary>
+            private object m_flowGraph;
+
+            public void SetFlowGraph(object graph)
+            {
+                lock (r_owner.Gate)
+                {
+                    m_flowGraph = graph;
+                    r_owner.Touch();
+                }
+            }
+
+            /// <summary>See <see cref="ITaskNode.SetFlowInspector"/>.</summary>
+            internal Func<string, object> FlowInspector { get; private set; }
+
+            public void SetFlowInspector(Func<string, object> inspector)
+            {
+                lock (r_owner.Gate)
+                {
+                    FlowInspector = inspector;
+                }
+            }
+
+            /// <summary>See <see cref="ITaskNode.SetFlowCounter"/>.</summary>
+            internal Func<object> FlowCounter { get; private set; }
+
+            public void SetFlowCounter(Func<object> counter)
+            {
+                lock (r_owner.Gate)
+                {
+                    FlowCounter = counter;
+                }
+            }
+
             /// <summary>See <see cref="ITaskNode.MarkAsRefreshOnly"/>.</summary>
             public bool IsRefreshOnly { get; private set; }
 
@@ -801,7 +872,7 @@ namespace FunscriptToolbox.Progress
                 };
             }
 
-            public object ToDetail()
+            public object ToDetail(object flowCounts = null)
             {
                 // Called with the gate held.
                 // A task with sub-tasks: its log is combined with the log of all its sub-tasks (including the responses streamed by the AIs),
@@ -839,6 +910,8 @@ namespace FunscriptToolbox.Progress
                     id = Id,
                     path = GetPath(),
                     combined = r_children.Count > 0,
+                    flow = m_flowGraph,
+                    flowCounts,
                     log = lines.OrderBy(x => x.t).ThenBy(x => x.order).Select(x => x.line).TakeLast(MaxCombinedLogLines).ToArray(),
                     details = r_details.Select(d => new { name = d.Key, content = d.Value.Content.ToString(), truncated = d.Value.Truncated }).ToArray()
                 };

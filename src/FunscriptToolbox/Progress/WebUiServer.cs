@@ -208,6 +208,17 @@ namespace FunscriptToolbox.Progress
                     }
                     WriteResponse(context, 404, "text/plain", "Unknown node.");
                 }
+                else if (method == "GET" && path.StartsWith("/api/flowinspect/"))
+                {
+                    // The items of a box of the 'Flow' graph: /api/flowinspect/<scene node id>?key=<key of the box>
+                    var key = context.Request.QueryString["key"];
+                    if (int.TryParse(path.Substring("/api/flowinspect/".Length), out var sceneId) && !string.IsNullOrEmpty(key))
+                    {
+                        var inspection = r_output.InspectFlow(sceneId, key);
+                        if (inspection != null) { WriteJson(context, inspection); return; }
+                    }
+                    WriteResponse(context, 404, "text/plain", "Unknown scene, or nothing to inspect.");
+                }
                 else if (method == "POST" && path.StartsWith("/api/cancel/"))
                 {
                     var ok = int.TryParse(path.Substring("/api/cancel/".Length), out var nodeId) && r_output.RequestCancel(nodeId);

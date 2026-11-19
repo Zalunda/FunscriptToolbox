@@ -1,0 +1,363 @@
+using FunscriptToolbox.Progress;
+using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Translations;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace FunscriptToolbox.SubtitlesVerbs.Infra
+{
+    /// <summary>The kinds of data that a worker can use / produce (shown in the 'Flow' view of the web UI).</summary>
+    public static class DataKind
+    {
+        /// <summary>The video(s) of the scene.</summary>
+        public const string Video = "video";
+        /// <summary>An audio extraction (PCM in the .wipsubtitles), by its id.</summary>
+        public const string Audio = "audio";
+        /// <summary>A transcription, by its id.</summary>
+        public const string Transcription = "transcription";
+        /// <summary>A translation, by its id.</summary>
+        public const string Translation = "translation";
+        /// <summary>A file next to the video, by its suffix (ex. ".manual-input.srt").</summary>
+        public const string File = "file";
+        /// <summary>(input only) Transcription(s) / translation(s) given by a rule, ex. "singlevad-*" (resolved by the graph).</summary>
+        public const string Sources = "sources";
+    }
+
+    /// <summary>One data used / produced by a worker.</summary>
+    public class DataRef
+    {
+        public string Kind { get; set; }
+        public string Id { get; set; }
+        /// <summary>What the data is for, shown on the arrow (ex. "timings", "metadata", "clips").</summary>
+        public string Role { get; set; }
+    }
+
+    /// <summary>What a worker uses and produces (see SubtitleWorker.DescribeDataFlow).</summary>
+    public class WorkerDataFlow
+    {
+        public List<DataRef> Inputs { get; } = new List<DataRef>();
+        public List<DataRef> Outputs { get; } = new List<DataRef>();
+
+        public void Input(string kind, string id, string role = null)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                Inputs.Add(new DataRef { Kind = kind, Id = id.Trim(), Role = role });
+        }
+
+        public void Output(string kind, string id, string role = null)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                Outputs.Add(new DataRef { Kind = kind, Id = id.Trim(), Role = role });
+        }
+
+        /// <summary>A list of source rules (ex. "full-whisper, singlevad-*"), resolved like the run does (see MetadataAggregator).</summary>
+        public void InputSources(string sources, string role)
+        {
+            foreach (var rule in (sources ?? string.Empty).Split(',').Select(f => f.Trim()).Where(f => f.Length > 0))
+            {
+                Input(DataKind.Sources, rule, role);
+            }
+        }
+
+        /// <summary>The timings and the metadata sources of a MetadataAggregator (null: nothing).</summary>
+        public void InputMetadatas(MetadataAggregator metadatas)
+        {
+            if (metadatas == null)
+                return;
+            InputSources(metadatas.TimingsSource, "timings");
+            InputSources(metadatas.Sources, "metadata");
+        }
+
+        /// <summary>The binary data sent to an AI (the enabled extractors): audio clips from an audio extraction, screenshots from the video.</summary>
+        public void InputExtractors(IEnumerable<BinaryDataExtractor> extractors)
+        {
+            foreach (var extractor in extractors ?? Array.Empty<BinaryDataExtractor>())
+            {
+                if (extractor == null || !extractor.Enabled)
+                    continue;
+                if (extractor is BinaryDataExtractorAudio audio)
+                    Input(DataKind.Audio, audio.SourceAudioId, "clips");
+                else if (extractor is BinaryDataExtractorImage)
+                    Input(DataKind.Video, "video", "screenshots");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The graph of the workers of a scene and of the data between them (the 'Flow' view of the web UI):
+    /// built from the configuration used by the scene, the states come from the task tree (node ids).
+    /// </summary>
+    public static class SceneFlowGraph
+    {
+        /// <summary>The workers of the graph: the key of a worker ("w3") is its index in this array.</summary>
+        internal static SubtitleWorker[] GetWorkers(SubtitleGeneratorConfig config) =>
+            (config?.Workers ?? Array.Empty<SubtitleWorker>()).Where(w => w != null).ToArray();
+
+        public static object Build(SubtitleGeneratorConfig config, Func<SubtitleWorker, ITaskNode> getWorkerNode)
+        {
+            var workers = GetWorkers(config);
+            var flows = workers.Select(w => w.GetDataFlow()).ToArray();
+
+            var workerItems = new List<object>();
+            var dataItems = new Dictionary<string, object>();
+            var edges = new List<object>();
+
+            // The transcriptions / translations produced by the workers (for the source rules, ex. "singlevad-*")
+            var producedIds = new List<(string kind, string id)>();
+            foreach (var flow in flows)
+                foreach (var output in flow.Outputs.Where(o => o.Kind == DataKind.Transcription || o.Kind == DataKind.Translation))
+                    producedIds.Add((output.Kind, output.Id));
+
+            string DataKey(string kind, string id) => $"{kind}:{id}";
+            void AddData(string kind, string id)
+            {
+                var key = DataKey(kind, id);
+                if (!dataItems.ContainsKey(key))
+                    dataItems[key] = new { key, kind, name = id };
+            }
+
+            for (var index = 0; index < workers.Length; index++)
+            {
+                var worker = workers[index];
+                var flow = flows[index];
+                var workerKey = $"w{index}";
+                workerItems.Add(new
+                {
+                    key = workerKey,
+                    name = worker.DisplayName,
+                    type = worker.GetType().Name,
+                    enabled = worker.Enabled,
+                    order = index,
+                    nodeId = worker.Enabled ? getWorkerNode(worker)?.Id : null
+                });
+
+                var ownOutputs = new HashSet<string>(flow.Outputs.Select(o => DataKey(o.Kind, o.Id)));
+                foreach (var output in flow.Outputs)
+                {
+                    AddData(output.Kind, output.Id);
+                    edges.Add(new { from = workerKey, to = DataKey(output.Kind, output.Id), role = output.Role });
+                }
+
+                foreach (var input in flow.Inputs)
+                {
+                    var keys = new List<string>();
+                    if (input.Kind == DataKind.Sources)
+                    {
+                        // Same rule as the run: a transcription / translation whose id matches
+                        var regex = MetadataAggregator.ToSourceRegex(input.Id);
+                        foreach (var (kind, id) in producedIds.Distinct().Where(p => regex.IsMatch(p.id)))
+                        {
+                            AddData(kind, id);
+                            keys.Add(DataKey(kind, id));
+                        }
+                        if (keys.Count == 0)
+                        {
+                            // (nothing in this configuration matches the rule: shown as is)
+                            AddData(DataKind.Sources, input.Id);
+                            keys.Add(DataKey(DataKind.Sources, input.Id));
+                        }
+                    }
+                    else
+                    {
+                        AddData(input.Kind, input.Id);
+                        keys.Add(DataKey(input.Kind, input.Id));
+                    }
+
+                    foreach (var key in keys.Where(k => !ownOutputs.Contains(k)))   // (a rule like "*" also matches the worker's own output)
+                    {
+                        edges.Add(new { from = key, to = workerKey, role = input.Role });
+                    }
+                }
+            }
+
+            return new
+            {
+                workers = workerItems,
+                data = dataItems.Values.ToArray(),
+                edges = edges.Distinct().ToArray()
+            };
+        }
+    }
+
+    /// <summary>
+    /// The inspector of the 'Flow' view: the items of a box of the graph (a worker: what it receives and what it produced;
+    /// a transcription / translation: its items). Read on demand, from the configuration and the .wipsubtitles of the scene.
+    /// </summary>
+    public static class SceneFlowInspector
+    {
+        private const int MaxItems = 5000;
+
+        /// <summary>
+        /// The number of items of each transcription / translation (key of the graph, ex. "transcription:full-whisper"), and if it's finished:
+        /// shown in a corner of their box. (only the sizes of the lists are read: no lock needed, the scene can be adding items)
+        /// </summary>
+        public static Dictionary<string, object> CountItems(SubtitleGeneratorContext context)
+        {
+            var counts = new Dictionary<string, object>();
+            var wip = context.WIP;
+            if (wip == null)
+                return counts;
+            foreach (var t in wip.Transcriptions.ToArray())
+                counts[$"{DataKind.Transcription}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
+            foreach (var t in wip.Translations.ToArray())
+                counts[$"{DataKind.Translation}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
+            return counts;
+        }
+
+        public static object Inspect(SubtitleGeneratorContext context, string key)
+        {
+            var config = context.Config;
+            var wip = context.WIP;
+            if (config == null || wip == null)
+                return new { title = key, note = "The scene is not loaded (yet).", sections = Array.Empty<object>() };
+
+            // A worker ("w3": its index in the workers of the configuration)
+            if (key.StartsWith("w") && int.TryParse(key.Substring(1), out var index))
+            {
+                var workers = SceneFlowGraph.GetWorkers(config);
+                if (index < 0 || index >= workers.Length)
+                    return new { title = key, note = "Unknown worker.", sections = Array.Empty<object>() };
+                return InspectWorker(context, workers[index]);
+            }
+
+            // A data ("transcription:full-whisper", "translation:...", "audio:...", "file:...")
+            var colon = key.IndexOf(':');
+            var kind = colon > 0 ? key.Substring(0, colon) : key;
+            var id = colon > 0 ? key.Substring(colon + 1) : string.Empty;
+            switch (kind)
+            {
+                case DataKind.Transcription:
+                case DataKind.Translation:
+                    var container = FindContainer(wip, kind, id);
+                    return new
+                    {
+                        title = $"{kind} '{id}'",
+                        note = container == null ? "Not produced yet." : (container.IsFinished ? null : "Not finished yet."),
+                        sections = container == null ? Array.Empty<object>() : new[] { Section($"Items of {kind} '{id}'", ReadItems(wip, container), null) }
+                    };
+                case DataKind.Audio:
+                    var audio = wip.AudioExtractions.FirstOrDefault(a => a.Id == id);
+                    return new
+                    {
+                        title = $"audio '{id}'",
+                        note = audio?.IsFinished == true ? $"Audio extraction, duration: {audio.PcmAudio?.Duration:hh\\:mm\\:ss\\.fff} (no items)." : "Not extracted yet.",
+                        sections = Array.Empty<object>()
+                    };
+                default:
+                    return new { title = $"{kind} '{id}'", note = kind == DataKind.File || kind == DataKind.Video ? "On disk (no items to show)." : "No items to show.", sections = Array.Empty<object>() };
+            }
+        }
+
+        private static object InspectWorker(SubtitleGeneratorContext context, SubtitleWorker worker)
+        {
+            var wip = context.WIP;
+            var flow = worker.GetDataFlow();
+            var sections = new List<object>();
+
+            // Produced: its transcription / translation (the items, with their metadata)
+            var produced = flow.Outputs
+                .Where(o => o.Kind == DataKind.Transcription || o.Kind == DataKind.Translation)
+                .Select(o => (o, container: FindContainer(wip, o.Kind, o.Id)))
+                .ToArray();
+            var producedItems = produced.Where(p => p.container != null).SelectMany(p => ReadItems(wip, p.container)).ToArray();
+
+            // Received: the items merged from its 'Metadatas' (timings + metadata of its sources), what the worker works on
+            // ('to do': not in what it produced yet)
+            var metadatas = worker.GetType().GetProperty("Metadatas", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                ?.GetValue(worker) as MetadataAggregator;
+            if (metadatas != null)
+            {
+                var title = $"Received: timings of '{metadatas.TimingsSource}'" + (string.IsNullOrWhiteSpace(metadatas.Sources) ? string.Empty : $", metadata of '{metadatas.Sources}'");
+                var received = Retry(() =>
+                {
+                    MetadataAggregation aggregation = null;
+                    wip.ExecuteLocked(() => aggregation = metadatas.Aggregate(context));
+                    return aggregation;
+                });
+                if (received?.ReferenceTimingsWithMetadata == null)
+                {
+                    sections.Add(Section(title, Array.Empty<object>(), $"Not available yet: '{metadatas.TimingsSource}' is not finished."));
+                }
+                else
+                {
+                    var producedStarts = new HashSet<TimeSpan>(produced.Where(p => p.container != null).SelectMany(p => SafeItems(wip, p.container)).Select(i => i.StartTime));
+                    var items = received.ReferenceTimingsWithMetadata.Take(MaxItems)
+                        .Select(i => ToItem(i, todo: produced.Length > 0 && !producedStarts.Contains(i.StartTime)))
+                        .ToArray();
+                    sections.Add(Section(title, items, received.ReferenceTimingsWithMetadata.Length > MaxItems ? $"Only the first {MaxItems} items." : null));
+                }
+            }
+
+            foreach (var (output, container) in produced)
+            {
+                sections.Add(container == null
+                    ? Section($"Produced: {output.Kind} '{output.Id}'", Array.Empty<object>(), "Nothing produced yet.")
+                    : Section($"Produced: {output.Kind} '{output.Id}'" + (container.IsFinished ? string.Empty : " (not finished)"), ReadItems(wip, container), null));
+            }
+
+            var inputs = flow.Inputs.Select(i => $"{i.Kind} '{i.Id}'" + (i.Role != null ? $" ({i.Role})" : string.Empty)).Distinct().ToArray();
+            var outputs = flow.Outputs.Select(o => $"{o.Kind} '{o.Id}'").Distinct().ToArray();
+            return new
+            {
+                title = worker.DisplayName,
+                type = worker.GetType().Name,
+                enabled = worker.Enabled,
+                inputs,
+                outputs,
+                note = sections.Count == 0 ? "This worker has no items to show (it works on audio or files)." : null,
+                sections
+            };
+        }
+
+        private static TimedItemWithMetadataCollection FindContainer(WorkInProgressSubtitles wip, string kind, string id)
+        {
+            return kind == DataKind.Transcription
+                ? (TimedItemWithMetadataCollection)wip.Transcriptions.FirstOrDefault(t => t.Id == id)
+                : wip.Translations.FirstOrDefault(t => t.Id == id);
+        }
+
+        private static object Section(string name, object[] items, string note) => new { name, items, note };
+
+        private static object ToItem(TimedItemWithMetadata item, bool todo = false) => new
+        {
+            s = item.StartTime.ToString(@"hh\:mm\:ss\.fff"),
+            e = item.EndTime.ToString(@"hh\:mm\:ss\.fff"),
+            m = item.Metadata.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+            todo
+        };
+
+        private static object[] ReadItems(WorkInProgressSubtitles wip, TimedItemWithMetadataCollection container) =>
+            SafeItems(wip, container).Take(MaxItems).Select(i => ToItem(i)).ToArray();
+
+        /// <summary>
+        /// A copy of the items: the scene can be working on them right now (on its own thread). The copy is made while no
+        /// save is in progress; if the list changes during the copy, it's tried again.
+        /// </summary>
+        private static TimedItemWithMetadata[] SafeItems(WorkInProgressSubtitles wip, TimedItemWithMetadataCollection container)
+        {
+            return Retry(() =>
+            {
+                TimedItemWithMetadata[] copy = null;
+                wip.ExecuteLocked(() => copy = container.GetItems().ToArray());
+                return copy;
+            }) ?? Array.Empty<TimedItemWithMetadata>();
+        }
+
+        private static T Retry<T>(Func<T> read) where T : class
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return read();
+                }
+                catch (InvalidOperationException) when (attempt < 5)
+                {
+                    // (a list changed during the read: again)
+                    System.Threading.Thread.Sleep(20);
+                }
+            }
+        }
+    }
+}

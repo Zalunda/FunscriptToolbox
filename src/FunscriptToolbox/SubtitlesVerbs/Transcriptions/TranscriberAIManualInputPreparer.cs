@@ -291,6 +291,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // Prerequisites
         // ---------------------------------------------------------------------
 
+        protected override void DescribeDataFlow(WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            if (this.RefineTiming?.Enabled == true)
+            {
+                flow.Input(DataKind.Audio, this.RefineTiming.SourceAudioIdForTerrain, "terrain");
+                foreach (var inner in this.RefineTiming.InnerOptionsUsed)
+                {
+                    flow.InputExtractors(inner?.BinaryDataExtractors);
+                }
+            }
+        }
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)

@@ -21,6 +21,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private string _metadataProduced;
         protected override string GetMetadataProduced() => _metadataProduced;
 
+        protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.InputSources(this.SourceId, "cloned from");
+            flow.InputMetadatas(this.Metadatas);
+        }
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)

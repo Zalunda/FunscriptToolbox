@@ -52,6 +52,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [JsonProperty(Order = 25)]
         public bool SaveFullFileToo { get; set; } = false;
 
+        protected override void DescribeDataFlow(WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.InputMetadatas(this.Metadatas);
+            flow.InputSources(this.TextSources, "text");
+            flow.Output(DataKind.File, this.FileSuffix);
+        }
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)

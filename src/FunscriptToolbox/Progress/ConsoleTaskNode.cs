@@ -122,6 +122,10 @@ namespace FunscriptToolbox.Progress
 
         // (only used by the web UI)
         public void MarkAsRefreshOnly() { }
+        public int? Id => null;
+        public void SetFlowGraph(object graph) { }
+        public void SetFlowInspector(Func<string, object> inspector) { }
+        public void SetFlowCounter(Func<object> counter) { }
 
         private void Finish(TaskState finalState)
         {

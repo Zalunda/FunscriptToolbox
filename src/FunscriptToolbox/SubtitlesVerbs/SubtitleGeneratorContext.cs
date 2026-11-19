@@ -208,6 +208,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
             r_plannedNodes[worker] = TaskScope.Current.AddPendingChild("Worker", name);
         }
 
+        /// <summary>The node planned for a worker by <see cref="PlanWorkerTask"/> (until it's started), or null.</summary>
+        internal ITaskNode GetPlannedWorkerTask(object worker) => r_plannedNodes.TryGetValue(worker, out var node) ? node : null;
+
         internal ITaskNode BeginWorkerTask(object worker, string name)
         {
             if (r_plannedNodes.Remove(worker, out var planned))

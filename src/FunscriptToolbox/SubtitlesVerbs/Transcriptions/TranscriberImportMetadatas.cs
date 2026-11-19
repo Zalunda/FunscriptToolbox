@@ -14,6 +14,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         protected override string GetMetadataProduced() => null;
         protected override string GetExecutionVerb() => "Importing";
 
+        protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Input(Infra.DataKind.File, this.FileSuffix, "imported");
+        }
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context, 
             out string reason)

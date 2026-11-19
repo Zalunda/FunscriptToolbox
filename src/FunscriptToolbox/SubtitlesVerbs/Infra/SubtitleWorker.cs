@@ -25,6 +25,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>How the worker is shown in the task tree of the web UI.</summary>
         internal string DisplayName => $"{GetWorkerTypeName()} '{GetId()}'";
 
+        /// <summary>What the worker uses and produces (the 'Flow' view of the web UI).</summary>
+        internal WorkerDataFlow GetDataFlow()
+        {
+            var flow = new WorkerDataFlow();
+            DescribeDataFlow(flow);
+            return flow;
+        }
+
+        /// <summary>
+        /// Adds what the worker uses (flow.Input...) and produces (flow.Output...). Only used to show the 'Flow' view:
+        /// it must follow what the worker really reads / writes (overrides call the base first).
+        /// </summary>
+        protected virtual void DescribeDataFlow(WorkerDataFlow flow)
+        {
+        }
+
         public void Execute(SubtitleGeneratorContext context)
         {
             // --- Pre-Execution Guards ---

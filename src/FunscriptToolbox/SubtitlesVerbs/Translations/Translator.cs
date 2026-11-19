@@ -28,6 +28,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         protected override string GetWorkerTypeName() => "Translation";
         protected override string GetExecutionVerb() => "Translating";
 
+        protected override void DescribeDataFlow(WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Output(DataKind.Translation, this.TranslationId);
+            if (this.ExportMetadataSrt)
+                flow.Output(DataKind.File, $".Worker.{this.TranslationId}.srt");
+        }
+
         protected override bool IsFinished(SubtitleGeneratorContext context)
         {
             return context.WIP.Translations.Any(t => t.Id == this.GetId() && t.IsFinished);

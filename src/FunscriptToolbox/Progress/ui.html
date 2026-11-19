@@ -9,12 +9,14 @@
     --bg: #f5f6f8; --panel: #ffffff; --text: #1d2330; --muted: #6a7384; --border: #d9dde5;
     --accent: #2f6fed; --ok: #1f9d55; --warn: #c78a00; --err: #d23b3b; --wait: #8a5cf5; --skip: #98a0ae; --block: #d9822b;
     --row-hover: #eef2fb; --row-sel: #dfe9ff; --code-bg: #f0f2f6; --chip-bg: #eef1f6;
+    --ext: #0e8a8a;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #14171d; --panel: #1c2028; --text: #e4e8f0; --muted: #8c95a6; --border: #2c3240;
       --accent: #6c9bff; --ok: #3cc47c; --warn: #e2b23a; --err: #ff6b6b; --wait: #b08cff; --skip: #6a7384; --block: #f0a04b;
       --row-hover: #232936; --row-sel: #2a3550; --code-bg: #12151b; --chip-bg: #252b37;
+      --ext: #3cc4c4;
     }
   }
   * { box-sizing: border-box; }
@@ -61,6 +63,110 @@
   .closing { padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
     color: var(--warn); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
   button:disabled { opacity: .45; cursor: default; }
+  /* Flow panel (right pane in the 'Flow' tab): switches, help, inspector */
+  /* (the pane doesn't scroll: the panel fills it, and only the items of the inspector scroll, in both directions) */
+  #treePane.flowmode { overflow: hidden; display: flex; flex-direction: column; }
+  #treePane.flowmode #flowPanel { flex: 1; min-height: 0; display: flex !important; flex-direction: column; }
+  #flowPanel .finsp { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #flowPanel #fiBody { flex: 1; min-height: 0; overflow: auto; }
+  #flowPanel .fiwrapopt { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+  #flowPanel { padding: 8px 10px; font-size: 12px; }
+  #flowPanel .fpbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  #flowPanel .fpbar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  #flowPanel .flowhint { color: var(--muted); margin: 6px 0 8px; font-size: 11px; }
+  #flowPanel .flowhint .focusbar { color: var(--accent); }
+  #flowPanel .flowhint button { margin: 0 4px; }
+  #flowPanel .finsp { border-top: 1px solid var(--border); padding-top: 8px; }
+  #flowPanel .fihead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  #flowPanel .fititle { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #flowPanel #fiSearch { width: 150px; font: inherit; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  #flowPanel .fimeta { color: var(--muted); font-size: 11px; }
+  #flowPanel .finote { color: var(--warn); font-size: 11px; margin: 3px 0; }
+  #flowPanel .ficols { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  #flowPanel .fichip { padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--chip-bg); font-size: 11px; cursor: pointer; user-select: none; }
+  #flowPanel .fichip.off { opacity: .45; text-decoration: line-through; background: transparent; }
+  /* Dragging a column: the dragged one faded, a blue bar where it will go (before the column under the mouse) */
+  #flowPanel [data-ficol][draggable="true"] { cursor: grab; }
+  #flowPanel .dragging { opacity: .4; }
+  #flowPanel .fichip.dropbefore { box-shadow: inset 3px 0 0 var(--accent); }
+  #flowPanel .fitable th.dropbefore { box-shadow: inset 3px 0 0 var(--accent); }
+  #flowPanel .fisec { margin-top: 10px; }
+  #flowPanel .fisname { font-weight: 600; margin-bottom: 3px; }
+  #flowPanel .ficount { font-weight: 400; color: var(--muted); }
+  #flowPanel .fitodo { color: var(--block); }
+  #flowPanel .fitablewrap { border: 1px solid var(--border); border-radius: 6px; width: max-content; min-width: 100%; }
+  #flowPanel .fitable { border-collapse: collapse; font: 11px/1.35 Consolas, "Cascadia Mono", monospace; }
+  #flowPanel .fitable th { position: sticky; top: 0; background: var(--chip-bg); text-align: left; padding: 3px 6px; font-weight: 600; white-space: nowrap; }
+  #flowPanel .fitable td { padding: 2px 6px; border-top: 1px solid var(--border); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+  #flowPanel .fitable tr { cursor: pointer; }
+  #flowPanel .fitable tr:hover td { background: var(--row-hover); }
+  #flowPanel .fitable tr.open td,
+  #flowPanel #fiBody.wrap .fitable td { white-space: pre-wrap; word-break: break-word; max-width: 420px; }   /* (a clicked row, or 'Full text': the values in full) */
+  #flowPanel .fitable tr.todo td:first-child { box-shadow: inset 3px 0 0 var(--block); }
+
+  /* 'Flow' of a scene */
+  #content .flowbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; white-space: normal; }
+  #content .flowbar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  #content .flowhint { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--muted); margin: 4px 0 6px; white-space: normal; }
+  #content .flowwrap { overflow: auto; white-space: normal; position: relative; }
+  /* (an invisible wider line over each arrow, to point at it) */
+  .flowwrap .fhit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: default; }
+  .flowwrap .ftip { position: absolute; z-index: 2; pointer-events: none; max-width: 420px; padding: 3px 8px; border-radius: 6px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; white-space: normal; }
+  .flowwrap svg.hovering .fedge.hl { stroke-width: 2.2; }
+  .flowwrap svg.hovering .flabel.hl { font-weight: 600; }
+  /* (centered in the pane when it's narrower than it: ex. a focus, or without the output files; wider: scrolls from the left) */
+  .flowwrap svg { display: block; margin: 0 auto; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .flowwrap .fnode { cursor: pointer; }
+  .flowwrap .fnode text { fill: var(--text); pointer-events: none; }
+  .flowwrap .fnode rect { stroke-width: 1.5; }
+  .flowwrap .fw rect { fill: var(--panel); stroke: var(--skip); }
+  .flowwrap .fw.st-Succeeded rect { fill: color-mix(in srgb, var(--ok) 25%, var(--panel)); stroke: var(--ok); }
+  .flowwrap .fw.st-done rect { fill: var(--panel); stroke: var(--ok); }
+  .flowwrap .fw.st-refresh rect { fill: color-mix(in srgb, var(--ok) 10%, var(--panel)); stroke: var(--ok); stroke-dasharray: 5 3; }
+  .flowwrap .fw.st-Running rect { fill: color-mix(in srgb, var(--accent) 25%, var(--panel)); stroke: var(--accent); }
+  .flowwrap .fw.st-WaitingForLock rect { fill: color-mix(in srgb, var(--wait) 20%, var(--panel)); stroke: var(--wait); }
+  .flowwrap .fw.st-WaitingForUser rect { fill: color-mix(in srgb, var(--warn) 25%, var(--panel)); stroke: var(--warn); }
+  .flowwrap .fw.st-Blocked rect { fill: color-mix(in srgb, var(--block) 22%, var(--panel)); stroke: var(--block); }
+  .flowwrap .fw.st-Failed rect { fill: color-mix(in srgb, var(--err) 22%, var(--panel)); stroke: var(--err); }
+  .flowwrap .fw.st-Cancelled rect { fill: var(--panel); stroke: var(--warn); }
+  .flowwrap .fw.st-Pending rect { fill: var(--panel); stroke: var(--skip); stroke-dasharray: 4 3; }
+  .flowwrap .fw.st-disabled { opacity: .55; }
+  .flowwrap .fw.st-disabled rect { fill: transparent; stroke: var(--skip); stroke-dasharray: 2 3; }
+  .flowwrap .fd rect { fill: var(--chip-bg); stroke: var(--border); }
+  .flowwrap .fd.av-yes rect { stroke: var(--ok); }
+  .flowwrap .fd.av-input rect { stroke: var(--accent); stroke-dasharray: 3 2; }
+  .flowwrap .fd.k-sources rect { stroke: var(--warn); stroke-dasharray: 3 2; }
+  /* On disk (the video, the files): a 'document' in its own color (teal), after the rules above (it wins):
+     solid when produced, dashed for an input of the scene (produced by no worker), dotted while not produced yet */
+  .flowwrap .fd.ext rect { fill: color-mix(in srgb, var(--ext) 10%, var(--panel)); stroke: var(--ext); stroke-dasharray: none; }
+  .flowwrap .fd.ext.av-input rect { stroke-dasharray: 5 3; }
+  .flowwrap .fd.ext.av-no rect { stroke-dasharray: 1.5 3; }
+  .flowwrap .fd.ext .fold { fill: var(--ext); stroke: none; }
+  .flowwrap .fd.ext text { font-style: italic; fill: var(--ext); }
+  /* The focused box: thick blue outline, a halo, and a callout on its right */
+  .flowwrap .fnode.focus rect { stroke: var(--accent); stroke-width: 3.5; }
+  .flowwrap .fhalo { fill: color-mix(in srgb, var(--accent) 18%, transparent); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+  /* The number of items of a transcription / translation (top right corner of its box): green when finished */
+  .flowwrap .fcount rect { fill: var(--panel); stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 2; }
+  .flowwrap .fcount text { fill: var(--muted); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .flowwrap .fcount.done rect { fill: var(--ok); stroke: var(--ok); stroke-dasharray: none; }
+  .flowwrap .fcount.done text { fill: #fff; }
+  .flowwrap .fcallout { pointer-events: none; }
+  .flowwrap .fcallout rect { fill: var(--accent); }
+  .flowwrap .fcallout text { fill: #fff; font-size: 11px; font-weight: 600; }
+  .flowwrap .fedge { fill: none; stroke: var(--muted); stroke-width: 1.3; opacity: .8; }
+  .flowwrap .fedge.back { stroke-dasharray: 5 4; stroke: var(--warn); }
+  .flowwrap .farrow { fill: var(--muted); }
+  .flowwrap .flabel { fill: var(--muted); font-size: 10px; pointer-events: none; }
+  .flowwrap .dim { opacity: .12; }
+  /* Mouse over a box: the rest is faded */
+  .flowwrap svg.hovering .fnode:not(.hl), .flowwrap svg.hovering .fedge:not(.hl), .flowwrap svg.hovering .flabel:not(.hl) { opacity: .13; }
+  .flowwrap svg.hovering .fedge.hl { stroke: var(--text); opacity: 1; }
+  .flowwrap svg.hovering .flabel.hl { fill: var(--text); }
+  #content .flowhint .focusbar { color: var(--accent); }
+  #content .flowhint button { margin: 0 4px; }
   .nbadge { background: var(--block); color: #fff; font-size: 10px; border-radius: 999px; padding: 0 6px; font-variant-numeric: tabular-nums; }
   /* 'What went wrong' / 'What's next' views */
   #content .rs { margin: 10px 0 2px; font: 600 13px system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -232,7 +338,7 @@
     <div id="content"><div class="empty">Nothing selected.</div></div>
   </section>
   <div class="split-v" id="splitV" title="Drag to resize (double-click: default size)"></div>
-  <section id="treePane"><div id="tree"></div></section>
+  <section id="treePane"><div id="tree"></div><div id="flowPanel" style="display:none"></div></section>
 </main>
 
 <script>
@@ -652,8 +758,20 @@
         stopButton([n]) + elapsedSpan(n)
     };
   }
+  // In the 'Flow' tab of a scene, the right pane is the Flow panel (switches, help, inspector of the clicked box) instead of the tree
+  function isFlowMode() {
+    var n = selectedId != null ? state.byId[selectedId] : null;
+    return !reportView && activeTab === "Flow" && n && n.parentId == null && n.kind !== "General";
+  }
+
   // Only the tasks of the selected scene (the list of the scenes is above)
   function renderTree() {
+    var flowMode = isFlowMode();
+    $("tree").style.display = flowMode ? "none" : "";
+    $("flowPanel").style.display = flowMode ? "" : "none";
+    // (in the Flow panel, only the items of the inspector scroll: one scrollbar in each direction)
+    $("treePane").classList.toggle("flowmode", flowMode);
+    if (flowMode) { ensureFlowPanel(); return; }
     var items = [];
     function add(n, depth) { items.push(rowItem(n, depth)); if (isExpanded(n)) kids(n).forEach(function (k) { add(k, depth + 1); }); }
     var selected = selectedId != null ? state.byId[selectedId] : null;
@@ -711,11 +829,506 @@
     if ($("tabs")._html !== "") { $("tabs").innerHTML = ""; $("tabs")._html = ""; }
     var html = lines.length ? lines.join("") : '<div class="empty">Nothing.</div>';
     var box = $("content");
+    box._flowView = false;
     if (box._html !== html) { box.innerHTML = html; box._html = html; }
   }
   function showReport(view) {
     reportView = view; selectedId = null; selectedRootName = null; detail = null;
     renderAll();
+  }
+
+  // ---- 'Flow' of a scene: the graph of its workers and of the data between them ----
+  // (built by the server from the configuration of the scene; the states come from the task tree)
+  // (output files hidden by default; a new key: the choices saved with the old defaults are not used)
+  var flowOpts = { files: false, disabled: false };
+  try { var savedFlow = JSON.parse(localStorage.getItem("fstFlowOpts2") || "null"); if (savedFlow) for (var fk in flowOpts) if (typeof savedFlow[fk] === "boolean") flowOpts[fk] = savedFlow[fk]; } catch (e) { }
+  var flowFocus = null, flowFocusDir = "up", flowZoom = 1, flowLastKey = null;
+  var flowCounts = {};   // (the number of items of each transcription / translation: "transcription:x" -> { n, done })   // (focus: "up" = what it needs, "down" = what uses it)
+  var FLOW_ICONS = { video: "🎬", audio: "♪", transcription: "T", translation: "Tr", file: "📄", sources: "?" };
+
+  // The state of a worker of the graph (from its task in the tree)
+  function flowWorkerStatus(w) {
+    if (!w.enabled) return { cls: "disabled", text: "disabled" };
+    var t = w.nodeId != null ? state.byId[w.nodeId] : null;
+    if (!t) return { cls: "Pending", text: "not started" };
+    var cls = t.state;
+    if (t.state === "Skipped" && t.reason === "already done") cls = "done";
+    else if (t.state === "Succeeded" && t.refreshOnly) cls = "refresh";
+    return { cls: cls, text: t.state + (t.reason ? ": " + t.reason : "") };
+  }
+  var flowIsDone = function (cls) { return cls === "Succeeded" || cls === "done" || cls === "refresh"; };
+
+  // The graph shown, with the switches: workers (enabled, or all), output files or not
+  function buildFlowGraph(flow) {
+    var nodes = {}, edges = [];
+    var visible = {};
+    flow.workers.forEach(function (w) {
+      if (!w.enabled && !flowOpts.disabled) return;
+      visible[w.key] = w;
+      nodes[w.key] = { key: w.key, type: "worker", w: w, order: w.order, status: flowWorkerStatus(w) };
+    });
+    var dataByKey = {}; flow.data.forEach(function (d) { dataByKey[d.key] = d; });
+    var prod = {}, cons = {}, hasHiddenProducer = {};
+    flow.edges.forEach(function (e) {
+      if (visible[e.from] && dataByKey[e.to]) (prod[e.to] = prod[e.to] || []).push({ w: e.from, role: e.role });
+      else if (dataByKey[e.to] && !dataByKey[e.from]) hasHiddenProducer[e.to] = true;   // (produced by a disabled worker, not shown)
+      else if (dataByKey[e.from] && visible[e.to]) (cons[e.from] = cons[e.from] || []).push({ w: e.to, role: e.role });
+    });
+    var dataNode = function (d, p) {
+      // (available: one of its producers is done; no producer: an input of the scene)
+      var avail = p.length === 0 ? "input" : (p.some(function (pp) { return flowIsDone(nodes[pp.w].status.cls); }) ? "yes" : "no");
+      return { key: d.key, type: "data", d: d, avail: avail };
+    };
+    flow.data.forEach(function (d) {
+      var p = prod[d.key] || [], c = cons[d.key] || [];
+      if (!p.length && !c.length) return;
+      if (!p.length && hasHiddenProducer[d.key]) return;   // (only produced by hidden disabled workers: hidden too, with its arrows)
+      if (d.kind === "file" && p.length && !flowOpts.files) return;   // (an output file, hidden)
+      nodes[d.key] = dataNode(d, p);
+      p.forEach(function (pp) { edges.push({ from: pp.w, to: d.key, label: pp.role }); });
+      c.forEach(function (cc) { edges.push({ from: d.key, to: cc.w, label: cc.role }); });
+    });
+    // Same from / to: one arrow, with all the labels
+    var merged = {};
+    edges.forEach(function (e) {
+      var k = e.from + ">" + e.to;
+      if (!merged[k]) merged[k] = { from: e.from, to: e.to, labels: [] };
+      if (e.label && merged[k].labels.indexOf(e.label) < 0) merged[k].labels.push(e.label);
+    });
+    return { nodes: nodes, edges: Object.keys(merged).map(function (k) { return merged[k]; }) };
+  }
+
+  // Columns (left to right, in the order of the workers in the configuration), then the order inside each column
+  function layoutFlow(g) {
+    var preds = {}, succs = {};
+    g.edges.forEach(function (e) { (preds[e.to] = preds[e.to] || []).push(e.from); (succs[e.from] = succs[e.from] || []).push(e.to); });
+    var layer = {};
+    var isWorker = function (k) { return g.nodes[k].type === "worker"; };
+    function dataLayer(k) {
+      if (layer[k] != null) return layer[k];
+      var ps = (preds[k] || []).filter(function (p) { return layer[p] != null; });
+      if (!ps.length) return null;
+      layer[k] = Math.max.apply(null, ps.map(function (p) { return layer[p]; })) + 1;
+      return layer[k];
+    }
+    var workers = Object.keys(g.nodes).filter(isWorker).sort(function (a, b) { return g.nodes[a].order - g.nodes[b].order; });
+    var maxSoFar = 1;   // (the deepest row of the workers defined before, in the configuration)
+    workers.forEach(function (k) {
+      var l = 1;   // (row 0: the inputs of the scene)
+      var fromAWorker = false;
+      (preds[k] || []).forEach(function (p) {
+        if (isWorker(p)) { if (layer[p] != null) { l = Math.max(l, layer[p] + 1); fromAWorker = true; } }   // (a worker later in the configuration: back arrow)
+        else { var dl = dataLayer(p); if (dl != null) { l = Math.max(l, dl + 1); fromAWorker = true; } }
+      });
+      // Nothing from another worker (ex. a cost report, an import of a file): with the workers defined just before it,
+      // instead of at the top (ex. a report defined at the end is shown at the end)
+      if (!fromAWorker) l = Math.max(1, maxSoFar);
+      layer[k] = l;
+      maxSoFar = Math.max(maxSoFar, l);
+    });
+    Object.keys(g.nodes).forEach(function (k) { if (!isWorker(k)) dataLayer(k); });
+    // The inputs of the scene (no producer): just before their first user
+    Object.keys(g.nodes).forEach(function (k) {
+      if (layer[k] != null) return;
+      var cs = (succs[k] || []).map(function (s) { return layer[s]; }).filter(function (x) { return x != null; });
+      layer[k] = cs.length ? Math.max(0, Math.min.apply(null, cs) - 1) : 0;
+    });
+
+    var nbLayers = 0; Object.keys(layer).forEach(function (k) { nbLayers = Math.max(nbLayers, layer[k] + 1); });
+    var cols = []; for (var i = 0; i < nbLayers; i++) cols.push([]);
+    var firstOrder = function (k) {   // (initial order: the order of the workers they are related to)
+      if (isWorker(k)) return g.nodes[k].order;
+      var related = (preds[k] || []).concat(succs[k] || []).filter(isWorker).map(function (w) { return g.nodes[w].order; });
+      return related.length ? Math.min.apply(null, related) : 0;
+    };
+    Object.keys(layer).sort(function (a, b) { return firstOrder(a) - firstOrder(b); }).forEach(function (k) { cols[layer[k]].push(k); });
+    // Fewer crossings: each node goes near the average position of its neighbours (a few sweeps, left to right, then right to left)
+    var pos = {};
+    var setPos = function () { cols.forEach(function (c) { c.forEach(function (k, i) { pos[k] = i; }); }); };
+    setPos();
+    // (a box with no neighbour on that side uses the other side: ex. an output that nobody uses stays next to its producer)
+    var bary = function (k, neighbours, other) {
+      var ps = (neighbours[k] || []).filter(function (x) { return pos[x] != null; });
+      if (!ps.length) ps = (other[k] || []).filter(function (x) { return pos[x] != null; });
+      return ps.length ? ps.reduce(function (a, x) { return a + pos[x]; }, 0) / ps.length : pos[k];
+    };
+    // (same position: the outputs of the same worker stay together, in the order of the configuration)
+    var mainParent = function (k) { var p = (preds[k] || []).filter(isWorker)[0] || (preds[k] || [])[0]; return p != null ? pos[p] : -1; };
+    var sortRow = function (row, neighbours, other) {
+      var keys = {}; row.forEach(function (k) { keys[k] = [bary(k, neighbours, other), mainParent(k), firstOrder(k)]; });
+      row.sort(function (a, b) { var x = keys[a], y = keys[b]; return (x[0] - y[0]) || (x[1] - y[1]) || (x[2] - y[2]); });
+    };
+    for (var iter = 0; iter < 4; iter++) {
+      for (var l = 1; l < cols.length; l++) { sortRow(cols[l], preds, succs); setPos(); }
+      for (var l2 = cols.length - 2; l2 >= 0; l2--) { sortRow(cols[l2], succs, preds); setPos(); }
+    }
+    // A last pass from the top: the final order follows the boxes above (what the eye follows)
+    for (var l3 = 1; l3 < cols.length; l3++) { sortRow(cols[l3], preds, succs); setPos(); }
+
+    // Coordinates: top to bottom (a level = a row, its nodes side by side, centered); vertical scrolling is more natural in the pane
+    var size = function (k) { return isWorker(k) ? { w: 190, h: 32 } : { w: 150, h: 22 }; };
+    var GAP_X = 16, GAP_Y = 44;
+    var rowW = cols.map(function (c) { return c.reduce(function (a, k) { return a + size(k).w + GAP_X; }, -GAP_X); });
+    var rowH = cols.map(function (c) { return c.reduce(function (a, k) { return Math.max(a, size(k).h); }, 0); });
+    var W = Math.max.apply(null, rowW.concat([200])) + 32;
+    var y = 12, boxes = {};
+    cols.forEach(function (c, ri) {
+      var x = 16 + (W - 32 - rowW[ri]) / 2;
+      c.forEach(function (k) {
+        var s = size(k);
+        boxes[k] = { x: x, y: y + (rowH[ri] - s.h) / 2, w: s.w, h: s.h, layer: ri };
+        x += s.w + GAP_X;
+      });
+      y += rowH[ri] + GAP_Y;
+    });
+    return { boxes: boxes, width: W, height: y - GAP_Y + 12, preds: preds, succs: succs };
+  }
+
+  // The nodes related to one node: what it needs (dir "up"), what uses it (dir "down"), or both (default)
+  function flowRelated(key, edges, dir) {
+    var preds = {}, succs = {};
+    edges.forEach(function (e) { (preds[e.to] = preds[e.to] || []).push(e.from); (succs[e.from] = succs[e.from] || []).push(e.to); });
+    var set = {}; set[key] = true;
+    if (dir !== "down") (function up(k) { (preds[k] || []).forEach(function (p) { if (!set[p]) { set[p] = true; up(p); } }); })(key);
+    if (dir !== "up") (function down(k) { (succs[k] || []).forEach(function (s) { if (!set[s]) { set[s] = true; down(s); } }); })(key);
+    return set;
+  }
+  // Focus (left click: what it needs, right click: what uses it): only those nodes, laid out again (compact, no long arrows across the graph)
+  function flowSubGraph(g, key, dir) {
+    var set = flowRelated(key, g.edges, dir), nodes = {};
+    Object.keys(g.nodes).forEach(function (k) { if (set[k]) nodes[k] = g.nodes[k]; });
+    return { nodes: nodes, edges: g.edges.filter(function (e) { return set[e.from] && set[e.to]; }) };
+  }
+
+  function flowSvg(g, lay) {
+    var related = null;   // (focus: the other nodes are not in the graph anymore; hover: highlighted by flowHover, without redrawing)
+    var trunc = function (s, n) { return s.length > n ? s.substring(0, n - 1) + "…" : s; };
+    // (the same margin on both sides, room for the back arrows on the right: the graph stays centered;
+    // wider when the callout of the focused box needs it)
+    var CALLOUT_W = 196;
+    var focusBox = flowFocus ? lay.boxes[flowFocus] : null;
+    var M = 50;
+    if (focusBox) M = Math.max(M, focusBox.x + focusBox.w + 14 + CALLOUT_W - lay.width + 8);
+    var W = lay.width + 2 * M;
+    var parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.round(W * flowZoom) + '" height="' + Math.round(lay.height * flowZoom) +
+      '" viewBox="' + (-M) + ' 0 ' + W + ' ' + lay.height + '" data-fbg="1">'];
+    parts.push('<defs><marker id="farr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="farrow"/></marker></defs>');
+
+    // Where each arrow leaves / arrives: spread along the bottom / the top of the box (not all in the center),
+    // in the order of the box at the other end (from left to right: fewer crossings)
+    var centerX = function (k) { var bx = lay.boxes[k]; return bx.x + bx.w / 2; };
+    var forward = g.edges.filter(function (e) { var a = lay.boxes[e.from], b = lay.boxes[e.to]; return a && b && b.layer > a.layer; });
+    var outPorts = {}, inPorts = {};
+    var spread = function (list, key, other, ports) {
+      var byNode = {};
+      list.forEach(function (e) { (byNode[e[key]] = byNode[e[key]] || []).push(e); });
+      Object.keys(byNode).forEach(function (k) {
+        var es = byNode[k].sort(function (x, y) { return centerX(x[other]) - centerX(y[other]); });
+        var bx = lay.boxes[k], margin = Math.min(24, bx.w / 6);
+        es.forEach(function (e, i) {
+          ports[e.from + ">" + e.to] = es.length === 1 ? bx.x + bx.w / 2 : bx.x + margin + (bx.w - 2 * margin) * i / (es.length - 1);
+        });
+      });
+    };
+    spread(forward, "from", "to", outPorts);
+    spread(forward, "to", "from", inPorts);
+
+    // (for the mouse over an arrow: its name, and the names of its two ends)
+    var nodeName = function (k) { var x = g.nodes[k]; return x ? (x.type === "worker" ? x.w.name : x.d.name) : k; };
+    lay.edgeInfo = [];
+    var hits = [];
+
+    // Arrows first (under the boxes)
+    g.edges.forEach(function (e, ei) {
+      var a = lay.boxes[e.from], b = lay.boxes[e.to];
+      if (!a || !b) return;
+      var back = b.layer <= a.layer;   // (an input produced by a worker later in the configuration)
+      var d, lx, ly;
+      if (!back) {
+        // From the bottom of the source to the top of the target
+        var x1 = outPorts[e.from + ">" + e.to], y1 = a.y + a.h, x2 = inPorts[e.from + ">" + e.to], y2 = b.y;
+        var dy = Math.max(20, (y2 - y1) / 2);
+        d = "M" + x1 + "," + y1 + " C" + x1 + "," + (y1 + dy) + " " + x2 + "," + (y2 - dy) + " " + x2 + "," + y2;
+        // (the label near the arrival: each arrow arrives at its own place, the labels don't stack)
+        lx = x2; ly = y2 - 7;
+      } else {
+        // Back arrow: from the right side of the source, up to the right side of the target
+        var bx1 = a.x + a.w, by1 = a.y + a.h / 2, bx2 = b.x + b.w, by2 = b.y + b.h / 2;
+        var out = Math.max(bx1, bx2) + 40;
+        d = "M" + bx1 + "," + by1 + " C" + out + "," + by1 + " " + out + "," + by2 + " " + bx2 + "," + by2;
+        lx = out - 20; ly = (by1 + by2) / 2;
+      }
+      var dim = related && !(related[e.from] && related[e.to]);
+      var ends = ' data-ffrom="' + e.from + '" data-fto="' + e.to + '" data-fedge="' + ei + '"';
+      lay.edgeInfo[ei] = {
+        from: e.from, to: e.to,
+        text: (e.labels.length ? e.labels.join(", ") + "  ·  " : "") + nodeName(e.from) + " → " + nodeName(e.to) + (back ? "  (from a worker later in the configuration)" : "")
+      };
+      parts.push('<path d="' + d + '" class="fedge' + (back ? " back" : "") + (dim ? " dim" : "") + '"' + ends + ' marker-end="url(#farr)"/>');
+      // (an invisible wider line over the arrow: easier to point at with the mouse; drawn after all the arrows)
+      hits.push('<path d="' + d + '" class="fhit"' + ends + '/>');
+      if (e.labels.length) {
+        parts.push('<text x="' + lx + '" y="' + ly + '" class="flabel' + (dim ? " dim" : "") + '"' + ends + ' text-anchor="middle">' + esc(trunc(e.labels.join(", "), 28)) + '</text>');
+      }
+    });
+    parts.push(hits.join(""));
+    // The focused box: a halo around it (under the box)
+    if (focusBox) {
+      parts.push('<rect class="fhalo" x="' + (focusBox.x - 6) + '" y="' + (focusBox.y - 6) + '" width="' + (focusBox.w + 12) + '" height="' + (focusBox.h + 12) + '" rx="12"/>');
+    }
+    Object.keys(lay.boxes).forEach(function (k) {
+      var n = g.nodes[k], b = lay.boxes[k];
+      var dim = related && !related[k];
+      if (n.type === "worker") {
+        var w = n.w, st = n.status;
+        var tip = w.name + "\n" + w.type + "\n" + st.text;
+        parts.push('<g class="fnode fw st-' + st.cls + (dim ? " dim" : "") + (flowFocus === k ? " focus" : "") + '" data-fkey="' + k + '">' +
+          '<title>' + esc(tip) + '</title><rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="6"/>' +
+          '<text x="' + (b.x + 10) + '" y="' + (b.y + b.h / 2 + 4) + '">' + esc(trunc(w.name, 30)) + '</text></g>');
+      } else {
+        var dd = n.d;
+        var dtip = dd.kind + ": " + dd.name + (n.avail === "input" ? "\n(an input of the scene: produced by no worker)" : n.avail === "yes" ? "\n(available)" : "\n(not produced yet)") +
+          (dd.kind === "sources" ? "\n(nothing in this configuration matches this rule)" : "");
+        // Internal (in the .wipsubtitles: audio, transcription, translation): a rounded pill.
+        // External (on disk: the video, the files): a 'document', square with a folded corner.
+        var external = dd.kind === "file" || dd.kind === "video";
+        var shape = external
+          ? '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="2"/>' +
+            '<path class="fold" d="M' + (b.x + b.w - 9) + ',' + b.y + ' L' + (b.x + b.w) + ',' + (b.y + 9) + ' L' + (b.x + b.w - 9) + ',' + (b.y + 9) + ' Z"/>'
+          : '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="11"/>';
+        // The number of items, in the top right corner (a transcription / translation); dashed while it's not finished
+        var count = flowCounts[k], badge = "";
+        if (count) {
+          var label = String(count.n), bw = 10 + label.length * 6.5;
+          badge = '<g class="fcount' + (count.done ? " done" : "") + '"><rect x="' + (b.x + b.w - bw + 6) + '" y="' + (b.y - 8) + '" width="' + bw + '" height="15" rx="7.5"/>' +
+            '<text x="' + (b.x + b.w - bw / 2 + 6) + '" y="' + (b.y + 3) + '" text-anchor="middle">' + label + '</text></g>';
+          dtip += "\n" + count.n + " item(s)" + (count.done ? "" : " (not finished)");
+        }
+        parts.push('<g class="fnode fd ' + (external ? "ext" : "int") + ' k-' + dd.kind + ' av-' + n.avail + (dim ? " dim" : "") + (flowFocus === k ? " focus" : "") + '" data-fkey="' + k + '">' +
+          '<title>' + esc(dtip + (external ? "\n(on disk)" : "\n(in the .wipsubtitles)")) + '</title>' + shape +
+          '<text x="' + (b.x + 10) + '" y="' + (b.y + b.h / 2 + 4) + '">' + esc((FLOW_ICONS[dd.kind] || "") + " " + trunc(dd.name, 22)) + '</text>' + badge + '</g>');
+      }
+    });
+    // ...and a callout on its right: how to come back to the whole graph
+    if (focusBox) {
+      var cx = focusBox.x + focusBox.w + 14, cy = focusBox.y + focusBox.h / 2;
+      parts.push('<g class="fcallout"><rect x="' + cx + '" y="' + (cy - 11) + '" width="' + CALLOUT_W + '" height="22" rx="11"/>' +
+        '<text x="' + (cx + 10) + '" y="' + (cy + 4) + '">◀ Click again: show everything</text></g>');
+    }
+    parts.push("</svg>");
+    return parts.join("");
+  }
+
+  function renderFlow(n, flow, counts) {
+    flowCounts = counts || {};
+    // (the graph only: its switches, help and the inspector are in the Flow panel, on the right)
+    var box = $("content");
+    if (!box._flowView) {
+      box._flowView = true; box._html = null; flowLastKey = null;
+      box.innerHTML = '<div class="flowwrap"></div>';
+    }
+    ensureFlowPanel();
+    $("flowPanel").querySelectorAll("[data-fopt]").forEach(function (cb) { cb.checked = !!flowOpts[cb.getAttribute("data-fopt")]; });
+    var wrap = box.querySelector(".flowwrap");
+    if (!flow) {
+      var none = '<div class="empty">No flow for this scene: its configuration could not be loaded (see its log).</div>';
+      if (wrap._html !== none) { wrap.innerHTML = none; wrap._html = none; }
+      return;
+    }
+    var full = buildFlowGraph(flow);
+    if (flowFocus && !full.nodes[flowFocus]) flowFocus = null;
+    // Focus (left click: what the box needs; right click: what uses it): only those, laid out again
+    var g = flowFocus ? flowSubGraph(full, flowFocus, flowFocusDir) : full;
+    var focusNode = flowFocus ? full.nodes[flowFocus] : null;
+    var focusName = focusNode ? esc(focusNode.type === "worker" ? focusNode.w.name : focusNode.d.name) : "";
+    var hint = focusNode
+      ? '<span class="focusbar">' + (flowFocusDir === "up" ? 'What <b>' + focusName + '</b> needs' : 'What uses <b>' + focusName + '</b>') +
+        ' (' + Object.keys(g.nodes).length + ' of ' + Object.keys(full.nodes).length + ' boxes).</span>' +
+        ' <span>Click again on it: everything. Left click: what a box needs. Right click: what uses it.</span>'
+      : 'Mouse over a box: what it needs and what uses it. Left click: only what it needs. Right click: only what uses it. The items of the clicked box are shown below.';
+    var hintEl = $("flowHint");
+    if (hintEl._html !== hint) { hintEl.innerHTML = hint; hintEl._html = hint; }
+    // (redrawn only when something shown changed: the scroll and the zoom are kept)
+    var key = n.id + "|" + JSON.stringify(flowOpts) + "|" + flowFocus + "|" + flowFocusDir + "|" + flowZoom + "|" + JSON.stringify(flowCounts) + "|" +
+      Object.keys(g.nodes).map(function (k) { var x = g.nodes[k]; return k + ":" + (x.status ? x.status.cls : x.avail); }).join(",") + "|" + flow.edges.length;
+    if (key === flowLastKey) return;
+    flowLastKey = key;
+    var lay = layoutFlow(g);
+    wrap._lastWidth = lay.width + 100;   // (with the margins of flowSvg: for 'Fit')
+    wrap._edges = g.edges;   // (for the highlight on mouse over)
+    var svg = Object.keys(g.nodes).length ? flowSvg(g, lay) : '<div class="empty">No worker to show (check the switches).</div>';
+    wrap._edgeInfo = lay.edgeInfo || [];
+    wrap.innerHTML = svg + '<div class="ftip" style="display:none"></div>'; wrap._html = svg;
+    if (flowHoverKey) flowHover(flowHoverKey);   // (redrawn under the mouse: the highlight stays)
+  }
+
+  // ---- Flow panel (right pane, in the 'Flow' tab): switches, help, and the inspector of the clicked box ----
+  var flowInspect = { sceneId: null, key: null, data: null, loading: false, search: "" };
+  // The metadata hidden in the tables of the inspector (by name, remembered by the browser)
+  var fiHidden = {};
+  try { fiHidden = JSON.parse(localStorage.getItem("fstInspectHidden") || "{}") || {}; } catch (e) { }
+  // The order of the metadata columns, by task (the title of the inspected box), changed by dragging (remembered by the browser)
+  var fiOrder = {};
+  try { fiOrder = JSON.parse(localStorage.getItem("fstInspectOrder") || "{}") || {}; } catch (e) { }
+  function orderCols(cols) {
+    var saved = fiOrder[flowInspectTitle()] || [];
+    var known = saved.filter(function (c) { return cols.indexOf(c) >= 0; });
+    return known.concat(cols.filter(function (c) { return known.indexOf(c) < 0; }));   // (the new ones after, in their order)
+  }
+  function flowInspectTitle() { return flowInspect.data ? flowInspect.data.title : ""; }
+  // Moves the column 'col' just before 'before' (in the order of this task)
+  function moveCol(col, before, allCols) {
+    if (col === before) return;
+    var order = orderCols(allCols).filter(function (c) { return c !== col; });
+    var at = order.indexOf(before);
+    order.splice(at < 0 ? order.length : at, 0, col);
+    fiOrder[flowInspectTitle()] = order;
+    try { localStorage.setItem("fstInspectOrder", JSON.stringify(fiOrder)); } catch (e) { }
+    renderInspector();
+  }
+  function ensureFlowPanel() {
+    var panel = $("flowPanel");
+    if (panel._built) return;
+    panel._built = true;
+    panel.innerHTML =
+      '<div class="fpbar">' +
+        '<label title="The files written / read by the workers (srt, asig, ...)"><input type="checkbox" data-fopt="files"> Output files</label>' +
+        '<label title="The workers that are disabled in the configuration of this scene"><input type="checkbox" data-fopt="disabled"> Disabled workers</label>' +
+        '<span class="spacer"></span>' +
+        '<button class="mini" data-fzoom="-" title="Zoom out">&minus;</button><button class="mini" data-fzoom="fit" title="Fit the width">Fit</button><button class="mini" data-fzoom="+" title="Zoom in">+</button>' +
+      '</div>' +
+      '<div id="flowHint" class="flowhint"></div>' +
+      '<div class="finsp">' +
+        '<div class="fihead"><span id="fiTitle" class="fititle">Inspector</span><span class="spacer"></span>' +
+          '<label class="fiwrapopt" title="Hide the items that have no value in the metadata shown (the hidden columns are not counted)"><input type="checkbox" id="fiHideEmpty"> Hide empty</label>' +
+          '<label class="fiwrapopt" title="The long values (ex. an analysis) on several lines, instead of cut"><input type="checkbox" id="fiWrap"> Full text</label>' +
+          '<input id="fiSearch" type="search" placeholder="Filter the items" spellcheck="false">' +
+          '<button class="mini" data-frefresh="1" title="Read the items again (the scene can be working on them)">&#8635;</button></div>' +
+        '<div id="fiBody"><div class="empty">Click on a box of the graph: what it receives and what it produced are shown here.</div></div>' +
+      '</div>';
+    $("fiSearch").addEventListener("input", function () { flowInspect.search = $("fiSearch").value; renderInspector(); });
+    // 'Full text': the long values on several lines (remembered by the browser)
+    var wrapOn = false;
+    try { wrapOn = localStorage.getItem("fstInspectWrap") === "1"; } catch (e) { }
+    $("fiWrap").checked = wrapOn;
+    $("fiBody").classList.toggle("wrap", wrapOn);
+    $("fiWrap").addEventListener("change", function () {
+      $("fiBody").classList.toggle("wrap", $("fiWrap").checked);
+      try { localStorage.setItem("fstInspectWrap", $("fiWrap").checked ? "1" : "0"); } catch (e) { }
+    });
+    // 'Hide empty': the items without any value in the metadata shown (remembered by the browser)
+    try { flowInspect.hideEmpty = localStorage.getItem("fstInspectHideEmpty") === "1"; } catch (e) { }
+    $("fiHideEmpty").checked = !!flowInspect.hideEmpty;
+    $("fiHideEmpty").addEventListener("change", function () {
+      flowInspect.hideEmpty = $("fiHideEmpty").checked;
+      try { localStorage.setItem("fstInspectHideEmpty", flowInspect.hideEmpty ? "1" : "0"); } catch (e) { }
+      renderInspector();
+    });
+  }
+
+  // The items of a box (read by the server when asked: the scene can be working on them)
+  function inspectFlowBox(sceneId, key) {
+    flowInspect.sceneId = sceneId; flowInspect.key = key; flowInspect.loading = true;
+    renderInspector();
+    fetch("/api/flowinspect/" + sceneId + "?key=" + encodeURIComponent(key))
+      .then(function (r) { return r.ok ? r.json() : { title: key, note: "Nothing to show (the scene is not loaded yet?)", sections: [] }; })
+      .then(function (d) { if (flowInspect.key === key) { flowInspect.data = d; flowInspect.loading = false; renderInspector(); } })
+      .catch(function () { flowInspect.loading = false; renderInspector(); });
+  }
+
+  function renderInspector() {
+    var d = flowInspect.sceneId === selectedId ? flowInspect.data : null, body = $("fiBody");
+    if (!body) return;
+    if (!d) {
+      $("fiTitle").textContent = "Inspector";
+      body.innerHTML = flowInspect.loading && flowInspect.sceneId === selectedId ? '<div class="empty">Reading...</div>' : '<div class="empty">Click on a box of the graph: what it receives and what it produced are shown here.</div>';
+      return;
+    }
+    $("fiTitle").textContent = d.title + (flowInspect.loading ? " (reading...)" : "");
+    var filter = (flowInspect.search || "").trim().toLowerCase();
+    var html = "";
+    if (d.type) html += '<div class="fimeta">' + esc(d.type) + (d.enabled === false ? " (disabled)" : "") + '</div>';
+    if (d.inputs && d.inputs.length) html += '<div class="fimeta">Uses: ' + esc(d.inputs.join(", ")) + '</div>';
+    if (d.outputs && d.outputs.length) html += '<div class="fimeta">Produces: ' + esc(d.outputs.join(", ")) + '</div>';
+    if (d.note) html += '<div class="finote">' + esc(d.note) + '</div>';
+    // The metadata of all the tables: a click on one hides / shows its column (remembered by the browser)
+    var allCols = [];
+    (d.sections || []).forEach(function (s) { s.items.forEach(function (it) { Object.keys(it.m || {}).forEach(function (k) { if (allCols.indexOf(k) < 0) allCols.push(k); }); }); });
+    allCols = orderCols(allCols);
+    flowInspect.allCols = allCols;
+    if (allCols.length) {
+      html += '<div class="ficols"><span class="fimeta">Metadata (click: hide / show; drag: change the order):</span> ' + allCols.map(function (c) {
+        return '<span class="fichip' + (fiHidden[c] ? " off" : "") + '" data-ficol="' + esc(c) + '" draggable="true">' + esc(c) + '</span>';
+      }).join("") + '</div>';
+    }
+    (d.sections || []).forEach(function (s) {
+      // The columns: start, end, then each metadata (in the order they appear), without the hidden ones
+      var cols = [];
+      s.items.forEach(function (it) { Object.keys(it.m || {}).forEach(function (k) { if (cols.indexOf(k) < 0 && !fiHidden[k]) cols.push(k); }); });
+      cols = orderCols(cols);
+      var isEmpty = function (it) {
+        var m = it.m || {};
+        return !cols.some(function (c) { return m[c] != null && String(m[c]).trim() !== ""; });
+      };
+      var nbEmpty = flowInspect.hideEmpty ? s.items.filter(isEmpty).length : 0;
+      var rows = s.items.filter(function (it) {
+        if (flowInspect.hideEmpty && isEmpty(it)) return false;
+        if (!filter) return true;
+        if ((it.s + " " + it.e).indexOf(filter) >= 0) return true;
+        var m = it.m || {};
+        return Object.keys(m).some(function (k) { return String(m[k]).toLowerCase().indexOf(filter) >= 0 || k.toLowerCase().indexOf(filter) >= 0; });
+      });
+      var nbTodo = s.items.filter(function (it) { return it.todo; }).length;
+      html += '<div class="fisec"><div class="fisname">' + esc(s.name) + ' <span class="ficount">' +
+        (filter || nbEmpty ? rows.length + " / " : "") + s.items.length + ' item(s)' + (nbTodo ? ', <span class="fitodo">' + nbTodo + ' to do</span>' : "") +
+        (nbEmpty ? ', ' + nbEmpty + ' empty hidden' : "") + '</span></div>' +
+        (s.note ? '<div class="finote">' + esc(s.note) + '</div>' : "");
+      if (rows.length) {
+        html += '<div class="fitablewrap"><table class="fitable"><thead><tr><th>Start</th><th>End</th>' +
+          cols.map(function (c) { return '<th data-ficol="' + esc(c) + '" data-fith="1" draggable="true" title="Drag to change the order of the columns">' + esc(c) + '</th>'; }).join("") + '</tr></thead><tbody>' +
+          rows.map(function (it) {
+            return '<tr' + (it.todo ? ' class="todo" title="To do: not in what this worker produced yet"' : "") + '><td>' + esc(it.s) + '</td><td>' + esc(it.e) + '</td>' +
+              cols.map(function (c) { var v = (it.m || {})[c]; return '<td title="' + esc(v == null ? "" : v) + '">' + esc(v == null ? "" : v) + '</td>'; }).join("") + '</tr>';
+          }).join("") + '</tbody></table></div>';
+      }
+      html += '</div>';
+    });
+    body.innerHTML = html || '<div class="empty">Nothing to show.</div>';
+  }
+
+  // Mouse over an arrow: it, its label and its two boxes are highlighted, and its name is shown next to the mouse
+  function flowHoverEdge(index, ev) {
+    var wrap = $("content").querySelector(".flowwrap"), svg = wrap ? wrap.querySelector("svg") : null;
+    var info = wrap && wrap._edgeInfo ? wrap._edgeInfo[index] : null;
+    if (!svg || !info) return;
+    flowHoverKey = null;
+    svg.querySelectorAll(".hl").forEach(function (el) { el.classList.remove("hl"); });
+    svg.classList.add("hovering");
+    svg.querySelectorAll('[data-fedge="' + index + '"]').forEach(function (el) { el.classList.add("hl"); });
+    svg.querySelectorAll("[data-fkey]").forEach(function (el) { var k = el.getAttribute("data-fkey"); if (k === info.from || k === info.to) el.classList.add("hl"); });
+    var tip = wrap.querySelector(".ftip"), r = wrap.getBoundingClientRect();
+    if (tip.textContent !== info.text) tip.textContent = info.text;
+    tip.style.display = "";
+    tip.style.left = (ev.clientX - r.left + wrap.scrollLeft + 14) + "px";
+    tip.style.top = (ev.clientY - r.top + wrap.scrollTop + 12) + "px";
+  }
+  function flowHideEdgeTip() {
+    var tip = $("content").querySelector(".flowwrap .ftip");
+    if (tip) tip.style.display = "none";
+  }
+
+  // Mouse over a box: what it needs and what uses it are highlighted, the rest is faded (only CSS classes: nothing is redrawn)
+  var flowHoverKey = null;
+  function flowHover(key) {
+    flowHoverKey = key;
+    var wrap = $("content").querySelector(".flowwrap"), svg = wrap ? wrap.querySelector("svg") : null;
+    if (!svg) return;
+    svg.querySelectorAll(".hl").forEach(function (el) { el.classList.remove("hl"); });
+    var set = key ? flowRelated(key, wrap._edges || []) : null;
+    svg.classList.toggle("hovering", !!set);
+    if (!set) return;
+    svg.querySelectorAll("[data-fkey]").forEach(function (el) { if (set[el.getAttribute("data-fkey")]) el.classList.add("hl"); });
+    svg.querySelectorAll("[data-ffrom]").forEach(function (el) { if (set[el.getAttribute("data-ffrom")] && set[el.getAttribute("data-fto")]) el.classList.add("hl"); });
   }
 
   // ---- Details of the selected task ----
@@ -731,11 +1344,15 @@
     var head = '<div class="hl"><div class="path">' + esc(r && r !== n ? sceneName(r) + " > " + detail.path.split(" > ").slice(1).join(" > ") : detail.path) + '</div>' + retry + '</div><div class="sub">' + esc(n.state) +
       (n.startedMs ? ' &middot; started ' + fmtClock(n.startedMs) + ' &middot; ' + elapsedText(n) : '') + (n.reason ? ' &middot; ' + esc(n.reason) : '') + '</div>';
     if ($("detailHead")._html !== head) { $("detailHead").innerHTML = head; $("detailHead")._html = head; }
-    var tabs = ["Log"].concat(detail.details.map(function (d) { return d.name; }));
+    // (a scene: also its 'Flow', the graph of its workers and of the data between them)
+    var isScene = n.parentId == null && n.kind !== "General";
+    var tabs = ["Log"].concat(isScene ? ["Flow"] : []).concat(detail.details.map(function (d) { return d.name; }));
     if (tabs.indexOf(activeTab) < 0) activeTab = "Log";
     var tabsHtml = tabs.map(function (t) { return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</div>'; }).join("");
     if ($("tabs")._html !== tabsHtml) { $("tabs").innerHTML = tabsHtml; $("tabs")._html = tabsHtml; }
     var box = $("content");
+    if (activeTab === "Flow") { renderFlow(n, detail.flow, detail.flowCounts); stickToBottom = false; return; }
+    box._flowView = false;
     var html;
     if (activeTab === "Log") {
       // (a task with sub-tasks: the log of all its sub-tasks, with the start / end of the important ones; the sub-task is shown before the text)
@@ -871,7 +1488,8 @@
   });
   $("tabs").addEventListener("click", function (e) {
     var t = e.target.getAttribute && e.target.getAttribute("data-tab");
-    if (t) { activeTab = t; stickToBottom = true; renderDetail(); }
+    // (renderAll: in the 'Flow' tab, the right pane is the Flow panel instead of the tree)
+    if (t) { activeTab = t; stickToBottom = true; renderAll(); }
   });
   $("detailHead").addEventListener("click", function (e) {
     var id = e.target.getAttribute && e.target.getAttribute("data-retry");
@@ -933,8 +1551,104 @@
   // (in the 'What went wrong' / 'What's next' view: a click on a scene shows it)
   $("content").addEventListener("click", function (e) {
     var id = e.target.getAttribute && e.target.getAttribute("data-scene");
-    if (id) select(parseInt(id, 10), false);
+    if (id) { select(parseInt(id, 10), false); return; }
+
+    // 'Flow': focus on a node (click on the background: everything)
+    if (e.target.closest && e.target.closest(".flowwrap")) setFlowFocus(e, "up");
   });
+  // Flow panel: zoom, 'Show everything', refresh of the inspector, a row of the inspector (shown in full / cut), switches
+  $("flowPanel").addEventListener("click", function (e) {
+    var zoom = e.target.closest && e.target.closest("[data-fzoom]");
+    if (zoom) {
+      var z = zoom.getAttribute("data-fzoom"), wrap = $("content").querySelector(".flowwrap");
+      if (z === "+") flowZoom = Math.min(2.5, flowZoom * 1.25);
+      else if (z === "-") flowZoom = Math.max(0.3, flowZoom / 1.25);
+      else if (wrap && wrap._lastWidth) flowZoom = Math.max(0.3, Math.min(1.5, (wrap.clientWidth - 10) / wrap._lastWidth));
+      renderDetail();
+      return;
+    }
+    if (e.target.closest && e.target.closest("[data-fshowall]")) { flowFocus = null; flowHoverKey = null; renderDetail(); return; }
+    if (e.target.closest && e.target.closest("[data-frefresh]")) { if (flowInspect.key) inspectFlowBox(flowInspect.sceneId, flowInspect.key); return; }
+    var chip = e.target.closest && e.target.closest(".fichip[data-ficol]");   // (a chip: hide / show; a column header: nothing, it's dragged)
+    if (chip) {
+      var col = chip.getAttribute("data-ficol");
+      if (fiHidden[col]) delete fiHidden[col]; else fiHidden[col] = true;
+      try { localStorage.setItem("fstInspectHidden", JSON.stringify(fiHidden)); } catch (ex) { }
+      renderInspector();
+      return;
+    }
+    var row = e.target.closest && e.target.closest(".fitable tbody tr");
+    if (row) row.classList.toggle("open");
+  });
+  // Flow panel: drag a column (its header or its chip) onto another one: it goes before it (remembered for this task)
+  var fiDragCol = null;
+  $("flowPanel").addEventListener("dragstart", function (e) {
+    var el = e.target.closest && e.target.closest("[data-ficol]");
+    if (!el) return;
+    fiDragCol = el.getAttribute("data-ficol");
+    el.classList.add("dragging");
+    try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", fiDragCol); } catch (ex) { }
+  });
+  $("flowPanel").addEventListener("dragover", function (e) {
+    var el = fiDragCol && e.target.closest && e.target.closest("[data-ficol]");
+    if (!el) return;
+    e.preventDefault();   // (a column can be dropped here)
+    $("flowPanel").querySelectorAll(".dropbefore").forEach(function (x) { if (x !== el) x.classList.remove("dropbefore"); });
+    el.classList.add("dropbefore");
+  });
+  $("flowPanel").addEventListener("drop", function (e) {
+    var el = fiDragCol && e.target.closest && e.target.closest("[data-ficol]");
+    if (!el) return;
+    e.preventDefault();
+    var col = fiDragCol; fiDragCol = null;
+    moveCol(col, el.getAttribute("data-ficol"), flowInspect.allCols || []);
+  });
+  $("flowPanel").addEventListener("dragend", function () {
+    fiDragCol = null;
+    $("flowPanel").querySelectorAll(".dropbefore, .dragging").forEach(function (x) { x.classList.remove("dropbefore"); x.classList.remove("dragging"); });
+  });
+  $("flowPanel").addEventListener("change", function (e) {
+    var opt = e.target.getAttribute && e.target.getAttribute("data-fopt");
+    if (!opt) return;
+    flowOpts[opt] = !!e.target.checked;
+    try { localStorage.setItem("fstFlowOpts2", JSON.stringify(flowOpts)); } catch (ex) { }
+    renderDetail();
+  });
+  // Right click on a box: only what uses it (the menu of the browser is not shown on the graph)
+  $("content").addEventListener("contextmenu", function (e) {
+    if (!(e.target.closest && e.target.closest(".flowwrap"))) return;
+    e.preventDefault();
+    setFlowFocus(e, "down");
+  });
+  // A box clicked: focus on it in that direction (the same box, same direction again, or the background: everything)
+  function setFlowFocus(e, dir) {
+    var fnode = e.target.closest("[data-fkey]");
+    if (!fnode && e.target.closest("[data-fedge]")) return;   // (a click on an arrow: nothing)
+    var k = fnode ? fnode.getAttribute("data-fkey") : null;
+    if (k && !(flowFocus === k && flowFocusDir === dir)) { flowFocus = k; flowFocusDir = dir; }
+    else flowFocus = null;
+    flowHoverKey = null;   // (laid out again: the mouse is not over the same thing anymore)
+    // (the clicked box is also shown in the inspector of the Flow panel: what it receives and what it produced)
+    if (k && selectedId != null) inspectFlowBox(selectedId, k);
+    renderDetail();
+  }
+  // 'Flow': highlight on mouse over (a box: what it needs and what uses it; an arrow: it, its two boxes and its name; elsewhere: nothing)
+  var flowHoverTarget = null;   // "n:<key>", "e:<index>" or null
+  $("content").addEventListener("mousemove", function (e) {
+    var inGraph = e.target.closest && e.target.closest(".flowwrap");
+    var fnode = inGraph ? e.target.closest("[data-fkey]") : null;
+    var fedge = inGraph && !fnode ? e.target.closest("[data-fedge]") : null;
+    var target = fnode ? "n:" + fnode.getAttribute("data-fkey") : fedge ? "e:" + fedge.getAttribute("data-fedge") : null;
+    if (target === flowHoverTarget) {
+      if (fedge) flowHoverEdge(fedge.getAttribute("data-fedge"), e);   // (the name follows the mouse)
+      return;
+    }
+    flowHoverTarget = target;
+    flowHideEdgeTip();
+    if (fedge) flowHoverEdge(fedge.getAttribute("data-fedge"), e);
+    else flowHover(fnode ? fnode.getAttribute("data-fkey") : null);
+  });
+  $("content").addEventListener("mouseleave", function () { flowHoverTarget = null; flowHideEdgeTip(); flowHover(null); });
   // 'Close': right away when nothing is running. Otherwise, 'closing' mode: the application closes when the running scenes
   // are finished, and nothing new is started meanwhile. The user can leave this mode ('Don't close') or close right away ('Force close now').
   var nbActiveScenes = 0;

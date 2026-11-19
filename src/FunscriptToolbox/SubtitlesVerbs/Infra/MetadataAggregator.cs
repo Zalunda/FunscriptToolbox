@@ -56,6 +56,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return rawSourceReferences;
         }
 
+        /// <summary>
+        /// The regex of one source rule (ex. "full-whisper", "singlevad-*"): the id of a transcription / translation must match it.
+        /// (also used by the flow graph of the web UI: the same rule as the run)
+        /// </summary>
+        internal static Regex ToSourceRegex(string rule)
+        {
+            var pattern = rule.Contains("*")
+                ? rule.Replace("*", ".*").Replace("..*", ".*")
+                : rule;
+            return new Regex($"^{pattern}$");
+        }
+
         private static (TimedItemWithMetadataCollection[], string[]) GetRawSources(
             SubtitleGeneratorContext context,
             string[] sources,
@@ -68,10 +80,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             foreach (var rule in sources ?? Array.Empty<string>())
             {
-                var pattern = rule.Contains("*") 
-                    ? rule.Replace("*", ".*").Replace("..*", ".*") 
-                    : rule;
-                var regex = new Regex($"^{pattern}$");
+                var regex = ToSourceRegex(rule);
 
                 foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
                         .Where(t => regex.IsMatch(t.TranscriptionId)))

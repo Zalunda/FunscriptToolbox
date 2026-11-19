@@ -16,6 +16,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         [JsonProperty(Order = 12)]
         public string SaveAsFileSuffixe { get; set; }
 
+        protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            flow.Input(Infra.DataKind.Audio, this.SourceAudioId, "audio");
+            flow.Output(Infra.DataKind.File, this.SaveAsFileSuffixe);
+        }
+
         protected override bool IsPrerequisitesMet(SubtitleGeneratorContext context, out string reason)
         {
             if (GetPcmAudio(context) == null)

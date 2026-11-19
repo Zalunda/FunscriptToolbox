@@ -13,6 +13,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
+        protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
+        {
+            base.DescribeDataFlow(flow);
+            if (this.TranscriberTool is TranscriberToolAudioExternal external)
+            {
+                // The external tool: a .wav is written, a .srt is read
+                flow.Output(Infra.DataKind.File, $".TODO-{this.TranscriptionId}_*.wav", "for the external tool");
+                flow.Input(Infra.DataKind.File, external.OverrideFileSuffixe ?? $".TODO-{this.TranscriptionId}_*.srt", "from the external tool");
+            }
+        }
+
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)

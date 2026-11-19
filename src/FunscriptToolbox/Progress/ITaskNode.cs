@@ -92,6 +92,18 @@ namespace FunscriptToolbox.Progress
         /// in the UI, a scene where nothing else was done is 'untouched'.
         /// </summary>
         void MarkAsRefreshOnly();
+
+        /// <summary>The id of the node in the web UI (null in console mode).</summary>
+        int? Id { get; }
+
+        /// <summary>The graph of the workers and data of a scene (only on a first-level node: the 'Flow' view of the web UI).</summary>
+        void SetFlowGraph(object graph);
+
+        /// <summary>How to read the items of a box of the graph (the inspector of the 'Flow' view), given the key of the box.</summary>
+        void SetFlowInspector(Func<string, object> inspector);
+
+        /// <summary>How to count the items of the boxes of the graph (shown in a corner of the boxes of the 'Flow' view).</summary>
+        void SetFlowCounter(Func<object> counter);
     }
 
     public sealed class NullTaskNode : ITaskNode
@@ -113,6 +125,10 @@ namespace FunscriptToolbox.Progress
         public bool ConsumeCancelRequest() => false;
         public void Fail(string message) { }
         public void MarkAsRefreshOnly() { }
+        public int? Id => null;
+        public void SetFlowGraph(object graph) { }
+        public void SetFlowInspector(Func<string, object> inspector) { }
+        public void SetFlowCounter(Func<object> counter) { }
         public void Dispose() { }
     }
 
