@@ -219,6 +219,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     }
                     WriteResponse(context, 404, "text/plain", "Unknown scene, or nothing to inspect.");
                 }
+                else if (method == "GET" && path.StartsWith("/api/flowimage/"))
+                {
+                    // The screenshot of an item: /api/flowimage/<scene node id>?key=<worker>&field=<extractor>&s=<start>&e=<end> (times: hh:mm:ss.fff)
+                    var q = context.Request.QueryString;
+                    byte[] image = null;
+                    if (int.TryParse(path.Substring("/api/flowimage/".Length), out var sceneId)
+                        && TimeSpan.TryParse(q["s"], System.Globalization.CultureInfo.InvariantCulture, out var start)
+                        && TimeSpan.TryParse(q["e"], System.Globalization.CultureInfo.InvariantCulture, out var end)
+                        && !string.IsNullOrEmpty(q["key"]) && !string.IsNullOrEmpty(q["field"]))
+                    {
+                        try { image = r_output.GetFlowImage(sceneId, q["key"], q["field"], start, end, q["cached"] == "1"); }
+                        catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't take the screenshot: {ex.Message}"); return; }
+                    }
+                    if (image == null) { WriteResponse(context, 404, "text/plain", "No screenshot for this item."); return; }
+                    // (the same item: the same image, the browser can keep it)
+                    context.Response.Headers["Cache-Control"] = "max-age=3600";
+                    WriteBytes(context, 200, "image/jpeg", image);
+                }
+                else if (path.StartsWith("/api/timing/"))
+                {
+                    HandleTiming(context, method, path.Substring("/api/timing/".Length));
+                }
                 else if (method == "POST" && path.StartsWith("/api/cancel/"))
                 {
                     var ok = int.TryParse(path.Substring("/api/cancel/".Length), out var nodeId) && r_output.RequestCancel(nodeId);
@@ -236,6 +258,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 {
                     // --runasserver: the page can't close the application
                     WriteResponse(context, 403, "text/plain", "Closing from the page is disabled (--runasserver).");
+                }
+                else if (method == "POST" && path.StartsWith("/api/scenepause/"))
+                {
+                    // 'Pause scene' / 'Resume scene': /api/scenepause/<scene node id>?paused=1|0 (the scene pauses at its next safe point)
+                    var ok = int.TryParse(path.Substring("/api/scenepause/".Length), out var nodeId)
+                        && r_output.SetScenePaused(nodeId, context.Request.QueryString["paused"] == "1");
+                    WriteResponse(context, ok ? 200 : 404, "text/plain", ok ? "OK" : "Unknown scene.");
                 }
                 else if (method == "POST" && (path == "/api/pause" || path == "/api/resume"))
                 {
@@ -275,6 +304,241 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             }
         }
 
+        /// <summary>
+        /// The 'Timing' editor of a scene: /api/timing/&lt;scene node id&gt;/&lt;what&gt;?... (times in seconds)
+        /// - info                       : what can be edited and played (JSON)
+        /// - subs?review=&lt;id&gt;           : the subtitles of a review (JSON, 404 when the review hasn't started yet)
+        /// - terrain?audio=&lt;id&gt;         : where the sound is (JSON, { computing: true } while it's computed)
+        /// - save?review=&lt;id&gt; (POST)    : saves the subtitles of a review (in the .wipsubtitles)
+        /// - validated?review=&lt;id&gt; (POST) : saves what is validated
+        /// - done?review=&lt;id&gt; (POST)    : the review is done (the scene is rescanned: the worker writes the file)
+        /// - peaks?audio=&amp;s=&amp;e=&amp;n=        : the waveform (binary: min / max, signed 16 bits, for each of the n bins)
+        /// - audio.wav?audio=           : the whole audio (WAV, with ranges: the browser only reads what it plays)
+        /// - snippet.wav?audio=&amp;s=&amp;e=     : a short part of the audio (WAV), ex. to play the start of a subtitle again and again
+        /// - video?part=&lt;index&gt;         : the light video of a part ('.FAST.mp4', with ranges)
+        /// </summary>
+        private void HandleTiming(HttpListenerContext context, string method, string rest)
+        {
+            var slash = rest.IndexOf('/');
+            var sceneId = slash > 0 && int.TryParse(rest.Substring(0, slash), out var id) ? id : -1;
+            var editor = sceneId >= 0 ? r_output.GetTimingEditor(sceneId) : null;
+            if (editor == null)
+            {
+                WriteResponse(context, 404, "text/plain", "Unknown scene, or no timing editor for it (yet).");
+                return;
+            }
+            var what = rest.Substring(slash + 1);
+            var q = context.Request.QueryString;
+            var culture = System.Globalization.CultureInfo.InvariantCulture;
+            TimeSpan Seconds(string name) => double.TryParse(q[name], System.Globalization.NumberStyles.Float, culture, out var v) && v >= 0
+                ? TimeSpan.FromSeconds(v)
+                : throw new TimingEditorException($"Invalid or missing '{name}'.");
+
+            try
+            {
+                if (method == "GET" && what == "info")
+                {
+                    WriteJson(context, editor.GetInfo());
+                }
+                else if (method == "GET" && what == "subs")
+                {
+                    var subs = editor.LoadSubtitles(q["review"]);
+                    if (subs == null) WriteResponse(context, 404, "text/plain", $"The review '{q["review"]}' hasn't started yet: the scene starts it when the steps before it are done.");
+                    else WriteJson(context, subs);
+                }
+                else if (method == "POST" && what == "save")
+                {
+                    // body: { stamp, force, subtitles: [{ s, e, lines }] } => { stamp } (409: saved from somewhere else since it was loaded)
+                    var body = JObject.Parse(ReadBody(context));
+                    var subtitles = body["subtitles"]?.ToObject<TimingEditorSubtitle[]>();
+                    try
+                    {
+                        var newStamp = editor.SaveSubtitles(q["review"], (string)body["stamp"], (bool?)body["force"] == true, subtitles);
+                        WriteJson(context, new { stamp = newStamp });
+                    }
+                    catch (TimingEditorConflictException ex)
+                    {
+                        WriteResponse(context, 409, "text/plain", ex.Message);
+                    }
+                }
+                else if (method == "POST" && what == "validated")
+                {
+                    // body: { keys: ["start ms-end ms", ...] }: the subtitles validated by the user
+                    var body = JObject.Parse(ReadBody(context));
+                    editor.SaveValidated(q["review"], body["keys"]?.ToObject<string[]>());
+                    WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && what == "activetime")
+                {
+                    // body: { ms }: time of active work in the editor since the last time
+                    var body = JObject.Parse(ReadBody(context));
+                    editor.AddActiveTime(q["review"], (long?)body["ms"] ?? 0);
+                    WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && what == "done")
+                {
+                    // (the worker writes the file at its next run: only this scene is started again, when it's not running anymore)
+                    editor.MarkReviewDone(q["review"]);
+                    var restarted = r_output.RequestRetry(sceneId);
+                    WriteJson(context, new { restarted });
+                }
+                else if (method == "GET" && what == "terrain")
+                {
+                    WriteJson(context, editor.GetTerrain(q["audio"]));
+                }
+                else if (method == "GET" && what == "peaks")
+                {
+                    var nbBins = int.TryParse(q["n"], out var n) ? n : throw new TimingEditorException("Invalid or missing 'n'.");
+                    var peaks = editor.GetPeaks(q["audio"], Seconds("s"), Seconds("e"), nbBins);
+                    context.Response.Headers["Cache-Control"] = "no-store";
+                    WriteBytes(context, 200, "application/octet-stream", peaks);
+                }
+                else if (method == "GET" && what == "audio.wav")
+                {
+                    var (samplingRate, pcm) = editor.GetAudio(q["audio"]);
+                    var header = CreateWavHeader(samplingRate, pcm.Length);
+                    WriteRanged(context, "audio/wav", header.Length + pcm.LongLength, (position, buffer, count) =>
+                    {
+                        // (the header, then the samples)
+                        var nbRead = 0;
+                        while (nbRead < count && position < header.Length)
+                            buffer[nbRead++] = header[position++];
+                        var fromPcm = (int)Math.Min(count - nbRead, pcm.LongLength - (position - header.Length));
+                        if (fromPcm > 0)
+                            Array.Copy(pcm, position - header.Length, buffer, nbRead, fromPcm);
+                        return nbRead + Math.Max(0, fromPcm);
+                    });
+                }
+                else if (method == "GET" && what == "snippet.wav")
+                {
+                    var (samplingRate, pcm) = editor.GetAudio(q["audio"]);
+                    var start = Math.Min(pcm.LongLength, 2 * (long)(Seconds("s").TotalSeconds * samplingRate));
+                    var end = Math.Min(pcm.LongLength, 2 * (long)(Seconds("e").TotalSeconds * samplingRate));
+                    var length = (int)Math.Max(0, Math.Min(end - start, 2L * samplingRate * 60));   // (at most a minute)
+                    var header = CreateWavHeader(samplingRate, length);
+                    var bytes = new byte[header.Length + length];
+                    Array.Copy(header, bytes, header.Length);
+                    Array.Copy(pcm, start, bytes, header.Length, length);
+                    context.Response.Headers["Cache-Control"] = "max-age=60";
+                    WriteBytes(context, 200, "audio/wav", bytes);
+                }
+                else if (method == "GET" && what == "video")
+                {
+                    // (by the index of the part: never a path given by the page)
+                    var videoPath = int.TryParse(q["part"], out var partIndex) ? editor.GetVideoPath(partIndex) : null;
+                    if (videoPath == null)
+                    {
+                        WriteResponse(context, 404, "text/plain", "No light video for this part.");
+                        return;
+                    }
+                    using var file = new FileStream(videoPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    WriteRanged(context, "video/mp4", file.Length, (position, buffer, count) =>
+                    {
+                        file.Position = position;
+                        return file.Read(buffer, 0, count);
+                    });
+                }
+                else
+                {
+                    WriteResponse(context, 404, "text/plain", "Not found.");
+                }
+            }
+            catch (TimingEditorException ex)
+            {
+                WriteResponse(context, 400, "text/plain", ex.Message);
+            }
+        }
+
+        private static byte[] CreateWavHeader(int samplingRate, int dataLength)
+        {
+            // (mono, 16 bits)
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+            writer.Write(36 + dataLength);
+            writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+            writer.Write(16);
+            writer.Write((short)1);                 // PCM
+            writer.Write((short)1);                 // mono
+            writer.Write(samplingRate);
+            writer.Write(samplingRate * 2);         // bytes per second
+            writer.Write((short)2);                 // bytes per sample
+            writer.Write((short)16);                // bits per sample
+            writer.Write(Encoding.ASCII.GetBytes("data"));
+            writer.Write(dataLength);
+            writer.Flush();
+            return stream.ToArray();
+        }
+
+        /// <summary>
+        /// Sends some data, or only the part asked by the browser ('Range' header: the video / audio elements read what they play, and seek).
+        /// readAt(position, buffer, count) reads from 'position' and returns the number of bytes read.
+        /// </summary>
+        private static void WriteRanged(HttpListenerContext context, string contentType, long totalLength, Func<long, byte[], int, int> readAt)
+        {
+            var response = context.Response;
+            long from = 0, to = totalLength - 1;
+            var isPartial = false;
+            var range = context.Request.Headers["Range"];
+            if (!string.IsNullOrEmpty(range) && range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))
+            {
+                // (only the first range: the browsers only ask for one)
+                var spec = range.Substring("bytes=".Length).Split(',')[0].Trim();
+                var dash = spec.IndexOf('-');
+                if (dash >= 0)
+                {
+                    var startText = spec.Substring(0, dash);
+                    var endText = spec.Substring(dash + 1);
+                    if (startText.Length == 0 && long.TryParse(endText, out var suffixLength))
+                    {
+                        from = Math.Max(0, totalLength - suffixLength);
+                        isPartial = true;
+                    }
+                    else if (long.TryParse(startText, out var start))
+                    {
+                        from = start;
+                        if (endText.Length > 0 && long.TryParse(endText, out var end))
+                            to = Math.Min(end, totalLength - 1);
+                        isPartial = true;
+                    }
+                }
+                if (isPartial && (from > to || from >= totalLength))
+                {
+                    response.StatusCode = 416;
+                    response.Headers["Content-Range"] = $"bytes */{totalLength}";
+                    response.ContentLength64 = 0;
+                    response.OutputStream.Close();
+                    return;
+                }
+            }
+
+            response.StatusCode = isPartial ? 206 : 200;
+            response.ContentType = contentType;
+            response.Headers["Accept-Ranges"] = "bytes";
+            if (isPartial)
+                response.Headers["Content-Range"] = $"bytes {from}-{to}/{totalLength}";
+            response.ContentLength64 = to - from + 1;
+            try
+            {
+                var buffer = new byte[64 * 1024];
+                var position = from;
+                while (position <= to)
+                {
+                    var nbRead = readAt(position, buffer, (int)Math.Min(buffer.Length, to - position + 1));
+                    if (nbRead <= 0)
+                        break;
+                    response.OutputStream.Write(buffer, 0, nbRead);
+                    position += nbRead;
+                }
+                response.OutputStream.Close();
+            }
+            catch (Exception ex) when (ex is HttpListenerException || ex is IOException || ex is ObjectDisposedException)
+            {
+                // The browser doesn't need the rest anymore (ex. it seeks somewhere else): normal, not an error.
+                try { response.Abort(); } catch { }
+            }
+        }
+
         private static string LoadPage()
         {
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(PageResourceName)
@@ -292,6 +556,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         private static void WriteJson(HttpListenerContext context, object value)
         {
             WriteResponse(context, 200, "application/json; charset=utf-8", JsonConvert.SerializeObject(value, rs_jsonSettings));
+        }
+
+        private static void WriteBytes(HttpListenerContext context, int statusCode, string contentType, byte[] bytes)
+        {
+            context.Response.StatusCode = statusCode;
+            context.Response.ContentType = contentType;
+            context.Response.ContentLength64 = bytes.Length;
+            context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            context.Response.OutputStream.Close();
         }
 
         private static void WriteResponse(HttpListenerContext context, int statusCode, string contentType, string content)

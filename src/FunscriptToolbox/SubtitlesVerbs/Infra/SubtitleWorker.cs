@@ -102,8 +102,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
                 catch (UserStoppedWorkerException ex)
                 {
+                    // (not an error: the user asked for it, like a pause of the scene)
                     node.SetState(TaskState.Cancelled, "stopped by the user");
-                    context.WriteError($"An error occured while {GetExecutionVerb().ToLower()} '{GetId()}':\n{ex.Message}");
+                    context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' stopped by the user: what was already received is kept, it continues at the next run (Retry or Rescan).", ConsoleColor.Yellow);
                     context.WriteLog(ex.ToString());
                 }
                 catch (Exception ex)

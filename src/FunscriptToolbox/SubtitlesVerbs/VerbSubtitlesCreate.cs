@@ -755,6 +755,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             try
             {
                 var watchGlobal = Stopwatch.StartNew();
+                // (web UI: the node of this scene, the current task of its thread: for 'Pause scene')
+                context.SceneNodeId = TaskScope.Current.Id;
 
                 var wipsubFullpath = Path.ChangeExtension(
                     videoSequence.ContainerFullPath,
@@ -800,6 +802,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             TaskScope.Current.SetFlowInspector(key => Infra.SceneFlowInspector.Inspect(context, key));
                             // (the number of items of each transcription / translation: in a corner of their box)
                             TaskScope.Current.SetFlowCounter(() => Infra.SceneFlowInspector.CountItems(context));
+                            // (the screenshot sent to the AI for an item: shown when asked, in the tables of the inspector)
+                            TaskScope.Current.SetFlowImageProvider((key, field, start, end, onlyIfAvailable) => Infra.SceneFlowInspector.GetImage(context, key, field, start, end, onlyIfAvailable));
+                            // (the 'Timing' editor: to revise the timings of the file imported by the scene, ex. '.manual-input.srt')
+                            TaskScope.Current.SetTimingEditor(new Infra.SceneTimingEditor(context));
                         }
                         catch (Exception ex)
                         {

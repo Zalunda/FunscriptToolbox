@@ -692,6 +692,14 @@ _______________________________________=",
       "Id": "asig",
       "Enabled": true
     },
+    {
+      // The light video of each part ("<video>.FAST.mp4", next to it), for the Timing editor of the web UI ('manual-input-review')
+      // and the speaker correction (one video at a time: lock 'ENC'). Done early, with the other preparations of the files:
+      // ready when the review can start. Already there (ex. made by a script): not created again.
+      // (its ffmpeg parameters: in the main configuration; the 2D override removes the crop of the left eye)
+      "Id": "fast-video",
+      "Enabled": true
+    },
     // -----------------------------
     // Creating initial manual-input source
     {
@@ -805,8 +813,8 @@ _______________________________________=",
               "SourceAudioId": "audio"
             }
           ],
-          "MaximumRequestsInBatch": 1000,
-          "BatchSize": 20,
+          "MaximumRequestsInBatch": 30,
+          "BatchSize": 25,
           "BatchSplitWindows": 0,
           "BatchKeepTogetherThreshold": "00:00:00.0000000",
           "NbContextItems": 0,
@@ -832,8 +840,8 @@ _______________________________________=",
               "SourceAudioId": "audio"
             }
           ],
-          "MaximumRequestsInBatch": 1000,
-          "BatchSize": 20,
+          "MaximumRequestsInBatch": 30,
+          "BatchSize": 25,
           "BatchSplitWindows": 0,
           "BatchKeepTogetherThreshold": "00:00:00.0000000",
           "NbContextItems": 0,
@@ -870,8 +878,8 @@ _______________________________________=",
               "SourceAudioId": "audio"
             }
           ],
-          "MaximumRequestsInBatch": 1000,
-          "BatchSize": 20,
+          "MaximumRequestsInBatch": 30,
+          "BatchSize": 25,
           "BatchSplitWindows": 0,
           "BatchKeepTogetherThreshold": "00:00:00.0000000",
           "NbContextItems": 0,
@@ -897,8 +905,8 @@ _______________________________________=",
               "SourceAudioId": "audio"
             }
           ],
-          "MaximumRequestsInBatch": 1000,
-          "BatchSize": 20,
+          "MaximumRequestsInBatch": 30,
+          "BatchSize": 25,
           "BatchSplitWindows": 0,
           "BatchKeepTogetherThreshold": "00:00:00.0000000",
           "NbContextItems": 0,
@@ -980,7 +988,8 @@ _______________________________________=",
             { "Name": "Motto (もっと = more)", "Pattern": "(もっと|モット)[ーっ]*[、。\\s…!！?？]*" },
             { "Name": "Nee (ねえ = hey)", "Pattern": "[ねネ][えぇエェーっ]+[、。\\s…!！?？]*" },
             { "Name": "Hai (はい = yes)", "Pattern": "(はい|ハイ)[ーっ]*[、。\\s…!！?？]*" },
-            { "Name": "Soko (そこ = right there)", "Pattern": "(そこ|ソコ)[ーっ]*[、。\\s…!！?？]*" }
+            { "Name": "Soko (そこ = right there)", "Pattern": "(そこ|ソコ)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Hora (ほら = look, here)", "Pattern": "(ほら|ホラ)[ーっ]*[、。\\s…!！?？]*" }
           ]
         }
       }
@@ -996,8 +1005,19 @@ _______________________________________=",
       "SourceId": "manual-input-preparer"
     },
     {
+      // (replaced by 'manual-input-review' below: the review is done in the Timing editor of the web UI)
       "Id": "generated-manual-input-srt",
+      "Enabled": false
+    },
+    {
+      // The review of the manual-input file in the Timing editor of the web UI (button 'Timing' of the scene), instead of editing the file by hand.
+      // The review is kept in the .wipsubtitles; when the user clicks 'Review done', the file is written (then imported by 'manual-input').
+      // (an existing .manual-input.srt is imported once: a review started by editing the file continues in the editor)
+      "$type": "TranscriberInteractifReview",
+      "$insertAfter": "generated-manual-input-srt",
+      "TranscriptionId": "manual-input-review",
       "Enabled": true,
+      "FileSuffix": ".manual-input.srt",
       // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.
       "TextSources": "manual-input-preparer",
       "MetadataToUse": "VoiceTextForManualReview",
@@ -1010,9 +1030,9 @@ _______________________________________=",
           "VoiceTextForManualReview": null
         },
       },
-      "UseBySourceMetadatas": false,
-      // [OPTION] Uncomment the following line to be in 'fully automatic' generation.
-      //"AddToFirstSubtitle": null
+      "AddToFirstSubtitle": "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)",
+      // [OPTION] Uncomment the following line to be in 'fully automatic' generation (no review: the file is written right away).
+      //"ReviewNeeded": false
     },
     {
       "Id": "manual-input",
@@ -1059,6 +1079,8 @@ _______________________________________=",
             "OutputFieldName": "AudioClip",
             "Enabled": true,
             "MetadataForSkipping": "GrabOnScreenText",
+            "ExpandStart": "00:00:00.200",
+            "ExpandEnd": "00:00:00.300",
             "KeepTemporaryFiles": false
           },
           {
@@ -1070,7 +1092,7 @@ _______________________________________=",
             "AddContextNodes": true,
             "ContextShortGap": "00:00:05",
             "ContextLongGap": "00:00:30",
-            "KeepTemporaryFiles": false
+            "KeepTemporaryFiles": true
           }
         ],
         "MetadataNeeded": "!SkipRefined",

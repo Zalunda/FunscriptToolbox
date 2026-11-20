@@ -191,13 +191,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     ? $"{firstRequest.TaskId}, #{firstRequest.Number}: {firstRequest.UpdateMessage}"
                     : $"{firstRequest.TaskId}, Batch of {requests.Length} requests (#{firstRequest.Number}..#{requests.Last().Number})";
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:batchGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
                     Content = new StringContent(batchRequestAsJson, Encoding.UTF8, "application/json")
                 };
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
 
                 if (!response.IsSuccessStatusCode)
@@ -231,11 +231,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         pendingWatch.Stop();
                         var durationPending = pendingWatch.Elapsed;
                         var durationRunning = duration - durationPending;
-                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}{cancellationText}... ");
+                        context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}{cancellationText}... ");
                     }
                     else
                     {
-                        context.DefaultProgressUpdateHandler(ToolName, requestId, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}... ");
+                        context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}... ");
                     }
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
@@ -266,7 +266,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     waitingTimer?.Dispose();
                     waitingTimer = null;
 
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, "Cancelling batch on Google servers...");
+                    context.AIRequestProgressUpdateHandler(ToolName, requestId, "Cancelling batch on Google servers...");
 
                     try
                     {
@@ -321,7 +321,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                     {
                                         // 1st press while running: stop after answer has been received
                                         stopAfterResponse = true;
-                                        context.DefaultProgressUpdateHandler(ToolName, requestId, "Stop requested: will stop after current answer is received. (PRESS Q TO CANCEL NOW)");
+                                        context.AIRequestProgressUpdateHandler(ToolName, requestId, "Stop requested: will stop after current answer is received. (PRESS Q TO CANCEL NOW)");
                                     }
                                     else
                                     {
@@ -588,7 +588,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
                 var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:streamGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
                     Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
@@ -597,10 +597,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
                 AttachToStopWatcher(response);
 

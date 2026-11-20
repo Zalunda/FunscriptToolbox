@@ -165,7 +165,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         time => {
                             var (_, filename, adjustedTime) = context.WIP.TimelineMap.GetPathAndPosition(time);
                             var fullpath = Path.Combine(context.WIP.ParentPath, filename);
-                            return (File.Exists(fullpath + ".FAST.mp4") ? fullpath + ".FAST.mp4" : fullpath, adjustedTime);
+                            var lightVideoPath = Path.ChangeExtension(fullpath, Infra.SceneTimingEditor.LightVideoSuffix);
+                            return (File.Exists(lightVideoPath) ? lightVideoPath : fullpath, adjustedTime);
                         },
                         UpdateAndSave,
                         Undo);

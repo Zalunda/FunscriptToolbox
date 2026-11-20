@@ -65,6 +65,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// </summary>
         string PauseAtSafePointReason { get; }
 
+        /// <summary>The same, for a scene (sceneNodeId: the node of the scene): also when this scene is paused by the user ('Pause scene').</summary>
+        string GetPauseAtSafePointReason(int? sceneNodeId);
+
         /// <summary>Counts a scene paused at a safe point while closing (dispose when it continues). Null when not supported.</summary>
         IDisposable EnterPauseForClose();
     }

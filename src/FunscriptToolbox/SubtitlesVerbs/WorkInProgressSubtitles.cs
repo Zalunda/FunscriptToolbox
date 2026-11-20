@@ -175,18 +175,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     rs_serializer.Serialize(writer, this);
                 }
 
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
+                // (replaced in one move: never a moment without the file, ex. while another thread loads it)
                 try
                 {
-                    File.Move(path + ".temp", path);
+                    File.Move(path + ".temp", path, overwrite: true);
                 }
                 catch
                 {
                     Thread.Sleep(TimeSpan.FromSeconds(2));
-                    File.Move(path + ".temp", path);
+                    File.Move(path + ".temp", path, overwrite: true);
                 }
             }
         }

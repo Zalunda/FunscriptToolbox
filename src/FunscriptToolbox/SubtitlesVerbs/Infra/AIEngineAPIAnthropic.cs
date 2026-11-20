@@ -173,7 +173,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 // ── 1. Create the batch ──────────────────────────────
                 var requestId = $"{request.TaskId}, #{request.Number}: {request.UpdateMessage}";
-                context.DefaultProgressUpdateHandler(ToolName, requestId, "Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Opening connection...");
 
                 var httpRequest = new HttpRequestMessage(
                     HttpMethod.Post, new Uri(client.BaseAddress, "messages/batches"))
@@ -182,7 +182,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 };
                 httpRequest.Headers.Add("anthropic-beta", BATCH_BETA_HEADER);
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, "Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Sending request...");
                 var createResponse = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
 
                 if (!createResponse.IsSuccessStatusCode)
@@ -216,7 +216,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         : null;
                     canCancel = cancellationText != null;
                     var duration = DateTime.Now - startTime;
-                    context.DefaultProgressUpdateHandler(ToolName, requestId,
+                    context.AIRequestProgressUpdateHandler(ToolName, requestId,
                         $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
@@ -281,7 +281,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         waitingTimer?.Dispose();
                         waitingTimer = null;
 
-                        context.DefaultProgressUpdateHandler(ToolName, requestId,
+                        context.AIRequestProgressUpdateHandler(ToolName, requestId,
                             "Cancelling batch on Anthropic servers...");
                         try
                         {
@@ -385,7 +385,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
                 var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
-                context.DefaultProgressUpdateHandler(ToolName, requestId, "Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Opening connection...");
 
                 var httpRequest = new HttpRequestMessage(
                     HttpMethod.Post,
@@ -397,10 +397,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, "Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
                 AttachToStopWatcher(response);
 

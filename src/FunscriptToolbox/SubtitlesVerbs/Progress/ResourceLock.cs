@@ -401,13 +401,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>One sequence at a time prepares its AI request(s).</summary>
         public const int DefaultRequestPreparationConcurrency = 1;
 
+        /// <summary>Creating a whole video (ex. the light '.FAST.mp4' of a part): long, uses all the processor.</summary>
+        public const int DefaultVideoEncodingConcurrency = 1;
+
         /// <param name="maxConcurrent">
-        /// How many at the same time, by short name of lock (GPU, VID, AUD, CLIP, PREP). A lock not listed keeps its default value.
+        /// How many at the same time, by short name of lock (GPU, VID, AUD, CLIP, PREP, ENC). A lock not listed keeps its default value.
         /// An unknown name, 'USER', or a value lower than 1 is an error.
         /// </param>
         public SharedLocks(IReadOnlyDictionary<string, int> maxConcurrent = null)
         {
-            var configurable = new[] { "GPU", "VID", "AUD", "CLIP", "PREP" };
+            var configurable = new[] { "GPU", "VID", "AUD", "CLIP", "PREP", "ENC" };
             var limits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in maxConcurrent ?? new Dictionary<string, int>())
             {
@@ -458,6 +461,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 "AI request preparation", "PREP",
                 $"Preparing an AI request (gathering the screenshots / audio clips of its nodes). {(prep == 1 ? "One video at a time." : $"{prep} videos at a time.")}",
                 maxConcurrent: prep);
+
+            var enc = Get("ENC", DefaultVideoEncodingConcurrency);
+            this.VideoEncoding = new ResourceLock(
+                "video encoding (ffmpeg)", "ENC",
+                $"ffmpeg creating a whole video (ex. the light '.FAST.mp4' of a part, for the Timing editor). {AtATime(enc)}",
+                maxConcurrent: enc);
         }
 
         /// <summary>The things that use the local machine (local whisper, local AI server, ...).</summary>
@@ -481,6 +490,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// </summary>
         public ResourceLock RequestPreparation { get; }
 
-        public IEnumerable<ResourceLock> All => new[] { LocalResource, VideoSource, Audio, Clips, UserInteraction, RequestPreparation };
+        /// <summary>ffmpeg creating a whole video (long, uses all the processor).</summary>
+        public ResourceLock VideoEncoding { get; }
+
+        public IEnumerable<ResourceLock> All => new[] { LocalResource, VideoSource, Audio, Clips, UserInteraction, RequestPreparation, VideoEncoding };
     }
 }

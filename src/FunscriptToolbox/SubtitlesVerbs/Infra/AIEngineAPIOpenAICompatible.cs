@@ -153,7 +153,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var watch = Stopwatch.StartNew();
 
             var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
-            context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
+            context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Sending request...");
             var response = client.PostAsync(
                 new Uri(client.BaseAddress, "chat/completions"),
                 new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
@@ -245,7 +245,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             try
             {
                 var requestId = $"{request.TaskId}, #{request.Number}: {request.UpdateMessage}";
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, "chat/completions"))
                 {
                     Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
@@ -256,10 +256,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 waitingTimer = new Timer(_ =>
                 {
                     var duration = DateTime.Now - startTime;
-                    context.DefaultProgressUpdateHandler(ToolName, requestId, $"Waited {(int)duration.TotalMinutes}:{duration:ss} for 1st token...");
+                    context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Waited {(int)duration.TotalMinutes}:{duration:ss} for 1st token...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                context.DefaultProgressUpdateHandler(ToolName, requestId, $"Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
                 AttachToStopWatcher(response);
 

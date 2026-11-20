@@ -98,8 +98,24 @@
   #flowPanel .fitable { border-collapse: collapse; font: 11px/1.35 Consolas, "Cascadia Mono", monospace; }
   #flowPanel .fitable th { position: sticky; top: 0; background: var(--chip-bg); text-align: left; padding: 3px 6px; font-weight: 600; white-space: nowrap; }
   #flowPanel .fitable td { padding: 2px 6px; border-top: 1px solid var(--border); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+  #flowPanel .fitable td.fitag { color: var(--ok); font-weight: 600; text-align: center; }
   #flowPanel .fitable tr { cursor: pointer; }
   #flowPanel .fitable tr:hover td { background: var(--row-hover); }
+  #flowPanel .fitable tbody tr.fisel td { background: var(--row-sel); }
+  #flowPanel .fitable tbody tr.fisel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .fiviewer { position: fixed; z-index: 40; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px 8px; box-shadow: 0 6px 24px rgba(0,0,0,.3); max-height: calc(100vh - 16px); overflow: auto; }
+  .fiviewer .fivhead { display: flex; align-items: center; gap: 8px; font: 12px Consolas, "Cascadia Mono", monospace; color: var(--muted); margin-bottom: 4px; }
+  .fiviewer .fivkeys { font: 11px system-ui, sans-serif; }
+  .fiviewer .fivimg img { display: block; max-width: 100%; border-radius: 4px; }
+  .fiviewer .fivimg + .fivimg { margin-top: 6px; }
+  .fiviewer .fipcap { font-size: 11px; color: var(--muted); margin: 2px 0; }
+  .fiviewer .fivimg img.gap { outline: 2px dashed var(--muted); outline-offset: -2px; opacity: .85; }
+  .fiviewer .fivwrap { position: relative; display: inline-block; max-width: 100%; vertical-align: top; }
+  .fiviewer .fivctl { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.6); white-space: nowrap; }
+  .fiviewer .fivctl .fivpos { color: #ddd; }
+  .fiviewer .fivctl button { min-width: 34px; }
+  .fiviewer .fivctl .fivpos { font: 11px Consolas, "Cascadia Mono", monospace; color: var(--muted); min-width: 220px; }
+  .fiviewer .fipwait { font-size: 12px; color: var(--muted); padding: 20px 0; text-align: center; }
   #flowPanel .fitable tr.open td,
   #flowPanel #fiBody.wrap .fitable td { white-space: pre-wrap; word-break: break-word; max-width: 420px; }   /* (a clicked row, or 'Full text': the values in full) */
   #flowPanel .fitable tr.todo td:first-child { box-shadow: inset 3px 0 0 var(--block); }
@@ -293,6 +309,64 @@
   .ll.ev-stop { color: var(--warn); } .ll.ev-block { color: var(--block); } .ll.ev-skip { color: var(--muted); }
   .ll.stream { opacity: .8; }
   .empty { color: var(--muted); padding: 12px; text-align: center; font-size: 12px; }
+
+  /* ---- Timing editor (a full window over the page) ---- */
+  #te { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column; }
+  #te .te-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  #te .te-top b { font-size: 15px; white-space: nowrap; }
+  #te select, #te input { font: inherit; font-size: 12px; padding: 1px 4px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  #te label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+  #te .te-status { font-size: 12px; color: var(--muted); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #te .te-status.err { color: var(--err); }
+  #te .te-mid { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px 16px 0; }
+  #te .te-left { width: 40%; min-width: 260px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  #te .te-media { flex: 1; min-height: 0; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+  #te .te-media video { max-width: 100%; max-height: 100%; }
+  #te .te-media.audioonly { flex: none; height: 64px; }
+  #te .te-media.audioonly ~ .te-cur { flex: 1; max-height: none; }
+  #te .te-media .te-novideo { color: #9aa3b5; font-size: 12px; text-align: center; padding: 16px; }
+  #te .te-clock { position: absolute; left: 8px; bottom: 6px; font: 12px Consolas, "Cascadia Mono", monospace; color: #fff; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 4px; }
+  #te .te-menu { position: fixed; z-index: 60; min-width: 250px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 4px 0; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.3); user-select: none; }
+  #te .te-menu .mh { padding: 3px 12px 5px; color: var(--muted); font: 11px Consolas, "Cascadia Mono", monospace; }
+  #te .te-menu .mi { padding: 4px 12px; cursor: pointer; display: flex; gap: 16px; }
+  #te .te-menu .mi:hover { background: var(--row-hover); }
+  #te .te-menu .mi.off { opacity: .4; cursor: default; }
+  #te .te-menu .mi .k { margin-left: auto; color: var(--muted); font: 11px Consolas, "Cascadia Mono", monospace; }
+  #te .te-menu .sep { height: 1px; background: var(--border); margin: 4px 0; }
+  #te .te-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+  #te .te-tools button { padding: 1px 8px; font-size: 12px; }
+  #te .te-tools .sep { width: 8px; }
+  #te .te-tools .opt { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; cursor: pointer; }
+  #te .te-tools button.on { border-color: var(--warn); color: var(--warn); }
+  #te .te-cur { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; min-height: 70px; max-height: 40%; overflow: auto; }
+  #te .te-cur .tm { font: 12px Consolas, "Cascadia Mono", monospace; color: var(--muted); }
+  #te .te-cur pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; font: 12px/1.4 Consolas, "Cascadia Mono", monospace; }
+  #te .te-cur { display: flex; flex-direction: column; gap: 4px; }
+  #te .te-cur textarea { flex: 1; min-height: 90px; width: 100%; resize: none; font: 12px/1.45 Consolas, "Cascadia Mono", monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+  #te .te-cur textarea:focus { outline: none; border-color: var(--accent); }
+  #te .te-cur .hint { color: var(--muted); font-size: 11px; }
+  #te .te-list { flex: 1; min-width: 0; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+  #te .te-row { display: grid; grid-template-columns: 40px 92px 92px 52px 1fr; gap: 0 8px; padding: 2px 8px; border-bottom: 1px solid var(--border); cursor: pointer; align-items: baseline; }
+  #te .te-row:hover { background: var(--row-hover); }
+  #te .te-row.sel { background: var(--row-sel); }
+  #te .te-row.ok .n { color: var(--ok); font-weight: 600; }
+  #te .te-row.overlap .n, #te .te-row.overlap .tm { color: var(--err); font-weight: 600; }
+  #te .te-row.playing { box-shadow: inset 3px 0 0 var(--err); }
+  #te .te-row .n, #te .te-row .tm { font: 11px Consolas, "Cascadia Mono", monospace; color: var(--muted); white-space: nowrap; }
+  #te .te-row .tx { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #te .te-row.sel .tx { white-space: normal; }
+  #te .te-row.head { position: sticky; top: 0; background: var(--panel); font-weight: 600; color: var(--muted); cursor: default; z-index: 1; }
+  #te .te-chip { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 4px; background: var(--chip-bg); color: var(--wait); font-size: 11px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+  #te .te-tl { flex: none; padding: 8px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
+  #te canvas { display: block; width: 100%; border-radius: 6px; background: var(--panel); border: 1px solid var(--border); }
+  #te #teCanvas { height: 210px; cursor: crosshair; }
+  #te #teOverview { height: 24px; cursor: pointer; }
+  #te .te-help { position: absolute; right: 16px; top: 46px; width: 430px; max-height: calc(100% - 60px); overflow: auto; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+  #te .te-help table { width: 100%; border-collapse: collapse; }
+  #te .te-help td { padding: 2px 4px; border-bottom: 1px solid var(--border); }
+  #te .te-help kbd { font: 11px Consolas, "Cascadia Mono", monospace; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--code-bg); cursor: pointer; }
+  #te .te-help kbd.wait { border-color: var(--accent); color: var(--accent); }
+  #te .te-help .note { color: var(--muted); margin: 6px 0; }
 </style>
 </head>
 <body>
@@ -341,6 +415,34 @@
   <section id="treePane"><div id="tree"></div><div id="flowPanel" style="display:none"></div></section>
 </main>
 
+<!-- The timing editor of a scene (over the page) -->
+<div id="te" style="display:none">
+  <div class="te-top">
+    <b id="teTitle"></b>
+    <label title="The review (TranscriberInteractifReview): its subtitles are kept in the .wipsubtitles; its file is written when the review is done">Review <select id="teFile"></select></label>
+    <label>Audio <select id="teAudio"></select></label>
+    <button class="mini primary" id="teSaveBtn" disabled title="Saves the review (in the .wipsubtitles; also saved automatically, see Keys)">&#128190; Save</button>
+    <button class="mini" id="teDoneBtn" disabled title="The review is done: its file is written (ex. .manual-input.srt), and the scene continues">&#10004; Review done</button>
+    <span id="teStatus" class="te-status"></span>
+    <div class="spacer"></div>
+    <button class="mini" id="teHelpBtn" title="The keys (they can be changed)">&#9000; Keys</button>
+    <button class="mini" id="teCloseBtn">&#10005; Close</button>
+  </div>
+  <div class="te-mid">
+    <div class="te-left">
+      <div class="te-media"><video id="teVideo" playsinline preload="auto"></video><audio id="teAudioEl" preload="auto"></audio><div id="teNoVideo" class="te-novideo" style="display:none"></div><span class="te-clock" id="teClock"></span></div>
+      <div class="te-tools" id="teTools"></div>
+      <div class="te-cur" id="teCur"></div>
+    </div>
+    <div class="te-list" id="teList"></div>
+  </div>
+  <div class="te-tl">
+    <canvas id="teCanvas"></canvas>
+    <canvas id="teOverview" title="The whole scene: click to go there"></canvas>
+  </div>
+  <div id="teHelp" class="te-help" style="display:none"></div>
+</div>
+
 <script>
 (function () {
   "use strict";
@@ -355,7 +457,7 @@
   var STATES = ["needs", "running", "waiting", "blocked", "stopped", "failed", "finished", "untouched"];
   var LABELS = { needs: "needs you", running: "running", waiting: "waiting", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched" };
   var TIPS = {
-    needs: "A prompt or a dialog is waiting for you",
+    needs: "A prompt, a dialog or a review (Timing editor) is waiting for you",
     running: "Working right now",
     waiting: "Waiting for a shared resource (lock), or not started yet",
     blocked: "Done for now, but a worker can't run yet (something it needs is missing)",
@@ -473,6 +575,8 @@
     if (direct.some(function (k) { return k.state === "Failed"; })) return "failed";
     if (anyDesc(r, function (k) { return k.state === "Cancelled"; }, true)) return "stopped";
     if (r.errors > 0) return "failed";
+    // (blocked, waiting for something the user does in the page, ex. a review in the Timing editor)
+    if (direct.some(function (k) { return k.kind === "Worker" && k.state === "Blocked" && k.userAction; })) return "needs";
     if (direct.some(function (k) { return k.kind === "Worker" && k.state === "Blocked"; })) return "blocked";
     // Untouched: no worker really did something (all already done, or only refreshed because of 'CanBeUpdated')
     var workers = direct.filter(function (k) { return k.kind === "Worker"; });
@@ -587,10 +691,19 @@
       };
     }));
     // 'What went wrong' (errors, including the ones not about a scene) / 'What's next' (blocked scenes + tasks for the user): only when there is something
-    var nbErrors = (state.sceneReports || []).reduce(function (a, r) { return a + r.errors.length; }, 0) + (state.generalErrors || []).length;
-    var nbNext = (state.sceneReports || []).reduce(function (a, r) { return a + r.todos.length; }, 0) + blockedWorkers().length;
-    var wrongHtml = '&#9888; What went wrong <span class="badge">' + nbErrors + '</span>';
-    var nextHtml = '&#10140; What\'s next <span class="nbadge">' + nbNext + '</span>';
+    // (the numbers: the scenes involved, + 1 for the errors not about a scene; the number of items is in the tooltip)
+    var reports = state.sceneReports || [];
+    var nbErrorItems = reports.reduce(function (a, r) { return a + r.errors.length; }, 0) + (state.generalErrors || []).length;
+    var nbErrors = reports.filter(function (r) { return r.errors.length; }).length + ((state.generalErrors || []).length ? 1 : 0);
+    var blocked = blockedWorkers();
+    var nextScenes = {};
+    reports.forEach(function (r) { if (r.todos.length) nextScenes[r.sceneId] = true; });
+    blocked.forEach(function (b) { nextScenes[b.scene.id] = true; });
+    var nbNextItems = reports.reduce(function (a, r) { return a + r.todos.length; }, 0) + blocked.length;
+    var nbNext = Object.keys(nextScenes).length;
+    var countTip = function (scenes, items) { return scenes + " scene" + (scenes > 1 ? "s" : "") + ", " + items + " item" + (items > 1 ? "s" : ""); };
+    var wrongHtml = '&#9888; What went wrong <span class="badge" title="' + countTip(nbErrors, nbErrorItems) + '">' + nbErrors + '</span>';
+    var nextHtml = '&#10140; What\'s next <span class="nbadge" title="' + countTip(nbNext, nbNextItems) + '">' + nbNext + '</span>';
     if ($("wrongBtn")._html !== wrongHtml) { $("wrongBtn").innerHTML = wrongHtml; $("wrongBtn")._html = wrongHtml; }
     if ($("nextBtn")._html !== nextHtml) { $("nextBtn").innerHTML = nextHtml; $("nextBtn")._html = nextHtml; }
     $("wrongBtn").style.display = nbErrors ? "" : "none";
@@ -616,6 +729,18 @@
   function sceneItem(x) {
     var r = x.root, sel = selectedId != null && rootOf(state.byId[selectedId]) === r ? " sel" : "";
     var errors = r.errors ? '<span class="badge" title="errors in this scene">' + r.errors + '</span>' : "";
+    // (a worker waits for something to do in the page: a button for it)
+    var actionWorker = kids(r).filter(function (k) { return k.kind === "Worker" && k.state === "Blocked" && k.userAction; })[0];
+    if (x.st === "needs" && actionWorker) {
+      var action = actionWorker.userAction, button = "";
+      if (action.indexOf("timing:") === 0)
+        button = '<button class="mini primary" data-useraction="' + esc(action) + '" data-root="' + r.id + '" title="' + esc(actionWorker.reason || "") + '">&#9201; Review timings</button>';
+      return {
+        key: r.id, cls: "run" + sel, title: sceneTip(r),
+        html: '<div class="rh"><span class="sd needs"></span>' + nameHtml(r) + errors + button +
+          '<span class="wk">' + esc(actionWorker.name) + '</span></div>'
+      };
+    }
     if (x.st === "running" || x.st === "needs") {
       var leaf = fgLeaf(r), lines = "";
       // (the chain of the main work: from the worker down to what it is doing right now)
@@ -844,7 +969,8 @@
   try { var savedFlow = JSON.parse(localStorage.getItem("fstFlowOpts2") || "null"); if (savedFlow) for (var fk in flowOpts) if (typeof savedFlow[fk] === "boolean") flowOpts[fk] = savedFlow[fk]; } catch (e) { }
   var flowFocus = null, flowFocusDir = "up", flowZoom = 1, flowLastKey = null;
   var flowCounts = {};   // (the number of items of each transcription / translation: "transcription:x" -> { n, done })   // (focus: "up" = what it needs, "down" = what uses it)
-  var FLOW_ICONS = { video: "🎬", audio: "♪", transcription: "T", translation: "Tr", file: "📄", sources: "?" };
+  // (transcriptions and translations: the same icon, timed items with text; the tooltip of the box says which one)
+  var FLOW_ICONS = { video: "🎬", audio: "♪", transcription: "💬", translation: "💬", file: "📄", sources: "?" };
 
   // The state of a worker of the graph (from its task in the tree)
   function flowWorkerStatus(w) {
@@ -1119,8 +1245,42 @@
     return parts.join("");
   }
 
+  // When the 'Flow' view is opened (a scene selected, or its tab clicked): what is not complete is selected, like a click on it
+  // (for a step: its result, the transcription / translation it produces, when it has one). Only then: not at each refresh. In this order:
+  // 1. a step running / waiting (for a lock, for the user),
+  // 2. otherwise, the first transcription / translation that has items but is not finished (in the order of the steps, ex. an AI step stopped after a batch),
+  // 3. otherwise, a step blocked, otherwise failed / stopped.
+  var flowAutoSelectPending = false;
+  var FLOW_AUTO_PRIORITY = { Running: 1, WaitingForLock: 1, WaitingForUser: 1, Blocked: 3, Failed: 4, Cancelled: 4 };
+  function autoSelectFlowBox(n, flow) {
+    flowAutoSelectPending = false;
+    var counts = flowCounts || {};
+    var workers = (flow.workers || []).slice().sort(function (a, b) { return a.order - b.order; });
+    var bestKey = null, bestPriority = 99;
+    workers.forEach(function (w) {
+      var task = w.nodeId != null ? state.byId[w.nodeId] : null;
+      var p = task ? FLOW_AUTO_PRIORITY[task.state] : null;
+      if (p != null && p < bestPriority) { bestKey = w.key; bestPriority = p; }
+      // (what it produces: a transcription / translation with items, not finished)
+      if (bestPriority > 2) {
+        (flow.edges || []).forEach(function (e) {
+          var c = e.from === w.key ? counts[e.to] : null;
+          if (c && c.n > 0 && !c.done && bestPriority > 2) { bestKey = e.to; bestPriority = 2; }
+        });
+      }
+    });
+    if (!bestKey) return;
+    // (a step: its result instead, the transcription / translation it produces, when it has one)
+    var result = (flow.edges || []).filter(function (e) { return e.from === bestKey && /^(transcription|translation):/.test(e.to); })[0];
+    if (result) bestKey = result.to;
+    flowFocus = bestKey; flowFocusDir = "up";
+    inspectFlowBox(n.id, bestKey);
+  }
+
   function renderFlow(n, flow, counts) {
     flowCounts = counts || {};
+    if (flowAutoSelectPending && flow) autoSelectFlowBox(n, flow);
+    refreshInspectorIfChanged(n.id);
     // (the graph only: its switches, help and the inspector are in the Flow panel, on the right)
     var box = $("content");
     if (!box._flowView) {
@@ -1160,6 +1320,21 @@
     wrap._edgeInfo = lay.edgeInfo || [];
     wrap.innerHTML = svg + '<div class="ftip" style="display:none"></div>'; wrap._html = svg;
     if (flowHoverKey) flowHover(flowHoverKey);   // (redrawn under the mouse: the highlight stays)
+    // (a box newly selected: in view)
+    if (flowFocus && flowFocus !== flowScrolledTo) { flowScrolledTo = flowFocus; scrollFlowBoxIntoView(wrap, flowFocus); }
+    if (!flowFocus) flowScrolledTo = null;
+  }
+  var flowScrolledTo = null;
+  /// The box is brought into view (centered) when it's not completely visible in what scrolls the graph; otherwise nothing moves
+  function scrollFlowBoxIntoView(wrap, key) {
+    var el = wrap.querySelector('[data-fkey="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]');
+    if (!el) return;
+    // (visible: inside the pane of the graph, and inside the window)
+    var r = el.getBoundingClientRect(), b = $("content").getBoundingClientRect();
+    var top = Math.max(b.top, 0), bottom = Math.min(b.bottom, window.innerHeight), left = Math.max(b.left, 0), right = Math.min(b.right, window.innerWidth);
+    if (r.top >= top && r.bottom <= bottom && r.left >= left && r.right <= right) return;
+    // (whatever scrolls: the graph, its pane, or the page)
+    el.scrollIntoView({ block: "center", inline: "center" });
   }
 
   // ---- Flow panel (right pane, in the 'Flow' tab): switches, help, and the inspector of the clicked box ----
@@ -1200,10 +1375,11 @@
       '<div id="flowHint" class="flowhint"></div>' +
       '<div class="finsp">' +
         '<div class="fihead"><span id="fiTitle" class="fititle">Inspector</span><span class="spacer"></span>' +
-          '<label class="fiwrapopt" title="Hide the items that have no value in the metadata shown (the hidden columns are not counted)"><input type="checkbox" id="fiHideEmpty"> Hide empty</label>' +
+          '<label class="fiwrapopt" title="Hide the items that have none of the metadata shown (a metadata without value, ex. {GrabOnScreenText}, counts; the hidden columns are not counted)"><input type="checkbox" id="fiHideEmpty"> Hide empty</label>' +
           '<label class="fiwrapopt" title="The long values (ex. an analysis) on several lines, instead of cut"><input type="checkbox" id="fiWrap"> Full text</label>' +
-          '<input id="fiSearch" type="search" placeholder="Filter the items" spellcheck="false">' +
-          '<button class="mini" data-frefresh="1" title="Read the items again (the scene can be working on them)">&#8635;</button></div>' +
+          '<label class="fiwrapopt" id="fiShotsOpt" style="display:none" title="The selected item (click on a row, then ↓ / ↑): its screenshots, the ones sent to the AI, big, beside the inspector (taken with ffmpeg when they were not kept)"><input type="checkbox" id="fiShots"> Show screenshot</label>' +
+          '<label class="fiwrapopt" id="fiPartTimesOpt" style="display:none" title="The times in the part of the scene (its file), with a Part column: A, B, C..."><input type="checkbox" id="fiPartTimes"> Part times</label>' +
+          '<input id="fiSearch" type="search" placeholder="Filter the items" spellcheck="false"></div>' +
         '<div id="fiBody"><div class="empty">Click on a box of the graph: what it receives and what it produced are shown here.</div></div>' +
       '</div>';
     $("fiSearch").addEventListener("input", function () { flowInspect.search = $("fiSearch").value; renderInspector(); });
@@ -1216,6 +1392,24 @@
       $("fiBody").classList.toggle("wrap", $("fiWrap").checked);
       try { localStorage.setItem("fstInspectWrap", $("fiWrap").checked ? "1" : "0"); } catch (e) { }
     });
+    // 'Show screenshot': the screenshots of the selected item (remembered by the browser; on by default)
+    flowInspect.shots = true;
+    try { flowInspect.shots = localStorage.getItem("fstInspectShots") !== "0"; } catch (e) { }
+    $("fiShots").checked = flowInspect.shots;
+    $("fiShots").addEventListener("change", function () {
+      flowInspect.shots = $("fiShots").checked;
+      try { localStorage.setItem("fstInspectShots", flowInspect.shots ? "1" : "0"); } catch (e) { }
+      var sel = $("fiBody").querySelector("tr.fisel");
+      if (sel) showInspectorViewer(sel); else hideInspectorViewer();
+    });
+    // 'Part times' (remembered by the browser)
+    try { flowInspect.partTimes = localStorage.getItem("fstInspectPartTimes") === "1"; } catch (e) { }
+    $("fiPartTimes").checked = !!flowInspect.partTimes;
+    $("fiPartTimes").addEventListener("change", function () {
+      flowInspect.partTimes = $("fiPartTimes").checked;
+      try { localStorage.setItem("fstInspectPartTimes", flowInspect.partTimes ? "1" : "0"); } catch (e) { }
+      renderInspector();
+    });
     // 'Hide empty': the items without any value in the metadata shown (remembered by the browser)
     try { flowInspect.hideEmpty = localStorage.getItem("fstInspectHideEmpty") === "1"; } catch (e) { }
     $("fiHideEmpty").checked = !!flowInspect.hideEmpty;
@@ -1227,13 +1421,90 @@
   }
 
   // The items of a box (read by the server when asked: the scene can be working on them)
-  function inspectFlowBox(sceneId, key) {
-    flowInspect.sceneId = sceneId; flowInspect.key = key; flowInspect.loading = true;
-    renderInspector();
+  /// silent: read again because the scene changed them (the items shown stay until the new ones are there)
+  function inspectFlowBox(sceneId, key, silent) {
+    var isSameBox = flowInspect.sceneId === sceneId && flowInspect.key === key;
+    if (!isSameBox) { flowInspect.openRows = {}; flowInspect.selRk = null; hideInspectorViewer(); }
+    flowInspect.sceneId = sceneId; flowInspect.key = key;
+    loadInspectorParts(sceneId);
+    updatePartTimesOption();
+    flowInspect.countsSig = JSON.stringify(flowCounts || {});
+    flowInspect.lastRead = Date.now();
+    if (!(silent && isSameBox)) { flowInspect.loading = true; renderInspector(); }
+    flowInspect.reading = true;
     fetch("/api/flowinspect/" + sceneId + "?key=" + encodeURIComponent(key))
       .then(function (r) { return r.ok ? r.json() : { title: key, note: "Nothing to show (the scene is not loaded yet?)", sections: [] }; })
-      .then(function (d) { if (flowInspect.key === key) { flowInspect.data = d; flowInspect.loading = false; renderInspector(); } })
-      .catch(function () { flowInspect.loading = false; renderInspector(); });
+      .then(function (d) {
+        flowInspect.reading = false;
+        if (flowInspect.key === key && flowInspect.sceneId === sceneId) { flowInspect.data = d; flowInspect.loading = false; renderInspector(); }
+      })
+      .catch(function () { flowInspect.reading = false; flowInspect.loading = false; renderInspector(); });
+  }
+  /// The screenshot of an item (a transcription / translation: the one of the worker that produces it)
+  function flowImageUrl(field, s, e) {
+    var imageKey = (flowInspect.data && flowInspect.data.imageWorker) || flowInspect.key;
+    return "/api/flowimage/" + flowInspect.sceneId + "?key=" + encodeURIComponent(imageKey) +
+      "&field=" + encodeURIComponent(field) + "&s=" + encodeURIComponent(s) + "&e=" + encodeURIComponent(e);
+  }
+
+  // 'Part times' (a scene with several parts, ex. a .vseq): the times in the part (its file), with a 'Part' column (A, B, C...)
+  // (the parts come from the timing editor of the scene: read once by scene)
+  var inspectorParts = {};   // scene id -> [{ filename, offsetMs, durationMs }] (null: being read / not available)
+  function loadInspectorParts(sceneId) {
+    if (inspectorParts.hasOwnProperty(sceneId)) return;
+    inspectorParts[sceneId] = null;
+    fetch("/api/timing/" + sceneId + "/info")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (info) {
+        if (!info || !info.parts) { delete inspectorParts[sceneId]; return; }   // (asked again later: the scene isn't loaded yet)
+        inspectorParts[sceneId] = info.parts;
+        updatePartTimesOption();
+        renderInspector();
+      })
+      .catch(function () { delete inspectorParts[sceneId]; });
+  }
+  function partsOfInspectedScene() {
+    var parts = inspectorParts[flowInspect.sceneId];
+    return parts && parts.length > 1 ? parts : null;
+  }
+  function updatePartTimesOption() {
+    var opt = $("fiPartTimesOpt");
+    if (opt) opt.style.display = partsOfInspectedScene() ? "" : "none";
+  }
+  /// returns: the parts when the times are shown by part
+  function inspectorPartTimes() { return flowInspect.partTimes ? partsOfInspectedScene() : null; }
+  function parseTimeMs(text) {
+    var m = /^(\d+):(\d+):(\d+)(?:\.(\d+))?$/.exec(text || "");
+    return m ? ((+m[1] * 60 + +m[2]) * 60 + +m[3]) * 1000 + (m[4] ? +(m[4] + "00").slice(0, 3) : 0) : null;
+  }
+  function fmtTimeMs(ms) {
+    var p = function (v, n) { return ("000" + v).slice(-n); };
+    ms = Math.max(0, Math.round(ms));
+    return p(Math.floor(ms / 3600000), 2) + ":" + p(Math.floor(ms / 60000) % 60, 2) + ":" + p(Math.floor(ms / 1000) % 60, 2) + "." + p(ms % 1000, 3);
+  }
+  function timeCells(it, parts) {
+    if (!parts) return '<td>' + esc(it.s) + '</td><td>' + esc(it.e) + '</td>';
+    var s = parseTimeMs(it.s), e = parseTimeMs(it.e);
+    if (s == null || e == null) return '<td></td><td>' + esc(it.s) + '</td><td>' + esc(it.e) + '</td>';
+    var p = 0;
+    for (var i = 0; i < parts.length; i++) if (s >= parts[i].offsetMs) p = i;
+    var offset = parts[p].offsetMs;
+    return '<td title="' + esc(parts[p].filename) + '">' + String.fromCharCode(65 + (p % 26)) + '</td>' +
+      '<td title="' + esc(it.s) + ' in the scene">' + fmtTimeMs(s - offset) + '</td><td title="' + esc(it.e) + ' in the scene">' + fmtTimeMs(e - offset) + '</td>';
+  }
+
+  // The scene changed the items of its boxes (their numbers changed, ex. an AI response was received): the box inspected is read again,
+  // at most every 2 s (when it's too early, it's done a bit later)
+  var inspectorRefreshTimer = null;
+  function refreshInspectorIfChanged(sceneId) {
+    if (!flowInspect.key || flowInspect.sceneId !== sceneId || !flowInspect.data) return;
+    if (JSON.stringify(flowCounts || {}) === flowInspect.countsSig) return;
+    if (flowInspect.reading || inspectorRefreshTimer) return;
+    var wait = Math.max(0, 2000 - (Date.now() - (flowInspect.lastRead || 0)));
+    inspectorRefreshTimer = setTimeout(function () {
+      inspectorRefreshTimer = null;
+      if (flowInspect.key && flowInspect.sceneId === sceneId && selectedId === sceneId) inspectFlowBox(sceneId, flowInspect.key, true);
+    }, wait);
   }
 
   function renderInspector() {
@@ -1252,6 +1523,8 @@
     if (d.outputs && d.outputs.length) html += '<div class="fimeta">Produces: ' + esc(d.outputs.join(", ")) + '</div>';
     if (d.note) html += '<div class="finote">' + esc(d.note) + '</div>';
     // The metadata of all the tables: a click on one hides / shows its column (remembered by the browser)
+    // (a worker that sends screenshots to the AI: 'Show screenshot', for the selected item)
+    $("fiShotsOpt").style.display = (d.images || []).length ? "" : "none";
     var allCols = [];
     (d.sections || []).forEach(function (s) { s.items.forEach(function (it) { Object.keys(it.m || {}).forEach(function (k) { if (allCols.indexOf(k) < 0) allCols.push(k); }); }); });
     allCols = orderCols(allCols);
@@ -1266,9 +1539,10 @@
       var cols = [];
       s.items.forEach(function (it) { Object.keys(it.m || {}).forEach(function (k) { if (cols.indexOf(k) < 0 && !fiHidden[k]) cols.push(k); }); });
       cols = orderCols(cols);
+      // (a metadata that is there, even without value, is not empty: ex. a tag like {GrabOnScreenText})
       var isEmpty = function (it) {
         var m = it.m || {};
-        return !cols.some(function (c) { return m[c] != null && String(m[c]).trim() !== ""; });
+        return !cols.some(function (c) { return m[c] != null; });
       };
       var nbEmpty = flowInspect.hideEmpty ? s.items.filter(isEmpty).length : 0;
       var rows = s.items.filter(function (it) {
@@ -1284,16 +1558,29 @@
         (nbEmpty ? ', ' + nbEmpty + ' empty hidden' : "") + '</span></div>' +
         (s.note ? '<div class="finote">' + esc(s.note) + '</div>' : "");
       if (rows.length) {
-        html += '<div class="fitablewrap"><table class="fitable"><thead><tr><th>Start</th><th>End</th>' +
+        var byPart = inspectorPartTimes();
+        html += '<div class="fitablewrap"><table class="fitable"><thead><tr>' + (byPart ? '<th title="The part of the scene (its file)">Part</th>' : '') + '<th>Start</th><th>End</th>' +
           cols.map(function (c) { return '<th data-ficol="' + esc(c) + '" data-fith="1" draggable="true" title="Drag to change the order of the columns">' + esc(c) + '</th>'; }).join("") + '</tr></thead><tbody>' +
           rows.map(function (it) {
-            return '<tr' + (it.todo ? ' class="todo" title="To do: not in what this worker produced yet"' : "") + '><td>' + esc(it.s) + '</td><td>' + esc(it.e) + '</td>' +
-              cols.map(function (c) { var v = (it.m || {})[c]; return '<td title="' + esc(v == null ? "" : v) + '">' + esc(v == null ? "" : v) + '</td>'; }).join("") + '</tr>';
+            var rk = s.name + "|" + it.s + "|" + it.e, isOpen = !!(flowInspect.openRows && flowInspect.openRows[rk]);
+            var cls = (it.todo ? "todo" : "") + (isOpen ? " open" : "") + (flowInspect.selRk === rk ? " fisel" : "");
+            return '<tr data-rk="' + esc(rk) + '" data-s="' + esc(it.s) + '" data-e="' + esc(it.e) + '"' + (cls.trim() ? ' class="' + cls.trim() + '"' : "") + (it.todo ? ' title="To do: not in what this worker produced yet"' : "") + '>' + timeCells(it, byPart) +
+              cols.map(function (c) {
+                var v = (it.m || {})[c];
+                // (a metadata without value, ex. {GrabOnScreenText}: a mark, otherwise it would look like nothing)
+                if (v === "") return '<td class="fitag" title="' + esc("{" + c + "} (no value)") + '">&#10003;</td>';
+                return '<td title="' + esc(v == null ? "" : v) + '">' + esc(v == null ? "" : v) + '</td>';
+              }).join("") + '</tr>';
           }).join("") + '</tbody></table></div>';
       }
       html += '</div>';
     });
+    // (read again while it's shown, ex. the scene added items: the scroll stays where it was)
+    var scrolls = [[body.scrollTop, body.scrollLeft]];
+    body.querySelectorAll(".fitablewrap").forEach(function (w) { scrolls.push([w.scrollTop, w.scrollLeft]); });
     body.innerHTML = html || '<div class="empty">Nothing to show.</div>';
+    body.scrollTop = scrolls[0][0]; body.scrollLeft = scrolls[0][1];
+    body.querySelectorAll(".fitablewrap").forEach(function (w, i) { if (scrolls[i + 1]) { w.scrollTop = scrolls[i + 1][0]; w.scrollLeft = scrolls[i + 1][1]; } });
   }
 
   // Mouse over an arrow: it, its label and its two boxes are highlighted, and its name is shown next to the mouse
@@ -1341,12 +1628,21 @@
     var retry = r && r.kind !== "General" && terminal[r.state] && !state.closing
       ? '<button class="mini" data-retry="' + r.id + '" title="Starts this scene again (its configuration is read again). What is already done is not done again, but what failed can send new AI requests.">&#8635; Retry this scene</button>'
       : "";
-    var head = '<div class="hl"><div class="path">' + esc(r && r !== n ? sceneName(r) + " > " + detail.path.split(" > ").slice(1).join(" > ") : detail.path) + '</div>' + retry + '</div><div class="sub">' + esc(n.state) +
+    // 'Timing': the editor of the timings of the file the user revises (ex. '.manual-input.srt')
+    // 'Pause scene' / 'Resume scene': only this scene, at its next safe point (between two steps / AI requests: what was received is saved)
+    var isPaused = r && (state.pausedScenes || []).indexOf(r.name) >= 0;
+    var pause = r && r.kind !== "General" && (isPaused || !terminal[r.state])
+      ? (isPaused
+        ? '<button class="mini primary" data-scenepause="0" data-root="' + r.id + '" title="This scene continues">&#9654; Resume scene</button>'
+        : '<button class="mini" data-scenepause="1" data-root="' + r.id + '" title="This scene pauses at its next safe point (between two steps / AI requests: what was received is saved). It stays paused if it\'s started again (Rescan, Retry).">&#9208; Pause scene</button>')
+      : "";
+    var head = '<div class="hl"><div class="path">' + esc(r && r !== n ? sceneName(r) + " > " + detail.path.split(" > ").slice(1).join(" > ") : detail.path) + '</div>' + pause + retry + '</div><div class="sub">' + esc(n.state) +
       (n.startedMs ? ' &middot; started ' + fmtClock(n.startedMs) + ' &middot; ' + elapsedText(n) : '') + (n.reason ? ' &middot; ' + esc(n.reason) : '') + '</div>';
     if ($("detailHead")._html !== head) { $("detailHead").innerHTML = head; $("detailHead")._html = head; }
     // (a scene: also its 'Flow', the graph of its workers and of the data between them)
     var isScene = n.parentId == null && n.kind !== "General";
-    var tabs = ["Log"].concat(isScene ? ["Flow"] : []).concat(detail.details.map(function (d) { return d.name; }));
+    // (a scene: its 'Flow' first, the view by default)
+    var tabs = (isScene ? ["Flow"] : []).concat(["Log"]).concat(detail.details.map(function (d) { return d.name; }));
     if (tabs.indexOf(activeTab) < 0) activeTab = "Log";
     var tabsHtml = tabs.map(function (t) { return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</div>'; }).join("");
     if ($("tabs")._html !== tabsHtml) { $("tabs").innerHTML = tabsHtml; $("tabs")._html = tabsHtml; }
@@ -1404,6 +1700,8 @@
     var scenes = computeScenes();
     renderHeader(scenes); renderPrompts(); renderBoard(scenes); renderTree();
     if (reportView || (selectedId != null && state.byId[selectedId])) renderDetail();
+    // (the big screenshot of the inspector: only in the 'Flow' tab, for its scene)
+    if (!isFlowMode() || flowInspect.sceneId !== selectedId) hideInspectorViewer();
     tick();
   }
   // The page lost the application (it was closed, or it stopped): when an application answers again on this port
@@ -1416,6 +1714,7 @@
       state.prompts = s.prompts; state.locks = s.locks; state.finished = s.finished; state.closing = s.closing; state.pausedForClose = s.pausedForClose;
       state.canClose = s.canClose; state.server = s.server; state.pausedAll = s.pausedAll;
       state.rescanning = s.rescanning; state.lastRescan = s.lastRescan; state.sceneReports = s.sceneReports; state.generalErrors = s.generalErrors;
+      state.pausedScenes = s.pausedScenes || [];
       try {
         index(s.nodes, s.rootOrder);
         // The selected scene was started again ('Rescan'): its tasks are new, the same scene is selected again
@@ -1445,7 +1744,11 @@
   var selectedRootName = null;   // (to select the same scene again when it is started again by 'Rescan')
   function select(id, scroll) {
     reportView = null;
-    selectedId = id; detail = null; activeTab = "Log"; stickToBottom = true;
+    // (a scene: its 'Flow' by default, with the step that is not complete selected; a step: its log)
+    var selectedNode = state.byId[id];
+    var isSceneNode = selectedNode && selectedNode.parentId == null && selectedNode.kind !== "General";
+    selectedId = id; detail = null; activeTab = isSceneNode ? "Flow" : "Log"; stickToBottom = true;
+    if (isSceneNode) { flowAutoSelectPending = true; flowFocus = null; }
     var selectedRoot = rootOf(state.byId[id]);
     selectedRootName = selectedRoot ? selectedRoot.name : null;
     for (var n = state.byId[id]; n; n = n.parentId != null ? state.byId[n.parentId] : null) if (n.id !== id) expanded[n.id] = true;
@@ -1467,6 +1770,14 @@
   });
   $("board").addEventListener("click", function (e) {
     if (onCancelClick(e)) return;
+    // ('Review timings': opens the Timing editor on that review)
+    var action = e.target.closest ? e.target.closest("[data-useraction]") : null;
+    if (action) {
+      e.stopPropagation();
+      var root = state.byId[action.getAttribute("data-root")], what = action.getAttribute("data-useraction");
+      if (root && what.indexOf("timing:") === 0) window.fstTiming.open(root.id, sceneName(root), root.name, what.substring("timing:".length));
+      return;
+    }
     var item = e.target.closest ? e.target.closest("[data-key]") : null;
     if (!item) return;
     var id = parseInt(item.dataset.key, 10);
@@ -1489,9 +1800,15 @@
   $("tabs").addEventListener("click", function (e) {
     var t = e.target.getAttribute && e.target.getAttribute("data-tab");
     // (renderAll: in the 'Flow' tab, the right pane is the Flow panel instead of the tree)
-    if (t) { activeTab = t; stickToBottom = true; renderAll(); }
+    if (t) {
+      // (the 'Flow' opened again: what is not complete is selected, unless a box is already shown in the inspector for this scene)
+      if (t === "Flow" && activeTab !== "Flow" && !(flowInspect.key && flowInspect.sceneId === selectedId)) flowAutoSelectPending = true;
+      activeTab = t; stickToBottom = true; renderAll();
+    }
   });
   $("detailHead").addEventListener("click", function (e) {
+    var pauseValue = e.target.getAttribute && e.target.getAttribute("data-scenepause");
+    if (pauseValue != null) { fetch("/api/scenepause/" + e.target.getAttribute("data-root") + "?paused=" + pauseValue, { method: "POST" }); return; }
     var id = e.target.getAttribute && e.target.getAttribute("data-retry");
     if (!id) return;
     var r = state.byId[id];
@@ -1564,11 +1881,11 @@
       if (z === "+") flowZoom = Math.min(2.5, flowZoom * 1.25);
       else if (z === "-") flowZoom = Math.max(0.3, flowZoom / 1.25);
       else if (wrap && wrap._lastWidth) flowZoom = Math.max(0.3, Math.min(1.5, (wrap.clientWidth - 10) / wrap._lastWidth));
+      flowScrolledTo = null;   // (the selected box stays in view)
       renderDetail();
       return;
     }
     if (e.target.closest && e.target.closest("[data-fshowall]")) { flowFocus = null; flowHoverKey = null; renderDetail(); return; }
-    if (e.target.closest && e.target.closest("[data-frefresh]")) { if (flowInspect.key) inspectFlowBox(flowInspect.sceneId, flowInspect.key); return; }
     var chip = e.target.closest && e.target.closest(".fichip[data-ficol]");   // (a chip: hide / show; a column header: nothing, it's dragged)
     if (chip) {
       var col = chip.getAttribute("data-ficol");
@@ -1578,8 +1895,227 @@
       return;
     }
     var row = e.target.closest && e.target.closest(".fitable tbody tr");
-    if (row) row.classList.toggle("open");
+    if (row) {
+      row.classList.toggle("open");
+      // (remembered: still open when the items are read again)
+      var rk = row.getAttribute("data-rk");
+      if (rk) { flowInspect.openRows = flowInspect.openRows || {}; if (row.classList.contains("open")) flowInspect.openRows[rk] = true; else delete flowInspect.openRows[rk]; }
+      selectInspectorRow(row);
+    }
   });
+
+  // ---- The selected item of the inspector: its screenshots, big, beside the inspector (↓ / ↑: the next / previous item, Escape: closed) ----
+  var fiViewer = document.createElement("div");
+  fiViewer.className = "fiviewer"; fiViewer.style.display = "none";
+  document.body.appendChild(fiViewer);
+  function hideInspectorViewer() {
+    if (fiViewer.style.display === "none" && !fiViewer._for) return;
+    fiViewer.style.display = "none"; fiViewer._for = null;
+    cancelViewerRequests();
+  }
+  function selectInspectorRow(tr) {
+    $("fiBody").querySelectorAll("tr.fisel").forEach(function (x) { x.classList.remove("fisel"); });
+    tr.classList.add("fisel");
+    flowInspect.selRk = tr.getAttribute("data-rk");
+    scrollRowToAnchor(tr);
+    showInspectorViewer(tr);
+  }
+  /// The screenshots of an item (the ones of the worker: 'images' of the box), when 'Show screenshot' is on
+  // The selected row: its top always at the same place (ROW_ANCHOR of the height of what scrolls, under the titles of the columns),
+  // the eyes don't have to move to read the next one (except at the start / the end of the list: it can't scroll more)
+  var ROW_ANCHOR = 0.25;
+  function scrollRowToAnchor(tr) {
+    // (what scrolls vertically: the table, or the body of the inspector)
+    var box = tr.parentNode;
+    while (box && box !== document.body && !(box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentNode;
+    if (!box || box === document.body) { tr.scrollIntoView({ block: "center" }); return; }
+    var head = tr.closest("table") && tr.closest("table").querySelector("thead");
+    var headHeight = head ? head.getBoundingClientRect().height : 0;
+    var boxTop = box.getBoundingClientRect().top;
+    var anchor = headHeight + (box.clientHeight - headHeight) * ROW_ANCHOR;
+    box.scrollTop += tr.getBoundingClientRect().top - boxTop - anchor;
+  }
+  function rowImages(tr) {
+    if (!flowInspect.shots || !flowInspect.data) return [];
+    var s = tr.getAttribute("data-s"), e = tr.getAttribute("data-e");
+    // (+ the screenshots of the gap before the item, 'context only' nodes sent with it: 'gaps', their times)
+    var ctx = (flowInspect.data.contextImages || {})[s] || [];
+    return (flowInspect.data.images || []).map(function (field) {
+      var g = ctx.filter(function (x) { return x.field === field; })[0];
+      return { field: field, s: s, e: e, gaps: (g && g.times) || [] };
+    });
+  }
+  // The screenshots are asked only when the selection stays VIEWER_DELAY_MS on an item (ex. ↓ 20 times quickly: only the last one is read),
+  // and what was asked for an item that is not selected anymore is cancelled (on the page side: a screenshot that ffmpeg is already taking finishes)
+  var VIEWER_DELAY_MS = 250, viewerTimer = null, viewerAbort = null, prefetchAbort = null, viewerSlides = [];
+  // The screenshots of the gap: shown in sequence (GAP_SLIDE_MS each), then the one of the item (MAIN_SLIDE_MS), again and again
+  var GAP_SLIDE_MS = 500, MAIN_SLIDE_MS = 1000;
+  function cancelViewerRequests() {
+    if (viewerTimer) { clearTimeout(viewerTimer); viewerTimer = null; }
+    if (viewerAbort) { viewerAbort.abort(); viewerAbort = null; }
+    if (prefetchAbort) { prefetchAbort.abort(); prefetchAbort = null; }
+    viewerSlides.forEach(function (t) { clearTimeout(t); });
+    viewerSlides = [];
+  }
+  // (gap screenshots: only the ones in memory or on disk, the ones sent: never taken with ffmpeg)
+  function gapImageUrl(field, t) { return flowImageUrl(field, t, t) + "&cached=1"; }
+  function readImageBlob(url, signal) {
+    return fetch(url, { signal: signal }).then(function (r) { if (!r.ok) throw new Error("none"); return r.blob(); });
+  }
+  function showInspectorViewer(tr) {
+    var images = rowImages(tr);
+    if (!images.length) { hideInspectorViewer(); return; }
+    // (beside the inspector, on its left: over the graph)
+    var panel = $("flowPanel").getBoundingClientRect();
+    fiViewer.style.display = "";
+    var w = Math.min(560, Math.max(260, panel.left - 24));
+    fiViewer.style.width = w + "px";
+    fiViewer.style.left = Math.max(8, panel.left - w - 12) + "px";
+    fiViewer.style.top = Math.max(8, panel.top) + "px";
+
+    var forKey = images.map(function (i) { return i.field + "|" + i.s + "|" + i.e + "|" + i.gaps.join(";"); }).join(",");
+    if (fiViewer._for === forKey) return;
+    fiViewer._for = forKey;
+    cancelViewerRequests();
+    (fiViewer._urls || []).forEach(function (u) { URL.revokeObjectURL(u); });
+    fiViewer._urls = [];
+    fiViewer.innerHTML = '<div class="fivhead"><span>' + esc(images[0].s + " → " + images[0].e) + '</span><span class="spacer"></span><span class="fivkeys">↓ ↑ PgDn PgUp: next / previous · Escape: close</span><button class="mini" data-fivclose="1">&#10005;</button></div>' +
+      images.map(function (i) {
+        // (the name of the image: only when there are several)
+        return '<div class="fivimg">' + (images.length > 1 ? '<div class="fipcap">' + esc(i.field) + '</div>' : '') + '<div class="fipwait">...</div><div class="fivwrap"><img alt="" style="display:none"></div></div>';
+      }).join("");
+    viewerTimer = setTimeout(function () { loadViewerImages(tr, images, forKey); }, VIEWER_DELAY_MS);
+  }
+  function loadViewerImages(tr, images, forKey) {
+    viewerTimer = null;
+    var ctl = new AbortController();
+    viewerAbort = ctl;
+    var blocks = fiViewer.querySelectorAll(".fivimg");
+    var reads = images.map(function (i, k) {
+      var wait = blocks[k].querySelector(".fipwait"), img = blocks[k].querySelector("img");
+      wait.textContent = "Reading the screenshot (ffmpeg if it was not kept)...";
+      var toUrl = function (blob) { var u = URL.createObjectURL(blob); fiViewer._urls.push(u); return u; };
+      var main = readImageBlob(flowImageUrl(i.field, i.s, i.e), ctl.signal)
+        .then(function (blob) {
+          if (fiViewer._for !== forKey) return null;
+          var url = toUrl(blob);
+          img.src = url; img.style.display = "";
+          if (wait.parentNode) wait.remove();
+          return url;
+        })
+        .catch(function (ex) {
+          if ((ex && ex.name === "AbortError") || fiViewer._for !== forKey) return null;
+          wait.textContent = "No screenshot for this item.";
+          return null;
+        });
+      // (the gap: the ones that are not there are skipped)
+      var gaps = Promise.all(i.gaps.map(function (t) {
+        return readImageBlob(gapImageUrl(i.field, t), ctl.signal)
+          .then(function (blob) { return fiViewer._for === forKey ? { t: t, url: toUrl(blob) } : null; })
+          .catch(function () { return null; });
+      }));
+      return Promise.all([main, gaps]).then(function (r) {
+        var mainUrl = r[0], gapSlides = r[1].filter(function (g) { return g; });
+        if (fiViewer._for !== forKey || !mainUrl || !gapSlides.length) return;
+        startViewerSlides(blocks[k], gapSlides, mainUrl, i.gaps.length, forKey);
+      });
+    });
+    // (then the next item, read in advance: ↓ is immediate when it's taken slowly; the browser keeps it, see Cache-Control)
+    Promise.all(reads).then(function () {
+      if (fiViewer._for !== forKey) return;
+      if (viewerAbort === ctl) viewerAbort = null;
+      // (the selected row now: the table can have been rebuilt meanwhile, ex. items received)
+      var rows = Array.prototype.slice.call($("fiBody").querySelectorAll(".fitable tbody tr"));
+      var current = rows.filter(function (x) { return x.getAttribute("data-rk") === flowInspect.selRk; })[0];
+      var next = current ? rows[rows.indexOf(current) + 1] : null;
+      if (!next) return;
+      var pctl = new AbortController();
+      prefetchAbort = pctl;
+      rowImages(next).forEach(function (i) {
+        fetch(flowImageUrl(i.field, i.s, i.e), { signal: pctl.signal }).then(function (r) { return r.blob(); }).catch(function () { });
+        i.gaps.forEach(function (t) { fetch(gapImageUrl(i.field, t), { signal: pctl.signal }).then(function (r) { return r.blob(); }).catch(function () { }); });
+      });
+    });
+  }
+  // One image of the viewer: the screenshots of the gap (GAP_SLIDE_MS each), then the one of the item (MAIN_SLIDE_MS), in a loop.
+  // Under it: ◀ / ▶ (previous / next image: the loop pauses) and ⏸ / ▶ (pause / play); keys ← / → and Space: the same, for all the images.
+  function startViewerSlides(block, gapSlides, mainUrl, nbGaps, forKey) {
+    var img = block.querySelector("img");
+    var notKept = gapSlides.length < nbGaps ? " · " + (nbGaps - gapSlides.length) + " not kept" : "";
+    var frames = gapSlides.map(function (g, k) { return { url: g.url, ms: GAP_SLIDE_MS, text: "gap " + (k + 1) + "/" + gapSlides.length + " (" + g.t + ")" + notKept }; })
+      .concat([{ url: mainUrl, ms: MAIN_SLIDE_MS, text: "item" + notKept }]);
+    var ctl = document.createElement("div");
+    ctl.className = "fivctl";
+    ctl.innerHTML = '<button class="mini" data-fivs="prev" title="Previous image (←)">&#9664;</button>' +
+      '<button class="mini" data-fivs="pause" title="Pause / play (Space)">&#10074;&#10074;</button>' +
+      '<button class="mini" data-fivs="next" title="Next image (→)">&#9654;</button><span class="fivpos"></span>';
+    // (over the top of the image, centered on it, by CSS (its wrapper): the bottom of a tall screenshot is often out of view; nothing moves when it appears)
+    img.parentNode.appendChild(ctl);
+    var pauseButton = ctl.querySelector('[data-fivs="pause"]'), pos = ctl.querySelector(".fivpos");
+    var slot = viewerSlides.length, current = 0, paused = false;
+    viewerSlides.push(null);
+    var show = function (k) {
+      if (fiViewer._for !== forKey) return;
+      if (viewerSlides[slot]) { clearTimeout(viewerSlides[slot]); viewerSlides[slot] = null; }
+      current = (k + frames.length) % frames.length;
+      var f = frames[current];
+      img.src = f.url;
+      img.classList.toggle("gap", f.ms === GAP_SLIDE_MS);
+      pos.textContent = f.text + (paused ? " · paused" : "");
+      pauseButton.innerHTML = paused ? "&#9654;" : "&#10074;&#10074;";
+      pauseButton.title = paused ? "Play (Space)" : "Pause (Space)";
+      if (!paused) viewerSlides[slot] = setTimeout(function () { show(current + 1); }, f.ms);
+    };
+    block._slides = {
+      prev: function () { paused = true; show(current - 1); },
+      next: function () { paused = true; show(current + 1); },
+      // (play again: the next image, after the time of the one shown)
+      pause: function () { paused = !paused; show(current); }
+    };
+    show(0);
+  }
+  fiViewer.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest("[data-fivclose]")) { clearInspectorSelection(); return; }
+    var b = e.target.closest && e.target.closest("[data-fivs]");
+    var block = b && b.closest(".fivimg");
+    // (not kept focused: Space would also 'click' it)
+    if (block && block._slides) { block._slides[b.getAttribute("data-fivs")](); b.blur(); }
+  });
+  function clearInspectorSelection() {
+    flowInspect.selRk = null;
+    var body = $("fiBody");
+    if (body) body.querySelectorAll("tr.fisel").forEach(function (x) { x.classList.remove("fisel"); });
+    hideInspectorViewer();
+  }
+  document.addEventListener("keydown", function (e) {
+    if (!flowInspect.selRk || !isFlowMode() || $("te").style.display !== "none") return;
+    var tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (e.key === "Escape") { clearInspectorSelection(); e.preventDefault(); return; }
+    var slideAction = { ArrowLeft: "prev", ArrowRight: "next", " ": "pause" }[e.key];
+    if (slideAction) {
+      var shows = Array.prototype.filter.call(fiViewer.querySelectorAll(".fivimg"), function (b) { return b._slides; });
+      if (shows.length) { shows.forEach(function (b) { b._slides[slideAction](); }); e.preventDefault(); }
+      return;
+    }
+    var page = e.key === "PageDown" || e.key === "PageUp";
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && !page) return;
+    var rows = Array.prototype.slice.call($("fiBody").querySelectorAll(".fitable tbody tr"));
+    var current = rows.filter(function (x) { return x.getAttribute("data-rk") === flowInspect.selRk; })[0];
+    if (!current) return;
+    e.preventDefault();
+    var down = e.key === "ArrowDown" || e.key === "PageDown", step = 1;
+    if (page) {
+      // (PgDn / PgUp: about the rows that fit in what scrolls; the selection moves, the list follows it)
+      var box = current.parentNode;
+      while (box && box !== document.body && !(box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentNode;
+      var height = box && box !== document.body ? box.clientHeight : window.innerHeight;
+      step = Math.max(1, Math.floor(height * 0.8 / Math.max(1, current.getBoundingClientRect().height)));
+    }
+    var index = Math.max(0, Math.min(rows.length - 1, rows.indexOf(current) + (down ? step : -step)));
+    if (rows[index] !== current) selectInspectorRow(rows[index]);
+  });
+
   // Flow panel: drag a column (its header or its chip) onto another one: it goes before it (remembered for this task)
   var fiDragCol = null;
   $("flowPanel").addEventListener("dragstart", function (e) {
@@ -1708,9 +2244,1745 @@
     if (!window.confirm("Close right away?\n\n" + nbBusy + " scene(s) are still in the middle of a step: what they are doing is lost (what is already saved is kept).")) return;
     fetch("/api/exit?force=1", { method: "POST" }).then(showClosed);
   };
+  // (for the timing editor: a scene started again, ex. 'Rescan', has a new id, the editor follows it by its name)
+  window.fstSceneIdByName = function (name) {
+    var r = state.roots.filter(function (x) { return x.name === name; })[0];
+    return r ? r.id : null;
+  };
   updateSearch();
   setInterval(tick, 1000);   // keeps the elapsed times moving (only their text: the rows are not rewritten)
   poll();
+})();
+</script>
+<script>
+// ======================================================================
+// The timing editor of a scene: the subtitles of the file the user revises (ex. '.manual-input.srt'),
+// over the waveform and the terrain (where the sound is) of its audio, with the light video (.FAST.mp4) of its parts.
+// All the times are in ms, in the time of the whole scene (its parts one after the other).
+// ======================================================================
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function loadPref(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function savePref(key, v) { try { if (v == null) localStorage.removeItem(key); else localStorage.setItem(key, v); } catch (e) { } }
+  function pad(v) { return v < 10 ? "0" + v : "" + v; }
+  function fmt(ms) {
+    ms = Math.max(0, Math.round(ms));
+    return pad(Math.floor(ms / 3600000)) + ":" + pad(Math.floor(ms / 60000) % 60) + ":" + pad(Math.floor(ms / 1000) % 60) + "." + ("00" + (ms % 1000)).slice(-3);
+  }
+  function fmtDur(ms) { return (ms / 1000).toFixed(3); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  // (a metadata line of the file, ex. '{OngoingSpeakers:Woman}')
+  function isMeta(line) { return /^\s*\{[^}]*\}\s*$/.test(line); }
+
+  // ---- Keys: can be changed in the 'Keys' panel (remembered by the browser) ----
+  var ACTIONS = [
+    { id: "playPause", label: "Play / pause", def: "Space" },
+    { id: "playSub", label: "Play the selected subtitle", def: "P" },
+    { id: "loopStart", label: "Play the START of the subtitle, again and again (until another subtitle is selected)", def: "[" },
+    { id: "loopEnd", label: "Play the END of the subtitle, again and again", def: "]" },
+    { id: "stop", label: "Stop", def: "Escape" },
+    { id: "prevSub", label: "Previous subtitle", def: "ArrowUp" },
+    { id: "nextSub", label: "Next subtitle", def: "ArrowDown" },
+    { id: "nextSpeech", label: "Next, in order: the next subtitle, or the next speech without subtitle (terrain), the first one", def: "N" },
+    { id: "add", label: "Add a subtitle: on the speech found by 'Next speech', otherwise on the speech under the cursor (terrain), otherwise 1.5 s from the cursor", def: "Insert" },
+    { id: "delete", label: "Delete the selected subtitle", def: "Delete" },
+    { id: "mergePrev", label: "Merge the selected subtitle with the previous one", def: "M" },
+    { id: "mergeNext", label: "Merge the selected subtitle with the next one", def: "Shift+M" },
+    { id: "split", label: "Split the selected subtitle at the cursor", def: "X" },
+    { id: "toggleValidated", label: "Validated / not validated (a subtitle is validated by itself when the playback goes 0.2 s past its end)", def: "V" },
+    { id: "validateUpTo", label: "Validate all the subtitles up to the selected one", def: "Shift+V" },
+    { id: "back", label: "Back 1 second", def: "ArrowLeft" },
+    { id: "forward", label: "Forward 1 second", def: "ArrowRight" },
+    { id: "backFine", label: "Back 100 ms", def: "Shift+ArrowLeft" },
+    { id: "forwardFine", label: "Forward 100 ms", def: "Shift+ArrowRight" },
+    { id: "zoomIn", label: "Zoom in", def: "+" },
+    { id: "zoomOut", label: "Zoom out", def: "-" },
+    { id: "undo", label: "Undo", def: "Ctrl+Z" },
+    { id: "redo", label: "Redo", def: "Ctrl+Y" },
+    { id: "save", label: "Save", def: "Ctrl+S" }
+  ];
+  var keys = {};       // action -> combo
+  var keyMap = {};     // combo -> action
+  function loadKeys() {
+    var saved = {};
+    try { saved = JSON.parse(loadPref("fstTimingKeys") || "{}") || {}; } catch (e) { }
+    keys = {}; keyMap = {};
+    ACTIONS.forEach(function (a) { keys[a.id] = saved.hasOwnProperty(a.id) ? saved[a.id] : a.def; });
+    for (var id in keys) if (keys[id]) keyMap[keys[id]] = id;
+  }
+  function saveKeys() {
+    var changed = {};
+    ACTIONS.forEach(function (a) { if (keys[a.id] !== a.def) changed[a.id] = keys[a.id]; });
+    savePref("fstTimingKeys", JSON.stringify(changed));
+    loadKeys();
+    renderTools();
+  }
+  function comboOf(e) {
+    var k = e.key;
+    if (k === "Control" || k === "Shift" || k === "Alt" || k === "Meta" || !k) return null;
+    if (k === " ") k = "Space";
+    if (k.length === 1) k = k.toUpperCase();
+    var parts = [];
+    // (AltGr, ex. '[' on a French keyboard, is seen as Ctrl+Alt: it's only a way to type the character)
+    var altGr = (e.getModifierState && e.getModifierState("AltGraph")) || (k.length === 1 && e.ctrlKey && e.altKey && !/[A-Z0-9]/.test(k));
+    if ((e.ctrlKey || e.metaKey) && !altGr) parts.push("Ctrl");
+    if (e.altKey && !altGr) parts.push("Alt");
+    // (a symbol typed with Shift, ex. '+' or '[': the Shift is part of the symbol)
+    if (e.shiftKey && !(k.length === 1 && !/[A-Z0-9]/.test(k))) parts.push("Shift");
+    parts.push(k);
+    return parts.join("+");
+  }
+  loadKeys();
+
+  // Settings of the 'start-start-start' / 'end-end-end' loops
+  var settings = { auditionMs: 600, auditionGapMs: 250, waveGain: 1, replayAfterEdit: false, padStartMs: 0, padEndMs: 0, auditionMax: 4, fastRate: 200, fastAfterMs: 1000, fastBeforeMs: 500, fastMinGapMs: 3000, autoSaveMin: 2 };
+  try {
+    var savedSettings = JSON.parse(loadPref("fstTimingSettings") || "{}");
+    // (3000 was the default of 'fastBeforeMs' before: the new default is used)
+    if (savedSettings.fastBeforeMs === 3000) delete savedSettings.fastBeforeMs;
+    for (var sk in settings) if (typeof savedSettings[sk] === typeof settings[sk]) settings[sk] = savedSettings[sk];
+  } catch (e) { }
+
+  var colors = {};
+  function readColors() {
+    var cs = getComputedStyle(document.documentElement);
+    ["accent", "ok", "warn", "err", "muted", "text", "border", "panel", "wait", "block"].forEach(function (n) { colors[n] = cs.getPropertyValue("--" + n).trim(); });
+  }
+
+  // ---- The session (null: the editor is closed) ----
+  var S = null;
+
+  function url(what, params) {
+    var q = [];
+    for (var k in params || {}) if (params[k] != null) q.push(k + "=" + encodeURIComponent(params[k]));
+    return "/api/timing/" + S.sceneId + "/" + what + (q.length ? "?" + q.join("&") : "");
+  }
+  function getJson(what, params) {
+    return fetch(url(what, params)).then(function (r) {
+      return r.ok ? r.json() : r.text().then(function (t) { var e = new Error(t || ("HTTP " + r.status)); e.status = r.status; throw e; });
+    });
+  }
+
+  function status(msg, isErr) {
+    if (!S) return;
+    S.msg = msg; S.msgErr = !!isErr;
+    refreshStatus();
+  }
+  function refreshStatus() {
+    var el = $("teStatus");
+    var text = S.msg;
+    if (!text && S.pendingLoop && S.subs[S.pendingLoop.sel]) {
+      text = "Playing on: then the " + (S.pendingLoop.edge === "start" ? "START" : "END") + " of #" + (S.pendingLoop.sel + 1) + " again and again.";
+    }
+    if (!text && audition && S.subs[audition.sel]) {
+      text = "Playing the " + (audition.edge === "start" ? "START" : "END") + " of #" + (audition.sel + 1) + " again and again. Play: from " + (settings.replayAfterEdit || audition.edge === "start" ? "its start" : "its end") + ", and continues. Escape: stop.";
+    }
+    if (!text && S.info) {
+      text = S.subs.length + " subtitles (" + validatedCount() + " validated) · " + (S.activeMs >= 60000 ? "⏱ " + fmtActive(S.activeMs) + " of work · " : "") + (S.mode === "video" ? "video: " + S.info.lightVideoSuffix : "audio only")
+        + (S.terrain ? " · terrain: " + (S.terrain.settingsFrom ? "settings of " + S.terrain.settingsFrom : "default settings") : "");
+    }
+    el.textContent = (S.unsaved ? "● Not saved · " : "") + (S.nbOverlaps ? "⚠ " + S.nbOverlaps + " overlap" + (S.nbOverlaps > 1 ? "s" : "") + " (red) · " : "") + (text || "");
+    el.title = el.textContent;
+    el.className = "te-status" + (S.msgErr ? " err" : "");
+    $("teSaveBtn").disabled = !S.unsaved || S.saving;
+    // (the loop being played: its button is lit)
+    $("teTools").querySelectorAll("[data-act]").forEach(function (b) {
+      var act = b.getAttribute("data-act");
+      b.classList.toggle("on", !!audition && ((act === "loopStart" && audition.edge === "start") || (act === "loopEnd" && audition.edge === "end")));
+    });
+  }
+  function fail(ex) { status(ex && ex.message ? ex.message : String(ex), true); }
+
+  // A scene started again ('Rescan', 'Retry') has a new id: the editor continues with it, once its editor answers (its data is loaded again)
+  var lastFollow = 0;
+  function followScene() {
+    if (!S || !window.fstSceneIdByName || performance.now() - lastFollow < 1000 || S.following) return;
+    lastFollow = performance.now();
+    var id = window.fstSceneIdByName(S.sceneName);
+    if (id == null || id === S.sceneId) return;
+    var my = S;
+    S.following = true;
+    fetch("/api/timing/" + id + "/info").then(function (r) {
+      if (S !== my) return;
+      S.following = false;
+      if (!r.ok) return;   // (not loaded yet: asked again in a moment)
+      var wasPlaying = isPlaying(), t = curMs();
+      S.sceneId = id;
+      // (the audio / video are read from the new id, at the same place)
+      if (S.mode === "video") loadPart(partAt(t), (t - S.info.parts[partAt(t)].offsetMs) / 1000, wasPlaying, true);
+      else if (S.audioId) { var el = $("teAudioEl"); el.src = url("audio.wav", { audio: S.audioId }); el.currentTime = t / 1000; if (wasPlaying) el.play(); }
+    }).catch(function () { if (S === my) S.following = false; });
+  }
+
+  /// reviewId: the review to open (otherwise: the one opened the last time, or the first one)
+  function open(sceneId, name, fullName, reviewId) {
+    if (S && !close()) return;
+    readColors();
+    S = {
+      sceneId: sceneId, sceneName: fullName, wantedReview: reviewId || null, following: false, info: null, audioId: null, subs: [], stamp: null, terrain: null, sel: -1,
+      viewStart: 0, viewDur: 20000, durMs: 0, peaks: null, mode: "audio", part: -1, pendingSeek: null, stopAt: null,
+      dirty: true, msg: null, msgErr: false, playingRow: -1, highlight: null,
+      undo: [], redo: [], savedJson: "[]", unsaved: false, saving: false, review: null, readOnly: false
+    };
+    var my = S;
+    $("te").style.display = "";
+    $("teTitle").textContent = "⏱ Timing · " + name;
+    $("teList").innerHTML = ""; $("teCur").innerHTML = ""; $("teNoVideo").style.display = "none"; $("teHelp").style.display = "none";
+    status("Loading...");
+    getJson("info").then(function (info) {
+      if (S !== my) return;
+      S.info = info; S.durMs = info.durationMs;
+      fitCanvas();
+      setupMedia();
+      if (!setupReviews()) return;
+      setupAudios();
+      loadSubs();
+    }).catch(function (ex) { if (S === my) fail(ex); });
+    requestAnimationFrame(frame);
+  }
+
+  /// <returns>false: the user wants to keep the editor open (changes not saved)</returns>
+  function close() {
+    if (!S) return true;
+    if (S.unsaved && !window.confirm("The changes are not saved. Close anyway (they are lost)?")) return false;
+    saveValidation();
+    sendActiveTime();
+    stopAudition();
+    [$("teVideo"), $("teAudioEl")].forEach(function (el) { el.pause(); el.onloadedmetadata = null; el.removeAttribute("src"); el.load(); });
+    $("te").style.display = "none";
+    S = null;
+    return true;
+  }
+  window.addEventListener("beforeunload", function (e) {
+    if (S) { saveValidation(true); sendActiveTime(true); }
+    if (S && S.unsaved) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // ---- Changes: undo / redo / save ----
+  var MIN_DURATION_MS = 100;
+  // Each subtitle: rs, re = its timing in the file; s, e = its timing in the editor (shown, played) = the timing in the file,
+  // with the padding when it's not validated (see applyPadding); lines; v = validated; k = its timing in the file on disk, to save 'v'.
+  function docOf(subs) { return subs.map(function (x) { return { s: x.rs, e: x.re, lines: x.lines }; }); }
+
+  // ---- Padding: added to the start / the end of the subtitles not validated (+ = longer), while they are edited ----
+  // (only in the editor: in the file, the timing without it; when a subtitle is validated, its timing with the padding becomes its timing)
+  function padStart() { return settings.padStartMs || 0; }
+  function padEnd() { return settings.padEndMs || 0; }
+  function applyPaddingTo(sub) {
+    if (sub.v) { sub.s = sub.rs; sub.e = sub.re; return; }
+    var p = S.info.parts[partAt(sub.rs)];
+    sub.s = Math.max(p.offsetMs, sub.rs - padStart());
+    sub.e = Math.min(p.offsetMs + p.durationMs, Math.max(sub.s + MIN_DURATION_MS, sub.re + padEnd()));
+  }
+  /// The padding of all the subtitles, without overlaps: when two subtitles overlap (with the padding, or already in the file),
+  /// the difference is split: they meet in the middle (of their gap, or of their overlap in the file); a validated one doesn't move
+  /// (the other stops at it). Two validated subtitles that overlap are not changed: they are shown as an error (see refreshOverlaps).
+  function padAll() {
+    S.subs.forEach(applyPaddingTo);
+    for (var i = 1; i < S.subs.length; i++) {
+      var a = S.subs[i - 1], b = S.subs[i];
+      if (a.e <= b.s || (a.v && b.v)) continue;
+      var aStart = a.s, bEnd = b.e;
+      if (a.v) {
+        b.s = a.e;
+      } else if (b.v) {
+        a.e = b.s;
+      } else {
+        var middle = Math.round((a.re + b.rs) / 2);
+        a.e = middle;
+        b.s = middle;
+      }
+      // (still a subtitle)
+      if (a.e - aStart < MIN_DURATION_MS) a.e = aStart + MIN_DURATION_MS;
+      if (bEnd - b.s < MIN_DURATION_MS) b.s = bEnd - MIN_DURATION_MS;
+    }
+  }
+  /// The subtitles that overlap the next one (as shown): an error to fix by hand (two validated ones, or an edge moved into the next one).
+  function refreshOverlaps() {
+    var n = 0;
+    S.subs.forEach(function (x) { x.ov = false; });
+    for (var i = 1; i < S.subs.length; i++) {
+      if (S.subs[i - 1].e > S.subs[i].s) { S.subs[i - 1].ov = true; S.subs[i].ov = true; n++; }
+    }
+    S.nbOverlaps = n;
+    if (S.rowEls) S.subs.forEach(function (x, i) { if (S.rowEls[i]) S.rowEls[i].classList.toggle("overlap", !!x.ov); });
+  }
+  function applyPadding() {
+    padAll();
+    renderList();
+    if (S.rowEls && S.rowEls[S.sel]) S.rowEls[S.sel].classList.add("sel");
+    renderCur();
+    S.dirty = true;
+  }
+  /// After s / e changed in the editor: the timing in the file (without the padding, when not validated). edge: only this one changed.
+  function updateFileTiming(sub, edge) {
+    if (edge !== "end") sub.rs = sub.v ? sub.s : sub.s + padStart();
+    if (edge !== "start") sub.re = sub.v ? sub.e : sub.e - padEnd();
+    // (a big padding, on a short subtitle: in the file, it stays a subtitle)
+    if (sub.re - sub.rs < MIN_DURATION_MS) sub.re = sub.rs + MIN_DURATION_MS;
+  }
+  function docJson() { return JSON.stringify(docOf(S.subs)); }
+  function snapshot() { return JSON.stringify(S.subs); }   // (undo: with the validation)
+  function updateUnsaved() { S.unsaved = docJson() !== S.savedJson; refreshOverlaps(); refreshStatus(); }
+
+  // ---- Validated subtitles: saved by themselves, in a moment (not a change of the file) ----
+  var validationTimer = null;
+  function keyOf(sub) { return sub.rs + "-" + sub.re; }
+  function scheduleValidationSave() {
+    if (validationTimer) clearTimeout(validationTimer);
+    validationTimer = setTimeout(saveValidation, 1500);
+  }
+  /// returns: a promise, resolved when what is validated is saved (the one being sent, when nothing changed since)
+  function saveValidation(keepalive) {
+    if (validationTimer) { clearTimeout(validationTimer); validationTimer = null; }
+    if (!S || S.readOnly) return Promise.resolve();
+    if (!S.validationChanged) return S.validationInFlight || Promise.resolve();
+    S.validationChanged = false;
+    var my = S;
+    // Only the subtitles whose timing is the one saved: a validated timing that is not saved yet
+    // (new, or changed) is saved with the subtitles (otherwise, if they are not saved, the old timing would be validated)
+    var keys = S.subs.filter(function (x) { return x.v && x.k && x.k === keyOf(x); }).map(function (x) { return x.k; });
+    var p = fetch(url("validated", { review: S.review }), {
+      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: !!keepalive,
+      body: JSON.stringify({ keys: keys })
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+    });
+    S.validationInFlight = p;
+    p.then(function () { if (S === my && S.validationInFlight === p) S.validationInFlight = null; }, function (ex) {
+      if (S !== my) return;
+      if (S.validationInFlight === p) S.validationInFlight = null;
+      // (tried again in a moment)
+      S.validationChanged = true;
+      validationTimer = setTimeout(saveValidation, 5000);
+      status("Can't save the validated subtitles (trying again): " + ex.message, true);
+    });
+    return p;
+  }
+  function setValidated(i, value) {
+    var sub = S.subs[i];
+    if (!sub || !!sub.v === value) return;
+    sub.v = value;
+    // (validated: its timing with the padding becomes its timing; not validated anymore: the padding is taken out again. It doesn't move)
+    updateFileTiming(sub);
+    updateUnsaved();
+    renderRow(i);
+    S.validationChanged = true;
+    scheduleValidationSave();
+    refreshStatus();
+    S.dirty = true;
+  }
+  function validatedCount() { return S.subs.filter(function (x) { return x.v; }).length; }
+  function pushUndo() {
+    // (a change: an information about before is not useful anymore, ex. "Continuing at #14")
+    if (S.msg && !S.msgErr) S.msg = null;
+    S.undo.push({ subs: snapshot(), sel: S.sel });
+    if (S.undo.length > 200) S.undo.shift();
+    S.redo = [];
+  }
+  function restore(from, to) {
+    if (!canEdit()) return;
+    var state = from.pop();
+    if (!state) return;
+    to.push({ subs: snapshot(), sel: S.sel });
+    stopAudition();
+    S.subs = JSON.parse(state.subs);
+    // (the padding can have changed since)
+    padAll();
+    renderList();
+    if (state.sel >= 0 && state.sel < S.subs.length) { S.sel = -1; select(state.sel, true); }
+    updateUnsaved();
+    // (the validation can have changed too)
+    S.validationChanged = true; scheduleValidationSave();
+    S.dirty = true;
+  }
+  /// The part (of a .vseq) of a subtitle: its edges stay in it (the file of each part has its own subtitles).
+  function partBounds(sub) {
+    var p = S.info.parts[partAt(sub.s)];
+    return [p.offsetMs, p.offsetMs + p.durationMs];
+  }
+  /// The neighbour whose edge faces this edge of the subtitle i (the previous one for a start, the next one for an end), in the same part.
+  function facingNeighbour(i, edge) {
+    var j = edge === "start" ? i - 1 : i + 1, n = S.subs[j];
+    return n && partAt(n.s) === partAt(S.subs[i].s) ? j : -1;
+  }
+  /// The edges of the neighbours before a drag (a neighbour pushed by the drag goes back to it when the edge goes back).
+  function neighbourEdges(i) {
+    var p = facingNeighbour(i, "start"), n = facingNeighbour(i, "end");
+    return { prevE: p >= 0 ? S.subs[p].e : null, nextS: n >= 0 ? S.subs[n].s : null };
+  }
+  /// Moves an edge. It never overlaps its neighbour: the facing edge of the neighbour is pushed along
+  /// (and, during a drag, comes back up to where it was: 'before' = neighbourEdges() at the start of the drag).
+  function setEdge(i, edge, ms, before) {
+    var sub = S.subs[i];
+    if (!sub) return;
+    var bounds = partBounds(sub);
+    var j = facingNeighbour(i, edge), n = S.subs[j];
+    ms = Math.round(ms);
+    if (edge === "start") {
+      // (the previous one stays a subtitle)
+      sub.s = clamp(ms, Math.min(n ? Math.max(bounds[0], n.s + MIN_DURATION_MS) : bounds[0], sub.e - MIN_DURATION_MS), sub.e - MIN_DURATION_MS);
+      if (n) {
+        var prevE = before && before.prevE != null ? before.prevE : n.e;
+        var newPrevE = Math.min(prevE, sub.s);
+        if (newPrevE !== n.e) { n.e = newPrevE; updateFileTiming(n, "end"); n.touched = true; renderRow(j); }
+      }
+    } else {
+      sub.e = clamp(ms, sub.s + MIN_DURATION_MS, Math.max(n ? Math.min(bounds[1], n.e - MIN_DURATION_MS) : bounds[1], sub.s + MIN_DURATION_MS));
+      if (n) {
+        var nextS = before && before.nextS != null ? before.nextS : n.s;
+        var newNextS = Math.max(nextS, sub.e);
+        if (newNextS !== n.s) { n.s = newNextS; updateFileTiming(n, "start"); n.touched = true; renderRow(j); }
+      }
+    }
+    updateFileTiming(sub, edge);
+    sub.touched = true;   // (moved by the user: see validateWhilePlaying)
+    renderRow(i);
+    if (i === S.sel) renderCur();
+    S.dirty = true;
+  }
+  /// then: called once saved (not called when it's not saved)
+  function save(force, then) {
+    if (!S || S.readOnly || S.saving) return;
+    if (!S.unsaved) { if (then) then(); return; }
+    var my = S, json = docJson();
+    // (once saved, the subtitles are known by their new timing on disk: for the validation)
+    var sent = S.subs.map(function (x) { return { sub: x, key: keyOf(x) }; });
+    S.saving = true; refreshStatus();
+    fetch(url("save", { review: S.review }), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stamp: S.stamp, force: !!force, subtitles: docOf(S.subs) })
+    }).then(function (r) {
+      return r.ok ? r.json() : r.text().then(function (t) { var e = new Error(t || ("HTTP " + r.status)); e.status = r.status; throw e; });
+    }).then(function (d) {
+      if (S !== my) return;
+      S.saving = false; S.stamp = d.stamp; S.savedJson = json;
+      sent.forEach(function (x) { x.sub.k = x.key; });
+      S.validationChanged = true; saveValidation();
+      updateUnsaved();
+      S.lastSaveAt = performance.now();
+      status("Saved" + (S.autoSaving ? " (automatically)" : "") + ".");
+      S.autoSaving = false;
+      if (then) then();
+    }).catch(function (ex) {
+      if (S !== my) return;
+      S.saving = false; S.autoSaving = false; refreshStatus();
+      if (ex.status === 409) {
+        if (window.confirm(ex.message + "\n\nOK: replace it with the version of this editor.\nCancel: nothing is saved.")) save(true, then);
+        return;
+      }
+      status("Can't save: " + ex.message, true);
+    });
+  }
+  $("teSaveBtn").onclick = function () { save(false); };
+
+  // Saved automatically every 'autoSaveMin' minutes while there are changes (it's only the review in the .wipsubtitles, not the file)
+  function autoSave() {
+    if (!S || S.readOnly || !S.unsaved || S.saving || S.edgeDrag || !(settings.autoSaveMin > 0)) return;
+    if (performance.now() - (S.lastSaveAt || 0) < settings.autoSaveMin * 60000) return;
+    S.autoSaving = true;
+    save(false);
+  }
+  setInterval(autoSave, 5000);
+
+  // ---- Time of active work on the review: only while the page is used ----
+  // (visible, with the focus, and the user did something in the last ACTIVE_IDLE_MS, or it's playing); sent to the review every 30 s
+  var ACTIVE_IDLE_MS = 60000, lastActivity = 0;
+  ["keydown", "mousedown", "mousemove", "wheel"].forEach(function (ev) {
+    document.addEventListener(ev, function () { if (S) lastActivity = performance.now(); }, { capture: true, passive: true });
+  });
+  function isActivelyUsed() {
+    if (document.visibilityState !== "visible" || !document.hasFocus()) return false;
+    return performance.now() - lastActivity < ACTIVE_IDLE_MS || isPlaying() || !!audition;
+  }
+  setInterval(function () {
+    if (!S || !S.info || S.readOnly || S.stamp == null) return;   // (a review loaded, not done)
+    if (isActivelyUsed()) {
+      S.activeMs += 1000; S.activeMsPending += 1000;
+      if (S.activeMs % 60000 === 0) refreshStatus();
+    }
+    if (S.activeMsPending >= 30000) sendActiveTime();
+  }, 1000);
+  /// returns: a promise, resolved when the time is added to the review
+  function sendActiveTime(keepalive) {
+    if (!S || !S.activeMsPending || S.readOnly) return Promise.resolve();
+    var my = S, ms = S.activeMsPending;
+    S.activeMsPending = 0;
+    return fetch(url("activetime", { review: S.review }), {
+      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: !!keepalive,
+      body: JSON.stringify({ ms: ms })
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+    }).catch(function () { if (S === my) S.activeMsPending += ms; });   // (sent again the next time)
+  }
+  function fmtActive(ms) {
+    var m = Math.floor(ms / 60000);
+    return Math.floor(m / 60) + ":" + pad(m % 60);
+  }
+
+  // ---- 'Review done': the worker writes the file, and the scene continues ----
+  function reviewDone() {
+    if (!S || S.readOnly || !S.subs.length) return;
+    var notValidated = S.subs.filter(function (x) { return !x.v; }).length;
+    // (the overlaps in the file: the timings that are written, not the ones shown, split by the editor when they are not validated)
+    var written = S.subs.map(function (x) { return [x.rs, x.re]; }).sort(function (a, b) { return a[0] - b[0]; });
+    var fileOverlaps = 0;
+    for (var wi = 1; wi < written.length; wi++) if (written[wi - 1][1] > written[wi][0]) fileOverlaps++;
+    var text = "Is the review done?\n\nThe file '" + (S.reviewInfo ? S.reviewInfo.fileSuffix : "") + "' is written, and the scene is started again to continue. The review can't be changed here anymore after.\n\nThe file can still be edited by hand: its metadata (ex. {Note:...}) are always used; its timings only until the next steps use them (then they are frozen)." +
+      (notValidated ? "\n\n" + notValidated + " subtitle(s) are NOT validated" + (padStart() || padEnd() ? " (they are written without the padding)" : "") + "." : "") +
+      (fileOverlaps ? "\n\n" + fileOverlaps + " overlap(s) will be in the file (subtitles not validated keep their timing without the split shown here, or validated ones that overlap: red)." : "");
+    if (!window.confirm(text)) return;
+    var my = S;
+    // (saved, then what is validated, then done: after 'done', the review can't be changed anymore)
+    save(false, function () {
+      if (S !== my) return;
+      saveValidation().then(function () {
+        return sendActiveTime();
+      }).then(function () {
+        return fetch(url("done", { review: S.review }), { method: "POST" });
+      }).then(function (r) {
+        return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); });
+      }).then(function (d) {
+        if (S !== my) return;
+        setReadOnly(true);
+        var opt = $("teFile").selectedOptions[0];
+        if (opt) opt.textContent = S.review + " (" + S.reviewInfo.fileSuffix + ", done)";
+        // (the scene is started again to write the file; when it's still running, it's not: Retry it when it's finished)
+        status(d && d.restarted
+          ? "Review done: the scene is started again, it writes the file and continues (if it was still running: Retry it when it's finished)."
+          : "Review done. Retry the scene (or Rescan) to write the file and continue.");
+      }).catch(function (ex) { if (S === my) status("Can't mark the review as done: " + ex.message, true); });
+    });
+  }
+  $("teDoneBtn").onclick = reviewDone;
+
+  /// The review is done: nothing can be changed anymore (only seen and played)
+  function setReadOnly(value) {
+    S.readOnly = value;
+    stopAudition();
+    $("teDoneBtn").disabled = value;
+    renderCur();
+    refreshStatus();
+  }
+  /// returns false (and says why) when the review can't be changed
+  function canEdit() {
+    if (!S || !S.readOnly) return true;
+    status("The review is done: it can't be changed here anymore (the file can still be edited by hand: its metadata are always used, its timings only until they are frozen by the next steps).", true);
+    return false;
+  }
+
+  function setupReviews() {
+    var reviews = S.info.reviews;
+    if (!reviews.length) {
+      status("The configuration of this scene has no enabled 'TranscriberInteractifReview': there is nothing to review.", true);
+      return false;
+    }
+    var wanted = S.wantedReview || loadPref("fstTimingReview");
+    S.review = reviews.some(function (r) { return r.id === wanted; }) ? wanted : reviews[0].id;
+    $("teFile").innerHTML = reviews.map(function (r) {
+      return '<option value="' + esc(r.id) + '">' + esc(r.id + " (" + r.fileSuffix + ", " + r.state + ")") + '</option>';
+    }).join("");
+    $("teFile").value = S.review;
+    S.reviewInfo = reviews.filter(function (r) { return r.id === S.review; })[0];
+    return true;
+  }
+
+  function setupAudios() {
+    var finished = S.info.audios.filter(function (a) { return a.finished; });
+    var terrainOf = {};
+    S.info.terrainSources.forEach(function (t) { terrainOf[t.audioId] = t.worker; });
+    // The audio of the terrain of the preparer (in the configuration), otherwise the one the user chose before (no guess)
+    var fromConfig = finished.filter(function (a) { return terrainOf[a.id]; })[0];
+    var remembered = loadPref("fstTimingAudio");
+    var choice = fromConfig ? fromConfig.id : (finished.some(function (a) { return a.id === remembered; }) ? remembered : null);
+    $("teAudio").innerHTML = (choice ? "" : '<option value="">(choose the audio)</option>') + finished.map(function (a) {
+      return '<option value="' + esc(a.id) + '">' + esc(a.id + (terrainOf[a.id] ? " (terrain of the preparer)" : "")) + '</option>';
+    }).join("");
+    $("teAudio").value = choice || "";
+    if (!finished.length) status("No audio is extracted yet for this scene.", true);
+    else if (!choice) status("Choose the audio to show (no preparer with a terrain in the configuration).", true);
+    setAudio(choice);
+  }
+
+  function setAudio(id) {
+    S.audioId = id || null; S.terrain = null; S.peaks = null; S.dirty = true;
+    stopAudition();
+    if (S.mode === "audio") {
+      var el = $("teAudioEl");
+      if (S.audioId) el.src = url("audio.wav", { audio: S.audioId }); else { el.removeAttribute("src"); el.load(); }
+    }
+    loadTerrain();
+  }
+
+  function loadTerrain() {
+    var my = S, audio = S && S.audioId;
+    if (!audio) return;
+    getJson("terrain", { audio: audio }).then(function (t) {
+      if (S !== my || S.audioId !== audio) return;
+      if (t.computing) {
+        status("Mapping the terrain of the audio (only the first time)...");
+        setTimeout(loadTerrain, 1500);
+        return;
+      }
+      S.terrain = t; S.dirty = true;
+      if (S.msg && /terrain/.test(S.msg)) status(null);
+      else refreshStatus();
+    }).catch(function (ex) { if (S === my) status("Terrain: " + ex.message, true); });
+  }
+
+  function loadSubs() {
+    var my = S;
+    S.subs = []; S.sel = -1; S.stamp = null; S.undo = []; S.redo = []; S.savedJson = "[]"; S.unsaved = false;
+    renderList(); renderCur();
+    getJson("subs", { review: S.review }).then(function (d) {
+      if (S !== my) return;
+      S.subs = d.subtitles; S.stamp = d.stamp; S.lastSaveAt = performance.now();
+      S.activeMs = d.activeMs || 0; S.activeMsPending = 0;
+      S.reviewInfo = { fileSuffix: d.fileSuffix, origin: d.origin };
+      S.readOnly = !!d.done;
+      $("teDoneBtn").disabled = S.readOnly;
+      // (the validated ones, by their timing as saved)
+      var validated = {};
+      (d.validated || []).forEach(function (k) { validated[k] = true; });
+      S.subs.forEach(function (x) { x.rs = x.s; x.re = x.e; x.k = keyOf(x); x.v = !!validated[x.k]; });
+      padAll();
+      S.savedJson = docJson();
+      renderList(); renderCur();
+      if (!S.msgErr) status(null);
+      // (continues where the user stopped: the first subtitle not validated)
+      var first = 0;
+      while (first < S.subs.length && S.subs[first].v) first++;
+      if (first >= S.subs.length) first = 0;
+      if (S.subs.length) select(first);
+      if (S.readOnly) status("The review is done: read only (the file '" + d.fileSuffix + "' is written).");
+      else if (first > 0) status("Continuing at #" + (first + 1) + " (the " + first + " before are validated).");
+      else if (d.origin) status("Review " + d.origin + ".");
+      S.dirty = true;
+    }).catch(function (ex) {
+      if (S !== my) return;
+      if (ex.status === 404) status(ex.message, true);
+      else fail(ex);
+    });
+  }
+
+  // ---- Playing: the light video of the part (the time is remapped), or the audio ----
+  function setupMedia() {
+    var parts = S.info.parts;
+    var missing = parts.filter(function (p) { return !p.hasVideo; });
+    S.mode = missing.length === 0 ? "video" : "audio";
+    $("teVideo").style.display = S.mode === "video" ? "" : "none";
+    $("teVideo").parentNode.classList.toggle("audioonly", S.mode !== "video");
+    var nv = $("teNoVideo");
+    nv.style.display = S.mode === "video" ? "none" : "";
+    nv.textContent = "No light video (" + missing.map(function (p) { return p.filename.replace(/\.[^.\\\/]*$/, "") + S.info.lightVideoSuffix; }).join(", ") + "): only the audio is played.";
+    if (S.mode === "video") loadPart(0, 0, false);
+  }
+  function mediaEl() { return S.mode === "video" ? $("teVideo") : $("teAudioEl"); }
+  function partAt(ms) {
+    var ps = S.info.parts;
+    for (var i = 0; i < ps.length; i++) if (ms >= ps[i].offsetMs && ms < ps[i].offsetMs + ps[i].durationMs) return i;
+    return ms < 0 ? 0 : ps.length - 1;
+  }
+  function loadPart(p, localSec, autoplay, forceReload) {
+    var v = $("teVideo");
+    var loadingSamePart = p === S.part && S.pendingSeek != null && !forceReload;
+    S.part = p;
+    S.pendingSeek = S.info.parts[p].offsetMs + localSec * 1000;
+    S.pendingLocal = localSec; S.pendingPlay = autoplay;
+    // (still loading this part, ex. several seeks in a row: only where to go changes)
+    if (loadingSamePart) return;
+    v.onloadedmetadata = function () {
+      v.onloadedmetadata = null;
+      if (!S) return;
+      v.currentTime = S.pendingLocal;
+      S.pendingSeek = null;
+      if (S.pendingPlay) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () { }); }
+    };
+    v.src = url("video", { part: p });
+  }
+  $("teVideo").addEventListener("ended", function () {
+    // (the next part: the scene continues)
+    if (S && S.mode === "video" && S.part < S.info.parts.length - 1) loadPart(S.part + 1, 0, true);
+  });
+  function curMs() {
+    if (!S || !S.info) return 0;
+    if (S.pendingSeek != null) return S.pendingSeek;
+    if (S.mode === "video") return S.part < 0 ? 0 : S.info.parts[S.part].offsetMs + $("teVideo").currentTime * 1000;
+    return $("teAudioEl").currentTime * 1000;
+  }
+  function isPlaying() { var el = mediaEl(); return (!el.paused && !el.ended) || (S.mode === "video" && S.pendingSeek != null && !!S.pendingPlay); }
+  function seek(ms) {
+    ms = clamp(ms, 0, S.durMs);
+    if (S.mode === "video") {
+      var p = partAt(ms), local = (ms - S.info.parts[p].offsetMs) / 1000;
+      if (p !== S.part || S.pendingSeek != null) loadPart(p, local, isPlaying());
+      else $("teVideo").currentTime = local;
+    } else if (S.audioId) {
+      $("teAudioEl").currentTime = ms / 1000;
+    }
+    S.dirty = true;
+  }
+  function play() {
+    stopAudition();
+    if (S.mode === "audio" && !S.audioId) { status("Choose the audio first.", true); return; }
+    // (a part still loading: plays when it's loaded)
+    if (S.mode === "video" && S.pendingSeek != null) { S.pendingPlay = true; return; }
+    var pr = mediaEl().play(); if (pr && pr.catch) pr.catch(function () { });
+  }
+  function pause() { mediaEl().pause(); S.stopAt = null; if (S.pendingSeek != null) S.pendingPlay = false; }
+  function playSub() {
+    var sub = S.subs[S.sel];
+    if (!sub) return;
+    seek(sub.s); S.stopAt = sub.e; play(); S.stopAt = sub.e;
+  }
+
+  // ---- 'start-start-start' / 'end-end-end': a short piece of the audio at an edge, played again and again (WebAudio: exact, no seek) ----
+  var actx = null, audition = null, auditionGen = 0, snippetCache = {}, snippetKeys = [];
+  function getSnippet(sMs, eMs) {
+    var key = S.audioId + "|" + sMs + "|" + eMs;
+    if (snippetCache[key]) return Promise.resolve(snippetCache[key]);
+    return fetch(url("snippet.wav", { audio: S.audioId, s: (sMs / 1000).toFixed(3), e: (eMs / 1000).toFixed(3) }))
+      .then(function (r) { if (!r.ok) return r.text().then(function (t) { throw new Error(t); }); return r.arrayBuffer(); })
+      .then(function (buf) { return new Promise(function (res, rej) { actx.decodeAudioData(buf, res, rej); }); })
+      .then(function (ab) {
+        snippetCache[key] = ab; snippetKeys.push(key);
+        if (snippetKeys.length > 40) delete snippetCache[snippetKeys.shift()];
+        return ab;
+      });
+  }
+  function startAudition(edge) {
+    if (!S || S.sel < 0) return;
+    if (!S.audioId) { status("Choose the audio first.", true); return; }
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    stopAudition();
+    mediaEl().pause(); S.stopAt = null;
+    audition = { edge: edge, gen: ++auditionGen, sel: S.sel, edgeMs: null };
+    if (!S.msgErr) S.msg = null;   // (the status says what a click does now)
+    refreshStatus();
+    $("teCanvas").style.cursor = "ew-resize";
+    auditionOnce(audition.gen);
+  }
+  function auditionOnce(gen) {
+    if (!S || !audition || audition.gen !== gen) return;
+    var sub = S.subs[audition.sel];
+    if (!sub) { stopAudition(); return; }
+    // (the edge is read again each time: when it's moved, the next loop plays the new place)
+    var edgeMs = audition.edge === "start" ? sub.s : sub.e;
+    var sMs = audition.edge === "start" ? edgeMs : Math.max(0, edgeMs - settings.auditionMs);
+    var eMs = audition.edge === "start" ? Math.min(S.durMs, edgeMs + settings.auditionMs) : edgeMs;
+    if (S.mode === "video" && audition.edgeMs !== edgeMs) seek(edgeMs);   // (the video shows the image at the edge)
+    audition.edgeMs = edgeMs;
+    getSnippet(sMs, eMs).then(function (buffer) {
+      if (!S || !audition || audition.gen !== gen) return;
+      var src = actx.createBufferSource();
+      src.buffer = buffer; src.connect(actx.destination);
+      audition.src = src; audition.s = sMs; audition.e = eMs; audition.t0 = actx.currentTime;
+      src.onended = function () {
+        if (!audition || audition.gen !== gen) return;
+        audition.src = null;
+        // (the place of the edge that was heard completely: see the end of a drag)
+        audition.heardEdgeMs = edgeMs;
+        // (while an edge is dragged, the loop goes on: the plays are counted from the end of the drag)
+        if (!S.edgeDrag) audition.count = (audition.count || 0) + 1;
+        // (played enough times: moves on, like Play)
+        if (settings.auditionMax > 0 && audition.count >= settings.auditionMax) {
+          audition.timer = setTimeout(function () {
+            if (!audition || audition.gen !== gen) return;
+            if (S.edgeDrag) auditionOnce(gen); else continueAfterLoop();
+          }, settings.auditionGapMs);
+          return;
+        }
+        audition.timer = setTimeout(function () { auditionOnce(gen); }, settings.auditionGapMs);
+      };
+      src.start();
+      S.dirty = true;
+    }).catch(function (ex) { status("Can't play: " + ex.message, true); stopAudition(); });
+  }
+  // An edge moved while playing, the cursor close to (at most LOOP_LATER_MS before) the piece the loop plays, or in it:
+  // the playback continues normally, and the loop starts when it reaches the end of that piece.
+  var LOOP_LATER_MS = 500;
+  function loopPiece(sub, edge) {
+    return edge === "start" ? [sub.s, sub.s + settings.auditionMs] : [sub.e - settings.auditionMs, sub.e];
+  }
+  /// returns true: the loop will start when the playback reaches it
+  function loopWhenReached(edge) {
+    var sub = S.subs[S.sel];
+    if (!sub || audition || !isPlaying()) return false;
+    var t = curMs(), piece = loopPiece(sub, edge);
+    if (t < piece[0] - LOOP_LATER_MS || t >= piece[1]) return false;
+    S.pendingLoop = { edge: edge, sel: S.sel };
+    refreshStatus();
+    return true;
+  }
+  function checkPendingLoop(playing, t) {
+    var p = S.pendingLoop;
+    if (!p) return;
+    var sub = S.subs[p.sel];
+    // (stopped, another subtitle selected, or a loop started another way: no loop)
+    if (!playing || !sub || S.sel !== p.sel || audition) { S.pendingLoop = null; refreshStatus(); return; }
+    if (t >= loopPiece(sub, p.edge)[1]) { S.pendingLoop = null; startAudition(p.edge); }
+  }
+
+  /// Leaves the loop and plays on (Play during a loop, or the loop played enough times): from the start of the subtitle
+  /// (option 'Replay the whole subtitle after a change'), otherwise from the edge being played.
+  function continueAfterLoop() {
+    var looped = S.subs[audition.sel], loopedEdge = audition.edge;
+    stopAudition();
+    if (looped) { S.stopAt = null; seek(settings.replayAfterEdit || loopedEdge === "start" ? looped.s : looped.e); play(); }
+  }
+  function stopAudition() {
+    if (!audition) return;
+    var a = audition;
+    audition = null;
+    if (a.timer) clearTimeout(a.timer);
+    if (a.src) { a.src.onended = null; try { a.src.stop(); } catch (e) { } }
+    $("teCanvas").style.cursor = "";
+    if (S) { S.dirty = true; refreshStatus(); }
+  }
+  function auditionPos() {
+    if (!audition || !audition.src) return null;
+    return Math.min(audition.e, audition.s + (actx.currentTime - audition.t0) * 1000);
+  }
+
+  // ---- The list and the selected subtitle ----
+  function textHtml(sub) {
+    var meta = [], text = [];
+    sub.lines.forEach(function (l) { if (isMeta(l)) meta.push(l.trim().slice(1, -1)); else text.push(l); });
+    return meta.map(function (m) { return '<span class="te-chip" title="' + esc(m) + '">' + esc(m) + '</span>'; }).join("") + esc(text.join(" ⏎ "));
+  }
+  function rowHtml(sub, i) {
+    return '<span class="n">' + (sub.v ? "✓" : "") + (i + 1) + '</span><span class="tm">' + fmt(sub.s) + '</span><span class="tm">' + fmt(sub.e) +
+      '</span><span class="tm">' + fmtDur(sub.e - sub.s) + '</span><span class="tx">' + textHtml(sub) + '</span>';
+  }
+  function renderRow(i) {
+    if (!S.rowEls || !S.rowEls[i]) return;
+    S.rowEls[i].innerHTML = rowHtml(S.subs[i], i);
+    S.rowEls[i].classList.toggle("ok", !!S.subs[i].v);
+  }
+  function renderList() {
+    var rows = ['<div class="te-row head"><span>#</span><span>Start</span><span>End</span><span>Dur.</span><span>Text</span></div>'];
+    S.subs.forEach(function (sub, i) {
+      rows.push('<div class="te-row' + (sub.v ? " ok" : "") + '" data-i="' + i + '">' + rowHtml(sub, i) + '</div>');
+    });
+    $("teList").innerHTML = rows.join("");
+    S.rowEls = $("teList").querySelectorAll(".te-row[data-i]");
+    refreshOverlaps();
+    S.playingRow = -1;
+    refreshStatus();
+  }
+  function renderCur() {
+    var sub = S.subs[S.sel];
+    if (!sub) { $("teCur").innerHTML = '<div class="tm">No subtitle selected.</div>'; return; }
+    var partNote = "";
+    if (S.info && S.info.parts.length > 1) {
+      var p = partAt(sub.s);
+      partNote = " · part " + (p + 1) + " at " + fmt(sub.s - S.info.parts[p].offsetMs);
+    }
+    $("teCur").innerHTML = '<div class="tm">' + (sub.v ? '<b style="color:var(--ok)">✓ validated</b> · ' : '') + '#' + (S.sel + 1) + ' · ' + fmt(sub.s) + ' → ' + fmt(sub.e) + ' · ' + fmtDur(sub.e - sub.s) + ' s' + esc(partNote) + '</div>' +
+      '<textarea id="teText" spellcheck="false" title="The lines of the subtitle, as in the file. Metadata: one per line, {Name:Value} (ex. {Speaker:Woman}), or {Name} alone."></textarea>' +
+      '<div class="hint">Lines as in the file: {Name:Value} = a metadata (ex. {Speaker:Woman}). Escape: back to the timeline (keys).</div>';
+    $("teText").value = sub.lines.join("\n");
+    $("teText").readOnly = !!S.readOnly;
+  }
+  /// The selected row stays in the upper part of the list (the next rows are seen): out of 15% - 70% of its height, the list scrolls to put it at 30%.
+  function keepRowInView(row) {
+    var list = $("teList"), lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
+    var h = list.clientHeight, y = rr.top - lr.top;
+    if (y >= h * 0.15 && y + rr.height <= h * 0.7) return;
+    list.scrollTo({ top: Math.max(0, list.scrollTop + y - h * 0.3), behavior: "smooth" });
+  }
+  /// noView: the view of the timeline doesn't move (ex. the mouse is on it)
+  function select(i, noSeek, noView) {
+    if (!S || i < 0 || i >= S.subs.length) return;
+    if (i !== S.sel) stopAudition();
+    // (an information about something else: not true anymore)
+    if (S.msg && !S.msgErr) status(null);
+    S.highlight = null;
+    if (S.rowEls && S.rowEls[S.sel]) S.rowEls[S.sel].classList.remove("sel");
+    S.sel = i;
+    var row = S.rowEls && S.rowEls[i];
+    if (row) { row.classList.add("sel"); keepRowInView(row); }
+    renderCur();
+    var sub = S.subs[i];
+    if (!noView) ensureVisible(sub.s, sub.e);
+    if (!noSeek) seek(sub.s);
+    S.dirty = true;
+  }
+  /// The cursor is in a subtitle (playing, or after a click / a key): it's the selected one.
+  function followCursor(t) {
+    var cur = S.subs[S.sel];
+    if (cur && cur.s <= t && cur.e > t) return;   // (still in the selected one, ex. 2 subtitles overlap)
+    for (var i = 0; i < S.subs.length; i++) {
+      if (S.subs[i].s > t) return;
+      if (S.subs[i].e > t) { select(i, true, true); return; }
+    }
+  }
+  // A subtitle is validated when the playback is VALIDATE_AFTER_MS after its end (played without interruption through its end)
+  var VALIDATE_AFTER_MS = 200;
+  function validateWhilePlaying(playing, t) {
+    if (S.readOnly) return;
+    var last = S.lastPlayT;
+    S.lastPlayT = playing ? t : null;
+    if (!playing || audition) { S.playRunStart = null; return; }
+    // (a new run: started, or a jump)
+    if (last == null || S.playRunStart == null || t < last || t - last > 1000) { S.playRunStart = t; return; }
+    for (var i = 0; i < S.subs.length; i++) {
+      var sub = S.subs[i];
+      if (sub.s > t) break;
+      var mark = sub.e + VALIDATE_AFTER_MS;
+      // (played through its end; or its start / end was moved by the user (checked), and the playback started before the mark, ex. from its new end)
+      if (!sub.v && mark > last && mark <= t && (S.playRunStart < sub.e || (sub.touched && S.playRunStart < mark))) setValidated(i, true);
+    }
+  }
+
+  // Between subtitles (fastAfterMs after the end of the last one, until fastBeforeMs before the next one): faster (fastRate %).
+  // Play during that time: back 1 s, and normal speed until slowUntil.
+  var NORMAL_AFTER_JUMP_MS = 1000;
+  function updateSpeed(playing, t) {
+    var want = 1;
+    // (the playback starts, or goes somewhere else: normal speed for NORMAL_AFTER_JUMP_MS first, or longer if it was asked, ex. Play while fast)
+    var last = S.speedLastT;
+    S.speedLastT = playing ? t : null;
+    if (playing && (last == null || t < last - 50 || t - last > 1000)) {
+      var asked = S.slowUntil != null && S.slowUntil > t && S.slowUntil - t <= 4000 ? S.slowUntil : 0;
+      S.slowUntil = Math.max(t + NORMAL_AFTER_JUMP_MS, asked);
+    }
+    if (S.slowUntil != null && (!playing || t >= S.slowUntil)) S.slowUntil = null;
+    if (playing && !audition && settings.fastRate > 100 && S.slowUntil == null) {
+      var prevEnd = -Infinity, nextStart = Infinity, inside = false;
+      for (var i = 0; i < S.subs.length; i++) {
+        var sub = S.subs[i];
+        if (sub.s <= t && sub.e > t) { inside = true; break; }
+        if (sub.e <= t && sub.e > prevEnd) prevEnd = sub.e;
+        if (sub.s > t) { nextStart = sub.s; break; }
+      }
+      // (only in a gap of at least fastMinGapMs)
+      if (!inside && nextStart - prevEnd >= settings.fastMinGapMs && t >= prevEnd + settings.fastAfterMs && nextStart - t > settings.fastBeforeMs) want = settings.fastRate / 100;
+    }
+    S.fast = want > 1;
+    var el = mediaEl();
+    if (el.playbackRate !== want) el.playbackRate = want;
+  }
+
+  // While playing, the view of the timeline:
+  // - holds still from FOLLOW_MARGIN_MS before a subtitle to FOLLOW_MARGIN_MS after it (the subtitle stays in place, it's moved to be seen whole),
+  // - otherwise scrolls with the playback, the cursor at FOLLOW_AT of the view.
+  var FOLLOW_MARGIN_MS = 1000, FOLLOW_AT = 0.25, lastFollowFrame = 0;
+  function followPlayback(playing, t) {
+    var now = performance.now(), dt = Math.min(0.1, (now - lastFollowFrame) / 1000);
+    lastFollowFrame = now;
+    // (not while the user drags: the view or an edge, under the mouse)
+    if (!playing || S.drag || S.edgeDrag || audition) return;
+    var vd = S.viewDur, target = null;
+    var focus = null;
+    for (var i = 0; i < S.subs.length; i++) {
+      var sub = S.subs[i];
+      if (sub.s - FOLLOW_MARGIN_MS > t) break;
+      if (sub.e + FOLLOW_MARGIN_MS >= t) { focus = sub; break; }
+    }
+    if (focus && focus.e - focus.s < vd * 0.7) {
+      // (seen whole, with a little room on each side: doesn't move)
+      if (focus.s < S.viewStart + vd * 0.05 || focus.e > S.viewStart + vd * 0.95) target = focus.s - vd * FOLLOW_AT;
+    } else {
+      target = t - vd * FOLLOW_AT;
+    }
+    // (the cursor is always in the view)
+    if (t < S.viewStart || t > S.viewStart + vd * 0.97) target = t - vd * FOLLOW_AT;
+    if (target == null) return;
+    var delta = target - S.viewStart;
+    // (smooth: gets there in about a third of a second, but never behind the playback)
+    if (Math.abs(delta) < vd * 0.002) S.viewStart = target;
+    else S.viewStart += delta * Math.min(1, dt * 8);
+    clampView();
+  }
+  // The lines of the selected subtitle are edited in the text box (one undo for each time the box is used)
+  $("teCur").addEventListener("input", function (e) {
+    if (e.target.id !== "teText" || !S || !S.subs[S.sel] || S.readOnly) return;
+    if (!S.textEditing) { pushUndo(); S.textEditing = true; }
+    S.subs[S.sel].lines = e.target.value.split("\n");
+    renderRow(S.sel);
+    updateUnsaved();
+    S.dirty = true;
+  });
+  $("teCur").addEventListener("focusout", function () { if (S) S.textEditing = false; });
+  $("teList").addEventListener("click", function (e) {
+    var row = e.target.closest ? e.target.closest(".te-row[data-i]") : null;
+    if (row && S) select(parseInt(row.getAttribute("data-i"), 10));
+  });
+  function updatePlayingRow(t) {
+    var idx = -1;
+    for (var i = 0; i < S.subs.length; i++) { if (S.subs[i].s > t) break; if (S.subs[i].e > t) { idx = i; break; } }
+    if (idx === S.playingRow || !S.rowEls) return;
+    if (S.rowEls[S.playingRow]) S.rowEls[S.playingRow].classList.remove("playing");
+    if (S.rowEls[idx]) S.rowEls[idx].classList.add("playing");
+    S.playingRow = idx;
+  }
+
+  // ---- The view of the timeline ----
+  function clampView() {
+    S.viewDur = clamp(S.viewDur, 500, Math.max(500, S.durMs));
+    S.viewStart = clamp(S.viewStart, 0, Math.max(0, S.durMs - S.viewDur));
+    S.dirty = true;
+  }
+  function ensureVisible(s, e) {
+    if (s >= S.viewStart && e <= S.viewStart + S.viewDur) return;
+    if (e - s > S.viewDur * 0.8) S.viewStart = s - S.viewDur * 0.1;
+    else S.viewStart = (s + e) / 2 - S.viewDur / 2;
+    clampView();
+  }
+  function zoom(factor, centerMs) {
+    var rel = (centerMs - S.viewStart) / S.viewDur;
+    S.viewDur *= factor;
+    clampView();
+    S.viewStart = centerMs - rel * S.viewDur;
+    clampView();
+  }
+  function fitCanvas() {
+    var dpr = window.devicePixelRatio || 1;
+    [$("teCanvas"), $("teOverview")].forEach(function (c) {
+      var w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; if (S) S.dirty = true; }
+    });
+  }
+  window.addEventListener("resize", function () { if (S) fitCanvas(); });
+
+  // The waveform of the view (asked to the server for the view and around it, at the resolution of the screen)
+  function ensurePeaks() {
+    if (!S.audioId || S.peaksLoading) return;
+    var W = $("teCanvas").clientWidth || 1, pxMs = S.viewDur / W, p = S.peaks;
+    if (p && p.audio === S.audioId && p.s <= S.viewStart && p.e >= Math.min(S.durMs, S.viewStart + S.viewDur) && p.binMs <= pxMs * 1.5 && p.binMs >= pxMs / 3) return;
+    var length = Math.min(3 * S.viewDur, 8000 * pxMs);
+    var s = Math.max(0, S.viewStart + S.viewDur / 2 - length / 2), e = Math.min(S.durMs, s + length);
+    var n = Math.max(1, Math.min(8000, Math.round((e - s) / pxMs)));
+    var my = S, audio = S.audioId;
+    S.peaksLoading = true;
+    fetch(url("peaks", { audio: audio, s: (s / 1000).toFixed(3), e: (e / 1000).toFixed(3), n: n }))
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+      .then(function (buf) {
+        if (S !== my) return;
+        S.peaksLoading = false; S.dirty = true;
+        if (S.audioId === audio) S.peaks = { audio: audio, s: s, e: e, n: n, binMs: (e - s) / n, data: new Int16Array(buf) };
+      })
+      .catch(function () { if (S === my) setTimeout(function () { if (S === my) { S.peaksLoading = false; S.dirty = true; } }, 2000); });
+  }
+
+  // ---- Drawing ----
+  var RULER_H = 18, TERRAIN_Y = 21, TERRAIN_H = 8, WAVE_Y = 32;
+  var TERRAIN_COLORS = { S: "ok", B: "warn", C: "muted" };
+  function tickLabel(ms, step) {
+    var s = fmt(ms);
+    if (step >= 1000) s = s.slice(0, 8);
+    return s.replace(/^00:/, "");
+  }
+  function firstSegmentFrom(segs, ms) {
+    // (the segments of the terrain follow each other: the first one that ends after 'ms')
+    var lo = 0, hi = segs.length;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (segs[mid][1] < ms) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+  function firstLine(sub) {
+    for (var i = 0; i < sub.lines.length; i++) if (!isMeta(sub.lines[i]) && sub.lines[i].trim()) return sub.lines[i];
+    return "";
+  }
+  function draw(t, at) {
+    var c = $("teCanvas"), ctx = c.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    var W = c.clientWidth, H = c.clientHeight;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    var v0 = S.viewStart, vd = S.viewDur, v1 = v0 + vd;
+    var X = function (ms) { return (ms - v0) / vd * W; };
+    var WH = H - WAVE_Y - 2, MID = WAVE_Y + WH / 2;
+
+    // Ruler
+    ctx.font = "10px Consolas, monospace"; ctx.textBaseline = "alphabetic";
+    var steps = [100, 200, 500, 1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 1800000];
+    var step = steps.filter(function (s) { return s / vd * W >= 90; })[0] || 1800000;
+    ctx.fillStyle = colors.muted;
+    for (var tk = Math.ceil(v0 / step) * step; tk <= v1; tk += step) {
+      var tx = Math.round(X(tk));
+      ctx.fillRect(tx, 12, 1, RULER_H - 12);
+      ctx.fillText(tickLabel(tk, step), tx + 3, 11);
+    }
+    ctx.fillStyle = colors.border; ctx.fillRect(0, RULER_H, W, 1);
+
+    // Terrain: a band (speech / breath / click), and the speech lightly behind the waveform
+    if (S.terrain) {
+      var segs = S.terrain.segments;
+      for (var i = firstSegmentFrom(segs, v0); i < segs.length && segs[i][0] <= v1; i++) {
+        var sx = X(segs[i][0]), sw = Math.max(1, X(segs[i][1]) - sx);
+        ctx.fillStyle = colors[TERRAIN_COLORS[segs[i][2]]] || colors.muted;
+        ctx.globalAlpha = 0.85; ctx.fillRect(sx, TERRAIN_Y, sw, TERRAIN_H);
+        if (segs[i][2] === "S") { ctx.globalAlpha = 0.07; ctx.fillRect(sx, WAVE_Y, sw, WH); }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Parts (a .vseq): where each part starts
+    if (S.info.parts.length > 1) {
+      ctx.strokeStyle = colors.wait; ctx.fillStyle = colors.wait; ctx.setLineDash([4, 4]);
+      S.info.parts.forEach(function (p, idx) {
+        if (idx === 0 || p.offsetMs < v0 || p.offsetMs > v1) return;
+        var px = Math.round(X(p.offsetMs)) + 0.5;
+        ctx.beginPath(); ctx.moveTo(px, RULER_H); ctx.lineTo(px, H); ctx.stroke();
+        ctx.fillText("part " + (idx + 1), px + 3, H - 4);
+      });
+      ctx.setLineDash([]);
+    }
+
+    // Subtitles (behind the waveform)
+    ctx.font = "11px system-ui, sans-serif";
+    S.subs.forEach(function (sub, idx) {
+      if (sub.e < v0 || sub.s > v1) return;
+      var x1 = X(sub.s), x2 = X(sub.e), sel = idx === S.sel;
+      ctx.fillStyle = colors.accent;
+      ctx.globalAlpha = sel ? 0.26 : 0.12; ctx.fillRect(x1, WAVE_Y, x2 - x1, WH);
+      ctx.globalAlpha = 1;
+      ctx.fillRect(x1, WAVE_Y, sel ? 2 : 1, WH); ctx.fillRect(x2 - (sel ? 2 : 1), WAVE_Y, sel ? 2 : 1, WH);
+      // (validated: a green bar at the bottom)
+      if (sub.v) { ctx.fillStyle = colors.ok; ctx.fillRect(x1, WAVE_Y + WH - 4, x2 - x1, 4); }
+      if (x2 - x1 > 24) {
+        ctx.save(); ctx.beginPath(); ctx.rect(x1 + 3, WAVE_Y, x2 - x1 - 6, WH); ctx.clip();
+        ctx.fillStyle = colors.text; ctx.globalAlpha = sel ? 1 : 0.75;
+        ctx.fillText((sub.v ? "✓" : "") + "#" + (idx + 1) + " " + firstLine(sub), x1 + 4, WAVE_Y + 12);
+        ctx.restore();
+      }
+    });
+    // (2 subtitles that overlap: an error, in red)
+    ctx.fillStyle = colors.err;
+    for (var oi = 1; oi < S.subs.length; oi++) {
+      var oa = S.subs[oi - 1], ob = S.subs[oi];
+      if (oa.e <= ob.s || ob.s > v1 || Math.min(oa.e, ob.e) < v0) continue;
+      var ox1 = X(ob.s), ox2 = X(Math.min(oa.e, ob.e));
+      ctx.globalAlpha = 0.35; ctx.fillRect(ox1, WAVE_Y, Math.max(2, ox2 - ox1), WH);
+      ctx.globalAlpha = 1; ctx.fillRect(ox1, WAVE_Y, Math.max(2, ox2 - ox1), 4);
+    }
+    ctx.globalAlpha = 1;
+
+    // Waveform (the square root of the level: the quiet speech stays visible; Shift+wheel: taller / shorter)
+    var p = S.peaks;
+    if (p && p.audio === S.audioId) {
+      var d = p.data, pxMs = vd / W, gain = settings.waveGain / 32768;
+      var amp = function (v) { return Math.min(1, Math.sqrt(v * gain)); };
+      ctx.fillStyle = colors.text; ctx.globalAlpha = 0.6;
+      for (var x = 0; x < W; x++) {
+        var ms = v0 + x * pxMs;
+        var b0 = Math.floor((ms - p.s) / p.binMs), b1 = Math.floor((ms + pxMs - p.s) / p.binMs);
+        if (b1 <= b0) b1 = b0 + 1;
+        if (b1 <= 0 || b0 >= p.n) continue;
+        var mn = 0, mx = 0;
+        for (var b = Math.max(0, b0); b < Math.min(p.n, b1); b++) { if (d[2 * b] < mn) mn = d[2 * b]; if (d[2 * b + 1] > mx) mx = d[2 * b + 1]; }
+        var top = MID - amp(mx) * WH / 2, bot = MID + amp(-mn) * WH / 2;
+        ctx.fillRect(x, top, 1, Math.max(1, bot - top));
+      }
+      ctx.globalAlpha = 1;
+    } else if (!S.audioId) {
+      ctx.fillStyle = colors.muted; ctx.fillText("Choose the audio (top) to see the waveform.", 10, MID);
+    }
+
+    // The speech found with 'next speech without subtitle'
+    if (S.highlight && S.highlight[1] >= v0 && S.highlight[0] <= v1) {
+      ctx.strokeStyle = colors.ok; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+      ctx.strokeRect(X(S.highlight[0]), WAVE_Y + 1, X(S.highlight[1]) - X(S.highlight[0]), WH - 2);
+      ctx.setLineDash([]); ctx.lineWidth = 1;
+    }
+
+    // The piece played again and again (start / end), and where it is
+    if (audition && audition.s != null) {
+      // (green: the edge was heard completely where it is now, ex. the mouse not moving during a drag; otherwise yellow)
+      var looped = S.subs[audition.sel];
+      var heardHere = looped && audition.heardEdgeMs === (audition.edge === "start" ? looped.s : looped.e);
+      ctx.fillStyle = heardHere ? colors.ok : colors.warn; ctx.globalAlpha = heardHere ? 0.3 : 0.22;
+      ctx.fillRect(X(audition.s), RULER_H + 1, X(audition.e) - X(audition.s), H - RULER_H - 1);
+      ctx.globalAlpha = 1;
+      if (at != null) ctx.fillRect(Math.round(X(at)), RULER_H + 1, 1.5, H - RULER_H - 1);
+      // (the edge that a click moves)
+      if (looped) ctx.fillRect(Math.round(X(audition.edge === "start" ? looped.s : looped.e)) - 1.5, RULER_H + 1, 3, H - RULER_H - 1);
+    }
+
+    // Playhead
+    ctx.fillStyle = colors.err;
+    ctx.fillRect(Math.round(X(t)) - 0.5, 0, 1.5, H);
+  }
+
+  function drawOverview(t) {
+    var c = $("teOverview"), ctx = c.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    var W = c.clientWidth, H = c.clientHeight, D = Math.max(1, S.durMs);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    var X = function (ms) { return ms / D * W; };
+    if (S.terrain) {
+      ctx.fillStyle = colors.ok; ctx.globalAlpha = 0.35;
+      S.terrain.segments.forEach(function (s) { if (s[2] === "S") ctx.fillRect(X(s[0]), 2, Math.max(1, X(s[1]) - X(s[0])), H / 2 - 3); });
+    }
+    ctx.fillStyle = colors.accent; ctx.globalAlpha = 0.8;
+    S.subs.forEach(function (sub) { ctx.fillStyle = sub.v ? colors.ok : colors.accent; ctx.fillRect(X(sub.s), H / 2, Math.max(1, X(sub.e) - X(sub.s)), H / 2 - 2); });
+    // (the overlaps: red marks, to find them)
+    ctx.fillStyle = colors.err;
+    S.subs.forEach(function (sub) { if (sub.ov) ctx.fillRect(X(sub.s) - 1, 0, 3, H); });
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = colors.text;
+    ctx.strokeRect(Math.round(X(S.viewStart)) + 0.5, 0.5, Math.max(2, X(S.viewDur)), H - 1);
+    ctx.fillStyle = colors.err; ctx.fillRect(Math.round(X(t)), 0, 1.5, H);
+  }
+
+  var lastClock = null, lastOverview = 0;
+  function frame() {
+    if (!S) return;
+    requestAnimationFrame(frame);
+    if (!S.info) return;
+    followScene();
+    var playing = isPlaying(), t = curMs();
+    // (playing a subtitle: stops at its end)
+    if (S.stopAt != null && playing && t >= S.stopAt) { pause(); playing = false; }
+    checkPendingLoop(playing, t);
+    followPlayback(playing, t);
+    updateSpeed(playing, t);
+    var at = auditionPos();
+    if (playing || at != null || t !== S.lastT) S.dirty = true;
+    S.lastT = t;
+    var clock = fmt(t) + " / " + fmt(S.durMs) + (S.fast ? "  ▶▶ ×" + (settings.fastRate / 100) : "");
+    if (clock !== lastClock) { $("teClock").textContent = clock; lastClock = clock; }
+    if (playing) updatePlayingRow(t);
+    validateWhilePlaying(playing, t);
+    // (the selected row is the subtitle where the cursor is; not while an edge is played / moved)
+    // (not while typing in the text of the selected subtitle)
+    if (!audition && !S.edgeDrag && !S.pendingLoop && !S.textEditing && document.activeElement !== $("teText") && (playing || t !== S.lastFollowT)) { S.lastFollowT = t; followCursor(t); }
+    if (S.dirty) {
+      S.dirty = false;
+      draw(t, at);
+      if (!playing || performance.now() - lastOverview > 250) { drawOverview(t); lastOverview = performance.now(); }
+      ensurePeaks();
+    }
+  }
+
+  // ---- Mouse ----
+  function msAt(canvas, e) { var r = canvas.getBoundingClientRect(); return S.viewStart + (e.clientX - r.left) / r.width * S.viewDur; }
+  function subAt(ms) {
+    // (the shortest one under the mouse: a short subtitle inside a long one can be clicked)
+    var best = -1;
+    S.subs.forEach(function (sub, i) { if (sub.s <= ms && sub.e >= ms && (best < 0 || sub.e - sub.s < S.subs[best].e - S.subs[best].s)) best = i; });
+    return best;
+  }
+  var cv = $("teCanvas");
+  // The edge moved by a click: in a subtitle, its start (left half) or its end (right half);
+  // between two subtitles, the end of the previous one or the start of the next one (the nearest).
+  // A click at most EDGE_KEEP_PX from that edge doesn't move it (only plays it).
+  var EDGE_KEEP_PX = 4;
+  function edgeForClick(ms) {
+    var pxMs = S.viewDur / (cv.clientWidth || 1);
+    var make = function (i, edge) { var sub = S.subs[i]; return { i: i, edge: edge, d: Math.abs((edge === "start" ? sub.s : sub.e) - ms) / pxMs }; };
+    var inside = subAt(ms);
+    if (inside >= 0) {
+      var sub = S.subs[inside];
+      return make(inside, ms < (sub.s + sub.e) / 2 ? "start" : "end");
+    }
+    var prev = -1, next = -1;
+    S.subs.forEach(function (x, i) {
+      if (x.e <= ms && (prev < 0 || x.e > S.subs[prev].e)) prev = i;
+      if (x.s >= ms && (next < 0 || x.s < S.subs[next].s)) next = i;
+    });
+    if (prev < 0 && next < 0) return null;
+    if (next < 0 || (prev >= 0 && ms - S.subs[prev].e <= S.subs[next].s - ms)) return make(prev, "end");
+    return make(next, "start");
+  }
+  function moveDraggedEdge(ms) {
+    var d = S.edgeDrag;
+    if (!d.undoPushed) { pushUndo(); d.undoPushed = true; d.before = neighbourEdges(d.i); }
+    setEdge(d.i, d.edge, ms, d.before);
+  }
+  cv.addEventListener("mousedown", function (e) {
+    if (!S || !S.info || e.button !== 0) return;
+    e.preventDefault();
+    var ms = msAt(cv, e);
+    // Ctrl: moves the start or the end of a subtitle there (see edgeForClick), and plays it again and again (dragging: follows the mouse).
+    // Otherwise: goes there / selects the subtitle there (dragging: moves the view)
+    var target = e.ctrlKey && canEdit() ? edgeForClick(ms) : null;
+    if (target) {
+      if (target.i !== S.sel) select(target.i, true, true);
+      S.edgeDrag = { i: target.i, edge: target.edge, x: e.clientX, undoPushed: false };
+      // (a click right on the edge: only plays it, the timing doesn't change by a few ms)
+      if (target.d > EDGE_KEEP_PX) moveDraggedEdge(ms);
+      return;
+    }
+    S.drag = { x: e.clientX, viewStart: S.viewStart, moved: false, ms: ms };
+  });
+  window.addEventListener("mousemove", function (e) {
+    if (S && S.edgeDrag) {
+      var d = S.edgeDrag;
+      if (Math.abs(e.clientX - d.x) > 2 || d.undoPushed) {
+        moveDraggedEdge(msAt(cv, e));
+        // (dragging: the edge being dragged is played again and again, it follows the mouse)
+        if (!audition || audition.sel !== d.i || audition.edge !== d.edge) startAudition(d.edge);
+      }
+      return;
+    }
+    if (!S || !S.drag) return;
+    var dx = e.clientX - S.drag.x;
+    if (Math.abs(dx) > 4) S.drag.moved = true;
+    if (S.drag.moved) {
+      // (dragging: moves the view)
+      S.viewStart = S.drag.viewStart - dx / cv.getBoundingClientRect().width * S.viewDur;
+      clampView();
+    }
+  });
+  window.addEventListener("mouseup", function () {
+    if (S && S.edgeDrag) {
+      // (the loop starts again right away, from the new place)
+      var edge = S.edgeDrag.edge, changed = S.edgeDrag.undoPushed, dragged = S.subs[S.edgeDrag.i];
+      var heard = !!(changed && audition && dragged && audition.sel === S.edgeDrag.i && audition.edge === edge
+        && audition.heardEdgeMs === (edge === "start" ? dragged.s : dragged.e));
+      S.edgeDrag = null;
+      updateUnsaved();
+      // (the edge was heard completely where it is now, the mouse not moving: it's good, the playback continues, like Play)
+      if (heard) { continueAfterLoop(); return; }
+      // (the option: the whole subtitle is played once after a change; otherwise / only listening: its start or its end, again and again)
+      if (changed && settings.replayAfterEdit) { stopAudition(); playSub(); }
+      else if (!loopWhenReached(edge)) startAudition(edge);
+      return;
+    }
+    if (!S || !S.drag) return;
+    var d = S.drag;
+    S.drag = null;
+    if (d.moved) return;
+    // (a click: goes there, and selects the subtitle that is there)
+    stopAudition();
+    var hit = subAt(d.ms);
+    if (hit >= 0 && hit !== S.sel) select(hit, true);
+    S.stopAt = null;
+    seek(d.ms);
+  });
+  cv.addEventListener("dblclick", function (e) {
+    if (!S || audition) return;   // (playing a start / end: the clicks move the edge)
+    var hit = subAt(msAt(cv, e));
+    if (hit >= 0) { select(hit, true); playSub(); }
+  });
+  cv.addEventListener("wheel", function (e) {
+    if (!S || !S.info) return;
+    e.preventDefault();
+    if (e.ctrlKey) zoom(e.deltaY > 0 ? 1.25 : 0.8, msAt(cv, e));
+    else if (e.shiftKey) {
+      // (the height of the waveform)
+      var delta = e.deltaY || e.deltaX;
+      settings.waveGain = clamp(settings.waveGain * (delta > 0 ? 0.8 : 1.25), 0.25, 64);
+      savePref("fstTimingSettings", JSON.stringify(settings));
+      S.dirty = true;
+    }
+    else { S.viewStart += (e.deltaY + e.deltaX) / 100 * S.viewDur * 0.15; clampView(); }
+  }, { passive: false });
+  var ov = $("teOverview");
+  function overviewGo(e) {
+    var r = ov.getBoundingClientRect();
+    S.viewStart = (e.clientX - r.left) / r.width * S.durMs - S.viewDur / 2;
+    clampView();
+  }
+  ov.addEventListener("mousedown", function (e) {
+    if (!S || !S.info) return;
+    e.preventDefault(); overviewGo(e);
+    var move = function (ev) { if (S) overviewGo(ev); };
+    var up = function () { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+  });
+
+  // ---- Actions ----
+  /// The next thing to look at after the cursor, in order (nothing is skipped): the next subtitle, or the next speech without subtitle (terrain).
+  function nextSpeech() {
+    var t = curMs() + 1;
+    // (the next subtitle)
+    var nextSub = -1;
+    for (var j = 0; j < S.subs.length; j++) if (S.subs[j].s >= t && (nextSub < 0 || S.subs[j].s < S.subs[nextSub].s)) nextSub = j;
+    // (the next speech without subtitle, before it)
+    var speech = null;
+    if (S.terrain) {
+      var segs = S.terrain.segments, limit = nextSub >= 0 ? S.subs[nextSub].s : Infinity;
+      for (var i = firstSegmentFrom(segs, t); i < segs.length && segs[i][0] < limit; i++) {
+        var g = segs[i];
+        if (g[2] !== "S" || g[0] < t) continue;
+        if (S.subs.some(function (sub) { return sub.s < g[1] && sub.e > g[0]; })) continue;
+        speech = g;
+        break;
+      }
+    }
+    if (speech) {
+      S.highlight = speech;
+      ensureVisible(speech[0], speech[1]);
+      seek(speech[0]);
+      status("Speech without subtitle at " + fmt(speech[0]) + " (" + fmtDur(speech[1] - speech[0]) + " s): " + (keys.add || "Add") + " adds a subtitle on it.");
+      return;
+    }
+    if (nextSub >= 0) { select(nextSub); return; }
+    status(S.terrain ? "Nothing after " + fmt(t) + "." : "No subtitle after " + fmt(t) + " (the terrain of the audio is not there yet: no speech without subtitle).");
+  }
+  // ---- Add / delete ----
+  // (the text of the file is not used by the import, only the {metadata}: a new subtitle only needs a line)
+  var NEW_SUBTITLE_TEXT = "(new)";
+  /// atMs: where (right click), otherwise the cursor
+  function addSubtitle(atMs) {
+    if (!canEdit()) return;
+    var t = atMs != null ? atMs : curMs(), range = null;
+    var covered = function (s, e) { return S.subs.some(function (sub) { return sub.s < e && sub.e > s; }); };
+    // 1. the speech found by 'Next speech'
+    if (S.highlight && !covered(S.highlight[0], S.highlight[1])) range = [S.highlight[0], S.highlight[1]];
+    // 2. the speech under the cursor (terrain)
+    if (!range && S.terrain) {
+      var segs = S.terrain.segments;
+      for (var i = firstSegmentFrom(segs, t); i < segs.length && segs[i][0] <= t; i++) {
+        if (segs[i][2] === "S" && segs[i][1] >= t && !covered(segs[i][0], segs[i][1])) { range = [segs[i][0], segs[i][1]]; break; }
+      }
+    }
+    // 3. from the cursor
+    if (!range) range = [t, t + 1500];
+    var p = S.info.parts[partAt(range[0])];
+    var s = Math.round(Math.max(range[0], p.offsetMs)), e = Math.round(Math.min(range[1], p.offsetMs + p.durationMs));
+    if (e - s < MIN_DURATION_MS) { status("No room for a subtitle here (end of the part).", true); return; }
+    pushUndo();
+    stopAudition();
+    var index = 0;
+    while (index < S.subs.length && S.subs[index].s <= s) index++;
+    var added = { s: s, e: e, lines: [NEW_SUBTITLE_TEXT] };
+    updateFileTiming(added);
+    S.subs.splice(index, 0, added);
+    S.highlight = null;
+    renderList();
+    S.sel = -1;
+    select(index, true);
+    updateUnsaved();
+    status("Subtitle #" + (index + 1) + " added (" + fmt(s) + " → " + fmt(e) + ").");
+  }
+  function deleteSubtitle() {
+    if (!canEdit()) return;
+    var i = S.sel, sub = S.subs[i];
+    if (!sub) return;
+    pushUndo();
+    stopAudition();
+    S.subs.splice(i, 1);
+    renderList();
+    S.sel = -1;
+    if (S.subs.length) select(Math.min(i, S.subs.length - 1), true);
+    else renderCur();
+    updateUnsaved();
+    status("Subtitle #" + (i + 1) + " deleted (" + fmt(sub.s) + " → " + fmt(sub.e) + "). Undo: " + (keys.undo || "-") + ".");
+    S.dirty = true;
+  }
+
+  /// Splits the subtitle i in 2 at 'ms': both keep all its lines (to remove what doesn't belong in each); not validated anymore (new timings).
+  function splitSubtitle(i, ms) {
+    if (!canEdit()) return;
+    var sub = S.subs[i];
+    if (!sub) { status("No subtitle to split.", true); return; }
+    ms = Math.round(ms);
+    if (ms < sub.s + MIN_DURATION_MS || ms > sub.e - MIN_DURATION_MS) {
+      status("#" + (i + 1) + " can't be split at " + fmt(ms) + ": each part must last at least " + MIN_DURATION_MS + " ms (the cursor must be in it).", true);
+      return;
+    }
+    pushUndo();
+    stopAudition();
+    var second = { s: ms, e: sub.e, lines: sub.lines.slice(), v: false, touched: true };
+    sub.e = ms; sub.v = false; sub.touched = true;
+    updateFileTiming(sub);
+    updateFileTiming(second);
+    S.subs.splice(i + 1, 0, second);
+    renderList();
+    S.sel = -1;
+    select(i, true, true);
+    updateUnsaved();
+    S.validationChanged = true; scheduleValidationSave();
+    status("#" + (i + 1) + " split at " + fmt(ms) + " (#" + (i + 1) + " and #" + (i + 2) + " have the same lines: remove what doesn't belong in each). Undo: " + (keys.undo || "-") + ".");
+  }
+
+  /// Merges the subtitle i into the one before it: from the first start to the last end, with the lines of both
+  /// (a line already there is not repeated, ex. the same metadata). Validated only if both were.
+  function mergeWithPrevious(i) {
+    if (!canEdit()) return;
+    var prev = S.subs[i - 1], cur = S.subs[i];
+    if (!prev || !cur) { status("No subtitle to merge with.", true); return; }
+    if (partAt(prev.s) !== partAt(cur.s)) { status("#" + i + " and #" + (i + 1) + " are not in the same part (each part has its own file): they can't be merged.", true); return; }
+    pushUndo();
+    stopAudition();
+    var lines = prev.lines.slice();
+    cur.lines.forEach(function (l) { if (lines.indexOf(l) < 0) lines.push(l); });
+    prev.s = Math.min(prev.s, cur.s);
+    prev.e = Math.max(prev.e, cur.e);
+    prev.lines = lines;
+    prev.v = !!(prev.v && cur.v);
+    updateFileTiming(prev);
+    S.subs.splice(i, 1);
+    renderList();
+    S.sel = -1;
+    select(i - 1, true, true);
+    updateUnsaved();
+    S.validationChanged = true; scheduleValidationSave();
+    status("#" + i + " and #" + (i + 1) + " merged (" + fmt(prev.s) + " → " + fmt(prev.e) + "). Undo: " + (keys.undo || "-") + ".");
+  }
+
+  // ---- Right click on the timeline: what can be done with the subtitle there ----
+  var menuEl = document.createElement("div");
+  menuEl.className = "te-menu";
+  menuEl.style.display = "none";
+  $("te").appendChild(menuEl);
+  function hideMenu() { menuEl.style.display = "none"; }
+  /// hit: the subtitle clicked (it's selected), -1: none (addAtMs: a subtitle can be added there; the actions are on the selected subtitle)
+  function showMenu(clientX, clientY, hit, addAtMs) {
+    var item = function (act, label, disabled) {
+      return '<div class="mi' + (disabled ? " off" : "") + '" data-mact="' + act + '">' + esc(label) + (keys[act] ? '<span class="k">' + esc(keys[act]) + '</span>' : '') + '</div>';
+    };
+    // (right click on a subtitle of the timeline: it's split where the click is; otherwise at the cursor)
+    menuEl._splitMs = hit >= 0 && addAtMs != null ? Math.round(addAtMs) : null;
+    var subItems = function (i, title) {
+      var sub = S.subs[i];
+      var splitMs = menuEl._splitMs != null && i === hit ? menuEl._splitMs : null;
+      var splitAt = splitMs != null ? splitMs : curMs();
+      return '<div class="mh">' + title + '#' + (i + 1) + ' · ' + fmt(sub.s) + ' → ' + fmt(sub.e) + '</div>' +
+        item("playSub", "▶ Play it") + item("loopStart", "⟲ Play its start again and again") + item("loopEnd", "⟳ Play its end again and again") +
+        '<div class="sep"></div>' +
+        item("splitHere", "✂ Split " + (splitMs != null ? "here" : "at the cursor") + " (" + fmt(splitAt) + ")", splitAt < sub.s + MIN_DURATION_MS || splitAt > sub.e - MIN_DURATION_MS) +
+        item("mergePrev", "⤒ Merge with the previous one", i === 0) + item("mergeNext", "⤓ Merge with the next one", i === S.subs.length - 1) +
+        '<div class="sep"></div>' +
+        item("toggleValidated", sub.v ? "✓ Not validated" : "✓ Validated") + item("validateUpTo", "✓ Validate up to this one") +
+        '<div class="sep"></div>' +
+        item("delete", "✕ Delete");
+    };
+    var html = "";
+    // (the subtitle of the menu: its actions are done on it, even if the selection changed meanwhile, ex. the playback continued)
+    menuEl._sub = S.subs[hit >= 0 ? hit : S.sel] || null;
+    if (hit >= 0) {
+      if (hit !== S.sel) select(hit, true, true);
+      html = subItems(hit, "");
+    } else {
+      menuEl._ms = addAtMs;
+      html = '<div class="mh">' + fmt(addAtMs) + '</div>' + item("addHere", "＋ Add a subtitle here");
+      if (S.subs[S.sel]) html += '<div class="sep"></div>' + subItems(S.sel, "Selected: ");
+    }
+    menuEl.innerHTML = html;
+    menuEl.style.display = "";
+    // (in the window, next to the mouse)
+    var w = menuEl.offsetWidth, h = menuEl.offsetHeight;
+    menuEl.style.left = Math.max(4, Math.min(clientX, window.innerWidth - w - 4)) + "px";
+    menuEl.style.top = Math.max(4, Math.min(clientY, window.innerHeight - h - 4)) + "px";
+  }
+  cv.addEventListener("contextmenu", function (e) {
+    if (!S || !S.info) return;
+    e.preventDefault();
+    var ms = msAt(cv, e);
+    showMenu(e.clientX, e.clientY, subAt(ms), ms);
+  });
+  $("teList").addEventListener("contextmenu", function (e) {
+    var row = e.target.closest ? e.target.closest(".te-row[data-i]") : null;
+    if (!row || !S || !S.info) return;
+    e.preventDefault();
+    showMenu(e.clientX, e.clientY, parseInt(row.getAttribute("data-i"), 10));
+  });
+  menuEl.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+  menuEl.addEventListener("click", function (e) {
+    var it = e.target.closest ? e.target.closest("[data-mact]") : null;
+    if (!it || it.classList.contains("off") || !S) return;
+    var act = it.getAttribute("data-mact");
+    hideMenu();
+    if (act === "addHere") { S.highlight = null; addSubtitle(menuEl._ms); return; }
+    // (the subtitle of the menu is selected again: still there, maybe at another place in the list)
+    var target = menuEl._sub ? S.subs.indexOf(menuEl._sub) : -1;
+    if (menuEl._sub && target < 0) { status("The subtitle of the menu is not there anymore.", true); return; }
+    if (target >= 0 && target !== S.sel) select(target, true, true);
+    if (act === "splitHere") { splitSubtitle(S.sel, menuEl._splitMs != null ? menuEl._splitMs : curMs()); return; }
+    run(act);
+  });
+  window.addEventListener("mousedown", function () { hideMenu(); });
+  window.addEventListener("blur", hideMenu);
+
+  // ---- Buttons (the same actions as the keys: the key is in the tooltip) ----
+  var TOOLS = [
+    ["prevSub", "▲ Prev"], ["nextSub", "▼ Next"], ["nextSpeech", "⇥ Next + speech"], null,
+    ["playSub", "▶ Play"], ["loopStart", "⟲ Start"], ["loopEnd", "End ⟳"], ["stop", "■ Stop"], null,
+    ["add", "＋ Add"], ["delete", "✕ Delete"], ["split", "✂ Split"], ["mergePrev", "⤒ Merge prev"], ["mergeNext", "Merge next ⤓"], null,
+    ["toggleValidated", "✓ Validated"], ["validateUpTo", "✓ Up to here"], null,
+    ["undo", "↶ Undo"], ["redo", "↷ Redo"]
+  ];
+  function renderTools() {
+    var labelOf = {};
+    ACTIONS.forEach(function (a) { labelOf[a.id] = a.label; });
+    $("teTools").innerHTML = TOOLS.map(function (t) {
+      if (!t) return '<span class="sep"></span>';
+      return '<button class="mini" data-act="' + t[0] + '" title="' + esc(labelOf[t[0]] + (keys[t[0]] ? " (" + keys[t[0]] + ")" : "")) + '">' + esc(t[1]) + '</button>';
+    }).join("") +
+      '<label class="opt" title="After a start / end is moved (Ctrl+click): plays the whole subtitle once, instead of its start / end again and again. And Play during a start / end loop: from the start of the subtitle (unchecked: from the edge being played)">' +
+      '<input type="checkbox" id="teReplayOpt"' + (settings.replayAfterEdit ? " checked" : "") + '> Replay the whole subtitle after a change</label>' +
+      '<label class="opt" title="Added to the start / the end of the subtitles NOT validated (+ = longer, - = shorter), in ms. Only in the editor: the file keeps their timing without it, until they are validated (then their timing with the padding is their timing).">' +
+      'Padding (ms): start <input type="number" id="tePadStart" step="10" style="width:64px" value="' + (settings.padStartMs || 0) + '"> end <input type="number" id="tePadEnd" step="10" style="width:64px" value="' + (settings.padEndMs || 0) + '"></label>' +
+      '<label class="opt" title="Playing faster between subtitles (from ' + settings.fastAfterMs + ' ms after a subtitle, to ' + settings.fastBeforeMs + ' ms before the next one: see Keys). Play during that time: back 1 s, normal speed for 3 s. 100: off.">' +
+      'Gaps: <input type="number" id="teFastRate" min="100" max="800" step="25" style="width:56px" value="' + settings.fastRate + '"> %</label>' +
+      '<label class="opt" title="The start / end of a subtitle is played at most this many times, then it plays on, like Play (0: no limit).">' +
+      'Loops: <input type="number" id="teAudMax" min="0" max="99" step="1" style="width:44px" value="' + settings.auditionMax + '"> ×</label>';
+  }
+  $("teTools").addEventListener("change", function (e) {
+    if (e.target.id !== "teReplayOpt") return;
+    settings.replayAfterEdit = e.target.checked;
+    savePref("fstTimingSettings", JSON.stringify(settings));
+    e.target.blur();   // (the keys go to the editor)
+  });
+  // (the padding: the subtitles not validated move right away)
+  $("teTools").addEventListener("input", function (e) {
+    if (e.target.id === "teAudMax") {
+      var max = parseInt(e.target.value, 10);
+      if (!isNaN(max)) { settings.auditionMax = clamp(max, 0, 99); savePref("fstTimingSettings", JSON.stringify(settings)); }
+      return;
+    }
+    if (e.target.id === "teFastRate") {
+      var rate = parseInt(e.target.value, 10);
+      if (!isNaN(rate)) { settings.fastRate = clamp(rate, 100, 800); savePref("fstTimingSettings", JSON.stringify(settings)); }
+      return;
+    }
+    if (e.target.id !== "tePadStart" && e.target.id !== "tePadEnd") return;
+    var v = parseInt(e.target.value, 10);
+    if (isNaN(v)) return;
+    v = clamp(v, -5000, 5000);
+    if (e.target.id === "tePadStart") settings.padStartMs = v; else settings.padEndMs = v;
+    savePref("fstTimingSettings", JSON.stringify(settings));
+    if (S && S.info) applyPadding();
+  });
+  $("teTools").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-act]") : null;
+    if (!b || !S || !S.info) return;
+    b.blur();   // (the keys go to the editor, not to the button)
+    run(b.getAttribute("data-act"));
+  });
+  renderTools();
+
+  function run(action) {
+    var t = curMs();
+    switch (action) {
+      case "playPause":
+        if (audition) continueAfterLoop();
+        // (going fast between subtitles: back 1 s, and normal speed for 3 s)
+        else if (isPlaying() && S.fast) { S.slowUntil = t - 1000 + 3000; seek(t - 1000); updateSpeed(true, t - 1000); }
+        else if (isPlaying()) pause();
+        else play();
+        break;
+      case "toggleValidated": if (S.subs[S.sel] && canEdit()) setValidated(S.sel, !S.subs[S.sel].v); break;
+      case "validateUpTo":
+        if (!canEdit()) break;
+        for (var vi = 0; vi <= S.sel && vi < S.subs.length; vi++) setValidated(vi, true);
+        status("Validated up to #" + (S.sel + 1) + ".");
+        break;
+      case "playSub": playSub(); break;
+      case "loopStart": startAudition("start"); break;
+      case "loopEnd": startAudition("end"); break;
+      case "stop": stopAudition(); pause(); break;
+      case "prevSub": select(S.sel > 0 ? S.sel - 1 : 0); break;
+      case "nextSub": select(S.sel < 0 ? 0 : Math.min(S.subs.length - 1, S.sel + 1)); break;
+      case "nextSpeech": nextSpeech(); break;
+      case "back": seek(t - 1000); break;
+      case "forward": seek(t + 1000); break;
+      case "backFine": seek(t - 100); break;
+      case "forwardFine": seek(t + 100); break;
+      case "zoomIn": zoom(0.8, t >= S.viewStart && t <= S.viewStart + S.viewDur ? t : S.viewStart + S.viewDur / 2); break;
+      case "zoomOut": zoom(1.25, t >= S.viewStart && t <= S.viewStart + S.viewDur ? t : S.viewStart + S.viewDur / 2); break;
+      case "add": addSubtitle(); break;
+      case "delete": deleteSubtitle(); break;
+      case "mergePrev": mergeWithPrevious(S.sel); break;
+      case "mergeNext": mergeWithPrevious(S.sel + 1); break;
+      case "split": splitSubtitle(S.sel, curMs()); break;
+      case "undo": restore(S.undo, S.redo); break;
+      case "redo": restore(S.redo, S.undo); break;
+      case "save": save(false); break;
+    }
+  }
+
+  var capturing = null;   // the action that waits for its new key (Keys panel)
+  document.addEventListener("keydown", function (e) {
+    if (!S) return;
+    if (capturing) {
+      e.preventDefault(); e.stopPropagation();
+      var combo = comboOf(e);
+      if (!combo) return;
+      if (combo !== "Escape") {
+        // (the key is moved: the action that had it has no key anymore)
+        for (var id in keys) if (keys[id] === combo) keys[id] = "";
+        keys[capturing] = combo;
+        saveKeys();
+      }
+      capturing = null;
+      renderHelp();
+      return;
+    }
+    var tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+      // (typing: the keys are for the text; Escape goes back to the editor, Ctrl+S still saves)
+      if (e.key === "Escape") { e.preventDefault(); e.target.blur(); return; }
+      if (keyMap[comboOf(e)] !== "save") return;
+    }
+    var action = keyMap[comboOf(e)];
+    if (!action || !S.info) return;
+    e.preventDefault(); e.stopPropagation();
+    run(action);
+  }, true);
+
+  // ---- Keys panel ----
+  function renderHelp() {
+    var rows = ACTIONS.map(function (a) {
+      return '<tr><td>' + esc(a.label) + '</td><td style="text-align:right;white-space:nowrap"><kbd data-key="' + a.id + '" class="' + (capturing === a.id ? "wait" : "") + '" title="Click, then press the new key (Escape: cancel)">' +
+        esc(capturing === a.id ? "press a key..." : (keys[a.id] || "(none)")) + '</kbd></td></tr>';
+    }).join("");
+    $("teHelp").innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px"><b>Keys</b><div class="spacer"></div><button class="mini" data-reset="1">Default keys</button><button class="mini" data-hide="1">&#10005;</button></div>' +
+      '<div class="note">Click on a key to change it (remembered by this browser).</div>' +
+      '<table>' + rows + '</table>' +
+      '<div class="note"><b>Click</b> (timeline) = go there and select the subtitle there &middot; drag = move the view &middot; wheel = scroll &middot; Ctrl+wheel = zoom &middot; Shift+wheel = taller / shorter waveform &middot; right click = menu. The bar under the timeline is the whole scene (click: go there).</div>' +
+      '<div class="note"><b>Ctrl+click</b>: moves an edge there (Ctrl+drag: it follows the mouse), then plays it again and again. In a subtitle: its start (left half) or its end (right half). Between two subtitles: the end of the previous one or the start of the next one (the nearest). Right on the edge (' + EDGE_KEEP_PX + ' pixels): only plays it. Then Play: plays and continues, from the start of the subtitle (option "Replay the whole subtitle after a change"), otherwise from the edge being played.</div>' +
+      '<div class="note"><b>Padding</b> (under the video, in ms, + = longer, - = shorter): added to the start / the end of the subtitles not validated, right away. Only in the editor: the file keeps their timing without it. When a subtitle is validated, its timing with the padding becomes its timing (save to keep it).</div>' +
+      '<div class="note"><b>Validated</b> (&#10003;, green): a subtitle is validated by itself when the playback goes 0.2 s past its end (without a stop since before its end). Saved with the review (in the .wipsubtitles). Next time, the editor starts at the first one not validated.</div>' +
+      '<div class="note"><b>Saved automatically</b> every <input id="teAutoSave" type="number" min="0" max="60" step="1" style="width:48px" value="' + settings.autoSaveMin + '"> minutes while there are changes (0: never). It saves the review (in the .wipsubtitles), not the file: the file is written when the review is done.</div>' +
+      '<div class="note"><b>Start / end loops</b>: play <input id="teAudMs" type="number" min="100" max="5000" step="50" style="width:64px" value="' + settings.auditionMs + '"> ms at the edge, then wait <input id="teGapMs" type="number" min="0" max="3000" step="50" style="width:64px" value="' + settings.auditionGapMs + '"> ms. At most &quot;Loops&quot; times (under the video), then it plays on, like Play.</div>' +
+      '<div class="note"><b>Faster between subtitles</b> (Gaps %, under the video; 100: off): from <input id="teFastAfter" type="number" min="0" max="10000" step="100" style="width:64px" value="' + settings.fastAfterMs + '"> ms after a subtitle, until <input id="teFastBefore" type="number" min="0" max="10000" step="100" style="width:64px" value="' + settings.fastBeforeMs + '"> ms before the next one, only when the gap between them is at least <input id="teFastMinGap" type="number" min="0" max="60000" step="500" style="width:64px" value="' + settings.fastMinGapMs + '"> ms. Play during that time: back 1 s, and normal speed for 3 s.</div>' +
+      '<div class="note">Terrain band (under the ruler): <span style="color:' + esc(colors.ok) + '">&#9632; speech</span> <span style="color:' + esc(colors.warn) + '">&#9632; breath</span> <span style="color:' + esc(colors.muted) + '">&#9632; click</span>.</div>';
+  }
+  $("teHelpBtn").onclick = function () {
+    var h = $("teHelp");
+    capturing = null;
+    if (h.style.display === "none") { renderHelp(); h.style.display = ""; } else h.style.display = "none";
+  };
+  $("teHelp").addEventListener("click", function (e) {
+    var k = e.target.getAttribute && e.target.getAttribute("data-key");
+    if (k) { capturing = k; renderHelp(); return; }
+    if (e.target.getAttribute && e.target.getAttribute("data-reset")) { savePref("fstTimingKeys", null); loadKeys(); renderHelp(); return; }
+    if (e.target.getAttribute && e.target.getAttribute("data-hide")) { $("teHelp").style.display = "none"; capturing = null; }
+  });
+  $("teHelp").addEventListener("change", function (e) {
+    var v = parseInt(e.target.value, 10);
+    if (isNaN(v)) return;
+    if (e.target.id === "teAudMs") settings.auditionMs = clamp(v, 100, 5000);
+    if (e.target.id === "teGapMs") settings.auditionGapMs = clamp(v, 0, 3000);
+    if (e.target.id === "teAudMax") settings.auditionMax = clamp(v, 0, 99);
+    if (e.target.id === "teFastAfter") settings.fastAfterMs = clamp(v, 0, 10000);
+    if (e.target.id === "teFastBefore") settings.fastBeforeMs = clamp(v, 0, 10000);
+    if (e.target.id === "teFastMinGap") settings.fastMinGapMs = clamp(v, 0, 60000);
+    if (e.target.id === "teAutoSave") settings.autoSaveMin = clamp(v, 0, 60);
+    savePref("fstTimingSettings", JSON.stringify(settings));
+  });
+
+  $("teCloseBtn").onclick = close;
+  // (after a choice, the keys go to the editor again, not to the list)
+  $("teFile").onchange = function () {
+    if (!S) return;
+    $("teFile").blur();
+    if (S.unsaved && !window.confirm("The changes are not saved. Open the other review anyway (they are lost)?")) { $("teFile").value = S.review; return; }
+    S.review = $("teFile").value; savePref("fstTimingReview", S.review); loadSubs();
+  };
+  $("teAudio").onchange = function () {
+    if (!S) return;
+    $("teAudio").blur();
+    var v = $("teAudio").value || null;
+    if (v) savePref("fstTimingAudio", v);
+    status(null);
+    setAudio(v);
+  };
+
+  window.fstTiming = {
+    open: open, close: close,
+    // (read only, for the tests of the page: the view of the timeline [start ms, duration ms])
+    view: function () { return S ? [S.viewStart, S.viewDur] : null; }
+  };
 })();
 </script>
 </body>

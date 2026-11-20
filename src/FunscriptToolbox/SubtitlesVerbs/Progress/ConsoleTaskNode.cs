@@ -126,6 +126,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetFlowGraph(object graph) { }
         public void SetFlowInspector(Func<string, object> inspector) { }
         public void SetFlowCounter(Func<object> counter) { }
+        public void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider) { }
+        public void SetTimingEditor(ITimingEditor editor) { }
+        public void SetUserAction(string action) { }
 
         private void Finish(TaskState finalState)
         {

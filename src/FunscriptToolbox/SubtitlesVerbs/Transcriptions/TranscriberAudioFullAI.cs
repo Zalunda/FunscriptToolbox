@@ -121,9 +121,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var chunkTiming = new Timing(
                         chunkStartTime,
                         chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime);
-                var chunkName = $"chunk {chunkTiming.StartTime:hh\\:mm\\:ss} to {chunkTiming.EndTime:hh\\:mm\\:ss}";
+                // (the number of the chunk is the number of its request)
+                var chunkName = $"chunk #{requestNumber}, {chunkTiming.StartTime:hh\\:mm\\:ss} to {chunkTiming.EndTime:hh\\:mm\\:ss} of {fullPcmAudio.EndTime:hh\\:mm\\:ss}";
                 var request = context.RunStep(
-                    $"Prepare request #{requestNumber} ({chunkName})",
+                    $"Prepare {chunkName}",
                     _ => CreateRequestForFullAudio(
                         context,
                         processStartTime,
@@ -131,7 +132,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         chunkTiming,
                         binaryDataExtractors));
                 AIResponse response;
-                using (var requestNode = context.BeginTask("AI request", $"{transcription.Id}, {chunkName}, request #{request.Number}"))
+                // (the name of the transcription is already the name of the parent task)
+                using (var requestNode = context.BeginTask("AI request", chunkName))
                 {
                     requestNode.SetCancellable("Aborts the connection right away (the answer is lost).");
                     try

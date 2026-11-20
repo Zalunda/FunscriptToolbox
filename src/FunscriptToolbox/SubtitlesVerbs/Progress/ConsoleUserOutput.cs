@@ -189,6 +189,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         // (the console closes with Ctrl+C: no 'closing' mode, no 'Pause all')
         public string PauseAtSafePointReason => null;
+        public string GetPauseAtSafePointReason(int? sceneNodeId) => null;
         public IDisposable EnterPauseForClose() => null;
 
         // ---- The progress line of the tasks ----

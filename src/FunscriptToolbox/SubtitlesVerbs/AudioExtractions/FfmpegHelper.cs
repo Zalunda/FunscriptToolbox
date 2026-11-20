@@ -179,6 +179,45 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             };
         }
 
+        /// <summary>
+        /// Creates a new video from a video (ex. a light version of it), with the progress (%) on the current task. Long: one at a time (lock 'ENC'),
+        /// and it can be stopped (the current task shows a 'Stop' button): 'shouldStop' is asked regularly, on the calling thread.
+        /// </summary>
+        /// <param name="ffmpegParameters">What is between the input (-i) and the output, ex. the filters and the codecs.</param>
+        /// <param name="outputFormat">The container (ffmpeg -f), when the name of the output doesn't tell it (ex. a temporary name).</param>
+        /// <exception cref="OperationCanceledException">Stopped: what was written is incomplete.</exception>
+        internal void CreateVideo(string inputPath, string outputPath, string outputFormat, string ffmpegParameters, TimeSpan inputDuration, string stopHint, Func<bool> shouldStop)
+        {
+            using var localLock = r_locks.VideoEncoding.Acquire("ffmpeg: creating a video");
+            var node = TaskScope.Current;
+            using var cts = new System.Threading.CancellationTokenSource();
+            var formatParameter = outputFormat == null ? string.Empty : $" -f {outputFormat}";
+            var conversion = FFmpeg.Conversions.New()
+                .SetOverwriteOutput(true)
+                .AddParameter($"-i \"{inputPath}\" {ffmpegParameters}{formatParameter}")
+                .SetOutput(outputPath);
+            ShowProgressOnCurrentTask(conversion, inputDuration);
+            node.SetCancellable(stopHint);
+            try
+            {
+                var task = conversion.Start(cts.Token);
+                while (!task.Wait(TimeSpan.FromMilliseconds(250)))
+                {
+                    if (!cts.IsCancellationRequested && shouldStop())
+                        cts.Cancel(); // (ffmpeg is killed: the task ends with an OperationCanceledException)
+                }
+                task.GetAwaiter().GetResult();
+            }
+            catch (AggregateException ex) when (ex.InnerException is OperationCanceledException canceled)
+            {
+                throw canceled;
+            }
+            finally
+            {
+                node.SetCancellable(null);
+            }
+        }
+
         internal byte[] TakeScreenshotAsBytes(string videoPath, TimeSpan time, string extension = ".jpg", string filter = null)
         {
             using var localLock = r_locks.VideoSource.Acquire("ffmpeg: taking screenshot");

@@ -94,6 +94,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
             WriteInfo($"    [{toolName}]{toolActionString} {message}", isProgress: true);
         }
 
+        /// <summary>
+        /// The progress of an AI request. In the web UI, the request is already named by its task (shown right before its status),
+        /// so it's not repeated. In the console, only the status is shown: the request is named in it.
+        /// </summary>
+        internal void AIRequestProgressUpdateHandler(string toolName, string requestId, string message)
+        {
+            DefaultProgressUpdateHandler(toolName, this.Output.IsWebUi ? null : requestId, message);
+        }
+
         internal void ClearProgressUpdate()
         {
             WriteInfo(string.Empty, isProgress: true);
@@ -108,10 +117,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// <summary>
         /// A safe point (between two steps: what was received is already saved, no lock is held): when the application is closing,
         /// the scene pauses here, until the application closes, or until the user cancels the close (then it continues normally).
+        /// Also for 'Pause all' and 'Pause scene' (web UI), until it's resumed.
         /// </summary>
+        /// <summary>The node of the scene in the web UI (null in console mode): for 'Pause scene'.</summary>
+        public int? SceneNodeId { get; set; }
+
         internal void PauseIfClosing()
         {
-            var reason = this.Output.PauseAtSafePointReason;
+            var reason = this.Output.GetPauseAtSafePointReason(this.SceneNodeId);
             if (reason == null)
                 return;
 
@@ -120,7 +133,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             using (this.Output.EnterPauseForClose())
             {
                 string currentReason;
-                while ((currentReason = this.Output.PauseAtSafePointReason) != null)
+                while ((currentReason = this.Output.GetPauseAtSafePointReason(this.SceneNodeId)) != null)
                 {
                     // (ex. 'Pause all', then 'Close': the reason shown changes)
                     if (currentReason != reason)

@@ -147,6 +147,36 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             : IsPausedAll ? "paused: 'Pause all' (click on 'Resume all' to continue)"
             : null;
 
+        /// <summary>The scenes paused by the user ('Pause scene'), by their name: still paused when they are started again (Rescan, Retry).</summary>
+        private readonly HashSet<string> r_pausedScenes = new HashSet<string>();
+
+        /// <summary>'Pause scene' / 'Resume scene' (rootNodeId: the node of the scene). False: unknown scene.</summary>
+        internal bool SetScenePaused(int rootNodeId, bool isPaused)
+        {
+            lock (this.Gate)
+            {
+                if (!m_nodesById.TryGetValue(rootNodeId, out var node) || node.Parent != null)
+                    return false;
+                if (isPaused) r_pausedScenes.Add(node.Name); else r_pausedScenes.Remove(node.Name);
+                Touch();
+            }
+            r_requestReceived.Set();
+            return true;
+        }
+
+        public string GetPauseAtSafePointReason(int? sceneNodeId)
+        {
+            var reason = PauseAtSafePointReason;
+            if (reason != null || sceneNodeId == null)
+                return reason;
+            lock (this.Gate)
+            {
+                return m_nodesById.TryGetValue(sceneNodeId.Value, out var node) && r_pausedScenes.Contains(node.Name)
+                    ? "paused: 'Pause scene' (click on 'Resume scene' to continue)"
+                    : null;
+            }
+        }
+
         internal void RequestClose(bool force)
         {
             lock (this.Gate)
@@ -381,6 +411,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     canClose = AllowCloseFromPage,
                     server = IsServer,
                     pausedAll = IsPausedAll,
+                    pausedScenes = r_pausedScenes.ToArray(),
                     rescanning = IsRescanning,
                     sceneReports = m_sceneReports,
                     // The errors that are not about a scene (ex. a configuration problem), shown in 'What went wrong'
@@ -437,6 +468,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             catch (Exception ex)
             {
                 return new { title = key, note = $"Can't read it right now: {ex.Message}", sections = Array.Empty<object>() };
+            }
+        }
+
+        /// <summary>The screenshot sent to the AI for an item, by a worker of the 'Flow' graph of a scene (null: none).</summary>
+        internal byte[] GetFlowImage(int sceneNodeId, string workerKey, string field, TimeSpan start, TimeSpan end, bool onlyIfAvailable)
+        {
+            Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider;
+            lock (this.Gate)
+            {
+                if (!m_nodesById.TryGetValue(sceneNodeId, out var node)) return null;
+                provider = node.FlowImageProvider;
+            }
+            // (called without the gate: it can take a screenshot with ffmpeg, and wait for the ffmpeg lock of the video)
+            return provider?.Invoke(workerKey, field, start, end, onlyIfAvailable);
+        }
+
+        /// <summary>The data of the 'Timing' editor of a scene (null: unknown scene, or no editor). Its methods are called without the gate.</summary>
+        internal ITimingEditor GetTimingEditor(int sceneNodeId)
+        {
+            lock (this.Gate)
+            {
+                return m_nodesById.TryGetValue(sceneNodeId, out var node) ? node.TimingEditor : null;
             }
         }
 
@@ -774,6 +827,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
             }
 
+            /// <summary>See <see cref="ITaskNode.SetFlowImageProvider"/>.</summary>
+            internal Func<string, string, TimeSpan, TimeSpan, bool, byte[]> FlowImageProvider { get; private set; }
+
+            public void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider)
+            {
+                lock (r_owner.Gate)
+                {
+                    FlowImageProvider = provider;
+                }
+            }
+
+            /// <summary>See <see cref="ITaskNode.SetTimingEditor"/>.</summary>
+            internal ITimingEditor TimingEditor { get; private set; }
+
+            public void SetTimingEditor(ITimingEditor editor)
+            {
+                lock (r_owner.Gate)
+                {
+                    TimingEditor = editor;
+                }
+            }
+
             /// <summary>See <see cref="ITaskNode.SetFlowCounter"/>.</summary>
             internal Func<object> FlowCounter { get; private set; }
 
@@ -794,6 +869,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 {
                     IsRefreshOnly = true;
                     Reason ??= "refresh only (CanBeUpdated)";
+                    r_owner.Touch();
+                }
+            }
+
+            /// <summary>See <see cref="ITaskNode.SetUserAction"/>.</summary>
+            public string UserAction { get; private set; }
+
+            public void SetUserAction(string action)
+            {
+                lock (r_owner.Gate)
+                {
+                    if (UserAction == action) return;
+                    UserAction = action;
                     r_owner.Touch();
                 }
             }
@@ -865,6 +953,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     progressTotal = m_progressTotal,
                     progressUnit = m_progressUnit,
                     refreshOnly = IsRefreshOnly,
+                    userAction = UserAction,
                     logLines = r_log.Count,
                     shortName = Info?.ShortName,
                     meta = Info?.Metadata,

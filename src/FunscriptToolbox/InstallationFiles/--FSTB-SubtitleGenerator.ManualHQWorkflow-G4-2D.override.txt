@@ -7,6 +7,11 @@
   ],
   "Workers": [
     {
+      // (not a VR video: no crop of the left eye)
+      "Id": "fast-video",
+      "FfmpegParameters": "-vf \"scale=-2:512\" -af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\" -ar 48000 -c:v libx264 -g 1 -c:a aac -b:a 128k -movflags +faststart"
+    },
+    {
       "Id": "manual-input-preparer",
       "TitleCardDetection": {
         "FfmpegFilter": "crop=iw*0.40:ih*0.10:iw*0.30:ih*0.45"

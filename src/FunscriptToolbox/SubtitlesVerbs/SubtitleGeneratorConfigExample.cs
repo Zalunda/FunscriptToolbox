@@ -85,6 +85,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".asig",
                         SaveFullFileToo = true
                     },
+                    // The light video of each part ("<video>.FAST.mp4"), for the Timing editor of the web UI and the speaker correction.
+                    // 'crop=iw/2:ih:0:0': the left eye of a VR video (side by side).
+                    new SubtitleOutputFastVideo()
+                    {
+                        OutputId = "fast-video",
+                        FileSuffix = ".FAST.mp4",
+                        FfmpegParameters = "-vf \"crop=iw/2:ih:0:0,scale=-2:512\" -af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\" -ar 48000 -c:v libx264 -g 1 -c:a aac -b:a 128k -movflags +faststart"
+                    },
 
                     //---------------------------------------------------
                     // Full transcription (whisper or AI)

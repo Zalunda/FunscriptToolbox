@@ -440,15 +440,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             /// <summary>The task of the detection (in the task tree / console progress line).</summary>
             public ITaskNode Node;
 
+            private long m_scannedTicks;
+
+            /// <summary>
+            /// How far the scan is in the whole timeline (only to show the progress: it can be ahead of Processed,
+            /// what is after Processed would be scanned again when resuming).
+            /// </summary>
+            public TimeSpan Scanned => TimeSpan.FromTicks(Math.Max(Interlocked.Read(ref m_scannedTicks), Interlocked.Read(ref m_processedTicks)));
+
             public void Report(TimeSpan processed, int found)
             {
                 Interlocked.Exchange(ref m_processedTicks, processed.Ticks);
                 Volatile.Write(ref m_found, found);
+                ShowProgress();
+                Node?.SetStatus($"{found} title card(s) found");
+            }
+
+            public void ReportScanned(TimeSpan scanned)
+            {
+                Interlocked.Exchange(ref m_scannedTicks, scanned.Ticks);
+                ShowProgress();
+            }
+
+            private void ShowProgress()
+            {
                 if (Total > TimeSpan.Zero)
                 {
-                    Node?.SetProgress((long)processed.TotalSeconds, (long)Total.TotalSeconds, "%");
+                    Node?.SetProgress((long)Scanned.TotalSeconds, (long)Total.TotalSeconds, "%");
                 }
-                Node?.SetStatus($"{found} title card(s) found");
             }
         }
 
@@ -535,7 +554,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         });
                                         run.Report(timelineSegment.Offset + processedUntil, cards.Count + progress.Segments.Count);
                                     },
-                                    ct);
+                                    ct,
+                                    scannedUntil => run.ReportScanned(timelineSegment.Offset + scannedUntil));
                             }
                             context.WIP.ExecuteLocked(() => progress.Done = true);
                         }
@@ -577,12 +597,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 TaskScope.Current.SetCancellable("Stop the title card detection (the manual-input file will have no title card for the part that was not scanned).");
                 while (!run.Task.IsCompleted)
                 {
-                    var percent = run.Total > TimeSpan.Zero ? 100.0 * run.Processed.Ticks / run.Total.Ticks : 0;
+                    var scanned = run.Scanned;
+                    var percent = run.Total > TimeSpan.Zero ? 100.0 * scanned.Ticks / run.Total.Ticks : 0;
                     var stopText = run.StoppedByUser ? " Stopping..." : " (PRESS Q TO STOP)";
                     context.DefaultProgressUpdateHandler(
                         "TitleCardDetector",
                         null,
-                        $"{percent:0}% scanned ({(int)run.Processed.TotalHours}:{run.Processed:mm\\:ss} of {(int)run.Total.TotalHours}:{run.Total:mm\\:ss}), {run.Found} title card(s) found.{stopText}");
+                        $"{percent:0}% scanned ({(int)scanned.TotalHours}:{scanned:mm\\:ss} of {(int)run.Total.TotalHours}:{run.Total:mm\\:ss}), {run.Found} title card(s) found.{stopText}");
 
                     if (context.PollStopRequest())
                     {
@@ -900,26 +921,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     //    $"(second pass: {refiner.TerrainMapping.SplitMountains} mountains split at calm valleys, {refiner.TerrainMapping.ShoulderSplits} at a quiet shoulder, " +
                     //    $"{refiner.TerrainMapping.AddedMountains} mountains added in all; the pieces are marked '+' in the TERRAIN-MAP).");
                     DoExportSrt(context, transcription.Id, refiner.TerrainMapping.ToSegmentSubtitles(), "TERRAIN-MAP");
-                    SavePartsDuration(context);
                 });
             }
 
             return refiner;
-        }
-
-        /// <summary>
-        /// Exports the duration of each part (video) of the timeline, one line per part: "name duration" (ex: "HNVR-141-A 00:23:27.212").
-        /// Used by the external subtitles finalizing process (to know where the audio really ends).
-        /// </summary>
-        private void SavePartsDuration(SubtitleGeneratorContext context)
-        {
-            if (!this.ExportMetadataSrt)
-                return;
-
-            var lines = context.WIP.TimelineMap.Segments
-                .Select(s => $"{Path.GetFileNameWithoutExtension(s.Filename)} {s.Duration:hh\\:mm\\:ss\\.fff}")
-                .ToList();
-            File.WriteAllLines(context.WIP.BaseFilePath + ".parts-duration.txt", lines, new UTF8Encoding(true));
         }
 
         /// <summary>

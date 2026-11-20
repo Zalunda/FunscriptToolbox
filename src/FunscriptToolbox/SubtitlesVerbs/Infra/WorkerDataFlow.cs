@@ -230,10 +230,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 case DataKind.Transcription:
                 case DataKind.Translation:
                     var container = FindContainer(wip, kind, id);
+                    // (the worker that produces it: its screenshots, sent to the AI, can be shown for each item too)
+                    var allWorkers = SceneFlowGraph.GetWorkers(config);
+                    var producerIndex = Array.FindIndex(allWorkers, w => w.Enabled
+                        && w.GetDataFlow().Outputs.Any(o => o.Kind == kind && o.Id == id));
                     return new
                     {
                         title = $"{kind} '{id}'",
                         note = container == null ? "Not produced yet." : (container.IsFinished ? null : "Not finished yet."),
+                        images = producerIndex >= 0 ? GetImageExtractors(allWorkers[producerIndex]).Select(e => e.OutputFieldName).ToArray() : Array.Empty<string>(),
+                        imageWorker = producerIndex >= 0 ? $"w{producerIndex}" : null,
+                        contextImages = producerIndex >= 0 ? GetContextImageTimes(context, allWorkers[producerIndex]) : null,
                         sections = container == null ? Array.Empty<object>() : new[] { Section($"Items of {kind} '{id}'", ReadItems(wip, container), null) }
                     };
                 case DataKind.Audio:
@@ -305,9 +312,112 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 enabled = worker.Enabled,
                 inputs,
                 outputs,
+                // The screenshots sent to the AI, by item (a column of the tables: the image is read when asked, see GetImage)
+                images = GetImageExtractors(worker).Select(e => e.OutputFieldName).ToArray(),
+                contextImages = GetContextImageTimes(context, worker),
                 note = sections.Count == 0 ? "This worker has no items to show (it works on audio or files)." : null,
                 sections
             };
+        }
+
+        /// <summary>
+        /// The times of the screenshots of the gap before each item ('context only' nodes, see BinaryDataExtractor.AddContextNodes),
+        /// by the start of the item ("hh:mm:ss.fff"): [{ field, times }]; null: none. Computed like the requests (AIRequestGenerator):
+        /// the gap from the end of the previous item of the timings of the worker (0 for the first one) to the start of the item.
+        /// (the field is a value, not a key: the keys of a dictionary are changed by the camelCase of the JSON of the web UI)
+        /// </summary>
+        private static Dictionary<string, object[]> GetContextImageTimes(SubtitleGeneratorContext context, SubtitleWorker worker)
+        {
+            var extractors = GetImageExtractors(worker).Where(e => e.AddContextNodes).ToArray();
+            if (extractors.Length == 0)
+                return null;
+            try
+            {
+                var aggregator = worker.GetType().GetProperty("Metadatas", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                    ?.GetValue(worker) as MetadataAggregator;
+                var timings = aggregator?.Aggregate(context).ReferenceTimingsWithMetadata;
+                if (timings == null)
+                    return null;
+                var result = new Dictionary<string, object[]>();
+                var previousEndTime = TimeSpan.Zero;
+                foreach (var item in timings)
+                {
+                    var gap = new Timing(previousEndTime, item.StartTime);
+                    var byField = extractors
+                        .Select(e => (field: e.OutputFieldName, times: e.GetContextTimes(gap).Select(t => t.ToString(@"hh\:mm\:ss\.fff")).ToArray()))
+                        .Where(x => x.times.Length > 0)
+                        .Select(x => (object)new { x.field, x.times })
+                        .ToArray();
+                    if (byField.Length > 0)
+                        result[item.StartTime.ToString(@"hh\:mm\:ss\.fff")] = byField;
+                    previousEndTime = item.EndTime;
+                }
+                return result;
+            }
+            catch (Exception)
+            {
+                // (only to show the screenshots of the gaps: not shown this time, ex. the timings are not there yet)
+                return null;
+            }
+        }
+
+        /// <summary>The enabled screenshot extractors of a worker (its 'Options' of AI worker), or nothing.</summary>
+        private static BinaryDataExtractorImage[] GetImageExtractors(SubtitleWorker worker)
+        {
+            var options = worker.GetType().GetProperty("Options", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                ?.GetValue(worker) as AIOptions;
+            return (options?.BinaryDataExtractors ?? Array.Empty<BinaryDataExtractor>())
+                .OfType<BinaryDataExtractorImage>()
+                .Where(e => e.Enabled)
+                .ToArray();
+        }
+
+        // The screenshots already read (by file + time): taking one with ffmpeg takes a moment, and the same ones are looked at again
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> rs_images = new System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>();
+        private const int MaxImagesInMemory = 300;
+
+        /// <summary>
+        /// The screenshot that a worker sends to the AI for an item (the 'images' of the inspector): the same one as the run
+        /// (middle of the item, same file of the .vseq, same ffmpeg filter). Read from the temporary file of the run if it was kept
+        /// (KeepTemporaryFiles), otherwise taken with ffmpeg (with the same limit as the run: one at a time on the video). Null: none.
+        /// </summary>
+        /// <param name="onlyIfAvailable">True: only when it's in memory or on disk, never taken with ffmpeg (ex. the thumbnails of a table: null otherwise).</param>
+        public static byte[] GetImage(SubtitleGeneratorContext context, string workerKey, string field, TimeSpan start, TimeSpan end, bool onlyIfAvailable = false)
+        {
+            var config = context.Config;
+            var wip = context.WIP;
+            if (config == null || wip == null || !workerKey.StartsWith("w") || !int.TryParse(workerKey.Substring(1), out var index))
+                return null;
+            var workers = SceneFlowGraph.GetWorkers(config);
+            if (index < 0 || index >= workers.Length)
+                return null;
+            var extractor = GetImageExtractors(workers[index]).FirstOrDefault(e => e.OutputFieldName == field);
+            if (extractor == null)
+                return null;
+
+            var middleTime = TimeSpan.FromMilliseconds((start.TotalMilliseconds + end.TotalMilliseconds) / 2);
+            var (_, filename, middleTimeInRightFile) = wip.TimelineMap.GetPathAndPosition(middleTime);
+            var videoPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(wip.ParentPath, filename));
+            var filter = extractor.FfmpegFilter?.Replace("[STARTTIME]", context.FfmpegHelper.EscapeFfmpegDrawtext(start.ToString(@"hh\:mm\:ss\.fff")));
+            var cacheKey = $"{videoPath}|{middleTimeInRightFile.Ticks}|{filter}";
+            if (rs_images.TryGetValue(cacheKey, out var cached))
+                return cached;
+
+            // 1. The temporary file of the run (same name as in TranscriberAI)
+            var backupFilePath = context.GetPotentialVerboseFilePath($"{System.IO.Path.GetFileNameWithoutExtension(filename)}_{extractor.OutputFieldName}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
+            if (onlyIfAvailable && !System.IO.File.Exists(backupFilePath))
+                return null;
+            var image = System.IO.File.Exists(backupFilePath)
+                ? System.IO.File.ReadAllBytes(backupFilePath)
+                // 2. Otherwise, taken now with ffmpeg
+                : context.FfmpegHelper.TakeScreenshotAsBytes(videoPath, middleTimeInRightFile, ".jpg", filter);
+
+            if (image != null)
+            {
+                if (rs_images.Count >= MaxImagesInMemory) rs_images.Clear();
+                rs_images[cacheKey] = image;
+            }
+            return image;
         }
 
         private static TimedItemWithMetadataCollection FindContainer(WorkInProgressSubtitles wip, string kind, string id)

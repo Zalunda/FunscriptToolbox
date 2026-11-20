@@ -4,8 +4,9 @@
     // an error is reported if this section is in a configuration file of a sub-folder.
     // MaxConcurrent: how many of each kind of work can run at the same time (the short names shown in the web UI).
     //    GPU = local machine (Purfview whisper, local AI), VID = ffmpeg reading the videos, AUD = ffmpeg on a whole audio,
-    //    CLIP = small audio clips for the AIs, PREP = AI request preparation. Not listed: the default value (shown below).
-    "MaxConcurrent": { "GPU": 1, "VID": 1, "AUD": 3, "CLIP": 8, "PREP": 1 },
+    //    CLIP = small audio clips for the AIs, PREP = AI request preparation, ENC = ffmpeg creating a whole video (ex. '.FAST.mp4').
+    //    Not listed: the default value (shown below).
+    "MaxConcurrent": { "GPU": 1, "VID": 1, "AUD": 3, "CLIP": 8, "PREP": 1, "ENC": 1 },
   },
 
   "Global": {

@@ -61,12 +61,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// About every minute of video: the cards that are now final (not reported before) and the time up to which everything is final.
         /// Resuming at that time gives the same result as not stopping (a card still in progress is detected again from its start).
         /// </param>
+        /// <param name="onScanned">
+        /// About every second (real time): how far the scan is in the video. Only to show the progress: a big video can take
+        /// minutes to decode one minute of video, onProgress alone would stay at the same place for a long time.
+        /// </param>
         /// <returns>All the cards found by this call.</returns>
         public async Task<List<TitleCardSegment>> DetectAsync(
             string videoPath,
             TimeSpan startAt,
             Action<IReadOnlyList<TitleCardSegment>, TimeSpan> onProgress,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            Action<TimeSpan> onScanned = null)
         {
             var info = await FFmpeg.GetMediaInfo(videoPath, ct);
             var video = info.VideoStreams.FirstOrDefault()
@@ -198,6 +203,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
 
             var stream = proc.StandardOutput.BaseStream;
+            var scanWatch = Stopwatch.StartNew();
+            var nextScanReport = TimeSpan.FromSeconds(1);
             try
             {
                 while (await ReadFullAsync(stream, buf, ct))
@@ -247,6 +254,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     {
                         Report(t, final: false);
                         nextReport = t + ProgressInterval;
+                    }
+
+                    if (onScanned != null && scanWatch.Elapsed >= nextScanReport)
+                    {
+                        onScanned(t);
+                        nextScanReport = scanWatch.Elapsed + TimeSpan.FromSeconds(1);
                     }
                 }
             }

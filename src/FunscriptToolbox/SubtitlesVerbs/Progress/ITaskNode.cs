@@ -104,6 +104,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         /// <summary>How to count the items of the boxes of the graph (shown in a corner of the boxes of the 'Flow' view).</summary>
         void SetFlowCounter(Func<object> counter);
+
+        /// <summary>
+        /// How to read the screenshot sent to the AI for an item (key of the worker, name of the extractor, start, end):
+        /// shown when asked in the tables of the inspector. Null: no image.
+        /// </summary>
+        void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider);
+
+        /// <summary>The data of the 'Timing' editor of the web UI for this scene (only on a first-level node).</summary>
+        void SetTimingEditor(ITimingEditor editor);
+
+        /// <summary>
+        /// The task waits for something the user does in the web UI (ex. "timing:&lt;review id&gt;": a review in the Timing editor):
+        /// its scene is shown as 'needs you', with a button for it.
+        /// </summary>
+        void SetUserAction(string action);
     }
 
     public sealed class NullTaskNode : ITaskNode
@@ -129,6 +144,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetFlowGraph(object graph) { }
         public void SetFlowInspector(Func<string, object> inspector) { }
         public void SetFlowCounter(Func<object> counter) { }
+        public void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider) { }
+        public void SetTimingEditor(ITimingEditor editor) { }
+        public void SetUserAction(string action) { }
         public void Dispose() { }
     }
 
