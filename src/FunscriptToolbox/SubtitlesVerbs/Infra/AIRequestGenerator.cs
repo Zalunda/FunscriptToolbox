@@ -137,7 +137,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             using var preparationLock = needsBinaryData
                 ? context.Locks.RequestPreparation.Acquire(
                     $"preparing request #{requestNumber} of '{r_workingOnContainer.Id}'",
-                    cancellable: context.Output.IsWebUi)
+                    cancellable: true)
                 : null; // 'using' accepts null
             // Meanwhile, the background work of the other sequences doesn't get the ffmpeg locks (even when they are free for a moment).
             using var preparation = needsBinaryData ? LockPriority.BeginPreparation() : null;

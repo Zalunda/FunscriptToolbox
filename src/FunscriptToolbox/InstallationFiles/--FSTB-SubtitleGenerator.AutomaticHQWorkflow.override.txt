@@ -18,14 +18,22 @@
       "Id": "asig",
       "Enabled": true
     },
+    {
+      // The light video of each part ("<video>.FAST.mp4", next to it), for the Timing editor of the web UI ('manual-input-review')
+      // and the speaker correction (one video at a time: lock 'ENC'). Done early, with the other preparations of the files:
+      // ready when the review can start. Already there (ex. made by a script): not created again.
+      // (its ffmpeg parameters: in the main configuration; the 2D override removes the crop of the left eye)
+      "Id": "fast-video",
+      "Enabled": true
+    },
     // -----------------------------
-    // Creating initial manual-input source 
+    // Creating initial manual-input source
     {
       "Id": "full-ai",
       "Enabled": true,
       "MaxChunkDuration": "00:05:00",
       "ExportMetadataSrt": false,
-      "TranscriptionToIgnorePatterns" : [ 
+      "TranscriptionToIgnorePatterns" : [
         { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
         { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+" },
         { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
@@ -39,15 +47,178 @@
       "Enabled": true
     },
     {
-      "Id": "full",
+      // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings, adds the title cards, and flags what needs
+      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Timing editor).
+      // (defined in --FSTB-SubtitleGenerator.config: here, the settings that can be adjusted)
+      "Id": "manual-input-preparer",
       "Enabled": true,
-      "SourceId": "full-ai"
+      // [OPTION] If "CanBeUpdated" is set to true: the whole task is then run again everytime but, as long as the "RefineTiming" settings
+      // have not changed, no AI request is sent again (the answers are kept), so it can be used temporarily to adjust the
+      // "Validation" flags (warn / ignore) to your liking (delete .manual-input.srt if you want them to be recreated).
+      "CanBeUpdated": false,
+      "ExportMetadataSrt": false,
+      "PromptUserOnError": true,
+
+      // [OPTION] "SnapAndVerify" / "Full" (see RefineTiming.Mode) send AI requests: set an "Engine" that can listen to the audio clips, ex.
+      // "Engine": { "$ref": "AIEngineGemini4" },
+
+      "IncludeTraceInVoiceTextForManualReviewAlways": false,
+      "IncludeTraceInVoiceTextForManualReviewOnError": true,
+      "IncludeTextInVoiceTextForManualReview": true,
+
+      // The task does up to three things, each with its own "Enabled": TitleCardDetection, RefineTiming, Validation (needs RefineTiming).
+      // With the three disabled, the result is a clone of the source ("full-ai").
+
+      "TitleCardDetection": {
+        "Enabled": true
+      },
+
+      // Refines the Start and End of each subtitle, using the terrain of the audio (where the speech is).
+      // "Mode" is the main lever between the quality of the timings and the cost in AI tokens:
+      //   "Off"           => timings kept as they are. No terrain, no AI. (Validation can't be used.)
+      //   "SnapOnly"      => the initial snap of each boundary on the terrain, and nothing else. No AI request at all (free).
+      //                      Title card detection and Validation work. Expect many warnings (the text is never checked): ignore the
+      //                      codes that fire on almost every node, in Validation.Validations.
+      //   "SnapAndVerify" => SnapOnly, plus ONE AI request per subtitle with ONE clip (exactly the snapped start to the snapped end, no padding)
+      //                      and the text: the AI says if the clip contains the text (HeardText when it differs, Inaudible when nothing).
+      //                      The timings are kept whatever the answer: a problem is only flagged. Uses "InnerOptionsVerify" (see --FSTB-SubtitleGenerator.config).
+      //   "Full"          => the AI picks the best Start, then the best End, among options built on the terrain (several AI requests and
+      //                      clips per subtitle). Uses "InnerOptionsStart" and "InnerOptionsEnd" (see --FSTB-SubtitleGenerator.config). The settings below tune its cost:
+      //                        - MaxDipsInward / MaxDipsOutward: how many options around the snapped boundary are tried (fewer = cheaper,
+      //                          but a boundary that is further is flagged Missing instead of being found).
+      //                        - MaxTestsInRequest: how many options are in one request (more = bigger requests, fewer retries).
+      //                        - MaxExpansion: how far from the snapped boundary the options can go.
+      //                        - StartPassTailPadding: audio added after the end in the Start clips (more = more tokens).
+      "RefineTiming": {
+        "Mode": "SnapOnly",
+
+        // Ideally, MaxTestsInRequest should be greater then MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibilities.
+        "MaxTestsInRequest": 5,
+        "MaxDipsInward": 2,
+        "MaxDipsOutward": 2,
+
+        // Start pass only: every clip ends this long after the initial End.
+        "StartPassTailPadding": "00:00:00.8",
+
+        "MaxExpansion": "00:00:02.0",
+        "BleedDetectionMargin": "00:00:03.0",
+
+        // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
+        "TrimSilenceOnStart": true,
+        "TrimSilenceOnEnd": true,
+		    "StartClipPadding": "00:00:00.300",
+		    "EndClipPadding": "00:00:00.300",
+
+        // ---------------- After the End pass: what did the chosen End append? (optional: set "InnerOptionsEndTail": null to not do it) ----------------
+        // When the End chosen by the AI is at least "EndTailMinExtra" after the closest option before it, one request (no text) asks
+        // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
+        // to that option (then the new End is checked against the option before it, up to "EndTailMaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
+        // By answer of the AI: when the terrain finds Speech over at least this fraction of the extra audio, the answer is not trusted and the End is kept
+        // ("Silence" over loud audio is wrong, "Moaning" over continuous speech is often the last words misidentified). A kind not listed always moves the End back.
+        "EndTailKeepIfSpeechRatio": {
+          "Silence": 0.3,
+          "Moaning": 0.5
+        },
+        "EndTailMinExtra": "00:00:00.4",
+        "EndTailMaxChecks": 1
+      },
+
+      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Timing editor) and fixes some problems. Needs RefineTiming.
+      // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
+      "Validation": {
+        "Enabled": true,
+
+        // What to do for each kind of finding: "Warn" (the node gets a '[REVIEW:Code] reason' line, and goes in the .REVIEW.srt),
+        // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
+        //   LongWithSilence => the subtitle is split at its silences (see Checks: MaxSubtitleDuration, MinSilenceToSplit, SplitStrategy).
+        //                      The split parts get their text from the AI, and are flagged (SplitPart).
+        "Validations": {
+          "MissingStart": "Warn",
+          "MissingEnd": "Warn",
+          "Unfinished": "Warn",
+          "TextMismatch": "Warn",
+          "Inaudible": "Warn",
+          "Overlap": "Warn",
+          "BoundariesCrossed": "Warn",
+          "NoAnswer": "Warn",
+          "UnrecognisedAnswer": "Warn",
+          "NoSpeechInside": "Warn",
+          "TooShort": "Warn",
+          "TooFast": "Warn",
+          "TinyGap": "Warn",
+          "SpeechRateHigh": "Warn",
+          "SpeechRateLow": "Warn",
+          "RepeatedText": "Warn",
+          "TextLoop": "Warn",
+          "MaybePointless": "Warn",
+          "LongWithSilence": "Warn",
+          "SplitPart": "Warn",
+          "EmptyText": "Warn",
+          "TitleCard": "Warn"
+        },
+
+        // Thresholds of the checks done on the final result (the values below are the defaults, made for Japanese).
+        // A threshold set to null turns its check off. Tune them by looking at what ends up in the REVIEW nodes.
+        "Checks": {
+          "MinDuration": "00:00:00.300",
+          "MaxCharsPerSecond": 15,
+          "MinGap": "00:00:00.050",
+          "MaxCharsPerSpeechSecond": 14,
+          "MinCharsPerSpeechSecond": 1.0,
+          "MaxSubtitleDuration": "00:00:05",
+          "MinSilenceToSplit": "00:00:01",
+          "SplitStrategy": "UnderMaxDuration", // or "EverySilence"
+          "TextMismatchMinSimilarity": 0.8,
+          "RepeatedTextMinSimilarity": 0.9,
+          "RepeatedTextMinChars": 8,
+
+          // A subtitle made only of these words (one or several, in any order) gets "MaybePointless": it may not be worth a subtitle.
+          // A regex on the text as it is (not case sensitive; katakana and hiragana are different characters).
+          // Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
+          // Comment (//) the lines of the words that you want to keep. No list (or an empty one) = the check is not done.
+          "MaybePointlessPatterns": [
+            // Moans, grunt, etc
+            { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
+            { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+" },
+            { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
+            { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+" },
+            { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*" },
+            { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーは、。\\s…!！]+" },
+
+            // Words said over and over
+            { "Name": "Sugoi (すごい = incredible)", "Pattern": "(すご|スゴ|凄)[いイーっッ]+[、。\\s…!！?？]*" },
+            { "Name": "Kimochii (きもちいい = it feels good)", "Pattern": "(きもち|キモチ|気持ち)[いイーっッ]+[、。\\s…!！?？]*" },
+            { "Name": "Ii (いい = good)", "Pattern": "[いイ][いイー]+[っッ]*[、。\\s…!！?？]*" },
+            { "Name": "Iku (いく = I'm coming)", "Pattern": "[いイ](く|ク|[っッ]く|[っッ]ク|きそう|キソウ|[っッ]ちゃう|[っッ]ちゃいそう)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Dame (だめ = no, stop)", "Pattern": "(だめ|ダメ|駄目)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Iya (いや, やだ = no, stop it)", "Pattern": "(いや|イヤ|やだ|ヤダ|やん)[あんーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Yabai (やばい = crazy, damn)", "Pattern": "(やば|ヤバ)[いイー]+[、。\\s…!！?？]*" },
+            { "Name": "Motto (もっと = more)", "Pattern": "(もっと|モット)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Nee (ねえ = hey)", "Pattern": "[ねネ][えぇエェーっ]+[、。\\s…!！?？]*" },
+            { "Name": "Hai (はい = yes)", "Pattern": "(はい|ハイ)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Soko (そこ = right there)", "Pattern": "(そこ|ソコ)[ーっ]*[、。\\s…!！?？]*" },
+            { "Name": "Hora (ほら = look, here)", "Pattern": "(ほら|ホラ)[ーっ]*[、。\\s…!！?？]*" }
+          ]
+        }
+      }
     },
     {
-      "Id": "generated-manual-input-srt",
+      "Id": "full",
       "Enabled": true,
-      // [OPTION] Change to "full" if you prefer having original text instead of a basic english translation in the the manual-input file.
-      "WorkerId": "full-ai_google"
+      "SourceId": "manual-input-preparer"
+    },
+    {
+      // (replaced by 'manual-input-review': the manual-input file is written from the preparer)
+      "Id": "generated-manual-input-srt",
+      "Enabled": false
+    },
+    {
+      // The manual-input file, written right away from the preparer (no review: nobody looks at it).
+      "Id": "manual-input-review",
+      "Enabled": true,
+      "ReviewNeeded": false,
+      // (no placeholder for the user to fill: nobody reviews the file)
+      "AddToFirstSubtitle": null
     },
     {
       "Id": "manual-input",
@@ -64,10 +235,6 @@
       "Enabled": true
     },
     {
-      "Id": "speakers",
-      "Enabled": false
-    },
-    {
       "Id": "singlevad-ai-refined",
       // This AI will receive the audio and validate that the transcription by looking at the initial transcription and the full-ai transcription. It also receive and analyze screenshot to create a better TranslationAnalysis.
       // [OPTION] Disable if you want to reduce the API cost.
@@ -81,8 +248,8 @@
         "BinaryDataExtractors": [
           {
             "OutputFieldName": "Screenshot",
-            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added. 
-            // Short explanation, if there is a large gap between two subtitles, the following context nodes will be added: 
+            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added.
+            // Short explanation, if there is a large gap between two subtitles, the following context nodes will be added:
             //    <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
             "Enabled": true,
             "AddContextNodes": true,
@@ -102,7 +269,7 @@
       "Id": "voice-texts",
       "Enabled": true,
       "SourceId": "full"
-    },    
+    },
     // -----------------------------
     // Use timings, manual-input, voice-texts and AI generated metadatas to AI Translation & Arbitration
     {

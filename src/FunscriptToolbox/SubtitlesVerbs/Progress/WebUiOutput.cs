@@ -36,7 +36,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             m_general.StartInternal(setAsCurrent: false);
         }
 
-        public bool IsWebUi => true;
 
         internal long Version => Interlocked.Read(ref m_version);
         internal void Touch() => Interlocked.Increment(ref m_version);
@@ -387,13 +386,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             return true;
         }
 
-        internal bool RequestCancel(int nodeId)
+        /// <summary>A Stop button of a task: 'now' (right away), 'after' (after this request) or 'undo' (undo 'after').</summary>
+        internal bool RequestCancel(int nodeId, string mode)
         {
             lock (this.Gate)
             {
                 if (!m_nodesById.TryGetValue(nodeId, out var node)) return false;
-                node.RequestCancelInternal();
-                return true;
+                switch (mode)
+                {
+                    case "now": node.RequestCancelInternal(); return true;
+                    case "after": return node.RequestStopAfterInternal(true);
+                    case "undo": return node.RequestStopAfterInternal(false);
+                    default: return false;
+                }
             }
         }
 
@@ -568,6 +573,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             public string CancelHint { get; private set; }
             public int CancelRequests { get; private set; }
             private int m_cancelConsumed;
+            /// <summary>'Stop after this request' is offered (an AI request).</summary>
+            public bool CanStopAfter { get; private set; }
+            private volatile bool m_stopAfterRequested;
+            public bool IsStopAfterRequested => m_stopAfterRequested;
+            public string StopNowWarning { get; private set; }
             public int ErrorCount { get; private set; }
             public bool IsBackground { get; }
             /// <summary>Only for the first-level nodes (videos): short name, metadata.</summary>
@@ -781,8 +791,51 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             internal void RequestCancelInternal()
             {
                 // Called with the gate held.
+                if (CancelRequests > m_cancelConsumed)
+                    return; // (already asked, not handled yet: a second click changes nothing)
                 CancelRequests++;
-                AddLogLine($"Stop requested by the user (request #{CancelRequests}).");
+                AddLogLine("'Stop now' requested by the user.");
+            }
+
+            internal bool RequestStopAfterInternal(bool isRequested)
+            {
+                // Called with the gate held.
+                if (!CanStopAfter || IsTerminal || m_stopAfterRequested == isRequested)
+                    return false;
+                m_stopAfterRequested = isRequested;
+                AddLogLine(isRequested
+                    ? "'Stop after this request' requested by the user: the worker will stop once the response is received and saved."
+                    : "'Stop after this request' cancelled by the user: the worker continues.");
+                return true;
+            }
+
+            public void ConvertToStopAfter(string reason)
+            {
+                lock (r_owner.Gate)
+                {
+                    m_stopAfterRequested = true;
+                    AddLogLine($"'Stop now' changed to 'Stop after this request': {reason}");
+                    r_owner.Touch();
+                }
+            }
+
+            public void SetStopAfterSupported()
+            {
+                lock (r_owner.Gate)
+                {
+                    CanStopAfter = true;
+                    r_owner.Touch();
+                }
+            }
+
+            public void SetStopNowWarning(string warning)
+            {
+                lock (r_owner.Gate)
+                {
+                    if (StopNowWarning == warning) return;
+                    StopNowWarning = warning;
+                    r_owner.Touch();
+                }
             }
 
             public bool ConsumeCancelRequest()
@@ -947,7 +1000,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     endedMs = ToMs(EndedAt),
                     errors = ErrorCount,
                     cancelHint = CancelHint,
-                    cancelRequests = CancelRequests - m_cancelConsumed,
+                    stopNowRequested = CancelRequests > m_cancelConsumed,
+                    canStopAfter = CanStopAfter && !IsTerminal,
+                    stopAfter = m_stopAfterRequested,
+                    stopWarning = StopNowWarning,
                     background = IsBackground,
                     progressDone = (m_progressTotal != null || m_progressDone > 0) ? m_progressDone : (long?)null,
                     progressTotal = m_progressTotal,
@@ -957,6 +1013,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     logLines = r_log.Count,
                     shortName = Info?.ShortName,
                     meta = Info?.Metadata,
+                    priority = Info?.PriorityText,
                     configError = Info?.ConfigError
                 };
             }

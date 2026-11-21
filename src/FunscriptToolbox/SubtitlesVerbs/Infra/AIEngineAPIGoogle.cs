@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Properties;
+using FunscriptToolbox.SubtitlesVerbs.Progress;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -29,8 +30,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 33)]
         public bool DebugBatchPollingResponse { get; set; }
 
-        private bool _stopWorkerRequested = false;
-
         protected override double CostSaving => UseBatchMode ? UseBatchModeSaving : 1.0;
         public override string EngineIdentifier => base.EngineIdentifier + (UseBatchMode ? "+Batch" : "+Stream");
 
@@ -50,12 +49,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
 
             using var localResourceLock = AcquireLocalResourceLockIfNeeded(context);
-
-            if (this._stopWorkerRequested)
-            {
-                this._stopWorkerRequested = false;
-                throw new UserStoppedWorkerException();
-            }
 
             try
             {
@@ -187,17 +180,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var batchRequestAsJson = JsonConvert.SerializeObject(batchRequest, Formatting.Indented);
                 context.CreateVerboseTextFile($"{batchJsonPrefix}-Req.json", batchRequestAsJson, firstRequest.ProcessStartTime);
 
-                var requestId = requests.Length == 1
-                    ? $"{firstRequest.TaskId}, #{firstRequest.Number}: {firstRequest.UpdateMessage}"
-                    : $"{firstRequest.TaskId}, Batch of {requests.Length} requests (#{firstRequest.Number}..#{requests.Last().Number})";
-
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:batchGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
                     Content = new StringContent(batchRequestAsJson, Encoding.UTF8, "application/json")
                 };
 
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
 
                 if (!response.IsSuccessStatusCode)
@@ -212,30 +201,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 string lastErrorMessageReceived = null;
                 DateTime? firstTimeLastCodeReceived = null;
                 var pendingWatch = Stopwatch.StartNew();
-                bool stopAfterResponse = false;
                 bool cancelRequestedWhileQueuing = false;
+                // (the task of this request: its 'Stop now' asks for a confirmation only once the batch is running, when it costs something)
+                var requestNode = TaskScope.Current;
+                requestNode.SetStopNowWarning(null);
 
                 waitingTimer = new Timer(_ =>
                 {
-                    var cancellationText = stopAfterResponse
-                        ? " (STOPPING AFTER ANSWER RECEIVED, PRESS Q TO CANCEL NOW)"
-                        : lastErrorCodeReceived != null
-                        ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\" for {DateTime.Now - firstTimeLastCodeReceived}, PRESS Q TO CANCEL)"
-                        : operation?.GetState() == "BATCH_STATE_RUNNING"
-                        ? " (PRESS Q TO STOP AFTER ANSWER)"
-                        : " (PRESS Q TO CANCEL)";
+                    var stateText = lastErrorCodeReceived != null
+                        ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\" for {DateTime.Now - firstTimeLastCodeReceived})"
+                        : string.Empty;
                     var duration = DateTime.Now - startTime;
 
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")
                     {
+                        requestNode.SetStopNowWarning(StopNowCostWarning);
                         pendingWatch.Stop();
                         var durationPending = pendingWatch.Elapsed;
                         var durationRunning = duration - durationPending;
-                        context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}{cancellationText}... ");
+                        context.AIRequestProgressUpdateHandler(ToolName, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}{stateText}... ");
                     }
                     else
                     {
-                        context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}... ");
+                        context.AIRequestProgressUpdateHandler(ToolName, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{stateText}... ");
                     }
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
@@ -266,7 +254,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     waitingTimer?.Dispose();
                     waitingTimer = null;
 
-                    context.AIRequestProgressUpdateHandler(ToolName, requestId, "Cancelling batch on Google servers...");
+                    context.AIRequestProgressUpdateHandler(ToolName, "Cancelling batch on Google servers...");
 
                     try
                     {
@@ -303,32 +291,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     while (DateTime.Now - waitStart < waitDuration)
                     {
-                        // Q key (console mode) or 'Stop' button of the task (web UI mode)
+                        // 'Stop now' button of the task ('Stop after this request' is handled by the caller, once the response is saved)
+                        if (context.PollStopRequest())
                         {
-                            if (context.PollStopRequest())
+                            var isCurrentlyQueuing = operation?.GetState() != "BATCH_STATE_RUNNING";
+                            if (isCurrentlyQueuing)
                             {
-                                var isCurrentlyQueuing = operation?.GetState() != "BATCH_STATE_RUNNING";
-                                if (isCurrentlyQueuing)
-                                {
-                                    // Still queuing: stop right now. Break out of wait to do final poll & cancel on server.
-                                    cancelRequestedWhileQueuing = true;
-                                    waitDuration = TimeSpan.Zero;
-                                }
-                                else
-                                {
-                                    // Not queuing (currently running)
-                                    if (!stopAfterResponse)
-                                    {
-                                        // 1st press while running: stop after answer has been received
-                                        stopAfterResponse = true;
-                                        context.AIRequestProgressUpdateHandler(ToolName, requestId, "Stop requested: will stop after current answer is received. (PRESS Q TO CANCEL NOW)");
-                                    }
-                                    else
-                                    {
-                                        // 2nd press while running: not waiting for answer anymore, quit right now!
-                                        CancelBatchOnServerAndThrow();
-                                    }
-                                }
+                                // Still queuing: break out of wait to do a final poll (it may have finished meanwhile), then cancel on server.
+                                cancelRequestedWhileQueuing = true;
+                                waitDuration = TimeSpan.Zero;
+                            }
+                            else
+                            {
+                                // Running: the user confirmed that it may still be billed.
+                                CancelBatchOnServerAndThrow();
                             }
                         }
 
@@ -373,15 +349,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         if (error == null && state == "BATCH_STATE_SUCCEEDED")
                         {
+                            // (already done: the response is kept, it costs the same)
                             inlinedResponses = operation.GetInlinedResponses();
-                            stopAfterResponse = true;
+                            requestNode.ConvertToStopAfter("the batch had already finished, its response is kept.");
                             break;
                         }
 
                         if (error == null && state == "BATCH_STATE_RUNNING")
                         {
+                            // (it started meanwhile: the user didn't confirm a cancel that costs something, so the response is kept)
                             cancelRequestedWhileQueuing = false;
-                            stopAfterResponse = true;
+                            requestNode.ConvertToStopAfter("the batch had started running before it could be cancelled, its response will be kept.");
                         }
                         else
                         {
@@ -553,12 +531,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     results.Add(new AIResponse(req, assistantMessageExtended, unfilteredResponseCost, additionalCostsForImageValidation));
                 }
 
-                if (stopAfterResponse)
-                {
-                    this._stopWorkerRequested = true;
-                    context.WriteInfo("Stop requested: current batch answer processed. Worker will stop before processing the next request.");
-                }
-
                 PauseIfEnabled(context, this.PauseBeforeSavingResponse);
 
                 return results.ToArray();
@@ -587,8 +559,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
-                var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, $"Opening connection...");
                 var httpRequest = new HttpRequestMessage(HttpMethod.Post, new Uri(client.BaseAddress, $"models/{this.Model}:streamGenerateContent?key={context.GetValidatedPrivateConfig(this.APIKeyName)}"))
                 {
                     Content = new StringContent(requestBodyAsJson, Encoding.UTF8, "application/json")
@@ -597,10 +568,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.AIRequestProgressUpdateHandler(ToolName, $"Waiting for 1st token ({DateTime.Now - startTime})...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, $"Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
                 AttachToStopWatcher(response);
 

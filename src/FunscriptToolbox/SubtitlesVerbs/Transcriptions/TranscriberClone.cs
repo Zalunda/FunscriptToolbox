@@ -32,8 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             out string reason)
         {
-            var source = (TimedItemWithMetadataCollection) context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished)
-                ?? context.WIP.Translations.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished);
+            var source = context.FindSource(this.SourceId);   // (an alias: its source)
             if (source == null || !source.IsFinished)
             {
                 reason = $"Source '{this.SourceId}' has not been completed yet.";
@@ -62,8 +61,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
         {
-            var source = (TimedItemWithMetadataCollection)context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished)
-                ?? context.WIP.Translations.FirstOrDefault(t => t.Id == this.SourceId && t.IsFinished);
+            var source = context.FindSource(this.SourceId);
             _metadataProduced = source.MetadataAlwaysProduced;
 
             transcription.Items.Clear();
@@ -91,7 +89,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
-        protected override string GetWorkerTypeName() => "Clone/Alias";
+        protected override string GetWorkerTypeName() => "Clone";
         protected override string GetExecutionVerb() => "Cloning";
 
         protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)

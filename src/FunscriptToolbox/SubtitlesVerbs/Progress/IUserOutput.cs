@@ -29,19 +29,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         /// <summary>A problem with the configuration of the short name / metadata (shown on the node), or null.</summary>
         public string ConfigError { get; set; }
+
+        /// <summary>The priority of the scene on the shared resources (0 = the highest, see SubtitleGeneratorGlobalSharedSettings.ScenePriorities).</summary>
+        public int PriorityLevel { get; set; }
+
+        /// <summary>Why the scene has this priority (ex. "1st rule: Type ~ 'ManualHQWorkflow-G4'"), or null when there is no rule.</summary>
+        public string PriorityText { get; set; }
     }
 
     /// <summary>
     /// Everything the subtitle creation process shows to the user.
-    /// Implementations: console (sequential mode) and web page (--ui mode).
+    /// Implementation: the web page (<see cref="WebUiOutput"/>).
     /// The "current task" comes from <see cref="TaskScope.Current"/>.
     /// </summary>
     public interface IUserOutput
     {
-        /// <summary>True when the output is the web UI (several sequences are processed in parallel).</summary>
-        bool IsWebUi { get; }
-
-        /// <summary>Creates a first-level node (one per video/vseq). Null node in console mode.</summary>
+        /// <summary>Creates a first-level node (one per video/vseq).</summary>
         /// <param name="info">How the node is shown (short name, metadata), or null.</param>
         ITaskNode CreateRootNode(string kind, string name, RootNodeInfo info = null);
 
@@ -53,10 +56,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         void WriteStream(string text);
         void WriteStreamLine(string text);
 
-        /// <summary>True once each time the user asks to stop what is currently done (Q key, or a button of the UI).</summary>
+        /// <summary>True once each time the user asks to stop what is currently done (the Stop button of the task in the UI).</summary>
         bool PollStopRequest();
 
-        /// <summary>Blocks until the user answers. Only supported when <see cref="IsWebUi"/> is true.</summary>
+        /// <summary>Blocks until the user answers (a prompt in the web page).</summary>
         UserAnswer Ask(UserPrompt prompt);
 
         /// <summary>

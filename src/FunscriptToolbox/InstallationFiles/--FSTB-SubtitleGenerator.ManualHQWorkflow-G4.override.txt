@@ -94,190 +94,6 @@ _______________________________________=",
       "Lines": null
     },
     {
-      "$id": "TimingStartJudgeSystemPrompt",
-      "$type": "AIPrompt",
-      "TextBefore": null,
-      "Text": "
-=_______________________________________
-# AUDIO START-BOUNDARY JUDGE
-
-### Role
-You are a precision audio-boundary judge. For each subtitle node you decide where the spoken line STARTS. Only the start: the end is judged by another pass, so never comment on it.
-
-### Input Fields per Node
-1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
-2. `OriginalText`: Rough-draft transcription. **Warning:** it may contain words that are not spoken or mishear syllables. Never let it make you hear words that are not there.
-   - If it has several lines starting with `- `, several people speak in this node (one line per speaker). The line starts at the first word of the FIRST line, and `HeardText` (if you give one) keeps the same `- ` format with all the speakers.
-3. `PossibleBleedFromPrev` (Optional): Dialogue of the immediately preceding subtitle. If you hear any part of it at the **beginning** of a clip, it does not belong to this line: choose a tighter start that begins *after* it.
-4. `Audio_Max` (Wide Reference Clip, **LISTEN FIRST**): The widest clip. Use it to determine what the speaker actually says for this line.
-5. `Audio_S1`, `Audio_S2`, ... `Audio_Sn` (Candidate Clips): `S1` is the LATEST start (tightest), the higher the number the EARLIER the start (wider).
-
-**IMPORTANT: all the clips of a node end at exactly the same moment.** That end is deliberately a little after the expected end of the line, so the clips may finish with breath, silence or the first sound of the next sentence. **Ignore the end of the clips.** Only their beginning differs, and only the beginning matters.
-
-### Decision Protocol (`BestStart`)
-1. Listen to `Audio_Max` to know what is actually spoken.
-2. Listen to `Audio_S1`, `Audio_S2`, ... in that order. Pick the **tightest (lowest-numbered) `S#`** whose clip begins right before the first spoken word:
-   - the first syllable is complete (no clipped initial consonant);
-   - nothing precedes it except a few milliseconds of silence: no leading panting, giggles (fufu), earlier speech or `PossibleBleedFromPrev`.
-   - Do NOT stretch the start earlier into silence or breath trying to find words of `OriginalText` that are never spoken.
-3. `"Max"`: answer it **ONLY** if you clearly hear additional spoken syllables of this line in `Audio_Max` that are still cut off in the widest `S#` clip. NEVER answer `"Max"` when what lies before the widest `S#` is only silence, breathing or a faint murmur.
-4. `HeardText`: if the words really spoken in `Audio_Max` differ from `OriginalText`, give what you heard as `"HeardText"` (natural Japanese, Kanji/Kana): the complete line, WITHOUT breaths and WITHOUT words that clearly belong to the previous or the next sentence. If they match, OMIT `"HeardText"`. If `OriginalText` is empty, there is nothing to match: you MUST give `"HeardText"` (the complete line spoken in `Audio_Max`).
-5. If `Audio_Max` contains no intelligible speech at all (only silence, noise, breathing), answer `"BestStart": "Inaudible"`.
-6. `BestStart` must be an id that exists for that node (`S1`..`Sn`), or `Max`, `Inaudible`.
-
-### Output Format
-Return a single valid JSON array with one object per input node:
-[
-  {
-    "StartTime": "00:00:32.150",
-    "BestStart": "S2"
-  },
-  {
-    "StartTime": "00:00:36.120",
-    "BestStart": "S1",
-    "HeardText": "それ買うねん。"
-  },
-  {
-    "StartTime": "00:00:41.500",
-    "BestStart": "Inaudible"
-  }
-]
-_______________________________________=",
-      "TextAfter": null,
-      "Lines": null
-    },
-    {
-      "$id": "TimingEndJudgeSystemPrompt",
-      "$type": "AIPrompt",
-      "TextBefore": null,
-      "Text": "
-=_______________________________________
-# AUDIO END-BOUNDARY JUDGE
-
-### Role
-You are a precision audio-boundary judge. For each subtitle node you decide where the spoken line ENDS. The start has already been fixed by a previous pass and is correct: never comment on it.
-
-### Input Fields per Node
-1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
-2. `OriginalText`: The text of the line. It has already been verified once, but still trust your ears over the text.
-   - If it has several lines starting with `- `, several people speak in this node (one line per speaker). The line only ends after the last word of the LAST line: every speaker must be inside the clip you choose.
-3. `PossibleBleedFromNext` (Optional): Dialogue of the immediately following subtitle. If you hear any part of it at the **end** of a clip, it does not belong to this line: choose a tighter end that stops *before* it.
-4. `Audio_Max` (Wide Reference Clip, **LISTEN FIRST**): The widest clip.
-5. `Audio_E1`, `Audio_E2`, ... `Audio_En` (Candidate Clips): `E1` is the EARLIEST end (tightest), the higher the number the LATER the end (wider).
-
-**IMPORTANT: all the clips of a node begin at exactly the same moment** (the fixed start of the line). Only their end differs, and only the end matters.
-
-### Decision Protocol (`BestEnd`)
-1. Listen to `Audio_Max` to know where the line really finishes.
-2. Listen to `Audio_E1`, `Audio_E2`, ... in that order. Pick the **tightest (lowest-numbered) `E#`** that contains the last spoken word completely (final vowel fully decayed, no clipped last syllable) and nothing after it except a few milliseconds of silence: no trailing panting, giggles (fufu), faint room noise, next speech or `PossibleBleedFromNext`.
-   - Do NOT stretch the end later into silence or breath.
-   - Be literal. If what a wider clip adds is only breath, silence, noise or bleed, the tighter clip was good enough: answer the tighter one.
-3. `"Max"`: answer it **ONLY** if you clearly hear additional spoken syllables of this line in `Audio_Max` that are still cut off in the widest `E#` clip. NEVER answer `"Max"` when what lies after the widest `E#` is only silence, breathing or a faint murmur.
-4. `BestEnd` must be an id that exists for that node (`E1`..`En`), or `Max`.
-
-### Output Format
-Return a single valid JSON array with one object per input node:
-[
-  {
-    "StartTime": "00:00:32.150",
-    "BestEnd": "E3"
-  },
-  {
-    "StartTime": "00:00:36.120",
-    "BestEnd": "E1"
-  }
-]
-_______________________________________=",
-      "TextAfter": null,
-      "Lines": null
-    },
-    {
-      "$id": "TimingEndTailSystemPrompt",
-      "$type": "AIPrompt",
-      "TextBefore": null,
-      "Text": "
-=_______________________________________
-# AUDIO TAIL CLASSIFIER
-
-### Role
-You are an audio classifier. For each node you hear ONE short audio clip and you say what it is. You are NOT given any text: judge only by what you hear.
-
-### Input Fields per Node
-1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
-2. `AudioClip`: a short clip (a few hundred milliseconds to a few seconds). It usually starts in a silence, or right after the last word of a sentence, and may contain a sound after it.
-
-### Decision Protocol (`TailKind`)
-Answer with exactly ONE of these values for the whole clip:
-- `"Speech"`: at least one intelligible spoken word or syllable (even short, even whispered, even a trailing particle such as ね, よ, か, ん); a person talking.
-- `"Laughter"`: laughing or giggling (ははは, ふふ, あはは), including the very beginning of one.
-- `"Moaning"`: moans, whimpers or voiced sounds without words (あっ, んっ used as a moan).
-- `"Breathing"`: breath, sigh, panting, gasp, lip or mouth noise, swallowing.
-- `"Noise"`: click, pop, rustle, bump, any non-vocal sound.
-- `"Silence"`: nothing, or only a faint constant room noise.
-
-If the clip contains spoken words AND something else, answer `"Speech"`. Otherwise answer what the clip is mostly made of. Do not try to guess what comes before or after the clip.
-
-### Output Format
-Return a single valid JSON array with one object per input node:
-[
-  {
-    "StartTime": "00:00:32.150",
-    "TailKind": "Breathing"
-  },
-  {
-    "StartTime": "00:00:36.120",
-    "TailKind": "Speech"
-  }
-]
-_______________________________________=",
-      "TextAfter": null,
-      "Lines": null
-    },
-    {
-      "$id": "TimingVerifySystemPrompt",
-      "$type": "AIPrompt",
-      "TextBefore": null,
-      "Text": "
-=_______________________________________
-# AUDIO CLIP VERIFIER
-
-### Role
-You are a precision audio verifier. For each subtitle node you listen to ONE audio clip and decide if it contains the spoken line. You do NOT choose any timing: the clip is what it is.
-
-### Input Fields per Node
-1. `StartTime`: Unique identifier for the node (must be echoed back verbatim).
-2. `OriginalText`: Rough-draft transcription of the clip. **Warning:** it may contain words that are not spoken or mishear syllables. Never let it make you hear words that are not there.
-   - If it has several lines starting with `- `, several people speak in this node (one line per speaker).
-3. `AudioClip`: the clip to verify. It was cut as tightly as possible around the line, so the first syllable or the last one may be slightly clipped: that is fine.
-
-### Decision Protocol
-1. Listen to `AudioClip` and compare it with `OriginalText`.
-2. If the spoken words match `OriginalText` (the same words, give or take the spelling, kanji versus kana, punctuation and a clipped first or last syllable), answer `"Verdict": "OK"` and OMIT `"HeardText"`.
-3. If the spoken words differ (different words, missing words, extra words), answer `"Verdict": "OK"` and give what you really hear as `"HeardText"` (natural Japanese, Kanji/Kana): the complete line, WITHOUT breaths. If `OriginalText` is empty, you MUST give `"HeardText"`.
-4. If the clip has no intelligible speech at all (only silence, noise, breathing), answer `"Verdict": "Inaudible"`.
-
-### Output Format
-Return a single valid JSON array with one object per input node:
-[
-  {
-    "StartTime": "00:00:32.150",
-    "Verdict": "OK"
-  },
-  {
-    "StartTime": "00:00:36.120",
-    "Verdict": "OK",
-    "HeardText": "それ買うねん。"
-  },
-  {
-    "StartTime": "00:00:41.500",
-    "Verdict": "Inaudible"
-  }
-]
-_______________________________________=",
-      "TextAfter": null,
-      "Lines": null
-    },
-    {
       "$id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
       "$type": "AIPrompt",
       "TextBefore": null,
@@ -715,11 +531,11 @@ _______________________________________=",
       "ExportMetadataSrt": true
     },
     {
-      "$type": "TranscriberAIManualInputPreparer",
-      "TranscriptionId": "manual-input-preparer",
-      "$insertAfter": "full-ai",
+      // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings, adds the title cards, and flags what needs
+      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Timing editor).
+      // (defined in --FSTB-SubtitleGenerator.config: here, the settings that can be adjusted)
+      "Id": "manual-input-preparer",
       "Enabled": true,
-      "PrivateMetadataNames": "TimingTrace",
       // [OPTION] If "CanBeUpdated" is set to true: the whole task is then run again everytime but, as long as the "RefineTiming" settings
       // have not changed, no AI request is sent again (the answers are kept), so it can be used temporarily to adjust the
       // "Validation" flags (warn / ignore) to your liking (delete .manual-input.srt if you want them to be recreated).
@@ -735,15 +551,6 @@ _______________________________________=",
           "generationConfig": {
             "maxOutputTokens": 2048
           }
-      },
-      "Metadatas": {
-        "TimingsSource": "full-ai",
-        "Sources": "full-ai"
-      },
-      "Options": {
-        "MetadataNeeded": "VoiceText",
-        "MetadataAlwaysProduced": "VoiceTextForManualReview"
-        // Note: VoiceTextValidated is always produced too.
       },
 
       "IncludeTraceInVoiceTextForManualReviewAlways": false,
@@ -766,9 +573,9 @@ _______________________________________=",
       //                      codes that fire on almost every node, in Validation.Validations.
       //   "SnapAndVerify" => SnapOnly, plus ONE AI request per subtitle with ONE clip (exactly the snapped start to the snapped end, no padding)
       //                      and the text: the AI says if the clip contains the text (HeardText when it differs, Inaudible when nothing).
-      //                      The timings are kept whatever the answer: a problem is only flagged. Uses "InnerOptionsVerify".
+      //                      The timings are kept whatever the answer: a problem is only flagged. Uses "InnerOptionsVerify" (see --FSTB-SubtitleGenerator.config).
       //   "Full"          => the AI picks the best Start, then the best End, among options built on the terrain (several AI requests and
-      //                      clips per subtitle). Uses "InnerOptionsStart" and "InnerOptionsEnd". The settings below tune its cost:
+      //                      clips per subtitle). Uses "InnerOptionsStart" and "InnerOptionsEnd" (see --FSTB-SubtitleGenerator.config). The settings below tune its cost:
       //                        - MaxDipsInward / MaxDipsOutward: how many options around the snapped boundary are tried (fewer = cheaper,
       //                          but a boundary that is further is flagged Missing instead of being found).
       //                        - MaxTestsInRequest: how many options are in one request (more = bigger requests, fewer retries).
@@ -776,7 +583,6 @@ _______________________________________=",
       //                        - StartPassTailPadding: audio added after the end in the Start clips (more = more tokens).
       "RefineTiming": {
         "Mode": "SnapOnly",
-        "SourceAudioIdForTerrain": "audio-clean-waveform",
 
         // Ideally, MaxTestsInRequest should be greater then MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibilities.
         "MaxTestsInRequest": 5,
@@ -795,61 +601,7 @@ _______________________________________=",
 		    "StartClipPadding": "00:00:00.300",
 		    "EndClipPadding": "00:00:00.300",
 
-        // ---------------- Pass 1: START ----------------
-        "InnerOptionsStart": {
-          "SystemPrompt": {
-            "$ref": "TimingStartJudgeSystemPrompt"
-          },
-          "MetadataNeeded": "",
-          "MetadataAlwaysProduced": "BestStart",
-          "BinaryDataExtractors": [
-            {
-              "$type": "BinaryDataExtractorAudio",
-              "OutputFieldName": "AudioClip",
-              "Enabled": true,
-              "ExpandStart": "00:00:00",
-              "ExpandEnd": "00:00:00",
-              "KeepTemporaryFiles": false,
-              "SourceAudioId": "audio"
-            }
-          ],
-          "MaximumRequestsInBatch": 30,
-          "BatchSize": 25,
-          "BatchSplitWindows": 0,
-          "BatchKeepTogetherThreshold": "00:00:00.0000000",
-          "NbContextItems": 0,
-          "NbItemsMinimumReceivedToContinue": 15,
-          "FieldsToInclude": "StartTime"
-        },
-
-        // ---------------- Pass 2: END ----------------
-        "InnerOptionsEnd": {
-          "SystemPrompt": {
-            "$ref": "TimingEndJudgeSystemPrompt"
-          },
-          "MetadataNeeded": "",
-          "MetadataAlwaysProduced": "BestEnd",
-          "BinaryDataExtractors": [
-            {
-              "$type": "BinaryDataExtractorAudio",
-              "OutputFieldName": "AudioClip",
-              "Enabled": true,
-              "ExpandStart": "00:00:00",
-              "ExpandEnd": "00:00:00",
-              "KeepTemporaryFiles": false,
-              "SourceAudioId": "audio"
-            }
-          ],
-          "MaximumRequestsInBatch": 30,
-          "BatchSize": 25,
-          "BatchSplitWindows": 0,
-          "BatchKeepTogetherThreshold": "00:00:00.0000000",
-          "NbContextItems": 0,
-          "NbItemsMinimumReceivedToContinue": 15,
-          "FieldsToInclude": "StartTime"
-        },
-
-        // ---------------- After the End pass: what did the chosen End append? (optional: remove "InnerOptionsEndTail" to not do it) ----------------
+        // ---------------- After the End pass: what did the chosen End append? (optional: set "InnerOptionsEndTail": null to not do it) ----------------
         // When the End chosen by the AI is at least "EndTailMinExtra" after the closest option before it, one request (no text) asks
         // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
         // to that option (then the new End is checked against the option before it, up to "EndTailMaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
@@ -860,67 +612,15 @@ _______________________________________=",
           "Moaning": 0.5
         },
         "EndTailMinExtra": "00:00:00.4",
-        "EndTailMaxChecks": 1,
-        "InnerOptionsEndTail": {
-          "SystemPrompt": {
-            "$ref": "TimingEndTailSystemPrompt"
-          },
-          "MetadataNeeded": "",
-          "MetadataAlwaysProduced": "TailKind",
-          "BinaryDataExtractors": [
-            {
-              "$type": "BinaryDataExtractorAudio",
-              "OutputFieldName": "AudioClip",
-              "Enabled": true,
-              "ExpandStart": "00:00:00",
-              "ExpandEnd": "00:00:00",
-              "KeepTemporaryFiles": false,
-              "SourceAudioId": "audio"
-            }
-          ],
-          "MaximumRequestsInBatch": 30,
-          "BatchSize": 25,
-          "BatchSplitWindows": 0,
-          "BatchKeepTogetherThreshold": "00:00:00.0000000",
-          "NbContextItems": 0,
-          "NbItemsMinimumReceivedToContinue": 15,
-          "FieldsToInclude": "StartTime"
-        },
-
-        // ---------------- SnapAndVerify: the single request ----------------
-        "InnerOptionsVerify": {
-          "SystemPrompt": {
-            "$ref": "TimingVerifySystemPrompt"
-          },
-          "MetadataNeeded": "",
-          "MetadataAlwaysProduced": "Verdict",
-          "BinaryDataExtractors": [
-            {
-              "$type": "BinaryDataExtractorAudio",
-              "OutputFieldName": "AudioClip",
-              "Enabled": true,
-              "ExpandStart": "00:00:00",
-              "ExpandEnd": "00:00:00",
-              "KeepTemporaryFiles": false,
-              "SourceAudioId": "audio"
-            }
-          ],
-          "MaximumRequestsInBatch": 30,
-          "BatchSize": 25,
-          "BatchSplitWindows": 0,
-          "BatchKeepTogetherThreshold": "00:00:00.0000000",
-          "NbContextItems": 0,
-          "NbItemsMinimumReceivedToContinue": 15,
-          "FieldsToInclude": "StartTime"
-        }
+        "EndTailMaxChecks": 1
       },
 
-      // Checks the refined subtitles, flags what needs a look ([REVIEW] block in the node) and fixes some problems. Needs RefineTiming.
+      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Timing editor) and fixes some problems. Needs RefineTiming.
       // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
       "Validation": {
         "Enabled": true,
 
-        // What to do for each kind of finding: "Warn" (the node gets a [REVIEW] block with the reason, and goes in the .REVIEW.srt),
+        // What to do for each kind of finding: "Warn" (the node gets a '[REVIEW:Code] reason' line, and goes in the .REVIEW.srt),
         // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
         //   LongWithSilence => the subtitle is split at its silences (see Checks: MaxSubtitleDuration, MinSilenceToSplit, SplitStrategy).
         //                      The split parts get their text from the AI, and are flagged (SplitPart).
@@ -1005,32 +705,21 @@ _______________________________________=",
       "SourceId": "manual-input-preparer"
     },
     {
-      // (replaced by 'manual-input-review' below: the review is done in the Timing editor of the web UI)
+      // (replaced by 'manual-input-review': the review is done in the Timing editor of the web UI)
       "Id": "generated-manual-input-srt",
       "Enabled": false
     },
     {
-      // The review of the manual-input file in the Timing editor of the web UI (button 'Timing' of the scene), instead of editing the file by hand.
-      // The review is kept in the .wipsubtitles; when the user clicks 'Review done', the file is written (then imported by 'manual-input').
-      // (an existing .manual-input.srt is imported once: a review started by editing the file continues in the editor)
-      "$type": "TranscriberInteractifReview",
-      "$insertAfter": "generated-manual-input-srt",
-      "TranscriptionId": "manual-input-review",
+      // The review of the manual-input file in the Timing editor of the web UI (button 'Timing' of the scene), instead of editing the file by hand:
+      // passes 'Timing', 'Review warnings' and 'Speakers'. Kept in the .wipsubtitles; when the user clicks 'Review done', the file is written
+      // (then imported by 'manual-input'). An existing .manual-input.srt is imported once (a review started by editing the file continues in the editor).
+      "Id": "manual-input-review",
       "Enabled": true,
-      "FileSuffix": ".manual-input.srt",
-      // [OPTION] Change to "full-ai_google" if you prefer having basic english translation in the the manual-input file.
+      // [OPTION] Change to "manual-input-preparer,full-ai_google" (and enable 'full-ai_google' above) if you also want a basic english translation in the manual-input file.
       "TextSources": "manual-input-preparer",
-      "MetadataToUse": "VoiceTextForManualReview",
-      "Metadatas": {
-        "TimingsSource": "manual-input-preparer",
-        "Sources": "manual-input-preparer",
-        "MergeRules": {
-          "VoiceText": null,
-          "VoiceTextValidated": null,
-          "VoiceTextForManualReview": null
-        },
-      },
-      "AddToFirstSubtitle": "{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)",
+      // [OPTION] What is added to the first subtitle, for the user to fill (ex. the context of the scene).
+      // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Timing editor)
+      "AddToFirstSubtitle": "{OngoingContext:The scene take place in...}",
       // [OPTION] Uncomment the following line to be in 'fully automatic' generation (no review: the file is written right away).
       //"ReviewNeeded": false
     },
@@ -1045,12 +734,6 @@ _______________________________________=",
       "Enabled": true
     },
     {
-      "Id": "speakers",
-      // [OPTION] Set to true if you want to take the time to manually identify the speakers (seem to be unneeded when using Gemini 4 with VisualTraining & AudioTraining).
-      "Enabled": false,
-      "ExportMetadataSrt": true
-    },
-    {
       "Id": "singlevad-ai-refined",
       "Enabled": true,
       "Engine": {
@@ -1060,7 +743,7 @@ _______________________________________=",
       "StopOnFirstExecution": false,
       "Metadatas": {
         "TimingsSource": "timings",
-        "Sources": "full,speakers,manual-input",
+        "Sources": "full,manual-input",
         "MergeRules": {
           "VoiceText": null,
           "VoiceTextValidated": "full-VoiceText",
@@ -1129,7 +812,7 @@ _______________________________________=",
       "Enabled": true,
       "ExportMetadataSrt": false,
       "Metadatas": {
-        "Sources": "singlevad-ai-refined,speakers,manual-input"
+        "Sources": "singlevad-ai-refined,manual-input"
       },
       "MaxLineLength": 50,
       "MaxMergeGapSameSpeaker": "00:00:00",
@@ -1207,7 +890,7 @@ _______________________________________=",
       },
       "Metadatas": {
         "TimingsSource": "timings",
-        "Sources": "singlevad-ai-refined,speakers,manual-input",
+        "Sources": "singlevad-ai-refined,manual-input",
         "MergeRules": {
           "singlevad-ai-refined,TranslatedText": "englishTranslation"
         },
@@ -1248,7 +931,7 @@ _______________________________________=",
       "StopOnFirstExecution": false,
       "Metadatas": {
         "TimingsSource": "timings",
-        "Sources": "translated-texts_french,speakers,manual-input",
+        "Sources": "translated-texts_french,manual-input",
         "MergeRules": {
           "TranslatedText": "OriginalTranslatedText"
         },

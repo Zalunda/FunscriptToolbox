@@ -58,6 +58,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                        .Replace("%", "\\%");
         }
 
+        /// <remarks>The caller holds the lock 'VID' (SharedLocks.VideoSource): ex. for all the parts of a scene, one after the other.</remarks>
         public PcmAudio ExtractPcmAudio(
             string inputPath,
             string extractionParameters = null, 
@@ -68,7 +69,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 throw new ArgumentException($"File '{inputPath}' doesn't exists.");
             }
 
-            using var localLock = r_locks.VideoSource.Acquire("ffmpeg: extracting audio from the video");
             var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
@@ -186,9 +186,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         /// <param name="ffmpegParameters">What is between the input (-i) and the output, ex. the filters and the codecs.</param>
         /// <param name="outputFormat">The container (ffmpeg -f), when the name of the output doesn't tell it (ex. a temporary name).</param>
         /// <exception cref="OperationCanceledException">Stopped: what was written is incomplete.</exception>
+        /// <remarks>The caller holds the lock 'ENC' (SharedLocks.VideoEncoding): ex. for all the parts of a scene, one after the other.</remarks>
         internal void CreateVideo(string inputPath, string outputPath, string outputFormat, string ffmpegParameters, TimeSpan inputDuration, string stopHint, Func<bool> shouldStop)
         {
-            using var localLock = r_locks.VideoEncoding.Acquire("ffmpeg: creating a video");
             var node = TaskScope.Current;
             using var cts = new System.Threading.CancellationTokenSource();
             var formatParameter = outputFormat == null ? string.Empty : $" -f {outputFormat}";

@@ -1,6 +1,6 @@
 # FunscriptToolbox
 
-A modular suite of .NET / C# command-line tools, native C++ utilities, and WPF GUI dialogs designed for funscript authoring, acoustic synchronization, variable-speed video retiming, AI-powered subtitle generation and translation, and real-time motion-vector tracking in [OpenFunscripter (OFS)](https://github.com/OpenFunscripter/OFS).
+A modular suite of .NET / C# command-line tools, native C++ utilities, and a web UI designed for funscript authoring, acoustic synchronization, variable-speed video retiming, AI-powered subtitle generation and translation, and real-time motion-vector tracking in [OpenFunscripter (OFS)](https://github.com/OpenFunscripter/OFS).
 
 ---
 
@@ -12,7 +12,6 @@ A modular suite of .NET / C# command-line tools, native C++ utilities, and WPF G
   - [3. Smart Video Retimer (`retimer`)](#3-smart-video-retimer-retimer)
   - [4. AI Subtitle Generation & Translation (`subtitles`)](#4-ai-subtitle-generation--translation-subtitles)
   - [5. Motion Vectors & OFS Plugin (`motionvectors`)](#5-motion-vectors--ofs-plugin-motionvectors)
-  - [6. Interactive GUI Utilities](#6-interactive-gui-utilities)
 - [Quick Start](#quick-start)
 - [Solution Architecture](#solution-architecture)
 - [Building from Source](#building-from-source)
@@ -64,16 +63,10 @@ A modular pipeline to extract dialogue, perform voice activity detection, transc
   * **Transcription**: Powered by Purfview Faster-Whisper, standalone Whisper, or LLM-based speech transcribers.
   * **Speaker Diarization**: Separates and attributes dialogue across multiple speakers.
   * **Translation**: Translates dialogue via Google Translate API or AI/LLMs.
-  * **Interactive Validation**: WPF GUI allows human-in-the-loop review of lines, tags, and audio playback before final export.
+  * **Web UI**: progress of all the scenes on a web page, and the Timing editor for the human-in-the-loop review (timings, review warnings, speakers).
 
 ---
 
-
-### 5. Interactive GUI Utilities
-
-* **Speaker Correction Tool** (`SpeakerCorrectionTool.xaml`): Interactive WPF dialog launched during subtitle generation to inspect dialogue lines, listen to audio segments, reassign speakers, and verify timestamps.
-
----
 
 ## Quick Start
 
@@ -101,7 +94,6 @@ FunscriptToolbox/
     ├── FunscriptToolbox.sln       # Main Visual Studio Solution
     ├── FunscriptToolbox/          # CLI Application & verb implementations (.NET 4.8)
     ├── FunscriptToolbox.Core/     # Domain models & parsers (.NET 4.8)
-    ├── FunscriptToolbox.UI/       # WPF Dialogs (Speaker Correction, MV Editor)
     ├── AudioSynchronization/      # Acoustic fingerprinting & sync engine (.NET 4.8)
     └── MotionVectorsExtractor/    # Native C++ motion vector extractor (MSVC v143, x64)
 ```
@@ -111,7 +103,6 @@ FunscriptToolbox/
 | **`FunscriptToolbox`** | C# / .NET 4.8 | Main console executable exposing all CLI verbs. |
 | **`FunscriptToolbox.Core`** | C# / .NET 4.8 | Core domain models, `.funscript` and `.srt` parsers. |
 | **`AudioSynchronization`** | C# / .NET 4.8 | Acoustic waveform fingerprinting (`.asig`) & cross-correlation. |
-| **`FunscriptToolbox.UI`** | C# / WPF (.NET 4.8) | Interactive UI utilities (Speaker Correction). |
 
 ---
 

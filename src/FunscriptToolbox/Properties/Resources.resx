@@ -166,6 +166,18 @@
   <data name="TranslatorMaverickUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranslatorMaverickUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="TimingStartJudgeSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TimingStartJudgeSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TimingEndJudgeSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TimingEndJudgeSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TimingEndTailSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TimingEndTailSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TimingVerifySystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TimingVerifySystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
   <data name="TranslatorSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranslatorSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>

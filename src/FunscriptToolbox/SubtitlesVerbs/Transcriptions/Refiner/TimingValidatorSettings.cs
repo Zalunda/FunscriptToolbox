@@ -20,7 +20,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public bool Enabled { get; set; } = true;
 
         /// <summary>
-        /// What to do for each kind of finding: Warn (the node gets a [REVIEW] block, and goes in the REVIEW subtitles), Ignore,
+        /// What to do for each kind of finding: Warn (the node gets a '[REVIEW:Code] message' line, and goes in the REVIEW subtitles), Ignore,
         /// or Fix (LongWithSilence only). A code that is not listed is a Warn.
         /// </summary>
         [JsonProperty(Order = 2)]

@@ -35,13 +35,10 @@ namespace FunscriptToolbox
             this.Prefix = prefix;
         }
 
-        // In the web UI, the task tree already tells which video the message is about: no prefix needed.
-        private string ForDisplay(string message) => this.Output.IsWebUi ? message : this.Prefix + message;
-
         public void WriteInfo(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
             r_log.Info(this.Prefix + message);
-            this.Output.WriteInfo(ForDisplay(message), color, isProgress);
+            this.Output.WriteInfo(message, color, isProgress);
         }
 
         public void WriteVerbose(string message = "") => WriteVerbose(message, null, false);
@@ -49,7 +46,7 @@ namespace FunscriptToolbox
         public void WriteVerbose(string message = "", ConsoleColor? color = null, bool isProgress = false)
         {
             r_log.Debug(this.Prefix + message);
-            this.Output.WriteVerbose(ForDisplay(message), color, isProgress, this.IsVerbose);
+            this.Output.WriteVerbose(message, color, isProgress, this.IsVerbose);
         }
 
         public void WriteDebug(string message = "")
@@ -62,7 +59,7 @@ namespace FunscriptToolbox
         public void WriteError(string message = "")
         {
             r_log.Error(this.Prefix + message);
-            this.Output.WriteError(ForDisplay(message));
+            this.Output.WriteError(message);
             lock (this.Errors)
             {
                 this.Errors.Add(this.Prefix + message);

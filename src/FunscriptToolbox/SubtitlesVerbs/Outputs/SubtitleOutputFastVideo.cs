@@ -10,7 +10,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
     /// <summary>
     /// A light video of each part, next to it ("video.mp4" => "video.FAST.mp4"): small and quick to seek (all key frames),
     /// with a clear audio. Used by the Timing editor of the web UI and the speaker correction (they only look for '.FAST.mp4').
-    /// Made with ffmpeg ('FfmpegParameters': what is between the input and the output), one part at a time (lock 'ENC').
+    /// Made with ffmpeg ('FfmpegParameters': what is between the input and the output), one part after the other: the lock 'ENC' is kept
+    /// for all the parts of the scene (the parts of several scenes are not mixed: each scene gets all its light videos before the next one).
     /// The file is written under a temporary name, then renamed: a file that is there is complete.
     /// </summary>
     internal class SubtitleOutputFastVideo : SubtitleOutput
@@ -50,46 +51,64 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         protected override void DoWork(SubtitleGeneratorContext context)
         {
             var segments = context.WIP.TimelineMap.Segments.ToArray();
-            for (var index = 0; index < segments.Length; index++)
+            // (taken for the first part to do, kept until the last one)
+            IDisposable encodingLock = null;
+            try
             {
-                var segment = segments[index];
-                var sourcePath = Path.Combine(context.WIP.ParentPath, segment.Filename);
-                var outputPath = Path.ChangeExtension(sourcePath, this.FileSuffix);
-                if (File.Exists(outputPath))
-                    continue;
-
-                // (safe point between two parts: a part that is done is kept; Pause / Close stop here, before the next one)
-                context.PauseIfClosing();
-
-                var partText = segments.Length > 1 ? $" (part {index + 1} of {segments.Length})" : string.Empty;
-                context.RunStep($"Create '{Path.GetFileName(outputPath)}'{partText}", node =>
+                for (var index = 0; index < segments.Length; index++)
                 {
-                    // (not the real name until it's complete: a stopped ffmpeg leaves no incomplete file that looks done.
-                    //  '.partial': not a video extension, so not found as a new video by a rescan)
-                    var partialPath = outputPath + ".partial";
-                    try
+                    var segment = segments[index];
+                    var sourcePath = Path.Combine(context.WIP.ParentPath, segment.Filename);
+                    var outputPath = Path.ChangeExtension(sourcePath, this.FileSuffix);
+                    if (File.Exists(outputPath))
+                        continue;
+
+                    // (safe point between two parts: a part that is done is kept; Pause / Close stop here, before the next one.
+                    //  While paused, the lock is released: the other scenes can encode)
+                    if (context.Output.GetPauseAtSafePointReason(context.SceneNodeId) != null)
                     {
-                        context.FfmpegHelper.CreateVideo(
-                            sourcePath,
-                            partialPath,
-                            GetFfmpegFormat(outputPath),
-                            this.FfmpegParameters,
-                            segment.Duration,
-                            "Stop the creation of the video (it will be created again, from the start, at the next run).",
-                            // (only the Stop button: Close / Pause wait for the end of the part, see the safe point below)
-                            () => context.PollStopRequest());
-                        File.Move(partialPath, outputPath, overwrite: true);
+                        encodingLock?.Dispose();
+                        encodingLock = null;
+                        context.PauseIfClosing();
                     }
-                    catch (OperationCanceledException)
+                    encodingLock ??= context.Locks.VideoEncoding.Acquire(segments.Length > 1
+                        ? $"ffmpeg: creating the light videos of the {segments.Length} parts"
+                        : "ffmpeg: creating the light video");
+
+                    var partText = segments.Length > 1 ? $" (part {index + 1} of {segments.Length})" : string.Empty;
+                    context.RunStep($"Create '{Path.GetFileName(outputPath)}'{partText}", node =>
                     {
-                        throw new UserStoppedWorkerException();
-                    }
-                    finally
-                    {
-                        if (File.Exists(partialPath))
-                            File.Delete(partialPath);
-                    }
-                });
+                        // (not the real name until it's complete: a stopped ffmpeg leaves no incomplete file that looks done.
+                        //  '.partial': not a video extension, so not found as a new video by a rescan)
+                        var partialPath = outputPath + ".partial";
+                        try
+                        {
+                            context.FfmpegHelper.CreateVideo(
+                                sourcePath,
+                                partialPath,
+                                GetFfmpegFormat(outputPath),
+                                this.FfmpegParameters,
+                                segment.Duration,
+                                "Stop the creation of the video (it will be created again, from the start, at the next run).",
+                                // (only the Stop button: Close / Pause wait for the end of the part, see the safe point below)
+                                () => context.PollStopRequest());
+                            File.Move(partialPath, outputPath, overwrite: true);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw new UserStoppedWorkerException();
+                        }
+                        finally
+                        {
+                            if (File.Exists(partialPath))
+                                File.Delete(partialPath);
+                        }
+                    });
+                }
+            }
+            finally
+            {
+                encodingLock?.Dispose();
             }
         }
 

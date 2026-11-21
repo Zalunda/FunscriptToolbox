@@ -140,12 +140,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // ---------------------------------------------------------------------
 
         /// <summary>Flags a candidate for review, unless the "Validations" setting says to ignore that kind of finding.</summary>
-        public void Flag(TimingCandidate cand, ValidationCode code, string message)
+        /// <param name="detail">A sub-kind of the code (ex. the name of the MaybePointless pattern), or null.</param>
+        public void Flag(TimingCandidate cand, ValidationCode code, string message, string detail = null)
         {
             if (ModeOf(code) == ValidationMode.Ignore)
                 return;
 
-            cand.AddValidationNote(new ValidationNote(code, message));
+            cand.AddValidationNote(new ValidationNote(code, message, detail));
         }
 
         /// <summary>What to do for a code (see <see cref="TimingValidatorSettings.ModeOf"/>): Ignore when there are no validator settings.</summary>

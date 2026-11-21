@@ -40,7 +40,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             SubtitleGeneratorContext context,
             out string reason)
         {
-            if (context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId && f.IsFinished) == null)
+            var transcriptionId = context.ResolveSourceId(TranscriptionId);   // (an alias: its source)
+            if (context.WIP.Transcriptions.FirstOrDefault(f => f.Id == transcriptionId && f.IsFinished) == null)
             {
                 reason = $"Transcription '{this.TranscriptionId}' is not done yet.";
                 return false;
@@ -52,7 +53,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Translation translation)
         {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == TranscriptionId && f.IsFinished);
+            var transcriptionId = context.ResolveSourceId(TranscriptionId);
+            var transcription = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == transcriptionId && f.IsFinished);
 
             var missingTranscriptions = transcription.Items
                 .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))

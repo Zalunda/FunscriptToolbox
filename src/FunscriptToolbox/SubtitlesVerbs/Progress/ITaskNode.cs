@@ -40,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
     /// <summary>
     /// One item of the progress tree (sequence => worker => AI request, etc.).
-    /// In console mode, every node is the <see cref="NullTaskNode"/> (does nothing).
+    /// Outside of any task (no current node), the current node is the <see cref="NullTaskNode"/> (does nothing).
     /// Disposing a started node completes it (as Succeeded, unless it was already marked otherwise)
     /// and restores the previous "current" node of the thread.
     /// </summary>
@@ -79,10 +79,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>Appends to a named detail (ex. the tokens of an AI response as they are received).</summary>
         void AppendDetail(string name, string content);
 
-        /// <summary>Tells the UI that the user can ask this node to stop (the code must call <see cref="ConsumeCancelRequest"/>).</summary>
+        /// <summary>
+        /// Tells the UI that the user can ask this node to stop right away ('Stop now': the code must call <see cref="ConsumeCancelRequest"/>).
+        /// Null: not stoppable anymore.
+        /// </summary>
         void SetCancellable(string hint);
 
-        /// <summary>True once for each cancel request made by the user on this node or one of its ancestors.</summary>
+        /// <summary>
+        /// An AI request: the UI also offers 'Stop after this request' (the request finishes, its response is saved, then the worker stops).
+        /// The code reads <see cref="IsStopAfterRequested"/> once the response is saved.
+        /// </summary>
+        void SetStopAfterSupported();
+
+        /// <summary>The user asked this node to 'Stop after this request' (and didn't undo it).</summary>
+        bool IsStopAfterRequested { get; }
+
+        /// <summary>The code turns a 'Stop now' into a 'Stop after this request' (ex. the batch finished before it could be cancelled: its response is kept).</summary>
+        void ConvertToStopAfter(string reason);
+
+        /// <summary>
+        /// The warning shown (to confirm) when the user clicks 'Stop now' (ex. what was already sent to the AI is billed), or null:
+        /// no confirmation (ex. a batch still queued: cancelled for free).
+        /// </summary>
+        void SetStopNowWarning(string warning);
+
+        /// <summary>True once for each 'Stop now' request made by the user on this node or one of its ancestors.</summary>
         bool ConsumeCancelRequest();
 
         void Fail(string message);
@@ -93,7 +114,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// </summary>
         void MarkAsRefreshOnly();
 
-        /// <summary>The id of the node in the web UI (null in console mode).</summary>
+        /// <summary>The id of the node in the web UI (null for the NullTaskNode).</summary>
         int? Id { get; }
 
         /// <summary>The graph of the workers and data of a scene (only on a first-level node: the 'Flow' view of the web UI).</summary>
@@ -137,6 +158,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetDetail(string name, string content) { }
         public void AppendDetail(string name, string content) { }
         public void SetCancellable(string hint) { }
+        public void SetStopAfterSupported() { }
+        public bool IsStopAfterRequested => false;
+        public void ConvertToStopAfter(string reason) { }
+        public void SetStopNowWarning(string warning) { }
         public bool ConsumeCancelRequest() => false;
         public void Fail(string message) { }
         public void MarkAsRefreshOnly() { }

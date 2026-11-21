@@ -90,9 +90,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     /// </summary>
     public static class SceneFlowGraph
     {
-        /// <summary>The workers of the graph: the key of a worker ("w3") is its index in this array.</summary>
+        /// <summary>
+        /// The workers of the graph: the key of a worker ("w3") is its index in this array.
+        /// (not the aliases: the steps that use one are linked to its source, see Build)
+        /// </summary>
         internal static SubtitleWorker[] GetWorkers(SubtitleGeneratorConfig config) =>
-            (config?.Workers ?? Array.Empty<SubtitleWorker>()).Where(w => w != null).ToArray();
+            (config?.Workers ?? Array.Empty<SubtitleWorker>()).Where(w => w != null && !(w is TranscriberAlias)).ToArray();
 
         public static object Build(SubtitleGeneratorConfig config, Func<SubtitleWorker, ITaskNode> getWorkerNode)
         {
@@ -108,6 +111,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             foreach (var flow in flows)
                 foreach (var output in flow.Outputs.Where(o => o.Kind == DataKind.Transcription || o.Kind == DataKind.Translation))
                     producedIds.Add((output.Kind, output.Id));
+
+            // The enabled aliases: their source (null: they loop)
+            var aliasTargets = new Dictionary<string, string>();
+            foreach (var alias in TranscriberAlias.GetAliases(config))
+            {
+                try { aliasTargets[alias.TranscriptionId] = TranscriberAlias.Resolve(config, alias.TranscriptionId); }
+                catch (InvalidOperationException) { aliasTargets[alias.TranscriptionId] = null; }
+            }
 
             string DataKey(string kind, string id) => $"{kind}:{id}";
             void AddData(string kind, string id)
@@ -142,6 +153,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 foreach (var input in flow.Inputs)
                 {
                     var keys = new List<string>();
+                    var viaAlias = new Dictionary<string, string>();   // key => the alias it was reached with
                     if (input.Kind == DataKind.Sources)
                     {
                         // Same rule as the run: a transcription / translation whose id matches
@@ -150,6 +162,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         {
                             AddData(kind, id);
                             keys.Add(DataKey(kind, id));
+                        }
+                        // An alias that matches: its source (once, even if it's also matched by its own id)
+                        foreach (var alias in aliasTargets.Where(a => regex.IsMatch(a.Key)))
+                        {
+                            var target = producedIds.Distinct().FirstOrDefault(p => p.id == alias.Value);
+                            if (target.id == null)
+                            {
+                                // (its source is not produced in this configuration, or the aliases loop: shown as is)
+                                AddData(DataKind.Sources, alias.Key);
+                                keys.Add(DataKey(DataKind.Sources, alias.Key));
+                                continue;
+                            }
+                            var targetKey = DataKey(target.kind, target.id);
+                            AddData(target.kind, target.id);
+                            if (!keys.Contains(targetKey))
+                            {
+                                keys.Add(targetKey);
+                                viaAlias[targetKey] = alias.Key;
+                            }
                         }
                         if (keys.Count == 0)
                         {
@@ -166,7 +197,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     foreach (var key in keys.Where(k => !ownOutputs.Contains(k)))   // (a rule like "*" also matches the worker's own output)
                     {
-                        edges.Add(new { from = key, to = workerKey, role = input.Role });
+                        var role = viaAlias.TryGetValue(key, out var aliasName)
+                            ? (input.Role == null ? $"as '{aliasName}'" : $"{input.Role} (as '{aliasName}')")
+                            : input.Role;
+                        edges.Add(new { from = key, to = workerKey, role });
                     }
                 }
             }

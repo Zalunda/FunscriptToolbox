@@ -17,10 +17,6 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
-    <UseWPF>true</UseWPF>
-  </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="log4net" Version="3.3.0" />
@@ -32,10 +28,6 @@
   <ItemGroup>
     <ProjectReference Include="..\AudioSynchronization\AudioSynchronization.csproj" />
     <ProjectReference Include="..\FunscriptToolbox.Core\FunscriptToolbox.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
-    <ProjectReference Include="..\FunscriptToolbox.UI\FunscriptToolbox.UI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

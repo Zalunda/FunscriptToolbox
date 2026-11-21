@@ -7,6 +7,18 @@
     //    CLIP = small audio clips for the AIs, PREP = AI request preparation, ENC = ffmpeg creating a whole video (ex. '.FAST.mp4').
     //    Not listed: the default value (shown below).
     "MaxConcurrent": { "GPU": 1, "VID": 1, "AUD": 3, "CLIP": 8, "PREP": 1, "ENC": 1 },
+
+    // ScenePriorities: which scenes get the shared resources first (ffmpeg, GPU, preparation of the AI requests...), from their metadata
+    //    (see 'SceneMetadata' in 'Global' below): the first rule that matches a scene gives its priority (the first rule = the highest).
+    //    'Pattern' is a regular expression on the value (not case sensitive). A scene that matches no rule comes after all of them.
+    //    Within the same priority: the order of the scenes in the list. All the scenes still run: only who is served first changes.
+    //    (shown in the tooltip of a scene in the web UI)
+    "ScenePriorities": [
+      { "Metadata": "Type", "Pattern": "ManualHQWorkflow-G4" },
+      { "Metadata": "Type", "Pattern": "ManualHQWorkflow" },
+      { "Metadata": "Type", "Pattern": "AutomaticHQWorkflow" },
+      { "Metadata": "Type", "Pattern": "Staging" }
+    ],
   },
 
   "Global": {
@@ -30,6 +42,7 @@
       "^(?<Type>\\d+-[^\\\\]+)\\\\"
     ],
     "SceneDisplayName": "{ShortName}[ ({Type})]",
+
   },
 
   "SharedObjects": [

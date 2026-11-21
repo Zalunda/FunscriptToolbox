@@ -477,6 +477,42 @@ namespace FunscriptToolbox.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string (the prompt in SubtitlesVerbs\Prompts\TimingStartJudgeSystemPrompt.txt).
+        /// </summary>
+        internal static string TimingStartJudgeSystemPrompt {
+            get {
+                return ResourceManager.GetString("TimingStartJudgeSystemPrompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string (the prompt in SubtitlesVerbs\Prompts\TimingEndJudgeSystemPrompt.txt).
+        /// </summary>
+        internal static string TimingEndJudgeSystemPrompt {
+            get {
+                return ResourceManager.GetString("TimingEndJudgeSystemPrompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string (the prompt in SubtitlesVerbs\Prompts\TimingEndTailSystemPrompt.txt).
+        /// </summary>
+        internal static string TimingEndTailSystemPrompt {
+            get {
+                return ResourceManager.GetString("TimingEndTailSystemPrompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string (the prompt in SubtitlesVerbs\Prompts\TimingVerifySystemPrompt.txt).
+        /// </summary>
+        internal static string TimingVerifySystemPrompt {
+            get {
+                return ResourceManager.GetString("TimingVerifySystemPrompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (version 2025-11-25)**
         ///
         ///### **Role**

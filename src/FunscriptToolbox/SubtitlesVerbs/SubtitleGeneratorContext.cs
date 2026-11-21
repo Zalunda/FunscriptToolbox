@@ -5,6 +5,7 @@ using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -95,12 +96,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         /// <summary>
-        /// The progress of an AI request. In the web UI, the request is already named by its task (shown right before its status),
-        /// so it's not repeated. In the console, only the status is shown: the request is named in it.
+        /// The progress of an AI request. The request is already named by its task in the UI (shown right before its status),
+        /// so it's not repeated.
         /// </summary>
-        internal void AIRequestProgressUpdateHandler(string toolName, string requestId, string message)
+        internal void AIRequestProgressUpdateHandler(string toolName, string message)
         {
-            DefaultProgressUpdateHandler(toolName, this.Output.IsWebUi ? null : requestId, message);
+            DefaultProgressUpdateHandler(toolName, null, message);
         }
 
         internal void ClearProgressUpdate()
@@ -119,7 +120,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// the scene pauses here, until the application closes, or until the user cancels the close (then it continues normally).
         /// Also for 'Pause all' and 'Pause scene' (web UI), until it's resumed.
         /// </summary>
-        /// <summary>The node of the scene in the web UI (null in console mode): for 'Pause scene'.</summary>
+        /// <summary>The node of the scene in the web UI: for 'Pause scene'.</summary>
         public int? SceneNodeId { get; set; }
 
         internal void PauseIfClosing()
@@ -166,7 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
         }
 
-        // ---- Task tree (only shown in --ui mode; does nothing in console mode) ----
+        // ---- Task tree (shown in the web UI) ----
 
         /// <summary>Starts a sub-task of the current task. Dispose it when done.</summary>
         internal ITaskNode BeginTask(string kind, string name)
@@ -238,13 +239,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         internal void WriteStreamLine(string text = "") => this.Output.WriteStreamLine(text);
 
-        /// <summary>True once each time the user asks to stop what is currently done (Q key in console mode, 'Stop' button in --ui mode).</summary>
+        /// <summary>True once each time the user asks to stop what is currently done ('Stop' button of the task in the web UI).</summary>
         internal bool PollStopRequest() => this.Output.PollStopRequest();
+
+        /// <summary>The id that an id really is: the source of an alias (see <see cref="Transcriptions.TranscriberAlias"/>), or the id itself.</summary>
+        internal string ResolveSourceId(string id) => Transcriptions.TranscriberAlias.Resolve(this.Config, id);
+
+        /// <summary>The transcription / translation with this id (an alias: its source), finished or not; null when there is none (yet).</summary>
+        internal TimedItemWithMetadataCollection FindSource(string id)
+        {
+            if (this.WIP == null || id == null)
+                return null;
+            var resolvedId = ResolveSourceId(id);
+            return (TimedItemWithMetadataCollection)this.WIP.Transcriptions.FirstOrDefault(t => t.Id == resolvedId)
+                ?? this.WIP.Translations.FirstOrDefault(t => t.Id == resolvedId);
+        }
 
         /// <summary>Only one prompt/dialog at a time (the others wait, and show as 'waiting for user'). The wait can be cancelled in --ui mode.</summary>
         internal IDisposable EnterUserInteraction(string description)
         {
-            return this.Locks.UserInteraction.Acquire(description, cancellable: this.Output.IsWebUi);
+            return this.Locks.UserInteraction.Acquire(description, cancellable: true);
         }
 
         /// <summary>Only one process using the local machine (local transcription tool, local AI server) at a time. (The ffmpeg work has its own, finer limits: see SharedLocks.)</summary>
@@ -267,11 +281,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         internal void CreateVerboseTextFile(string suffixe, string content, DateTime? processStartTime = null)
         {
-            if (this.Output.IsWebUi)
-            {
-                // What was sent/received can be inspected in the UI, even when not in verbose mode.
-                TaskScope.Current.SetDetail(suffixe, content);
-            }
+            // What was sent/received can be inspected in the UI, even when not in verbose mode.
+            TaskScope.Current.SetDetail(suffixe, content);
 
             if (IsVerbose)
             {

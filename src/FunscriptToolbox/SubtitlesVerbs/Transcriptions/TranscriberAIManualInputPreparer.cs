@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     /// <summary>
     /// Prepares the subtitles of a transcription (full-ai) for the manual-input file: the nodes that are clean, and the ones
-    /// that need the user's attention ([REVIEW] block). It does up to three things, each with its own settings and Enabled
+    /// that need the user's attention ('[REVIEW:Code:Detail] message' lines). It does up to three things, each with its own settings and Enabled
     /// (all disabled: the result is a clone of the source):
     ///   - RefineTiming: refines the timing of each subtitle in two sequential passes:
     ///       1. START pass: Audio_Max, Audio_S1..Audio_Sn (same end, different starts) -> BestStart
@@ -591,7 +591,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (!run.Task.IsCompleted)
             {
-                context.WriteInfo("  Waiting for the title card detection to finish (PRESS Q TO STOP IT: the manual-input file will then have no title card for the part that was not scanned)...");
+                context.WriteInfo("  Waiting for the title card detection to finish (it can be stopped with the Stop button of the task: the manual-input file will then have no title card for the part that was not scanned)...");
 
                 var lastSave = DateTime.Now;
                 TaskScope.Current.SetCancellable("Stop the title card detection (the manual-input file will have no title card for the part that was not scanned).");
@@ -599,7 +599,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     var scanned = run.Scanned;
                     var percent = run.Total > TimeSpan.Zero ? 100.0 * scanned.Ticks / run.Total.Ticks : 0;
-                    var stopText = run.StoppedByUser ? " Stopping..." : " (PRESS Q TO STOP)";
+                    var stopText = run.StoppedByUser ? " Stopping..." : string.Empty;
                     context.DefaultProgressUpdateHandler(
                         "TitleCardDetector",
                         null,
@@ -1187,11 +1187,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (candidate.NeedsReview)
             {
-                sb.AppendLine("[REVIEW]");
-                if (!candidate.IsFullyLocked)
-                    sb.AppendLine("Unfinished");
+                // One line per finding: '[REVIEW:Code]' or '[REVIEW:Code:Detail]', then the message (the Timing editor groups them by code / detail)
+                if (!candidate.IsFullyLocked && !candidate.ValidationNotes.Any(n => n.Code == ValidationCode.Unfinished))
+                    sb.AppendLine(new ValidationNote(ValidationCode.Unfinished, "The timing is not fully locked (start and/or end).").ToReviewLine());
                 foreach (var note in candidate.ValidationNotes)
-                    sb.AppendLine("  " + note.Message);
+                    sb.AppendLine(note.ToReviewLine());
             }
 
             if (this.IncludeTraceInVoiceTextForManualReviewAlways || (this.IncludeTraceInVoiceTextForManualReviewOnError && sb.Length > 0))

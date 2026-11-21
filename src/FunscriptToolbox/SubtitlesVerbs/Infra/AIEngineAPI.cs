@@ -139,18 +139,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 });
         }
 
+        /// <summary>'Stop now' on an AI request: shown to the user, to confirm (the engines can change it, ex. a batch still queued: null).</summary>
+        internal const string StopNowCostWarning =
+            "The request was already sent to the AI: what it already processed may still be billed (the tokens of the request, and what was generated so far), "
+            + "and the response is lost.\n\n'Stop after this request' keeps the response (and its cost) and stops the worker right after.";
+
+        /// <summary>The hint of the 'Stop now' button of an AI request.</summary>
+        internal const string StopNowHint = "Stops right away: a streaming/normal request is aborted (the response is lost), a batch is cancelled on the server.";
+
         /// <summary>
-        /// Web UI mode only: lets the user stop a request that is not a batch (streaming/normal), by clicking 'Stop'
+        /// Lets the user stop a request that is not a batch (streaming/normal), by clicking 'Stop'
         /// on its task. Aborts the connection (disposing the response is what unblocks a pending read).
         /// Batch requests handle the stop request themselves in their polling loop (they must not be used with this).
         /// </summary>
         protected T RunStoppable<T>(SubtitleGeneratorContext context, HttpClient client, Func<T> work)
         {
-            if (!context.Output.IsWebUi)
-            {
-                return work();
-            }
-
             using var watcher = new StopWatcher(context, client);
             try
             {
@@ -230,37 +233,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         protected void PauseIfEnabled(SubtitleGeneratorContext context, bool isEnabled, string content = null)
         {
-            if (isEnabled && context.Output.IsWebUi)
+            if (!isEnabled)
+                return;
+
+            using (context.EnterUserInteraction("Paused"))
             {
-                using (context.EnterUserInteraction("Paused"))
+                var answer = context.Output.Ask(new UserPrompt
                 {
-                    var answer = context.Output.Ask(new UserPrompt
-                    {
-                        Title = "Paused (PauseBeforeSendingRequest / PauseBeforeSavingResponse)",
-                        Message = content,
-                        Choices = new[] { "Continue", "Stop this worker" }
-                    });
-                    if (answer.Choice != "Continue")
-                    {
-                        throw new UserStoppedWorkerException();
-                    }
-                }
-            }
-            else if (isEnabled)
-            {
-                // (the task is 'waiting for the user', so the progress line is not drawn over the prompt)
-                using (context.EnterUserInteraction("Paused"))
+                    Title = "Paused (PauseBeforeSendingRequest / PauseBeforeSavingResponse)",
+                    Message = content,
+                    Choices = new[] { "Continue", "Stop this worker" }
+                });
+                if (answer.Choice != "Continue")
                 {
-                    if (content != null)
-                    {
-                        Console.WriteLine("\n\n" + content);
-                    }
-                    Console.WriteLine("\n\nPress Q to stop this worker. Any other key to continue.");
-                    var keyInfo = Console.ReadKey(true);
-                    if (keyInfo.Key == ConsoleKey.Q)
-                    {
-                        throw new UserStoppedWorkerException();
-                    }
+                    throw new UserStoppedWorkerException();
                 }
             }
         }

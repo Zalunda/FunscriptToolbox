@@ -22,6 +22,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         protected abstract string GetWorkerTypeName();
         protected abstract string GetExecutionVerb();
 
+        /// <summary>False: the worker is not run and has no task (ex. an alias, only a name resolved when it's used).</summary>
+        internal virtual bool IsTask => true;
+
         /// <summary>How the worker is shown in the task tree of the web UI.</summary>
         internal string DisplayName => $"{GetWorkerTypeName()} '{GetId()}'";
 
@@ -44,7 +47,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public void Execute(SubtitleGeneratorContext context)
         {
             // --- Pre-Execution Guards ---
-            if (!this.Enabled)
+            if (!this.Enabled || !this.IsTask)
             {
                 return;
             }

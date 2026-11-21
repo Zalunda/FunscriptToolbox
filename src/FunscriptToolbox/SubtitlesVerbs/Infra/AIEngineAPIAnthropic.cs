@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.SubtitlesVerbs.Progress;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -172,8 +173,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", batchJson, request.ProcessStartTime);
 
                 // ── 1. Create the batch ──────────────────────────────
-                var requestId = $"{request.TaskId}, #{request.Number}: {request.UpdateMessage}";
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, "Opening connection...");
 
                 var httpRequest = new HttpRequestMessage(
                     HttpMethod.Post, new Uri(client.BaseAddress, "messages/batches"))
@@ -182,7 +182,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 };
                 httpRequest.Headers.Add("anthropic-beta", BATCH_BETA_HEADER);
 
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, "Sending request...");
                 var createResponse = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
 
                 if (!createResponse.IsSuccessStatusCode)
@@ -201,7 +201,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var pollUrl = $"messages/batches/{batch.id}";
                 var cancelUrl = $"messages/batches/{batch.id}/cancel";
                 var startTime = DateTime.Now;
-                bool canCancel = false;
                 HttpStatusCode? lastStatusCodeReceived = null;
                 DateTime? firstTimeLastCodeReceived = null;
                 int pollNumber = 1;
@@ -209,15 +208,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 waitingTimer = new Timer(_ =>
                 {
-                    var cancellationText = lastStatusCodeReceived != null
-                        ? $" (\"{lastStatusCodeReceived}\" received for {DateTime.Now - firstTimeLastCodeReceived}, PRESS Q TO CANCEL)"
-                        : batch?.processing_status == "in_progress"
-                        ? " (PRESS Q TO CANCEL)"
-                        : null;
-                    canCancel = cancellationText != null;
+                    var stateText = lastStatusCodeReceived != null
+                        ? $" (\"{lastStatusCodeReceived}\" received for {DateTime.Now - firstTimeLastCodeReceived})"
+                        : string.Empty;
                     var duration = DateTime.Now - startTime;
-                    context.AIRequestProgressUpdateHandler(ToolName, requestId,
-                        $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{cancellationText}...");
+                    context.AIRequestProgressUpdateHandler(ToolName,
+                        $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{stateText}...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 while (true)
@@ -228,7 +224,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     while (DateTime.Now - waitStart < waitDuration)
                     {
-                        if (context.PollStopRequest() && canCancel)
+                        // 'Stop now' button of the task: the batch exists (it has an id), it can be cancelled.
+                        // ('Stop after this request' is handled by the caller, once the response is saved)
+                        if (context.PollStopRequest())
                         {
                             waitDuration = TimeSpan.Zero;
                             delayedCancel = true;
@@ -258,7 +256,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         var status = batch?.processing_status;
 
                         if (status == BATCH_STATUS_ENDED)
+                        {
+                            // ('Stop now' asked, but it's already done: the response is kept, it costs the same, and the worker stops after it)
+                            if (delayedCancel)
+                                TaskScope.Current.ConvertToStopAfter("the batch had already finished, its response is kept.");
                             break;
+                        }
 
                         if (status != "in_progress")
                             throw new AIResponseException(request,
@@ -281,7 +284,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         waitingTimer?.Dispose();
                         waitingTimer = null;
 
-                        context.AIRequestProgressUpdateHandler(ToolName, requestId,
+                        context.AIRequestProgressUpdateHandler(ToolName,
                             "Cancelling batch on Anthropic servers...");
                         try
                         {
@@ -384,8 +387,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
-                var requestId = $"{request.TaskId}, {request.UpdateMessage}, request #{request.Number}";
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Opening connection...");
+                context.AIRequestProgressUpdateHandler(ToolName, "Opening connection...");
 
                 var httpRequest = new HttpRequestMessage(
                     HttpMethod.Post,
@@ -397,10 +399,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.AIRequestProgressUpdateHandler(ToolName, requestId, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.AIRequestProgressUpdateHandler(ToolName, $"Waiting for 1st token ({DateTime.Now - startTime})...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                context.AIRequestProgressUpdateHandler(ToolName, requestId, "Sending request...");
+                context.AIRequestProgressUpdateHandler(ToolName, "Sending request...");
                 var response = client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead).Result;
                 AttachToStopWatcher(response);
 

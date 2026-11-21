@@ -2,7 +2,7 @@
 param (
     [Parameter(Mandatory = $true)]
     [string]$Version,
-    [string[]]$Projects = @("FunscriptToolbox", "FunscriptToolbox.Core", "FunscriptToolbox.UI", "AudioSynchronization")
+    [string[]]$Projects = @("FunscriptToolbox", "FunscriptToolbox.Core", "AudioSynchronization")
 )
 
 $ErrorActionPreference = "Stop"

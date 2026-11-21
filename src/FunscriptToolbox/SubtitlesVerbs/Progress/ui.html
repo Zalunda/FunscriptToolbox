@@ -231,6 +231,7 @@
   .tl.bgl .lbl { font-style: italic; color: var(--muted); }
   .tl .st { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
   .tag { font-size: 10px; border-radius: 4px; padding: 0 4px; flex: none; border: 1px dashed var(--wait); color: var(--wait); }
+  .tag.stopping { border-color: var(--warn); color: var(--warn); }
 
   /* Progress chip ("nodes 101/234"), lock pills */
   .pg { position: relative; display: inline-flex; align-items: center; height: 16px; min-width: 64px; padding: 0 6px; border-radius: 4px; background: var(--chip-bg); font-size: 11px; color: var(--text); overflow: hidden; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -323,7 +324,8 @@
   #te .te-media { flex: 1; min-height: 0; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
   #te .te-media video { max-width: 100%; max-height: 100%; }
   #te .te-media.audioonly { flex: none; height: 64px; }
-  #te .te-media.audioonly ~ .te-cur { flex: 1; max-height: none; }
+  #te .te-media.audioonly ~ .te-tabbody { flex: 1 1 auto; }
+  #te .te-vwarn { font-size: 11px; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 6px; cursor: help; white-space: nowrap; }
   #te .te-media .te-novideo { color: #9aa3b5; font-size: 12px; text-align: center; padding: 16px; }
   #te .te-clock { position: absolute; left: 8px; bottom: 6px; font: 12px Consolas, "Cascadia Mono", monospace; color: #fff; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 4px; }
   #te .te-menu { position: fixed; z-index: 60; min-width: 250px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 4px 0; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.3); user-select: none; }
@@ -345,7 +347,55 @@
   #te .te-cur textarea { flex: 1; min-height: 90px; width: 100%; resize: none; font: 12px/1.45 Consolas, "Cascadia Mono", monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
   #te .te-cur textarea:focus { outline: none; border-color: var(--accent); }
   #te .te-cur .hint { color: var(--muted); font-size: 11px; }
-  #te .te-list { flex: 1; min-width: 0; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+  /* (tabs under the video: Subtitle, Speakers, Warnings, Settings, Keys) */
+  #te .te-tabs { display: flex; gap: 2px; margin-bottom: -9px; }
+  #te .te-tabs button { padding: 2px 10px; font-size: 12px; border-radius: 6px 6px 0 0; border-bottom-color: transparent; background: transparent; }
+  #te .te-tabs button.on { background: var(--panel); border-color: var(--border); border-bottom-color: var(--panel); color: var(--accent); font-weight: 600; position: relative; z-index: 1; }
+  #te .te-tabbody { flex: 0 0 38%; min-height: 150px; display: flex; flex-direction: column; }
+  #te .te-tabpane { flex: 1; min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 0 8px 8px 8px; padding: 8px 10px; font-size: 12px; }
+  #te .te-tabpane.te-cur { max-height: none; }
+  #te .te-tabpane.te-help { position: static; width: auto; max-height: none; z-index: auto; right: auto; top: auto; }
+  #te .te-tabpane .hint { color: var(--muted); font-size: 11px; }
+  #te .te-set { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 2px 0 6px; }
+  #te .te-set b { min-width: 150px; }
+  #te .te-spkq { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+  #te .te-spkq .hint { color: var(--muted); font-size: 11px; margin-left: 4px; }
+  #te .te-spkchip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 0 4px 0 6px; cursor: grab; background: var(--bg); user-select: none; }
+  #te .te-spkchip.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #te .te-spkchip.drop { box-shadow: inset 3px 0 0 var(--accent); }
+  #te .te-spkchip .nm { cursor: pointer; padding: 1px 0; }
+  #te .te-spkchip input { margin: 0; cursor: pointer; }
+  #te .te-spkpop { position: fixed; z-index: 70; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 6px; min-width: 280px; }
+  #te .te-spkpop label { display: flex; gap: 6px; align-items: center; }
+  #te .te-spkpop input[type=text] { flex: 1; }
+  #te .te-text { white-space: pre-wrap; word-break: break-word; font: 13px/1.45 system-ui, sans-serif; margin: 4px 0; }
+  #te .te-issrow { display: flex; gap: 6px; align-items: baseline; cursor: pointer; font-size: 12px; }
+  #te .te-issrow.chk { opacity: .5; }
+  #te .te-props { width: 100%; border-collapse: collapse; }
+  #te .te-props td { padding: 2px 4px; vertical-align: top; border-bottom: 1px solid var(--border); }
+  #te .te-props td.n { white-space: nowrap; color: var(--wait); width: 1%; }
+  #te .te-props tr.inh td { color: var(--muted); }
+  #te .te-props input[type=text], #te .te-props textarea { width: 100%; box-sizing: border-box; font: 12px Consolas, "Cascadia Mono", monospace; }
+  #te .te-props textarea { resize: vertical; min-height: 44px; }
+  #te .te-spkq button.on, #te .te-tabpane button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #te .te-tools button { padding: 1px 7px; }
+  #te .te-right { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  #te .te-pass { flex: none; max-height: 42%; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 5px; }
+  #te .te-pass .hint { color: var(--muted); font-size: 11px; }
+  #te .te-pass button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #te .te-passtabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+  #te .te-passtabs .hint { margin-left: auto; }
+  #te .te-tree .te-ti { padding: 1px 6px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  #te .te-tree .te-ti:hover { background: var(--row-hover); }
+  #te .te-tree .te-ti.sel { background: var(--row-sel); font-weight: 600; }
+  #te .te-tree .te-ti.done { color: var(--muted); }
+  #te .te-pass .cnt { color: var(--muted); font: 11px Consolas, "Cascadia Mono", monospace; }
+  #te .te-dot { width: 9px; height: 9px; border-radius: 2px; flex: none; display: inline-block; }
+  #te .te-spk { display: flex; align-items: center; gap: 6px; }
+  #te .te-chip.te-iss { background: transparent; border: 1px solid; }
+  #te .te-chip.te-iss.chk { opacity: .45; }
+  #te .te-row.todo .n::before { content: "● "; color: var(--warn); }
+  #te .te-list { flex: 1; min-width: 0; min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
   #te .te-row { display: grid; grid-template-columns: 40px 92px 92px 52px 1fr; gap: 0 8px; padding: 2px 8px; border-bottom: 1px solid var(--border); cursor: pointer; align-items: baseline; }
   #te .te-row:hover { background: var(--row-hover); }
   #te .te-row.sel { background: var(--row-sel); }
@@ -421,26 +471,37 @@
     <b id="teTitle"></b>
     <label title="The review (TranscriberInteractifReview): its subtitles are kept in the .wipsubtitles; its file is written when the review is done">Review <select id="teFile"></select></label>
     <label>Audio <select id="teAudio"></select></label>
+    <span id="teVideoWarn" class="te-vwarn" style="display:none">&#9888; choppy</span>
     <button class="mini primary" id="teSaveBtn" disabled title="Saves the review (in the .wipsubtitles; also saved automatically, see Keys)">&#128190; Save</button>
     <button class="mini" id="teDoneBtn" disabled title="The review is done: its file is written (ex. .manual-input.srt), and the scene continues">&#10004; Review done</button>
     <span id="teStatus" class="te-status"></span>
     <div class="spacer"></div>
-    <button class="mini" id="teHelpBtn" title="The keys (they can be changed)">&#9000; Keys</button>
     <button class="mini" id="teCloseBtn">&#10005; Close</button>
   </div>
-  <div class="te-mid">
+  <div class="te-mid" id="teMid">
     <div class="te-left">
       <div class="te-media"><video id="teVideo" playsinline preload="auto"></video><audio id="teAudioEl" preload="auto"></audio><div id="teNoVideo" class="te-novideo" style="display:none"></div><span class="te-clock" id="teClock"></span></div>
       <div class="te-tools" id="teTools"></div>
-      <div class="te-cur" id="teCur"></div>
+      <div class="te-spkq" id="teSpkBar" style="display:none"></div>
+      <div class="te-spkpop" id="teSpkPop" style="display:none"></div>
+      <div class="te-tabs" id="teTabs"></div>
+      <div class="te-tabbody">
+        <div class="te-tabpane te-cur" id="teCur" data-pane="subtitle"></div>
+        <div class="te-tabpane" id="tePropsPane" data-pane="properties" style="display:none"></div>
+        <div class="te-tabpane" id="teWarningsPane" data-pane="warnings" style="display:none"></div>
+        <div class="te-tabpane" id="teSettingsPane" data-pane="settings" style="display:none"></div>
+        <div class="te-tabpane te-help" id="teHelp" data-pane="keys" style="display:none"></div>
+      </div>
     </div>
-    <div class="te-list" id="teList"></div>
+    <div class="te-right">
+      <div class="te-pass" id="tePass"></div>
+      <div class="te-list" id="teList"></div>
+    </div>
   </div>
   <div class="te-tl">
     <canvas id="teCanvas"></canvas>
     <canvas id="teOverview" title="The whole scene: click to go there"></canvas>
   </div>
-  <div id="teHelp" class="te-help" style="display:none"></div>
 </div>
 
 <script>
@@ -543,6 +604,7 @@
   function sceneTip(n) {
     var lines = [n.name];
     if (n.meta) for (var k in n.meta) if (k !== "FileName") lines.push(k + ": " + n.meta[k]);
+    if (n.priority) lines.push("Priority: " + n.priority);
     if (n.configError) lines.push("", "Configuration problem: " + n.configError);
     return lines.join("\n");
   }
@@ -634,8 +696,19 @@
   function stopButton(chain) {
     for (var i = chain.length - 1; i >= 0; i--) {
       var n = chain[i];
-      if (n.cancelHint && !terminal[n.state])
-        return '<button class="danger mini" data-cancel="' + n.id + '" title="' + esc(n.cancelHint) + '">Stop' + (n.cancelRequests ? " (" + n.cancelRequests + ")" : "") + '</button>';
+      if (!n.cancelHint || terminal[n.state]) continue;
+      if (n.stopNowRequested)
+        return '<span class="tag stopping" title="\'Stop now\' was asked: it stops as soon as possible">stopping…</span>';
+      // An AI request: 'Stop after this request' (keeps the response) or 'Stop now' (asks to confirm when it may still be billed)
+      var after = "";
+      if (n.stopAfter)
+        after = '<span class="tag stopping" title="The worker stops once the response of this request is received and saved">stops after this request</span>' +
+          '<button class="mini" data-cancel="' + n.id + '" data-mode="undo" title="Undo: the worker continues after this request">Undo</button>';
+      else if (n.canStopAfter)
+        after = '<button class="mini" data-cancel="' + n.id + '" data-mode="after" title="Let this request finish (its response is saved), then stop the worker. Nothing is wasted: it continues from there on the next run (Retry or Rescan).">Stop after this request</button>';
+      return after + '<button class="danger mini" data-cancel="' + n.id + '" data-mode="now"' +
+        (n.stopWarning ? ' data-warning="' + esc(n.stopWarning) + '"' : "") +
+        ' title="' + esc(n.cancelHint) + '">' + (n.canStopAfter ? "Stop now!" : "Stop") + '</button>';
     }
     return "";
   }
@@ -1758,7 +1831,12 @@
   function onCancelClick(e) {
     var cancelId = e.target.getAttribute && e.target.getAttribute("data-cancel");
     if (!cancelId) return false;
-    fetch("/api/cancel/" + cancelId, { method: "POST" }); e.stopPropagation();
+    e.stopPropagation();
+    var mode = e.target.getAttribute("data-mode");
+    // 'Stop now' on what may still be billed (ex. an AI request already sent): confirm first
+    var warning = e.target.getAttribute("data-warning");
+    if (mode === "now" && warning && !confirm("Stop now?\n\n" + warning)) return true;
+    fetch("/api/cancel/" + cancelId + "?mode=" + encodeURIComponent(mode), { method: "POST" });
     return true;
   }
   $("tree").addEventListener("click", function (e) {
@@ -2274,7 +2352,6 @@
   function fmtDur(ms) { return (ms / 1000).toFixed(3); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   // (a metadata line of the file, ex. '{OngoingSpeakers:Woman}')
-  function isMeta(line) { return /^\s*\{[^}]*\}\s*$/.test(line); }
 
   // ---- Keys: can be changed in the 'Keys' panel (remembered by the browser) ----
   var ACTIONS = [
@@ -2291,8 +2368,20 @@
     { id: "mergePrev", label: "Merge the selected subtitle with the previous one", def: "M" },
     { id: "mergeNext", label: "Merge the selected subtitle with the next one", def: "Shift+M" },
     { id: "split", label: "Split the selected subtitle at the cursor", def: "X" },
-    { id: "toggleValidated", label: "Validated / not validated (a subtitle is validated by itself when the playback goes 0.2 s past its end)", def: "V" },
-    { id: "validateUpTo", label: "Validate all the subtitles up to the selected one", def: "Shift+V" },
+    { id: "toggleValidated", label: "Timing validated / not validated (a subtitle's timing is validated by itself when the playback goes 0.2 s past its end)", def: "V" },
+    { id: "validateUpTo", label: "Timing validated for all the subtitles up to the selected one", def: "Shift+V" },
+    { id: "nextTodo", label: "Next subtitle to do in the current pass (Timing: timing not validated; Review warnings: not checked; Speakers: speaker not known)", def: "Ctrl+ArrowDown" },
+    { id: "prevTodo", label: "Previous subtitle to do in the current pass", def: "Ctrl+ArrowUp" },
+    { id: "checkIssue", label: "Review warnings: the warnings of the selected subtitle (of the kind chosen in the tree) are checked, then the next one to do (again: not checked anymore)", def: "C" },
+    { id: "speaker1", label: "Speakers: #1 of the list is the speaker of the selected subtitle (again: removed)", def: "1" },
+    { id: "speaker2", label: "Speakers: #2 of the list is the speaker of the selected subtitle", def: "2" },
+    { id: "speaker3", label: "Speakers: #3 of the list is the speaker of the selected subtitle", def: "3" },
+    { id: "speaker4", label: "Speakers: #4 of the list is the speaker of the selected subtitle", def: "4" },
+    { id: "speaker5", label: "Speakers: #5 of the list is the speaker of the selected subtitle", def: "5" },
+    { id: "speaker6", label: "Speakers: #6 of the list is the speaker of the selected subtitle", def: "6" },
+    { id: "speaker7", label: "Speakers: #7 of the list is the speaker of the selected subtitle", def: "7" },
+    { id: "speaker8", label: "Speakers: #8 of the list is the speaker of the selected subtitle", def: "8" },
+    { id: "speaker9", label: "Speakers: #9 of the list is the speaker of the selected subtitle", def: "9" },
     { id: "back", label: "Back 1 second", def: "ArrowLeft" },
     { id: "forward", label: "Forward 1 second", def: "ArrowRight" },
     { id: "backFine", label: "Back 100 ms", def: "Shift+ArrowLeft" },
@@ -2380,7 +2469,7 @@
       text = "Playing the " + (audition.edge === "start" ? "START" : "END") + " of #" + (audition.sel + 1) + " again and again. Play: from " + (settings.replayAfterEdit || audition.edge === "start" ? "its start" : "its end") + ", and continues. Escape: stop.";
     }
     if (!text && S.info) {
-      text = S.subs.length + " subtitles (" + validatedCount() + " validated) · " + (S.activeMs >= 60000 ? "⏱ " + fmtActive(S.activeMs) + " of work · " : "") + (S.mode === "video" ? "video: " + S.info.lightVideoSuffix : "audio only")
+      text = S.subs.length + " subtitles (" + validatedCount() + " with the timing validated) · " + (S.activeMs >= 60000 ? "⏱ " + fmtActive(S.activeMs) + " of work · " : "") + (S.mode === "video" ? (S.videoWarning ? "video: original (no " + S.info.lightVideoSuffix + ", can be choppy)" : "video: " + S.info.lightVideoSuffix) : "audio only")
         + (S.terrain ? " · terrain: " + (S.terrain.settingsFrom ? "settings of " + S.terrain.settingsFrom : "default settings") : "");
     }
     el.textContent = (S.unsaved ? "● Not saved · " : "") + (S.nbOverlaps ? "⚠ " + S.nbOverlaps + " overlap" + (S.nbOverlaps > 1 ? "s" : "") + " (red) · " : "") + (text || "");
@@ -2424,12 +2513,14 @@
       sceneId: sceneId, sceneName: fullName, wantedReview: reviewId || null, following: false, info: null, audioId: null, subs: [], stamp: null, terrain: null, sel: -1,
       viewStart: 0, viewDur: 20000, durMs: 0, peaks: null, mode: "audio", part: -1, pendingSeek: null, stopAt: null,
       dirty: true, msg: null, msgErr: false, playingRow: -1, highlight: null,
-      undo: [], redo: [], savedJson: "[]", unsaved: false, saving: false, review: null, readOnly: false
+      undo: [], redo: [], savedJson: "[]", unsaved: false, saving: false, review: null, readOnly: false,
+      // The passes (see renderPass): the current one, the kind of review warnings chosen in the tree, the speakers config / list
+      pass: loadPref("fstTimingPass") || "timing", issueFilter: null, spk: null, speakers: []
     };
     var my = S;
     $("te").style.display = "";
     $("teTitle").textContent = "⏱ Timing · " + name;
-    $("teList").innerHTML = ""; $("teCur").innerHTML = ""; $("teNoVideo").style.display = "none"; $("teHelp").style.display = "none";
+    $("teList").innerHTML = ""; $("tePass").innerHTML = ""; $("teCur").innerHTML = ""; $("teNoVideo").style.display = "none";
     status("Loading...");
     getJson("info").then(function (info) {
       if (S !== my) return;
@@ -2523,9 +2614,10 @@
     // (a big padding, on a short subtitle: in the file, it stays a subtitle)
     if (sub.re - sub.rs < MIN_DURATION_MS) sub.re = sub.rs + MIN_DURATION_MS;
   }
-  function docJson() { return JSON.stringify(docOf(S.subs)); }
+  // (what is saved: the subtitles, and the list of the speakers)
+  function docJson() { return JSON.stringify({ subs: docOf(S.subs), speakers: S.speakers }); }
   function snapshot() { return JSON.stringify(S.subs); }   // (undo: with the validation)
-  function updateUnsaved() { S.unsaved = docJson() !== S.savedJson; refreshOverlaps(); refreshStatus(); }
+  function updateUnsaved() { S.unsaved = docJson() !== S.savedJson; refreshOverlaps(); refreshStatus(); renderPass(); }
 
   // ---- Validated subtitles: saved by themselves, in a moment (not a change of the file) ----
   var validationTimer = null;
@@ -2653,7 +2745,7 @@
     S.saving = true; refreshStatus();
     fetch(url("save", { review: S.review }), {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stamp: S.stamp, force: !!force, subtitles: docOf(S.subs) })
+      body: JSON.stringify({ stamp: S.stamp, force: !!force, subtitles: docOf(S.subs), speakers: S.speakers })
     }).then(function (r) {
       return r.ok ? r.json() : r.text().then(function (t) { var e = new Error(t || ("HTTP " + r.status)); e.status = r.status; throw e; });
     }).then(function (d) {
@@ -2726,12 +2818,20 @@
   function reviewDone() {
     if (!S || S.readOnly || !S.subs.length) return;
     var notValidated = S.subs.filter(function (x) { return !x.v; }).length;
+    // (the review warnings not checked, and the subtitles whose speaker will be decided by the AI)
+    var openWarnings = 0;
+    S.subs.forEach(function (x) { openWarnings += openIssues(x, true).length; });
+    var nAi = 0, nNobody = 0;
+    if (S.spk) speakerStates().forEach(function (st) { var k = speakerKind(st); if (k === "ai") nAi++; else if (k === "none") nNobody++; });
     // (the overlaps in the file: the timings that are written, not the ones shown, split by the editor when they are not validated)
     var written = S.subs.map(function (x) { return [x.rs, x.re]; }).sort(function (a, b) { return a[0] - b[0]; });
     var fileOverlaps = 0;
     for (var wi = 1; wi < written.length; wi++) if (written[wi - 1][1] > written[wi][0]) fileOverlaps++;
     var text = "Is the review done?\n\nThe file '" + (S.reviewInfo ? S.reviewInfo.fileSuffix : "") + "' is written, and the scene is started again to continue. The review can't be changed here anymore after.\n\nThe file can still be edited by hand: its metadata (ex. {Note:...}) are always used; its timings only until the next steps use them (then they are frozen)." +
-      (notValidated ? "\n\n" + notValidated + " subtitle(s) are NOT validated" + (padStart() || padEnd() ? " (they are written without the padding)" : "") + "." : "") +
+      (notValidated ? "\n\n" + notValidated + " subtitle(s) have their timing NOT validated" + (padStart() || padEnd() ? " (they are written without the padding)" : "") + "." : "") +
+      (openWarnings ? "\n\n" + openWarnings + " review warning(s) are not checked (they are not used after this step)." : "") +
+      (nAi ? "\n\n" + nAi + " subtitle(s) have several speakers present and no {" + S.spk.speaker + "}: the AI will decide who speaks." : "") +
+      (nNobody ? "\n\n" + nNobody + " subtitle(s) have nobody present (no {" + S.spk.ongoing + "} before them): the AI will have no speaker for them." : "") +
       (fileOverlaps ? "\n\n" + fileOverlaps + " overlap(s) will be in the file (subtitles not validated keep their timing without the split shown here, or validated ones that overlap: red)." : "");
     if (!window.confirm(text)) return;
     var my = S;
@@ -2835,7 +2935,8 @@
   function loadSubs() {
     var my = S;
     S.subs = []; S.sel = -1; S.stamp = null; S.undo = []; S.redo = []; S.savedJson = "[]"; S.unsaved = false;
-    renderList(); renderCur();
+    S.spk = null; S.speakers = []; S.issueFilter = null;
+    renderList(); renderCur(); renderPass();
     getJson("subs", { review: S.review }).then(function (d) {
       if (S !== my) return;
       S.subs = d.subtitles; S.stamp = d.stamp; S.lastSaveAt = performance.now();
@@ -2843,21 +2944,30 @@
       S.reviewInfo = { fileSuffix: d.fileSuffix, origin: d.origin };
       S.readOnly = !!d.done;
       $("teDoneBtn").disabled = S.readOnly;
-      // (the validated ones, by their timing as saved)
+      // (the ones with the timing validated, by their timing as saved)
       var validated = {};
-      (d.validated || []).forEach(function (k) { validated[k] = true; });
+      (d.timingValidated || []).forEach(function (k) { validated[k] = true; });
       S.subs.forEach(function (x) { x.rs = x.s; x.re = x.e; x.k = keyOf(x); x.v = !!validated[x.k]; });
+      // The 'Speakers' pass (null: not configured in the review). The names already used in the subtitles are in the list.
+      S.spk = d.speakersConfig || null;
+      S.speakers = (d.speakers || []).map(function (sp) { return { name: sp.name, alias: sp.alias || null }; });
+      if (S.spk) S.subs.forEach(function (x) {
+        var sp = getMeta(x, S.spk.speaker);
+        splitNames(getMeta(x, S.spk.ongoing)).concat(sp ? [sp] : []).forEach(function (nm) {
+          if (!hasName(speakerNames(), nm)) S.speakers.push({ name: nm, alias: null });
+        });
+      });
       padAll();
       S.savedJson = docJson();
       renderList(); renderCur();
       if (!S.msgErr) status(null);
-      // (continues where the user stopped: the first subtitle not validated)
-      var first = 0;
-      while (first < S.subs.length && S.subs[first].v) first++;
-      if (first >= S.subs.length) first = 0;
+      // (continues where the user stopped: the first subtitle to do in the current pass)
+      var first = todoFlags().indexOf(true);
+      if (first < 0) first = 0;
       if (S.subs.length) select(first);
+      renderPass();
       if (S.readOnly) status("The review is done: read only (the file '" + d.fileSuffix + "' is written).");
-      else if (first > 0) status("Continuing at #" + (first + 1) + " (the " + first + " before are validated).");
+      else if (first > 0) status("Continuing at #" + (first + 1) + " (the first one to do in '" + PASSES[currentPass()] + "').");
       else if (d.origin) status("Review " + d.origin + ".");
       S.dirty = true;
     }).catch(function (ex) {
@@ -2868,17 +2978,44 @@
   }
 
   // ---- Playing: the light video of the part (the time is remapped), or the audio ----
+  function lightName(p) { return p.filename.replace(/\.[^.\\\/]*$/, "") + S.info.lightVideoSuffix; }
+  /// The video of each part: its light video (.FAST.mp4), otherwise the video itself (a warning: it can be choppy); no video at all: the audio
   function setupMedia() {
     var parts = S.info.parts;
-    var missing = parts.filter(function (p) { return !p.hasVideo; });
-    S.mode = missing.length === 0 ? "video" : "audio";
-    $("teVideo").style.display = S.mode === "video" ? "" : "none";
-    $("teVideo").parentNode.classList.toggle("audioonly", S.mode !== "video");
-    var nv = $("teNoVideo");
-    nv.style.display = S.mode === "video" ? "none" : "";
-    nv.textContent = "No light video (" + missing.map(function (p) { return p.filename.replace(/\.[^.\\\/]*$/, "") + S.info.lightVideoSuffix; }).join(", ") + "): only the audio is played.";
+    var missing = parts.filter(function (p) { return !p.video; });
+    var originals = parts.filter(function (p) { return p.video === "original"; });
+    setMediaMode(missing.length === 0 ? "video" : "audio",
+      "No video (" + missing.map(function (p) { return p.filename; }).join(", ") + "): only the audio is played.");
+    var warn = $("teVideoWarn");
+    S.videoWarning = S.mode === "video" && originals.length
+      ? "⚠ No light video (" + originals.map(lightName).join(", ") + "): the original video is played, it can be choppy (the 'fast-video' output makes the light video)."
+      : null;
+    warn.style.display = S.videoWarning ? "" : "none";
+    warn.title = S.videoWarning || "";
     if (S.mode === "video") loadPart(0, 0, false);
   }
+  function setMediaMode(mode, noVideoText) {
+    S.mode = mode;
+    $("teVideo").style.display = mode === "video" ? "" : "none";
+    $("teVideo").parentNode.classList.toggle("audioonly", mode !== "video");
+    var nv = $("teNoVideo");
+    nv.style.display = mode === "video" ? "none" : "";
+    nv.textContent = noVideoText || "";
+    if (mode !== "video") $("teVideoWarn").style.display = "none";
+  }
+  // The browser can't play the video (ex. the codec of an original video, HEVC / AV1 / .mkv...): only the audio, from where it was
+  $("teVideo").addEventListener("error", function () {
+    if (!S || S.mode !== "video" || !S.info) return;
+    var p = S.info.parts[S.part], t = curMs(), wasPlaying = S.pendingPlay || !$("teVideo").paused;
+    var v = $("teVideo");
+    v.onloadedmetadata = null; v.removeAttribute("src"); v.load();
+    S.pendingSeek = null; S.part = -1;
+    setMediaMode("audio", "The browser can't play the video of '" + (p ? p.filename : "?") + "'" + (p && p.video === "original" ? " (no light video: the original is used, its format / codec is not supported)" : "") +
+      ": only the audio is played." + (p && p.video === "original" ? " Make its light video ('fast-video' output: " + lightName(p) + ")." : ""));
+    status("The video can't be played by the browser: only the audio is played (see the video area).", true);
+    if (S.audioId) { var el = $("teAudioEl"); el.src = url("audio.wav", { audio: S.audioId }); el.currentTime = t / 1000; if (wasPlaying) { var pr = el.play(); if (pr && pr.catch) pr.catch(function () { }); } }
+    S.dirty = true;
+  });
   function mediaEl() { return S.mode === "video" ? $("teVideo") : $("teAudioEl"); }
   function partAt(ms) {
     var ps = S.info.parts;
@@ -3047,11 +3184,375 @@
     return Math.min(audition.e, audition.s + (actx.currentTime - audition.t0) * 1000);
   }
 
+  // ---- Passes: what the user goes through, one subtitle after the other ("next to do"): Timing, Review warnings, Speakers ----
+  // The review warnings of the preparer are lines of the subtitles: '[REVIEW:Code]' or '[REVIEW:Code:Detail]' then the message (not checked),
+  // '[CHECKED:...]' once the user looked at it (the text of the subtitles is not used after this step: only their {metadata}).
+  // The speakers are metadata lines: {<ongoing>:A, B} = present from this subtitle on (carried to the next ones, like the next steps do:
+  // the last one with names wins) and {<speaker>:A} = the speaker of the subtitle. Known: it has its speaker, or only one speaker is present.
+  var PASSES = { timing: "Timing", issues: "Review warnings", speakers: "Speakers" };
+  var ISSUE_RE = /^\s*\[(REVIEW|CHECKED):([A-Za-z0-9_]+)(?::([^\]\s]+))?\]\s?(.*)$/;
+  var ISSUE_COLORS = ["#e0663d", "#2f9ad0", "#b05cd6", "#3aa66a", "#d4a017", "#d6457a", "#5c7cfa", "#8d6e63", "#00a3a3", "#c0392b"];
+  var issueColorOf = {}, nbIssueColors = 0;
+  function issueColor(code) {
+    if (!issueColorOf.hasOwnProperty(code)) issueColorOf[code] = ISSUE_COLORS[nbIssueColors++ % ISSUE_COLORS.length];
+    return issueColorOf[code];
+  }
+  function parseIssue(line) {
+    var m = ISSUE_RE.exec(line);
+    return m ? { checked: m[1] === "CHECKED", code: m[2], detail: m[3] || null, msg: m[4] } : null;
+  }
+  function issuesOf(sub) {
+    var r = [];
+    sub.lines.forEach(function (l, li) { var x = parseIssue(l); if (x) { x.li = li; r.push(x); } });
+    return r;
+  }
+  function inFilter(x) { var f = S.issueFilter; return !f || (x.code === f.code && (f.detail == null || x.detail === f.detail)); }
+  /// all: whatever the kind chosen in the tree
+  function openIssues(sub, all) { return issuesOf(sub).filter(function (x) { return !x.checked && (all || inFilter(x)); }); }
+  function filterLabel() { var f = S.issueFilter; return f ? f.code + (f.detail ? " › " + f.detail : "") : "all"; }
+
+  // A property (metadata) of a subtitle: {Name:Value} or {Name}, anywhere in its text (also on several lines), like the importer reads
+  // them (SubtitleWorker.ReadMetadataSubtitles): the last one wins. The rest of the text is not used after this step.
+  var PROP_RE = /\{([^}:]*)(?::([^}]*))?\}/g;
+  function sameName(a, b) { return a.trim().toLowerCase() === b.trim().toLowerCase(); }
+  /// The names are compared without case (like the next steps do)
+  function hasName(list, name) { return list.some(function (x) { return sameName(x, name); }); }
+  /// The properties of a subtitle, in the order where they first appear (the value of the last one): [{ name, value }] ("" for {Name})
+  function propsOf(sub) {
+    var out = [], m, text = sub.lines.join("\n");
+    PROP_RE.lastIndex = 0;
+    while ((m = PROP_RE.exec(text))) {
+      var name = m[1].trim();
+      if (!name) continue;
+      var value = m[2] == null ? "" : m[2];
+      var known = out.filter(function (p) { return sameName(p.name, name); })[0];
+      if (known) known.value = value; else out.push({ name: name, value: value });
+    }
+    return out;
+  }
+  /// The value of a property of the subtitle ("" for {Name} alone), null when it doesn't have it
+  function getMeta(sub, name) {
+    var p = propsOf(sub).filter(function (x) { return sameName(x.name, name); })[0];
+    return p ? p.value.trim() : null;
+  }
+  /// The property is removed from wherever it is (a line that only had it is removed); value not null: then added, on its own line
+  /// ("" : {Name} alone).
+  function setMeta(sub, name, value) {
+    var MARK = "\u0001";
+    var text = sub.lines.join("\n").replace(PROP_RE, function (all, n) { return sameName(n, name) ? MARK : all; });
+    var lines = [];
+    text.split("\n").forEach(function (l) {
+      if (l.indexOf(MARK) < 0) { lines.push(l); return; }
+      l = l.split(MARK).join("");
+      if (l.trim()) lines.push(l);
+    });
+    if (value != null) lines.push(value === "" ? "{" + name + "}" : "{" + name + ":" + value + "}");
+    sub.lines = lines;
+  }
+  /// The text of the subtitle: without its properties and its review warnings (only to be read: it's not used after this step)
+  function textOf(sub) {
+    return sub.lines.filter(function (l) { return !parseIssue(l); }).join("\n").replace(PROP_RE, "")
+      .split("\n").map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+  }
+  function splitNames(v) { return (v || "").split(",").map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; }); }
+  /// For each subtitle: the speakers present (the last {ongoing} with names, up to it) and its speaker
+  function speakerStates() {
+    var cur = [], out = [];
+    S.subs.forEach(function (sub) {
+      var names = splitNames(getMeta(sub, S.spk.ongoing));
+      if (names.length) cur = names;
+      out.push({ present: cur, speaker: getMeta(sub, S.spk.speaker) || null });
+    });
+    return out;
+  }
+  function presentAt(i) {
+    for (var k = i; k >= 0; k--) { var names = splitNames(getMeta(S.subs[k], S.spk.ongoing)); if (names.length) return names; }
+    return [];
+  }
+  function speakerStateAt(i) { return { present: presentAt(i), speaker: getMeta(S.subs[i], S.spk.speaker) || null }; }
+  /// "tagged": it has its speaker; "single": only one speaker present; "ai": several present (the AI decides); "none": nobody present
+  function speakerKind(st) { return st.speaker ? "tagged" : st.present.length === 1 ? "single" : st.present.length > 1 ? "ai" : "none"; }
+  function isKnown(st) { var k = speakerKind(st); return k === "tagged" || k === "single"; }
+
+  function currentPass() { return (S.pass === "speakers" && !S.spk) || !PASSES[S.pass] ? "timing" : S.pass; }
+  /// For each subtitle: is it to do in the current pass (computed in one go)
+  function todoFlags() {
+    var pass = currentPass();
+    if (pass === "speakers") return speakerStates().map(function (st) { return !isKnown(st); });
+    if (pass === "issues") return S.subs.map(function (x) { return openIssues(x).length > 0; });
+    return S.subs.map(function (x) { return !x.v; });
+  }
+  function isTodo(i) {
+    var pass = currentPass();
+    if (pass === "speakers") return !isKnown(speakerStateAt(i));
+    if (pass === "issues") return openIssues(S.subs[i]).length > 0;
+    return !S.subs[i].v;
+  }
+  /// dir: 1 next, -1 previous (from the selected subtitle; it doesn't go around)
+  function goTodo(dir) {
+    var flags = todoFlags();
+    for (var i = S.sel + dir; i >= 0 && i < S.subs.length; i += dir) {
+      if (flags[i]) { select(i); return; }
+    }
+    status("Nothing to do " + (dir > 0 ? "after" : "before") + " #" + (S.sel + 1) + " in '" + PASSES[currentPass()] + "'" + (currentPass() === "issues" && S.issueFilter ? " (" + filterLabel() + ")" : "") + ".");
+  }
+  function restoreSel() { if (S.rowEls && S.rowEls[S.sel]) S.rowEls[S.sel].classList.add("sel"); }
+
+  /// The panel of the passes (above the list): the 3 passes, and what goes with the current one (the tree of the warnings, the speakers)
+  function renderPass() {
+    var el = $("tePass");
+    if (!S || !S.info) { el.innerHTML = ""; return; }
+    var pass = currentPass(), n = S.subs.length, nTiming = validatedCount();
+    var tree = {}, nOpen = 0, nAll = 0;
+    S.subs.forEach(function (sub) {
+      issuesOf(sub).forEach(function (x) {
+        var c = tree[x.code] || (tree[x.code] = { open: 0, all: 0, details: {} });
+        c.all++; nAll++;
+        if (!x.checked) { c.open++; nOpen++; }
+        if (x.detail) {
+          var d = c.details[x.detail] || (c.details[x.detail] = { open: 0, all: 0 });
+          d.all++; if (!x.checked) d.open++;
+        }
+      });
+    });
+    var states = S.spk ? speakerStates() : null;
+    var nKnown = states ? states.filter(isKnown).length : 0;
+    function tab(id, label, title, disabled) {
+      return '<button class="mini' + (pass === id ? " on" : "") + '" data-pass="' + id + '"' + (disabled ? " disabled" : "") + ' title="' + esc(title) + '">' + esc(label) + '</button>';
+    }
+    renderSpeakerBar();
+    // The line above the list: the passes (what is to do, ● in the list) and previous / next to do
+    var html = '<div class="te-passtabs">' +
+      tab("timing", "⏱ Timing " + nTiming + "/" + n, "Pass 'Timing': to do = the subtitles whose timing is not validated") +
+      tab("issues", "⚑ Review warnings " + (nAll - nOpen) + "/" + nAll, "Pass 'Review warnings': to do = the subtitles with a [REVIEW:...] line not checked (of the kind chosen in the tree)") +
+      tab("speakers", "👥 Speakers " + nKnown + "/" + n, S.spk
+        ? "Pass 'Speakers': to do = the subtitles whose speaker is not known (several speakers present and no {" + S.spk.speaker + "}, or nobody present)"
+        : "Not configured: 'SpeakerMetadata' and 'OngoingSpeakersMetadata' of the review (TranscriberInteractifReview)", !S.spk) +
+      '<span class="hint" style="margin-left:auto">to do:</span>' +
+      '<button class="mini" data-act="prevTodo" title="Previous subtitle to do in the current pass (' + esc(keys.prevTodo || "-") + ')">⇡</button>' +
+      '<button class="mini" data-act="nextTodo" title="Next subtitle to do in the current pass (' + esc(keys.nextTodo || "-") + ')">⇣</button></div>';
+    el.innerHTML = html;
+    // The tab under the video that goes with it (drawn only when it's shown; it stays where the user scrolled)
+    function pane(id, content) {
+      var p = $(id), top = p.scrollTop;
+      p.innerHTML = content;
+      p.scrollTop = top;
+    }
+    if (teTab === "warnings") pane("teWarningsPane", issuesTreeHtml(tree, nOpen, nAll));
+    else if (teTab === "properties") renderProps();
+  }
+  function issuesTreeHtml(tree, nOpen, nAll) {
+    if (!nAll) return '<div class="hint">No review warning ([REVIEW:...] line) in these subtitles.</div>';
+    var f = S.issueFilter;
+    function item(code, detail, label, c, depth) {
+      var sel = (!f && code == null) || (f && code === f.code && (detail || null) === (f.detail || null));
+      return '<div class="te-ti' + (sel ? " sel" : "") + (c.open ? "" : " done") + '" data-code="' + esc(code || "") + '" data-detail="' + esc(detail || "") + '" style="padding-left:' + (6 + depth * 16) + 'px">' +
+        (code ? '<span class="te-dot" style="background:' + issueColor(code) + '"></span>' : "") + esc(label) +
+        ' <span class="cnt">' + c.open + ' to check / ' + c.all + '</span></div>';
+    }
+    var html = '<div class="te-tree">' + item(null, null, "All the warnings", { open: nOpen, all: nAll }, 0);
+    Object.keys(tree).sort().forEach(function (code) {
+      var c = tree[code];
+      html += item(code, null, code, c, 1);
+      Object.keys(c.details).sort().forEach(function (d) { html += item(code, d, d, c.details[d], 2); });
+    });
+    return html + '</div><div class="hint">Click: only these ones (in the pass \'Review warnings\', next to do goes from one to the other). ' + esc(keys.checkIssue || "-") +
+      ': the warnings of the selected subtitle are checked, then the next one (again: not checked). To fix one: change the timing / the {metadata}, or delete the subtitle (its text is not used after this step).</div>';
+  }
+  /// A change of the lines of a subtitle by a pass: one undo; the list is drawn again (the 'to do' of the next ones can change), and the text box
+  function changeLines(i, change) {
+    if (!canEdit() || !S.subs[i]) return false;
+    pushUndo();
+    S.textEditing = false;
+    change(S.subs[i]);
+    renderList(); restoreSel();
+    renderCur();
+    updateUnsaved();
+    S.dirty = true;
+    return true;
+  }
+  function checkSpeakersPass() {
+    if (S.spk) return true;
+    status("No 'Speakers' pass: 'SpeakerMetadata' and 'OngoingSpeakersMetadata' are not set in the review (TranscriberInteractifReview).", true);
+    return false;
+  }
+  function toggleSpeaker(name) {
+    var sub = S.subs[S.sel];
+    if (!checkSpeakersPass() || !sub) return;
+    var cur = getMeta(sub, S.spk.speaker);
+    var same = !!cur && sameName(cur, name);
+    if (changeLines(S.sel, function (x) { setMeta(x, S.spk.speaker, same ? null : name); }))
+      status("#" + (S.sel + 1) + ": " + (same ? "no {" + S.spk.speaker + "} anymore." : "{" + S.spk.speaker + ":" + name + "}."));
+  }
+  function speakerByIndex(k) {
+    if (!checkSpeakersPass()) return;
+    if (!S.speakers[k]) { status("No speaker #" + (k + 1) + " in the list (＋ of the speakers, under the video).", true); return; }
+    toggleSpeaker(S.speakers[k].name);
+  }
+  function speakerNames() { return S.speakers.map(function (sp) { return sp.name; }); }
+  function shortName(name) {
+    var sp = S.speakers.filter(function (x) { return sameName(x.name, name); })[0];
+    return sp && sp.alias ? sp.alias : name;
+  }
+  /// Present from the selected subtitle on: {ongoing:...} on it, only when it's not the same as before it (otherwise: removed from it)
+  function togglePresent(name) {
+    var i = S.sel;
+    if (!checkSpeakersPass() || !S.subs[i]) return;
+    var present = presentAt(i), next;
+    if (hasName(present, name)) next = present.filter(function (x) { return !sameName(x, name); });
+    else next = speakerNames().filter(function (x) { return hasName(present, x) || sameName(x, name); })
+      .concat(present.filter(function (x) { return !hasName(speakerNames(), x); }));
+    if (!next.length) { status("At least one speaker must be present (an empty list is ignored by the next steps: they keep the last one).", true); renderPass(); return; }
+    var before = i > 0 ? presentAt(i - 1) : [];
+    var same = before.length === next.length && before.every(function (x) { return hasName(next, x); });
+    if (changeLines(i, function (x) { setMeta(x, S.spk.ongoing, same ? null : next.join(", ")); }))
+      status(same ? "#" + (i + 1) + ": the same speakers as before it are present: no {" + S.spk.ongoing + "} needed on it."
+        : "#" + (i + 1) + ": {" + S.spk.ongoing + ":" + next.join(", ") + "} (from this subtitle on).");
+  }
+  /// The subtitles that use a speaker (its {speaker}, or in the list of the speakers present)
+  function speakerUses(name) {
+    return S.subs.filter(function (x) { var sp = getMeta(x, S.spk.speaker); return (sp && sameName(sp, name)) || hasName(splitNames(getMeta(x, S.spk.ongoing)), name); }).length;
+  }
+  function speakerNameError(name, label) {
+    if (!name) return label + " can't be empty.";
+    if (/[,{}\n]/.test(name)) return label + " can't contain ',', '{' or '}'.";
+    return null;
+  }
+  /// The popup of the speakers bar: add a speaker (index null), or change one (its name, its alias) / remove it
+  function openSpeakerPopup(index, anchor) {
+    if (!checkSpeakersPass() || !canEdit()) return;
+    var sp = index == null ? null : S.speakers[index];
+    var pop = $("teSpkPop");
+    pop.innerHTML = '<b>' + (sp ? "Speaker #" + (index + 1) : "New speaker") + '</b>' +
+      '<label>Name <input type="text" id="teSpkName" spellcheck="false" placeholder="Nao Jinguuji" value="' + esc(sp ? sp.name : "") + '"></label>' +
+      '<label>Alias <input type="text" id="teSpkAlias" spellcheck="false" placeholder="Nao (optional: shown here only)" value="' + esc(sp && sp.alias ? sp.alias : "") + '"></label>' +
+      (sp ? '<div class="hint">The name is what is written ({' + esc(S.spk.speaker) + '} / {' + esc(S.spk.ongoing) + '}): changing it changes it in all the subtitles (' + speakerUses(sp.name) + ').</div>' : '') +
+      '<div style="display:flex;gap:6px;justify-content:flex-end">' +
+      (sp ? '<button class="mini danger" data-spkpop="remove">Remove</button><div class="spacer"></div>' : '') +
+      '<button class="mini" data-spkpop="cancel">Cancel</button><button class="mini primary" data-spkpop="ok">' + (sp ? "OK" : "Add") + '</button></div>';
+    pop.setAttribute("data-index", index == null ? "" : String(index));
+    pop.style.display = "";
+    var r = anchor.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + "px";
+    pop.style.top = Math.max(8, Math.min(r.bottom + 4, window.innerHeight - pop.offsetHeight - 8)) + "px";
+    $("teSpkName").focus();
+  }
+  function closeSpeakerPopup() { $("teSpkPop").style.display = "none"; $("teSpkPop").innerHTML = ""; }
+  function speakerPopupOk() {
+    var pop = $("teSpkPop"), idx = pop.getAttribute("data-index");
+    var index = idx === "" ? null : parseInt(idx, 10);
+    var name = $("teSpkName").value.trim(), alias = $("teSpkAlias").value.trim() || null;
+    var error = speakerNameError(name, "The name") || (alias ? speakerNameError(alias, "The alias") : null);
+    if (!error && S.speakers.some(function (x, k) { return k !== index && sameName(x.name, name); })) error = "'" + name + "' is already in the list.";
+    if (error) { status(error, true); return; }
+    if (index == null) {
+      S.speakers.push({ name: name, alias: alias });
+      status("'" + name + "' added to the speakers (#" + S.speakers.length + (S.speakers.length <= 9 ? ", key " + (keys["speaker" + S.speakers.length] || "-") : "") + ").");
+    } else {
+      var old = S.speakers[index].name;
+      if (old !== name) {
+        // (the name is in the subtitles: changed everywhere, one undo)
+        pushUndo();
+        S.subs.forEach(function (x) {
+          var sp = getMeta(x, S.spk.speaker);
+          if (sp && sameName(sp, old)) setMeta(x, S.spk.speaker, name);
+          var present = splitNames(getMeta(x, S.spk.ongoing));
+          if (hasName(present, old)) setMeta(x, S.spk.ongoing, present.map(function (p) { return sameName(p, old) ? name : p; }).join(", "));
+        });
+        renderList(); restoreSel(); renderCur();
+      }
+      S.speakers[index] = { name: name, alias: alias };
+      status("Speaker #" + (index + 1) + ": " + name + (alias ? " (" + alias + ")" : "") + ".");
+    }
+    closeSpeakerPopup();
+    updateUnsaved();
+  }
+  function speakerPopupRemove() {
+    var index = parseInt($("teSpkPop").getAttribute("data-index"), 10), sp = S.speakers[index];
+    if (!sp) return;
+    var used = speakerUses(sp.name);
+    if (used) { status("'" + sp.name + "' is used in " + used + " subtitle(s): remove it from them first.", true); return; }
+    S.speakers.splice(index, 1);
+    closeSpeakerPopup();
+    updateUnsaved();
+  }
+  $("teSpkPop").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-spkpop]") : null;
+    if (!b || !S) return;
+    var what = b.getAttribute("data-spkpop");
+    if (what === "ok") speakerPopupOk(); else if (what === "remove") speakerPopupRemove(); else closeSpeakerPopup();
+  });
+  $("teSpkPop").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); speakerPopupOk(); }
+    else if (e.key === "Escape") closeSpeakerPopup();
+  });
+  document.addEventListener("mousedown", function (e) {
+    var pop = $("teSpkPop");
+    if (pop.style.display !== "none" && !pop.contains(e.target)) closeSpeakerPopup();
+  }, true);
+
+  /// The review warnings of the selected subtitle (of the kind chosen in the tree): checked (then the next one to do), or not checked anymore
+  function toggleChecked() {
+    var sub = S.subs[S.sel];
+    if (!sub) return;
+    var mine = issuesOf(sub).filter(inFilter);
+    if (!mine.length) { status("#" + (S.sel + 1) + " has no review warning" + (S.issueFilter ? " of '" + filterLabel() + "'" : "") + ".", true); return; }
+    var anyOpen = mine.some(function (x) { return !x.checked; });
+    var ok = changeLines(S.sel, function (x) {
+      mine.forEach(function (iss) {
+        x.lines[iss.li] = anyOpen ? x.lines[iss.li].replace("[REVIEW:", "[CHECKED:") : x.lines[iss.li].replace("[CHECKED:", "[REVIEW:");
+      });
+    });
+    if (ok && anyOpen && currentPass() === "issues") goTodo(1);
+    else if (ok && !anyOpen) status("#" + (S.sel + 1) + ": its warnings are not checked anymore.");
+  }
+  $("teMid").addEventListener("click", function (e) {
+    if (!S || !S.info) return;
+    var t = e.target.closest ? e.target.closest("#tePass [data-act],[data-pass],[data-code],[data-speaker],[data-spkadd],[data-issueli],[data-propdel],[data-propadd],[data-propfrom]") : null;
+    if (!t) return;
+    if (t.tagName === "BUTTON") t.blur();   // (the keys go to the editor)
+    if (t.hasAttribute("data-spkadd")) openSpeakerPopup(null, t);
+    else if (t.hasAttribute("data-issueli")) toggleIssueLine(parseInt(t.getAttribute("data-issueli"), 10));
+    else if (t.hasAttribute("data-propdel")) setProperty(t.getAttribute("data-propdel"), null);
+    else if (t.hasAttribute("data-propadd")) addProperty();
+    else if (t.hasAttribute("data-propfrom")) { var nm = t.getAttribute("data-propfrom"); setProperty(nm, inheritedValue(S.sel, nm)); }
+    else if (t.hasAttribute("data-act")) run(t.getAttribute("data-act"));
+    else if (t.hasAttribute("data-pass")) {
+      S.pass = t.getAttribute("data-pass"); savePref("fstTimingPass", S.pass);
+      renderList(); restoreSel();
+      // (its tab under the video)
+      showTab(S.pass === "issues" ? "warnings" : "subtitle");
+      renderPass();
+    } else if (t.hasAttribute("data-code")) {
+      var code = t.getAttribute("data-code");
+      S.issueFilter = code ? { code: code, detail: t.getAttribute("data-detail") || null } : null;
+      renderList(); restoreSel(); renderPass();
+    } else if (t.hasAttribute("data-speaker")) toggleSpeaker(t.getAttribute("data-speaker"));
+  });
+  $("teMid").addEventListener("change", function (e) {
+    if (!S || !e.target.hasAttribute) return;
+    if (e.target.hasAttribute("data-present")) { e.target.blur(); togglePresent(e.target.getAttribute("data-present")); }
+    // (the value of a property, changed in the Properties tab: when the box is left, or Enter)
+    else if (e.target.hasAttribute("data-propval")) setProperty(e.target.getAttribute("data-propval"), e.target.value);
+  });
+  $("teMid").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.shiftKey || !e.target.hasAttribute) return;
+    if (e.target.hasAttribute("data-propval") && e.target.tagName === "INPUT") { e.preventDefault(); e.target.blur(); }
+    else if (e.target.id === "tePropName" || e.target.id === "tePropValue") { e.preventDefault(); addProperty(); }
+  });
+
   // ---- The list and the selected subtitle ----
   function textHtml(sub) {
-    var meta = [], text = [];
-    sub.lines.forEach(function (l) { if (isMeta(l)) meta.push(l.trim().slice(1, -1)); else text.push(l); });
-    return meta.map(function (m) { return '<span class="te-chip" title="' + esc(m) + '">' + esc(m) + '</span>'; }).join("") + esc(text.join(" ⏎ "));
+    var issues = [];
+    sub.lines.forEach(function (l) { var x = parseIssue(l); if (x) issues.push(x); });
+    var meta = propsOf(sub).map(function (p) { return p.name + (p.value ? ":" + p.value : ""); });
+    var text = textOf(sub);
+    return issues.map(function (x) {
+      var c = issueColor(x.code);
+      return '<span class="te-chip te-iss' + (x.checked ? " chk" : "") + '" style="border-color:' + c + ';color:' + c + '" title="' + esc((x.checked ? "Checked: " : "") + x.msg) + '">' +
+        (x.checked ? "✓ " : "⚑ ") + esc(x.code + (x.detail ? ":" + x.detail : "")) + '</span>';
+    }).join("") +
+      meta.map(function (m) { return '<span class="te-chip" title="' + esc(m) + '">' + esc(m) + '</span>'; }).join("") + esc(text.join(" ⏎ "));
   }
   function rowHtml(sub, i) {
     return '<span class="n">' + (sub.v ? "✓" : "") + (i + 1) + '</span><span class="tm">' + fmt(sub.s) + '</span><span class="tm">' + fmt(sub.e) +
@@ -3061,11 +3562,13 @@
     if (!S.rowEls || !S.rowEls[i]) return;
     S.rowEls[i].innerHTML = rowHtml(S.subs[i], i);
     S.rowEls[i].classList.toggle("ok", !!S.subs[i].v);
+    S.rowEls[i].classList.toggle("todo", isTodo(i));
   }
   function renderList() {
     var rows = ['<div class="te-row head"><span>#</span><span>Start</span><span>End</span><span>Dur.</span><span>Text</span></div>'];
+    var todo = todoFlags();
     S.subs.forEach(function (sub, i) {
-      rows.push('<div class="te-row' + (sub.v ? " ok" : "") + '" data-i="' + i + '">' + rowHtml(sub, i) + '</div>');
+      rows.push('<div class="te-row' + (sub.v ? " ok" : "") + (todo[i] ? " todo" : "") + '" data-i="' + i + '">' + rowHtml(sub, i) + '</div>');
     });
     $("teList").innerHTML = rows.join("");
     S.rowEls = $("teList").querySelectorAll(".te-row[data-i]");
@@ -3074,6 +3577,7 @@
     refreshStatus();
   }
   function renderCur() {
+    renderSpeakerBar();
     var sub = S.subs[S.sel];
     if (!sub) { $("teCur").innerHTML = '<div class="tm">No subtitle selected.</div>'; return; }
     var partNote = "";
@@ -3081,12 +3585,160 @@
       var p = partAt(sub.s);
       partNote = " · part " + (p + 1) + " at " + fmt(sub.s - S.info.parts[p].offsetMs);
     }
-    $("teCur").innerHTML = '<div class="tm">' + (sub.v ? '<b style="color:var(--ok)">✓ validated</b> · ' : '') + '#' + (S.sel + 1) + ' · ' + fmt(sub.s) + ' → ' + fmt(sub.e) + ' · ' + fmtDur(sub.e - sub.s) + ' s' + esc(partNote) + '</div>' +
-      '<textarea id="teText" spellcheck="false" title="The lines of the subtitle, as in the file. Metadata: one per line, {Name:Value} (ex. {Speaker:Woman}), or {Name} alone."></textarea>' +
-      '<div class="hint">Lines as in the file: {Name:Value} = a metadata (ex. {Speaker:Woman}). Escape: back to the timeline (keys).</div>';
-    $("teText").value = sub.lines.join("\n");
-    $("teText").readOnly = !!S.readOnly;
+    // (the speaker: its own, or the only one present, or the AI decides)
+    var speakerNote = "";
+    if (S.spk) {
+      var st = speakerStateAt(S.sel), kind = speakerKind(st);
+      speakerNote = " · speaker: " + (kind === "tagged" ? st.speaker : kind === "single" ? st.present[0] + " (only one present)" : kind === "ai" ? "the AI decides (" + st.present.join(", ") + ")" : "nobody present");
+    }
+    var props = propsOf(sub);
+    var issues = [];
+    sub.lines.forEach(function (l, li) { var x = parseIssue(l); if (x) { x.li = li; issues.push(x); } });
+    $("teCur").innerHTML = '<div class="tm">' + (sub.v ? '<b style="color:var(--ok)">✓ timing validated</b> · ' : '') + '#' + (S.sel + 1) + ' · ' + fmt(sub.s) + ' → ' + fmt(sub.e) + ' · ' + fmtDur(sub.e - sub.s) + ' s' + esc(partNote) + esc(speakerNote) + '</div>' +
+      '<div class="te-text">' + esc(textOf(sub).join("\n")) + '</div>' +
+      (props.length ? '<div>' + props.map(function (p) { return '<span class="te-chip" title="' + esc(p.value) + '">' + esc(p.name + (p.value ? ": " + p.value : "")) + '</span>'; }).join("") + '</div>' : '') +
+      issues.map(function (x) {
+        var c = issueColor(x.code);
+        return '<div class="te-issrow' + (x.checked ? " chk" : "") + '" data-issueli="' + x.li + '" title="Click: ' + (x.checked ? "not checked anymore" : "checked") + '">' +
+          '<span style="color:' + c + '">' + (x.checked ? "✓" : "⚑") + ' ' + esc(x.code + (x.detail ? ":" + x.detail : "")) + '</span><span>' + esc(x.msg) + '</span></div>';
+      }).join("") +
+      '<div class="hint">The text is only to be read: after this step, only the timings and the properties ({ } Properties tab) are used.</div>';
   }
+  /// One review warning of the selected subtitle: checked / not checked anymore
+  function toggleIssueLine(li) {
+    var sub = S.subs[S.sel], x = sub ? parseIssue(sub.lines[li] || "") : null;
+    if (!x) return;
+    changeLines(S.sel, function (s) {
+      s.lines[li] = x.checked ? s.lines[li].replace("[CHECKED:", "[REVIEW:") : s.lines[li].replace("[REVIEW:", "[CHECKED:");
+    });
+  }
+
+  // ---- The Properties tab: the properties of the selected subtitle ({Name:Value}), and the {Ongoing...} ones in effect from before ----
+  // (names the next steps know: suggested when adding one, with the ones already used in this review)
+  var KNOWN_PROPS = ["OngoingContext", "GrabOnScreenText", "VisualTraining", "AudioTraining", "Note"];
+  /// The value of an {Ongoing...} property in effect at the subtitle i, from a subtitle before it (null: none): { value, from }
+  function inheritedOngoing(i, name) {
+    for (var k = i - 1; k >= 0; k--) {
+      var v = getMeta(S.subs[k], name);
+      if (v) return { value: v, from: k };
+    }
+    return null;
+  }
+  function inheritedValue(i, name) { var x = inheritedOngoing(i, name); return x ? x.value : ""; }
+  function renderProps() {
+    var pane = $("tePropsPane"), sub = S && S.subs[S.sel];
+    // (typing in it: not drawn again under the fingers)
+    if (pane.contains(document.activeElement) && document.activeElement.tagName !== "BUTTON" && pane.getAttribute("data-sel") === String(S.sel)) return;
+    pane.setAttribute("data-sel", String(S ? S.sel : -1));
+    if (!sub) { pane.innerHTML = '<div class="hint">No subtitle selected.</div>'; return; }
+    var props = propsOf(sub), ro = S.readOnly ? " disabled" : "";
+    var isSpeakerProp = function (n) { return S.spk && (sameName(n, S.spk.speaker) || sameName(n, S.spk.ongoing)); };
+    var rows = props.map(function (p) {
+      var multi = p.value.indexOf("\n") >= 0 || p.value.length > 80;
+      var editor = isSpeakerProp(p.name)
+        ? '<span class="hint">' + esc(p.value) + ' (the speakers bar, under the video)</span>'
+        : multi
+          ? '<textarea data-propval="' + esc(p.name) + '"' + ro + ' spellcheck="false">' + esc(p.value) + '</textarea>'
+          : '<input type="text" data-propval="' + esc(p.name) + '" value="' + esc(p.value) + '"' + ro + ' spellcheck="false" placeholder="(no value: {' + esc(p.name) + '})">';
+      return '<tr><td class="n">' + esc(p.name) + '</td><td>' + editor + '</td><td style="width:1%">' +
+        (isSpeakerProp(p.name) ? '' : '<button class="mini" data-propdel="' + esc(p.name) + '"' + ro + ' title="Remove {' + esc(p.name) + '} from this subtitle">&#10005;</button>') + '</td></tr>';
+    });
+    // The {Ongoing...} in effect from a subtitle before (not changed on this one)
+    var ongoingNames = [];
+    S.subs.slice(0, S.sel).forEach(function (x) { propsOf(x).forEach(function (p) { if (/^ongoing/i.test(p.name) && !hasName(ongoingNames, p.name)) ongoingNames.push(p.name); }); });
+    ongoingNames.filter(function (n) { return !props.some(function (p) { return sameName(p.name, n); }) && !isSpeakerProp(n); }).forEach(function (n) {
+      var inh = inheritedOngoing(S.sel, n);
+      if (!inh) return;
+      rows.push('<tr class="inh"><td class="n">' + esc(n) + '</td><td>' + esc(inh.value) + ' <span class="hint">(from #' + (inh.from + 1) + ')</span></td><td style="width:1%">' +
+        '<button class="mini" data-propfrom="' + esc(n) + '"' + ro + ' title="Change it from this subtitle on">&#9998;</button></td></tr>');
+    });
+    var used = KNOWN_PROPS.slice();
+    S.subs.forEach(function (x) { propsOf(x).forEach(function (p) { if (!hasName(used, p.name)) used.push(p.name); }); });
+    pane.innerHTML = '<table class="te-props">' + (rows.join("") || '<tr><td class="hint">No property on this subtitle.</td></tr>') + '</table>' +
+      '<div class="te-set" style="margin-top:6px"><input type="text" id="tePropName" list="tePropNames" placeholder="Property (ex. GrabOnScreenText)" spellcheck="false" style="width:200px"' + ro + '>' +
+      '<input type="text" id="tePropValue" placeholder="Value (empty: {Name} alone)" spellcheck="false" style="flex:1;min-width:160px"' + ro + '>' +
+      '<button class="mini" data-propadd="1"' + ro + '>&#65291; Add</button>' +
+      '<datalist id="tePropNames">' + used.filter(function (n) { return !isSpeakerProp(n); }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist></div>' +
+      '<div class="hint">{Ongoing...}: in effect for the next subtitles too, until changed. A value: Enter, or leave the box.</div>';
+  }
+  function setProperty(name, value) {
+    if (!name || !S.subs[S.sel]) return;
+    if (value != null && /[{}]/.test(value)) { status("A value can't contain '{' or '}'.", true); renderProps(); return; }
+    var current = getMeta(S.subs[S.sel], name);
+    if (value != null && current != null && current === value.trim()) return;
+    if (changeLines(S.sel, function (x) { setMeta(x, name, value); }))
+      status("#" + (S.sel + 1) + ": " + (value == null ? "{" + name + "} removed." : "{" + name + (value ? ":" + value : "") + "}."));
+    renderProps();
+  }
+  function addProperty() {
+    var name = ($("tePropName") || {}).value, value = ($("tePropValue") || {}).value || "";
+    name = (name || "").trim();
+    if (!name) { status("The name of the property is empty.", true); return; }
+    if (/[{}:,\n]/.test(name)) { status("A property name can't contain '{', '}', ':' or ','.", true); return; }
+    if (S.spk && (sameName(name, S.spk.speaker) || sameName(name, S.spk.ongoing))) { status("{" + name + "}: use the speakers bar, under the video.", true); return; }
+    document.activeElement && document.activeElement.blur && document.activeElement.blur();
+    setProperty(name, value.trim());
+  }
+  /// Always shown (whatever the tab / the pass, ex. while doing the timings): the speakers of the list, in its order (keys 1-9).
+  /// The name: the speaker of the selected subtitle ({speaker}; again: removed). The checkbox: present from the selected subtitle on ({ongoing}).
+  /// Drag: change the order (ex. 1 = left, 2 = center, 3 = right). Right click: change the name / the alias, or remove. ＋: a new speaker.
+  function renderSpeakerBar() {
+    var bar = $("teSpkBar");
+    bar.style.display = S && S.spk ? "" : "none";
+    if (!S || !S.spk) { bar.innerHTML = ""; return; }
+    var st = S.subs[S.sel] ? speakerStateAt(S.sel) : { present: [], speaker: null };
+    var off = S.readOnly || !S.subs[S.sel];
+    var chips = S.speakers.map(function (sp, k) {
+      var key = k < 9 ? keys["speaker" + (k + 1)] : null;
+      var isSpeaker = st.speaker && sameName(st.speaker, sp.name);
+      return '<span class="te-spkchip' + (isSpeaker ? " on" : "") + '" draggable="' + (S.readOnly ? "false" : "true") + '" data-spkidx="' + k + '" title="' +
+        esc(sp.name + (sp.alias ? " (" + sp.alias + ")" : "") + ". Click: the speaker of this subtitle ({" + S.spk.speaker + "}" + (key ? ", key " + key : "") +
+          "). Checkbox: present from this subtitle on ({" + S.spk.ongoing + "}). Drag: change the order. Right click: change / remove.") + '">' +
+        '<span class="nm" data-speaker="' + esc(sp.name) + '">' + (k < 9 ? (k + 1) + ". " : "") + esc(sp.alias || sp.name) + '</span>' +
+        '<input type="checkbox" data-present="' + esc(sp.name) + '"' + (hasName(st.present, sp.name) ? " checked" : "") + (off ? " disabled" : "") + '></span>';
+    }).join("");
+    var kind = speakerKind(st);
+    var here = !S.subs[S.sel] ? "" : kind === "tagged" ? "" : kind === "single" ? "(only " + shortName(st.present[0]) + " present)"
+      : kind === "ai" ? "(several present, no speaker: the AI decides)" : "(nobody present: check who is present)";
+    bar.innerHTML = '<span class="tm">Speakers:</span>' + (chips || '<span class="hint">none yet</span>') +
+      '<button class="mini" data-spkadd="1"' + (S.readOnly ? " disabled" : "") + ' title="A new speaker (its name, and an alias shown here)">&#65291;</button>' +
+      '<span class="hint">' + esc(here) + '</span>';
+  }
+  $("teSpkBar").addEventListener("contextmenu", function (e) {
+    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+    if (!chip || !S) return;
+    e.preventDefault();
+    openSpeakerPopup(parseInt(chip.getAttribute("data-spkidx"), 10), chip);
+  });
+  $("teSpkBar").addEventListener("dragstart", function (e) {
+    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+    if (!chip || !S || S.readOnly) return;
+    S.dragSpeaker = parseInt(chip.getAttribute("data-spkidx"), 10);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(S.dragSpeaker));
+  });
+  $("teSpkBar").addEventListener("dragover", function (e) {
+    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+    if (!chip || !S || S.dragSpeaker == null) return;
+    e.preventDefault();
+    $("teSpkBar").querySelectorAll(".te-spkchip").forEach(function (c) { c.classList.toggle("drop", c === chip); });
+  });
+  $("teSpkBar").addEventListener("dragend", function () {
+    if (S) S.dragSpeaker = null;
+    $("teSpkBar").querySelectorAll(".te-spkchip").forEach(function (c) { c.classList.remove("drop"); });
+  });
+  $("teSpkBar").addEventListener("drop", function (e) {
+    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+    if (!chip || !S || S.dragSpeaker == null) return;
+    e.preventDefault();
+    var from = S.dragSpeaker, to = parseInt(chip.getAttribute("data-spkidx"), 10);
+    S.dragSpeaker = null;
+    if (from === to) { renderSpeakerBar(); return; }
+    var moved = S.speakers.splice(from, 1)[0];
+    S.speakers.splice(to, 0, moved);
+    status("Speakers: " + S.speakers.map(function (sp, k) { return (k + 1) + ". " + (sp.alias || sp.name); }).join(", ") + ".");
+    updateUnsaved();
+  });
   /// The selected row stays in the upper part of the list (the next rows are seen): out of 15% - 70% of its height, the list scrolls to put it at 30%.
   function keepRowInView(row) {
     var list = $("teList"), lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
@@ -3106,10 +3758,16 @@
     var row = S.rowEls && S.rowEls[i];
     if (row) { row.classList.add("sel"); keepRowInView(row); }
     renderCur();
+    renderPass();
     var sub = S.subs[i];
     if (!noView) ensureVisible(sub.s, sub.e);
     if (!noSeek) seek(sub.s);
     S.dirty = true;
+  }
+  /// The user is typing in a box of the editor (ex. a property): the selection doesn't follow the playback meanwhile
+  function isTypingInEditor() {
+    var el = document.activeElement;
+    return !!el && (el.tagName === "INPUT" && el.type === "text" || el.tagName === "TEXTAREA") && $("te").contains(el);
   }
   /// The cursor is in a subtitle (playing, or after a click / a key): it's the selected one.
   function followCursor(t) {
@@ -3198,16 +3856,6 @@
     else S.viewStart += delta * Math.min(1, dt * 8);
     clampView();
   }
-  // The lines of the selected subtitle are edited in the text box (one undo for each time the box is used)
-  $("teCur").addEventListener("input", function (e) {
-    if (e.target.id !== "teText" || !S || !S.subs[S.sel] || S.readOnly) return;
-    if (!S.textEditing) { pushUndo(); S.textEditing = true; }
-    S.subs[S.sel].lines = e.target.value.split("\n");
-    renderRow(S.sel);
-    updateUnsaved();
-    S.dirty = true;
-  });
-  $("teCur").addEventListener("focusout", function () { if (S) S.textEditing = false; });
   $("teList").addEventListener("click", function (e) {
     var row = e.target.closest ? e.target.closest(".te-row[data-i]") : null;
     if (row && S) select(parseInt(row.getAttribute("data-i"), 10));
@@ -3284,8 +3932,7 @@
     return lo;
   }
   function firstLine(sub) {
-    for (var i = 0; i < sub.lines.length; i++) if (!isMeta(sub.lines[i]) && sub.lines[i].trim()) return sub.lines[i];
-    return "";
+    return textOf(sub)[0] || "";
   }
   function draw(t, at) {
     var c = $("teCanvas"), ctx = c.getContext("2d"), dpr = window.devicePixelRatio || 1;
@@ -3343,6 +3990,10 @@
       ctx.fillRect(x1, WAVE_Y, sel ? 2 : 1, WH); ctx.fillRect(x2 - (sel ? 2 : 1), WAVE_Y, sel ? 2 : 1, WH);
       // (validated: a green bar at the bottom)
       if (sub.v) { ctx.fillStyle = colors.ok; ctx.fillRect(x1, WAVE_Y + WH - 4, x2 - x1, 4); }
+      // (review warnings not checked: a small square of the color of each kind, at the bottom)
+      var codes = {};
+      openIssues(sub, true).forEach(function (x) { codes[x.code] = true; });
+      Object.keys(codes).forEach(function (code, k) { ctx.fillStyle = issueColor(code); ctx.fillRect(x1 + 2 + k * 8, WAVE_Y + WH - 12, 6, 6); });
       if (x2 - x1 > 24) {
         ctx.save(); ctx.beginPath(); ctx.rect(x1 + 3, WAVE_Y, x2 - x1 - 6, WH); ctx.clip();
         ctx.fillStyle = colors.text; ctx.globalAlpha = sel ? 1 : 0.75;
@@ -3449,7 +4100,7 @@
     validateWhilePlaying(playing, t);
     // (the selected row is the subtitle where the cursor is; not while an edge is played / moved)
     // (not while typing in the text of the selected subtitle)
-    if (!audition && !S.edgeDrag && !S.pendingLoop && !S.textEditing && document.activeElement !== $("teText") && (playing || t !== S.lastFollowT)) { S.lastFollowT = t; followCursor(t); }
+    if (!audition && !S.edgeDrag && !S.pendingLoop && !isTypingInEditor() && (playing || t !== S.lastFollowT)) { S.lastFollowT = t; followCursor(t); }
     if (S.dirty) {
       S.dirty = false;
       draw(t, at);
@@ -3658,12 +4309,24 @@
     pushUndo();
     stopAudition();
     S.subs.splice(i, 1);
+    // Its {Ongoing...} metadata (ex. the context, the speakers present) are for the subtitles after it too: moved to the next one
+    // (unless it has its own: it replaces them anyway)
+    var moved = [], lost = [];
+    propsOf(sub).forEach(function (p) {
+      if (!/^ongoing/i.test(p.name) || !p.value.trim()) return;
+      var next = S.subs[i];
+      if (!next) lost.push(p.name);
+      else if (getMeta(next, p.name) == null) { setMeta(next, p.name, p.value); moved.push(p.name); }
+    });
     renderList();
     S.sel = -1;
     if (S.subs.length) select(Math.min(i, S.subs.length - 1), true);
     else renderCur();
     updateUnsaved();
-    status("Subtitle #" + (i + 1) + " deleted (" + fmt(sub.s) + " → " + fmt(sub.e) + "). Undo: " + (keys.undo || "-") + ".");
+    status("Subtitle #" + (i + 1) + " deleted (" + fmt(sub.s) + " → " + fmt(sub.e) + ")." +
+      (moved.length ? " Its " + moved.map(function (x) { return "{" + x + "}"; }).join(", ") + " moved to the next one." : "") +
+      (lost.length ? " Its " + lost.map(function (x) { return "{" + x + "}"; }).join(", ") + " are lost (it was the last one)." : "") +
+      " Undo: " + (keys.undo || "-") + ".");
     S.dirty = true;
   }
 
@@ -3689,7 +4352,7 @@
     select(i, true, true);
     updateUnsaved();
     S.validationChanged = true; scheduleValidationSave();
-    status("#" + (i + 1) + " split at " + fmt(ms) + " (#" + (i + 1) + " and #" + (i + 2) + " have the same lines: remove what doesn't belong in each). Undo: " + (keys.undo || "-") + ".");
+    status("#" + (i + 1) + " split at " + fmt(ms) + " (#" + (i + 2) + " has the same text and properties: remove its properties that are only for the first part). Undo: " + (keys.undo || "-") + ".");
   }
 
   /// Merges the subtitle i into the one before it: from the first start to the last end, with the lines of both
@@ -3793,11 +4456,11 @@
 
   // ---- Buttons (the same actions as the keys: the key is in the tooltip) ----
   var TOOLS = [
-    ["prevSub", "▲ Prev"], ["nextSub", "▼ Next"], ["nextSpeech", "⇥ Next + speech"], null,
-    ["playSub", "▶ Play"], ["loopStart", "⟲ Start"], ["loopEnd", "End ⟳"], ["stop", "■ Stop"], null,
-    ["add", "＋ Add"], ["delete", "✕ Delete"], ["split", "✂ Split"], ["mergePrev", "⤒ Merge prev"], ["mergeNext", "Merge next ⤓"], null,
-    ["toggleValidated", "✓ Validated"], ["validateUpTo", "✓ Up to here"], null,
-    ["undo", "↶ Undo"], ["redo", "↷ Redo"]
+    ["prevSub", "▲"], ["nextSub", "▼"], ["nextSpeech", "⇥"], null,
+    ["playSub", "▶"], ["loopStart", "⟲"], ["loopEnd", "⟳"], ["stop", "■"], null,
+    ["add", "＋"], ["delete", "✕"], ["split", "✂"], ["mergePrev", "⤒"], ["mergeNext", "⤓"], null,
+    ["toggleValidated", "✓"], ["validateUpTo", "✓⇡"], ["checkIssue", "⚑"], null,
+    ["undo", "↶"], ["redo", "↷"]
   ];
   function renderTools() {
     var labelOf = {};
@@ -3805,42 +4468,8 @@
     $("teTools").innerHTML = TOOLS.map(function (t) {
       if (!t) return '<span class="sep"></span>';
       return '<button class="mini" data-act="' + t[0] + '" title="' + esc(labelOf[t[0]] + (keys[t[0]] ? " (" + keys[t[0]] + ")" : "")) + '">' + esc(t[1]) + '</button>';
-    }).join("") +
-      '<label class="opt" title="After a start / end is moved (Ctrl+click): plays the whole subtitle once, instead of its start / end again and again. And Play during a start / end loop: from the start of the subtitle (unchecked: from the edge being played)">' +
-      '<input type="checkbox" id="teReplayOpt"' + (settings.replayAfterEdit ? " checked" : "") + '> Replay the whole subtitle after a change</label>' +
-      '<label class="opt" title="Added to the start / the end of the subtitles NOT validated (+ = longer, - = shorter), in ms. Only in the editor: the file keeps their timing without it, until they are validated (then their timing with the padding is their timing).">' +
-      'Padding (ms): start <input type="number" id="tePadStart" step="10" style="width:64px" value="' + (settings.padStartMs || 0) + '"> end <input type="number" id="tePadEnd" step="10" style="width:64px" value="' + (settings.padEndMs || 0) + '"></label>' +
-      '<label class="opt" title="Playing faster between subtitles (from ' + settings.fastAfterMs + ' ms after a subtitle, to ' + settings.fastBeforeMs + ' ms before the next one: see Keys). Play during that time: back 1 s, normal speed for 3 s. 100: off.">' +
-      'Gaps: <input type="number" id="teFastRate" min="100" max="800" step="25" style="width:56px" value="' + settings.fastRate + '"> %</label>' +
-      '<label class="opt" title="The start / end of a subtitle is played at most this many times, then it plays on, like Play (0: no limit).">' +
-      'Loops: <input type="number" id="teAudMax" min="0" max="99" step="1" style="width:44px" value="' + settings.auditionMax + '"> ×</label>';
+    }).join("");
   }
-  $("teTools").addEventListener("change", function (e) {
-    if (e.target.id !== "teReplayOpt") return;
-    settings.replayAfterEdit = e.target.checked;
-    savePref("fstTimingSettings", JSON.stringify(settings));
-    e.target.blur();   // (the keys go to the editor)
-  });
-  // (the padding: the subtitles not validated move right away)
-  $("teTools").addEventListener("input", function (e) {
-    if (e.target.id === "teAudMax") {
-      var max = parseInt(e.target.value, 10);
-      if (!isNaN(max)) { settings.auditionMax = clamp(max, 0, 99); savePref("fstTimingSettings", JSON.stringify(settings)); }
-      return;
-    }
-    if (e.target.id === "teFastRate") {
-      var rate = parseInt(e.target.value, 10);
-      if (!isNaN(rate)) { settings.fastRate = clamp(rate, 100, 800); savePref("fstTimingSettings", JSON.stringify(settings)); }
-      return;
-    }
-    if (e.target.id !== "tePadStart" && e.target.id !== "tePadEnd") return;
-    var v = parseInt(e.target.value, 10);
-    if (isNaN(v)) return;
-    v = clamp(v, -5000, 5000);
-    if (e.target.id === "tePadStart") settings.padStartMs = v; else settings.padEndMs = v;
-    savePref("fstTimingSettings", JSON.stringify(settings));
-    if (S && S.info) applyPadding();
-  });
   $("teTools").addEventListener("click", function (e) {
     var b = e.target.closest ? e.target.closest("[data-act]") : null;
     if (!b || !S || !S.info) return;
@@ -3848,6 +4477,70 @@
     run(b.getAttribute("data-act"));
   });
   renderTools();
+
+  // ---- Settings tab (remembered by this browser) ----
+  function numSetting(id, value, min, max, step, width) {
+    return '<input type="number" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" style="width:' + width + 'px" value="' + value + '">';
+  }
+  function renderSettings() {
+    $("teSettingsPane").innerHTML =
+      '<div class="te-set"><b>Padding (ms)</b> start ' + numSetting("tePadStart", settings.padStartMs || 0, -5000, 5000, 10, 64) + ' end ' + numSetting("tePadEnd", settings.padEndMs || 0, -5000, 5000, 10, 64) +
+      '<span class="hint">added to the start / the end of the subtitles whose timing is NOT validated (+ = longer, - = shorter), right away. Only in the editor: the file keeps their timing without it, until they are validated (then their timing with the padding is their timing; save to keep it).</span></div>' +
+      '<div class="te-set"><b>Faster between subtitles</b> ' + numSetting("teFastRate", settings.fastRate, 100, 800, 25, 56) + ' % from ' + numSetting("teFastAfter", settings.fastAfterMs, 0, 10000, 100, 64) + ' ms after a subtitle until ' +
+      numSetting("teFastBefore", settings.fastBeforeMs, 0, 10000, 100, 64) + ' ms before the next one, when the gap is at least ' + numSetting("teFastMinGap", settings.fastMinGapMs, 0, 60000, 500, 64) + ' ms' +
+      '<span class="hint">(100 %: off). Play during that time: back 1 s, and normal speed for 3 s.</span></div>' +
+      '<div class="te-set"><b>Start / end loops</b> play ' + numSetting("teAudMs", settings.auditionMs, 100, 5000, 50, 64) + ' ms at the edge, wait ' + numSetting("teGapMs", settings.auditionGapMs, 0, 3000, 50, 64) +
+      ' ms, at most ' + numSetting("teAudMax", settings.auditionMax, 0, 99, 1, 44) + ' times<span class="hint">(0: no limit), then it plays on, like Play.</span></div>' +
+      '<div class="te-set"><b>After a change of an edge</b><label><input type="checkbox" id="teReplayOpt"' + (settings.replayAfterEdit ? " checked" : "") + '> replay the whole subtitle</label>' +
+      '<span class="hint">(instead of its start / end again and again; and Play during a start / end loop: from the start of the subtitle, otherwise from the edge being played)</span></div>' +
+      '<div class="te-set"><b>Saved automatically</b> every ' + numSetting("teAutoSave", settings.autoSaveMin, 0, 60, 1, 48) + ' minutes while there are changes<span class="hint">(0: never). It saves the review (in the .wipsubtitles), not the file: the file is written when the review is done.</span></div>';
+  }
+  $("teSettingsPane").addEventListener("change", function (e) {
+    if (e.target.id !== "teReplayOpt") return;
+    settings.replayAfterEdit = e.target.checked;
+    savePref("fstTimingSettings", JSON.stringify(settings));
+    e.target.blur();   // (the keys go to the editor)
+  });
+  $("teSettingsPane").addEventListener("input", function (e) {
+    var v = parseInt(e.target.value, 10);
+    if (isNaN(v)) return;
+    switch (e.target.id) {
+      case "tePadStart": settings.padStartMs = clamp(v, -5000, 5000); break;
+      case "tePadEnd": settings.padEndMs = clamp(v, -5000, 5000); break;
+      case "teFastRate": settings.fastRate = clamp(v, 100, 800); break;
+      case "teFastAfter": settings.fastAfterMs = clamp(v, 0, 10000); break;
+      case "teFastBefore": settings.fastBeforeMs = clamp(v, 0, 10000); break;
+      case "teFastMinGap": settings.fastMinGapMs = clamp(v, 0, 60000); break;
+      case "teAudMs": settings.auditionMs = clamp(v, 100, 5000); break;
+      case "teGapMs": settings.auditionGapMs = clamp(v, 0, 3000); break;
+      case "teAudMax": settings.auditionMax = clamp(v, 0, 99); break;
+      case "teAutoSave": settings.autoSaveMin = clamp(v, 0, 60); break;
+      default: return;
+    }
+    savePref("fstTimingSettings", JSON.stringify(settings));
+    // (the padding: the subtitles not validated move right away)
+    if ((e.target.id === "tePadStart" || e.target.id === "tePadEnd") && S && S.info) applyPadding();
+  });
+
+  // ---- The tabs under the video ----
+  var TE_TABS = [["subtitle", "Subtitle"], ["properties", "{ } Properties"], ["warnings", "⚑ Warnings"], ["settings", "⚙ Settings"], ["keys", "⌨ Keys"]];
+  var teTab = loadPref("fstTimingTab") || "subtitle";
+  if (!TE_TABS.some(function (t) { return t[0] === teTab; })) teTab = "subtitle";
+  function showTab(id) {
+    teTab = id; savePref("fstTimingTab", id);
+    capturing = null;
+    $("teTabs").innerHTML = TE_TABS.map(function (t) { return '<button class="mini' + (t[0] === id ? " on" : "") + '" data-tab="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join("");
+    document.querySelectorAll("#te .te-tabpane").forEach(function (p) { p.style.display = p.getAttribute("data-pane") === id ? "" : "none"; });
+    if (id === "settings") renderSettings();
+    else if (id === "keys") renderHelp();
+    else if (S && S.info) renderPass();
+  }
+  $("teTabs").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-tab]") : null;
+    if (!b) return;
+    b.blur();
+    showTab(b.getAttribute("data-tab"));
+  });
 
   function run(action) {
     var t = curMs();
@@ -3886,6 +4579,12 @@
       case "undo": restore(S.undo, S.redo); break;
       case "redo": restore(S.redo, S.undo); break;
       case "save": save(false); break;
+      case "nextTodo": goTodo(1); break;
+      case "prevTodo": goTodo(-1); break;
+      case "checkIssue": toggleChecked(); break;
+      default:
+        if (/^speaker[1-9]$/.test(action)) speakerByIndex(parseInt(action.slice(7), 10) - 1);
+        break;
     }
   }
 
@@ -3925,43 +4624,24 @@
         esc(capturing === a.id ? "press a key..." : (keys[a.id] || "(none)")) + '</kbd></td></tr>';
     }).join("");
     $("teHelp").innerHTML =
-      '<div style="display:flex;align-items:center;gap:8px"><b>Keys</b><div class="spacer"></div><button class="mini" data-reset="1">Default keys</button><button class="mini" data-hide="1">&#10005;</button></div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><b>Keys</b><div class="spacer"></div><button class="mini" data-reset="1">Default keys</button></div>' +
       '<div class="note">Click on a key to change it (remembered by this browser).</div>' +
       '<table>' + rows + '</table>' +
       '<div class="note"><b>Click</b> (timeline) = go there and select the subtitle there &middot; drag = move the view &middot; wheel = scroll &middot; Ctrl+wheel = zoom &middot; Shift+wheel = taller / shorter waveform &middot; right click = menu. The bar under the timeline is the whole scene (click: go there).</div>' +
       '<div class="note"><b>Ctrl+click</b>: moves an edge there (Ctrl+drag: it follows the mouse), then plays it again and again. In a subtitle: its start (left half) or its end (right half). Between two subtitles: the end of the previous one or the start of the next one (the nearest). Right on the edge (' + EDGE_KEEP_PX + ' pixels): only plays it. Then Play: plays and continues, from the start of the subtitle (option "Replay the whole subtitle after a change"), otherwise from the edge being played.</div>' +
-      '<div class="note"><b>Padding</b> (under the video, in ms, + = longer, - = shorter): added to the start / the end of the subtitles not validated, right away. Only in the editor: the file keeps their timing without it. When a subtitle is validated, its timing with the padding becomes its timing (save to keep it).</div>' +
-      '<div class="note"><b>Validated</b> (&#10003;, green): a subtitle is validated by itself when the playback goes 0.2 s past its end (without a stop since before its end). Saved with the review (in the .wipsubtitles). Next time, the editor starts at the first one not validated.</div>' +
-      '<div class="note"><b>Saved automatically</b> every <input id="teAutoSave" type="number" min="0" max="60" step="1" style="width:48px" value="' + settings.autoSaveMin + '"> minutes while there are changes (0: never). It saves the review (in the .wipsubtitles), not the file: the file is written when the review is done.</div>' +
-      '<div class="note"><b>Start / end loops</b>: play <input id="teAudMs" type="number" min="100" max="5000" step="50" style="width:64px" value="' + settings.auditionMs + '"> ms at the edge, then wait <input id="teGapMs" type="number" min="0" max="3000" step="50" style="width:64px" value="' + settings.auditionGapMs + '"> ms. At most &quot;Loops&quot; times (under the video), then it plays on, like Play.</div>' +
-      '<div class="note"><b>Faster between subtitles</b> (Gaps %, under the video; 100: off): from <input id="teFastAfter" type="number" min="0" max="10000" step="100" style="width:64px" value="' + settings.fastAfterMs + '"> ms after a subtitle, until <input id="teFastBefore" type="number" min="0" max="10000" step="100" style="width:64px" value="' + settings.fastBeforeMs + '"> ms before the next one, only when the gap between them is at least <input id="teFastMinGap" type="number" min="0" max="60000" step="500" style="width:64px" value="' + settings.fastMinGapMs + '"> ms. Play during that time: back 1 s, and normal speed for 3 s.</div>' +
+      '<div class="note"><b>Timing validated</b> (&#10003;, green): a subtitle\'s timing is validated by itself when the playback goes 0.2 s past its end (without a stop since before its end). Saved with the review (in the .wipsubtitles).</div>' +
+      '<div class="note"><b>Passes</b> (above the list): Timing, Review warnings, Speakers (choosing one also opens its tab). Each one says what is to do (&#9679; in the list); "next to do" goes from one to the other. Next time, the editor starts at the first one to do in the current pass. ' +
+      '<b>Review warnings</b>: the [REVIEW:Code:Detail] lines of the preparer, by kind (tree): checked one by one (they become [CHECKED:...]). ' +
+      '<b>Speakers</b>: the list of the speakers; the checkboxes = who is present from the selected subtitle on ({OngoingSpeakers}, added only where it changes); a name = the speaker of the selected subtitle ({Speaker}). A deleted subtitle gives its {Ongoing...} metadata to the next one.</div>' +
       '<div class="note">Terrain band (under the ruler): <span style="color:' + esc(colors.ok) + '">&#9632; speech</span> <span style="color:' + esc(colors.warn) + '">&#9632; breath</span> <span style="color:' + esc(colors.muted) + '">&#9632; click</span>.</div>';
   }
-  $("teHelpBtn").onclick = function () {
-    var h = $("teHelp");
-    capturing = null;
-    if (h.style.display === "none") { renderHelp(); h.style.display = ""; } else h.style.display = "none";
-  };
   $("teHelp").addEventListener("click", function (e) {
     var k = e.target.getAttribute && e.target.getAttribute("data-key");
     if (k) { capturing = k; renderHelp(); return; }
     if (e.target.getAttribute && e.target.getAttribute("data-reset")) { savePref("fstTimingKeys", null); loadKeys(); renderHelp(); return; }
-    if (e.target.getAttribute && e.target.getAttribute("data-hide")) { $("teHelp").style.display = "none"; capturing = null; }
   });
-  $("teHelp").addEventListener("change", function (e) {
-    var v = parseInt(e.target.value, 10);
-    if (isNaN(v)) return;
-    if (e.target.id === "teAudMs") settings.auditionMs = clamp(v, 100, 5000);
-    if (e.target.id === "teGapMs") settings.auditionGapMs = clamp(v, 0, 3000);
-    if (e.target.id === "teAudMax") settings.auditionMax = clamp(v, 0, 99);
-    if (e.target.id === "teFastAfter") settings.fastAfterMs = clamp(v, 0, 10000);
-    if (e.target.id === "teFastBefore") settings.fastBeforeMs = clamp(v, 0, 10000);
-    if (e.target.id === "teFastMinGap") settings.fastMinGapMs = clamp(v, 0, 60000);
-    if (e.target.id === "teAutoSave") settings.autoSaveMin = clamp(v, 0, 60);
-    savePref("fstTimingSettings", JSON.stringify(settings));
-  });
-
   $("teCloseBtn").onclick = close;
+  showTab(teTab);
   // (after a choice, the keys go to the editor again, not to the list)
   $("teFile").onchange = function () {
     if (!S) return;

@@ -56,7 +56,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         public void AddValidationNote(ValidationNote note)
         {
-            if (!ValidationNotes.Any(n => n.Code == note.Code && n.Message == note.Message))
+            if (!ValidationNotes.Any(n => n.Code == note.Code && n.Detail == note.Detail && n.Message == note.Message))
                 ValidationNotes.Add(note);
         }
 

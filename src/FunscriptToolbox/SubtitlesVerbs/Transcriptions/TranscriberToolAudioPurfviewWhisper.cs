@@ -145,10 +145,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 (audios.Length > 1 ? $"file {currentFileIndex}/{audios.Length}, " : string.Empty)
                                 + $"{progressMatch.Groups["Done"].Value}/{progressMatch.Groups["Total"].Value} s of audio, "
                                 + $"{progressMatch.Groups["Remaining"].Value} left, {progressMatch.Groups["Speed"].Value}");
-                            if (!context.Output.IsWebUi)
-                            {
-                                context.DefaultProgressUpdateHandler(ToolName, audios.Length == 1 ? "all" : $"{currentFileIndex}/{audios.Length}", e.Data);
-                            }
                             return;
                         }
 

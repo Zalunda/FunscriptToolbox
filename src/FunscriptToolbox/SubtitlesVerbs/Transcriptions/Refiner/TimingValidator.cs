@@ -154,9 +154,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             if (text.Length == 0 || !r_maybePointless.IsMatch(text))
                 return;
 
+            // (the first pattern, in the order of the configuration, that matches the whole text; otherwise, several patterns together)
             var name = r_checks.FindMaybePointlessPatternName(text);
             r_refiner.Flag(cand, ValidationCode.MaybePointless,
-                $"Maybe pointless: only filler words ({name ?? "combination of several"}): `{text}`");
+                $"Maybe pointless: only filler words ({name ?? "combination of several"}): `{text}`",
+                detail: name ?? "Combination");
         }
 
         /// <summary>A short unit repeated over and over inside one subtitle: the classic hallucination.</summary>

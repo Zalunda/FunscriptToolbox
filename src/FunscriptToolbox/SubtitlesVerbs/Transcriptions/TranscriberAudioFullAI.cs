@@ -111,9 +111,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             var requestNumber = 1;
             var nextStartTime = jobState.NextStartTime;
+            var isStopAfterRequested = false;
             while (nextStartTime < fullPcmAudio.EndTime)
             {
-                // (safe point: the previous chunk is saved. When the application is closing, no new request is sent)
+                // (safe point: the previous chunk is saved)
+                // 'Stop after this request' (button of the previous request): the worker stops here.
+                if (isStopAfterRequested)
+                {
+                    throw new UserStoppedWorkerException("Stopped after the request, as asked by the user.");
+                }
+                // When the application is closing, no new request is sent.
                 context.PauseIfClosing();
 
                 var chunkStartTime = nextStartTime;
@@ -135,10 +142,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 // (the name of the transcription is already the name of the parent task)
                 using (var requestNode = context.BeginTask("AI request", chunkName))
                 {
-                    requestNode.SetCancellable("Aborts the connection right away (the answer is lost).");
+                    requestNode.SetCancellable(AIEngineAPI.StopNowHint);
+                    requestNode.SetStopAfterSupported();
+                    requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
                     try
                     {
                         response = this.Engine.Execute(context, request, this.EngineConfigOverride);
+                        isStopAfterRequested = requestNode.IsStopAfterRequested;
                     }
                     catch (UserStoppedWorkerException)
                     {

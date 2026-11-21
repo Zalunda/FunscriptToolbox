@@ -44,9 +44,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 AIRequest[] requests = null;
                 AIResponse[] lastResponsesReceived = null;
                 int requestNumber = 1;
+                var isStopAfterRequested = false;
                 do
                 {
-                    // (safe point: the previous responses are saved. When the application is closing, no new request is prepared / sent)
+                    // (safe point: the previous responses are saved)
+                    // 'Stop after this request' (button of the previous request): the worker stops here.
+                    if (isStopAfterRequested)
+                    {
+                        throw new UserStoppedWorkerException("Stopped after the request, as asked by the user.");
+                    }
+                    // When the application is closing, no new request is prepared / sent.
                     r_context.PauseIfClosing();
 
                     // Building the nodes of the request (and waiting for their audio clips / screenshots, when they are not ready yet)
@@ -83,10 +90,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 ? $"{firstRequest.TaskId}, {firstRequest.UpdateMessage}, request #{firstRequest.Number}"
                                 : $"{firstRequest.TaskId}, {firstRequest.UpdateMessage}, batch of {requests.Length} requests"))
                         {
-                            requestNode.SetCancellable("Streaming/normal request: aborts the connection right away (the answer is lost). Batch request: the first click stops after the answer is received (or cancels the batch if still queued), a second click cancels right away.");
+                            requestNode.SetCancellable(AIEngineAPI.StopNowHint);
+                            requestNode.SetStopAfterSupported();
+                            requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
                             try
                             {
                                 responses = r_engine.Execute(r_context, requests, r_engineConfigOverride);
+                                isStopAfterRequested = requestNode.IsStopAfterRequested;
                             }
                             catch (UserStoppedWorkerException)
                             {

@@ -1,6 +1,6 @@
 # FunscriptToolbox - Architecture & Tools Overview
 
-`FunscriptToolbox` is a modular suite of .NET / C# command-line tools, libraries, and WPF GUI utilities designed for funscript authoring, audio-based synchronization, video retiming, automated AI-powered subtitle generation/translation, and motion-vector assisted tracking in OpenFunscripter (OFS).
+`FunscriptToolbox` is a modular suite of .NET / C# command-line tools, libraries, and a web UI designed for funscript authoring, audio-based synchronization, video retiming, automated AI-powered subtitle generation/translation, and motion-vector assisted tracking in OpenFunscripter (OFS).
 
 ---
 
@@ -12,7 +12,6 @@
 | **`FunscriptToolbox.Core`** | C# Class Library | Domain models and file format parsers (`Funscript`, `SubtitleFile`, `WIPFunscriptActionCollection`, etc.). |
 | **`AudioSynchronization`** | C# Class Library | Acoustic fingerprinting and waveform cross-correlation engine for timeline alignment. |
 | **`MotionVectorsExtractor`** | C++ Native Project | Native high-performance motion vector decoder/extractor interfacing with FFmpeg. |
-| **`FunscriptToolbox.UI`** | WPF Application / Library | Interactive UI utilities (Speaker Identification Correction UI). |
 
 ---
 
@@ -74,13 +73,14 @@ A modular pipeline driven by JSON/C# configuration files to transcribe, identify
     - **Speaker Diarization / Identification**: Distinguishes dialogue by speaker.
     - **Translation**: Translates text using Google Translate API or AI/LLMs.
     - **Output Formatting**: Generates clean `.srt` subtitle files, cost reports, and audio signatures.
-  - **`--ui <port>`** (web UI mode): all the videos/vseq are processed in parallel (one thread + one `SubtitleGeneratorContext` each) and the progress is shown on a web page (`SubtitlesVerbs/Progress/`: `WebUiServer` on `http://localhost:<port>/`, a browser is opened). The page shows a tree (video => worker => AI request) with live status, log, and details (requests/responses sent to the AIs); AI requests can be stopped from the page (same as pressing `Q`). Shared locks (`SubtitlesVerbs/Progress/ResourceLock.cs`): only one "local resource" user at a time (ffmpeg, Purfview whisper, title card detection, AI engines with `UseLocalResourceLock: true`) and only one prompt/dialog (JSON correction, speaker correction, pauses) at a time. Without `--ui`, the behavior is the historical sequential console mode (everything written goes through `IUserOutput`: `ConsoleUserOutput` or `WebUiOutput`).
+  - **`--ui <port>`** (default 5055, or the port of `--runasserver`; there is no console mode anymore): all the videos/vseq are processed in parallel (one thread + one `SubtitleGeneratorContext` each) and the progress is shown on a web page (`SubtitlesVerbs/Progress/`: `WebUiServer` on `http://localhost:<port>/`, the browser is opened only with `--openbrowser`). The page shows a tree (video => worker => AI request) with live status, log, and details (requests/responses sent to the AIs); AI requests have 2 stop buttons: 'Stop after this request' (the response is received and saved, then the worker stops: `ITaskNode.IsStopAfterRequested`, checked by the request loops) and 'Stop now!' (aborts / cancels the batch: `ITaskNode.ConsumeCancelRequest`; the page asks to confirm when it may still be billed: `SetStopNowWarning`). The other long tasks (ffmpeg, waits, title card detection) have a single 'Stop'. Shared locks (`SubtitlesVerbs/Progress/ResourceLock.cs`): only one "local resource" user at a time (ffmpeg, Purfview whisper, title card detection, AI engines with `UseLocalResourceLock: true`) and only one prompt (JSON correction, pauses) at a time. Everything written goes through `IUserOutput` (`WebUiOutput`).
 
 ---
 
-## Interactive GUI Tools (`FunscriptToolbox.UI`)
+## Interactive review (web UI)
 
-* **Speaker Correction Tool** (`SpeakerCorrectionTool.xaml`):
-  - Interactive WPF dialog used during the subtitle creation workflow.
-  - Allows human-in-the-loop validation: review transcribed lines, assign or rename speaker tags, and inspect per-speaker audio/statistics before translation and final subtitle export.
+There is no WPF / desktop dialog anymore: everything the user does is in the web UI (`SubtitlesVerbs/Progress/ui.html`).
+The **Timing editor** (`TranscriberInteractifReview` + `SubtitlesVerbs/Infra/SceneTimingEditor.cs`) reviews the manual-input file in passes:
+the timings (each subtitle is "timing validated"), the review warnings written by `TranscriberAIManualInputPreparer`
+(`[REVIEW:<Code>[:<Detail>]] message` lines, checked one by one: `[CHECKED:...]`), and the speakers (`{OngoingSpeakers:...}` / `{Speaker:...}`).
 

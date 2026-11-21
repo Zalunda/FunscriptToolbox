@@ -106,7 +106,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     filename = p.Filename,
                     offsetMs = (long)p.Offset.TotalMilliseconds,
                     durationMs = (long)p.Duration.TotalMilliseconds,
-                    hasVideo = File.Exists(GetLightVideoFullPath(wip, p))
+                    // "light": its .FAST.mp4; "original": the video itself (no light video: can be heavy to play); null: none
+                    video = GetPlayedVideo(wip, p).kind
                 }).ToArray(),
                 lightVideoSuffix = LightVideoSuffix,
                 reviews = GetReviewWorkers().Select(w =>
@@ -139,14 +140,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private static string GetLightVideoFullPath(WorkInProgressSubtitles wip, TimelineSegment part)
             => Path.ChangeExtension(Path.Combine(wip.ParentPath, part.Filename), LightVideoSuffix);
 
+        /// <summary>
+        /// The video played for a part: its light video ('.FAST.mp4', made by the 'fast-video' output), otherwise the video itself
+        /// (ex. a 2D video doesn't need a light one; a big one, ex. 8K, can be choppy, and the browser may not be able to play its codec).
+        /// </summary>
+        private static (string path, string kind) GetPlayedVideo(WorkInProgressSubtitles wip, TimelineSegment part)
+        {
+            var light = GetLightVideoFullPath(wip, part);
+            if (File.Exists(light))
+                return (light, "light");
+            var original = Path.Combine(wip.ParentPath, part.Filename);
+            if (File.Exists(original))
+                return (original, "original");
+            return (null, null);
+        }
+
         public string GetVideoPath(int partIndex)
         {
             var wip = Wip;
             var parts = GetParts(wip);
             if (partIndex < 0 || partIndex >= parts.Length)
                 return null;
-            var path = GetLightVideoFullPath(wip, parts[partIndex]);
-            return File.Exists(path) ? path : null;
+            return GetPlayedVideo(wip, parts[partIndex]).path;
         }
 
         // ---- The subtitles ----
@@ -209,7 +224,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     origin = jobState.Origin,
                     activeMs = (long)jobState.ActiveTime.TotalMilliseconds,
                     fileSuffix = worker.FileSuffix,
-                    validated = jobState.Items.Where(i => i.Validated).Select(i => KeyOf(i.StartTime, i.EndTime)).ToArray(),
+                    timingValidated = jobState.Items.Where(i => i.TimingValidated).Select(i => KeyOf(i.StartTime, i.EndTime)).ToArray(),
+                    // The 'Speakers' pass: the metadata to set (null: no 'Speakers' pass), and the list of the speakers
+                    speakersConfig = worker.HasSpeakersPass
+                        ? new { speaker = worker.SpeakerMetadata, ongoing = worker.OngoingSpeakersMetadata }
+                        : null,
+                    speakers = (jobState.Speakers ?? new List<TranscriberInteractifReview.ReviewSpeaker>()).Select(sp => new { name = sp.Name, alias = sp.Alias }).ToArray(),
                     subtitles = jobState.Items.OrderBy(i => i.StartTime).Select(i => new
                     {
                         s = (long)i.StartTime.TotalMilliseconds,
@@ -240,15 +260,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             ChangeReview(reviewId, jobState =>
             {
                 foreach (var item in jobState.Items)
-                    item.Validated = validated.Contains(KeyOf(item.StartTime, item.EndTime));
+                    item.TimingValidated = validated.Contains(KeyOf(item.StartTime, item.EndTime));
                 return true;
             });
         }
 
-        public string SaveSubtitles(string reviewId, string stamp, bool force, TimingEditorSubtitle[] subtitles)
+        public string SaveSubtitles(string reviewId, string stamp, bool force, TimingEditorSubtitle[] subtitles, TimingEditorSpeaker[] speakers)
         {
             if (subtitles == null)
                 throw new TimingEditorException("No subtitles received.");
+            if (speakers == null)
+                throw new TimingEditorException("No list of speakers received.");
+            foreach (var speaker in speakers)
+            {
+                var error = TranscriberInteractifReview.GetSpeakerNameError(speaker?.Name)
+                    ?? (string.IsNullOrWhiteSpace(speaker.Alias) ? null : TranscriberInteractifReview.GetSpeakerNameError(speaker.Alias));
+                if (error != null)
+                    throw new TimingEditorException(error);
+            }
             foreach (var sub in subtitles)
             {
                 if (sub.S < 0 || sub.E <= sub.S)
@@ -264,7 +293,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     throw new TimingEditorConflictException("The review was saved from somewhere else (another page?) since it was loaded in this page.");
 
                 // (a subtitle whose timing didn't change stays validated; the page then sends what is validated)
-                var validated = new HashSet<string>(jobState.Items.Where(i => i.Validated).Select(i => KeyOf(i.StartTime, i.EndTime)));
+                var validated = new HashSet<string>(jobState.Items.Where(i => i.TimingValidated).Select(i => KeyOf(i.StartTime, i.EndTime)));
                 jobState.Items = subtitles
                     .OrderBy(s => s.S)
                     .Select(s => new TranscriberInteractifReview.ReviewItem
@@ -272,7 +301,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         StartTime = TimeSpan.FromMilliseconds(s.S),
                         EndTime = TimeSpan.FromMilliseconds(s.E),
                         Lines = s.Lines,
-                        Validated = validated.Contains(KeyOf(TimeSpan.FromMilliseconds(s.S), TimeSpan.FromMilliseconds(s.E)))
+                        TimingValidated = validated.Contains(KeyOf(TimeSpan.FromMilliseconds(s.S), TimeSpan.FromMilliseconds(s.E)))
+                    })
+                    .ToList();
+                jobState.Speakers = speakers
+                    .GroupBy(sp => sp.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => new TranscriberInteractifReview.ReviewSpeaker
+                    {
+                        Name = g.Key,
+                        Alias = string.IsNullOrWhiteSpace(g.First().Alias) ? null : g.First().Alias.Trim()
                     })
                     .ToList();
                 jobState.Version++;

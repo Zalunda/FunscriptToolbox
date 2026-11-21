@@ -18,13 +18,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         private static readonly AsyncLocal<LockPriority> rs_current = new AsyncLocal<LockPriority>();
         private static readonly AsyncLocal<bool> rs_isBackgroundWork = new AsyncLocal<bool>();
 
-        /// <summary>The priority of the sequence of the current flow (null when not set, ex. console mode: one sequence at a time).</summary>
+        /// <summary>The priority of the sequence of the current flow (null when not set, ex. the main thread).</summary>
         public static LockPriority Current => rs_current.Value;
 
         /// <summary>True when the current flow is work done in advance, in the background (see <see cref="MarkAsBackgroundWork"/>).</summary>
         public static bool IsBackgroundWork => rs_isBackgroundWork.Value;
 
-        /// <summary>The position of the sequence in the list of sequences processed in parallel (lower = first served).</summary>
+        /// <summary>The priority level of the sequence (lower = first served, before the ordinal): see SubtitleGeneratorGlobalSharedSettings.ScenePriorities.</summary>
+        public int Level { get; }
+
+        /// <summary>The position of the sequence in the list of sequences processed in parallel (lower = first served, at the same level).</summary>
         public int Ordinal { get; }
 
         private int m_nbForegroundWaitingForBackground;
@@ -45,15 +48,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// </summary>
         public bool IsForegroundWaitingForBackground => Volatile.Read(ref m_nbForegroundWaitingForBackground) > 0;
 
-        private LockPriority(int ordinal)
+        private LockPriority(int level, int ordinal)
         {
+            this.Level = level;
             this.Ordinal = ordinal;
         }
 
         /// <summary>To call at the start of the thread of a sequence.</summary>
-        public static void SetForSequence(int ordinal)
+        public static void SetForSequence(int level, int ordinal)
         {
-            rs_current.Value = new LockPriority(ordinal);
+            rs_current.Value = new LockPriority(level, ordinal);
         }
 
         /// <summary>To call at the start of a background task (ex. in the Task.Run lambda). Only changes the flow of that task.</summary>
@@ -166,8 +170,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             public bool IsOnHold => IsLowPriority && Priority?.IsAnotherSequencePreparing == true;
 
             // (computed each time: the priority of a background waiter changes when its main work starts waiting for it)
-            public (int tier, int ordinal, long arrival) Rank =>
+            public (int tier, int level, int ordinal, long arrival) Rank =>
                 (IsLowPriority ? 1 : 0,
+                 Priority?.Level ?? 0,
                  Priority?.Ordinal ?? 0,
                  Arrival);
         }

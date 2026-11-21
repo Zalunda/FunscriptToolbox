@@ -39,6 +39,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// </summary>
         [JsonProperty(Order = 1)]
         public Dictionary<string, int> MaxConcurrent { get; set; }
+
+        /// <summary>
+        /// Which scenes get the shared resources first (ffmpeg, GPU, preparation of the AI requests...), from their metadata
+        /// (see SubtitleGeneratorGlobalSettings.SceneMetadata): the first rule that matches a scene gives its priority (the first rule = the highest).
+        /// A scene that matches no rule comes after all of them. Within the same priority: the order of the scenes in the list.
+        /// Only the order in which the scenes waiting for the same resource are served changes: all the scenes still run.
+        /// (shared: a scene can't give itself a higher priority with the configuration of its folder)
+        /// </summary>
+        [JsonProperty(Order = 2)]
+        public ScenePriorityRule[] ScenePriorities { get; set; }
     }
 
     public class SubtitleGeneratorGlobalSettings
@@ -68,5 +78,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// </summary>
         [JsonProperty(Order = 3)]
         public string SceneDisplayName { get; set; }
+    }
+
+    /// <summary>A rule of <see cref="SubtitleGeneratorGlobalSharedSettings.ScenePriorities"/>.</summary>
+    public class ScenePriorityRule
+    {
+        /// <summary>The name of a metadata of the scene (ex. "Type", see SceneMetadata; "FileName" always exists).</summary>
+        [JsonProperty(Order = 1, Required = Required.Always)]
+        public string Metadata { get; set; }
+
+        /// <summary>A regular expression on its value (not case sensitive), ex. "ManualHQWorkflow-G4" for "02-ManualHQWorkflow-G4".</summary>
+        [JsonProperty(Order = 2, Required = Required.Always)]
+        public string Pattern { get; set; }
     }
 }

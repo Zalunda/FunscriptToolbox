@@ -37,21 +37,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             // The initial TimelineMap only has filenames. We now populate the durations, while accumulating the PcmAudioData
             var currentOffset = TimeSpan.Zero;
             var newSegments = new List<TimelineSegment>();
-            foreach (var segment in context.WIP.TimelineMap.Segments)
+            var parts = new List<(string fullPartPath, PcmAudio pcm)>();
+
+            // All the parts with the lock 'VID' kept: the parts of several scenes are not mixed (each scene gets all its audio before the next one)
+            var segments = context.WIP.TimelineMap.Segments.ToArray();
+            using (context.Locks.VideoSource.Acquire(segments.Length > 1
+                ? $"ffmpeg: extracting the audio of the {segments.Length} parts"
+                : "ffmpeg: extracting audio from the video"))
             {
-                string fullPartPath = Path.Combine(context.WIP.ParentPath, segment.Filename);
+                foreach (var segment in segments)
+                {
+                    string fullPartPath = Path.Combine(context.WIP.ParentPath, segment.Filename);
 
-                context.WriteInfo($"   Extracting PCM audio from '{Path.GetFileName(fullPartPath)}'...");
-                PcmAudio partPcm = context.RunStep(
-                    $"Extract the audio from '{Path.GetFileName(fullPartPath)}'",
-                    _ => context.FfmpegHelper.ExtractPcmAudio(fullPartPath, this.FfmpegParameters));
-                mergedPcmStream.Write(partPcm.Data, 0, partPcm.Data.Length);
+                    context.WriteInfo($"   Extracting PCM audio from '{Path.GetFileName(fullPartPath)}'...");
+                    PcmAudio partPcm = context.RunStep(
+                        $"Extract the audio from '{Path.GetFileName(fullPartPath)}'",
+                        _ => context.FfmpegHelper.ExtractPcmAudio(fullPartPath, this.FfmpegParameters));
+                    mergedPcmStream.Write(partPcm.Data, 0, partPcm.Data.Length);
 
-                // Add the updated segment with its real duration to our new list.
-                newSegments.Add(new TimelineSegment(segment.Filename, partPcm.Duration, currentOffset));
-                currentOffset += partPcm.Duration;
+                    // Add the updated segment with its real duration to our new list.
+                    newSegments.Add(new TimelineSegment(segment.Filename, partPcm.Duration, currentOffset));
+                    currentOffset += partPcm.Duration;
+                    parts.Add((fullPartPath, partPcm));
+                }
+            }
 
-                if (this.SaveAsFileSuffixe != null)
+            // (after: the lock 'VID' is not kept while waiting for the lock of the audio conversions)
+            if (this.SaveAsFileSuffixe != null)
+            {
+                foreach (var (fullPartPath, partPcm) in parts)
                 {
                     var saveAsPath = Path.ChangeExtension(fullPartPath, this.SaveAsFileSuffixe);
                     context.RunStep(

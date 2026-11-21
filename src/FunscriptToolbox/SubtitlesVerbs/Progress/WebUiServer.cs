@@ -243,8 +243,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
                 else if (method == "POST" && path.StartsWith("/api/cancel/"))
                 {
-                    var ok = int.TryParse(path.Substring("/api/cancel/".Length), out var nodeId) && r_output.RequestCancel(nodeId);
-                    WriteResponse(context, ok ? 200 : 404, "text/plain", ok ? "OK" : "Unknown node.");
+                    // (?mode=now|after|undo: 'Stop now', 'Stop after this request', undo 'Stop after this request')
+                    var mode = context.Request.QueryString["mode"];
+                    if (mode != "now" && mode != "after" && mode != "undo")
+                    {
+                        WriteResponse(context, 400, "text/plain", "Missing or unknown 'mode' (now, after or undo).");
+                    }
+                    else
+                    {
+                        var ok = int.TryParse(path.Substring("/api/cancel/".Length), out var nodeId) && r_output.RequestCancel(nodeId, mode);
+                        WriteResponse(context, ok ? 200 : 404, "text/plain", ok ? "OK" : "Unknown node, or not possible in its current state.");
+                    }
                 }
                 else if (method == "POST" && path.StartsWith("/api/answer/"))
                 {
@@ -348,12 +357,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
                 else if (method == "POST" && what == "save")
                 {
-                    // body: { stamp, force, subtitles: [{ s, e, lines }] } => { stamp } (409: saved from somewhere else since it was loaded)
+                    // body: { stamp, force, subtitles: [{ s, e, lines }], speakers: [{ name, alias }] } => { stamp } (409: saved from somewhere else since it was loaded)
                     var body = JObject.Parse(ReadBody(context));
                     var subtitles = body["subtitles"]?.ToObject<TimingEditorSubtitle[]>();
+                    var speakers = body["speakers"]?.ToObject<TimingEditorSpeaker[]>();
                     try
                     {
-                        var newStamp = editor.SaveSubtitles(q["review"], (string)body["stamp"], (bool?)body["force"] == true, subtitles);
+                        var newStamp = editor.SaveSubtitles(q["review"], (string)body["stamp"], (bool?)body["force"] == true, subtitles, speakers);
                         WriteJson(context, new { stamp = newStamp });
                     }
                     catch (TimingEditorConflictException ex)
@@ -363,7 +373,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
                 else if (method == "POST" && what == "validated")
                 {
-                    // body: { keys: ["start ms-end ms", ...] }: the subtitles validated by the user
+                    // body: { keys: ["start ms-end ms", ...] }: the subtitles whose timing is validated by the user
                     var body = JObject.Parse(ReadBody(context));
                     editor.SaveValidated(q["review"], body["keys"]?.ToObject<string[]>());
                     WriteResponse(context, 200, "text/plain", "OK");
@@ -428,11 +438,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     var videoPath = int.TryParse(q["part"], out var partIndex) ? editor.GetVideoPath(partIndex) : null;
                     if (videoPath == null)
                     {
-                        WriteResponse(context, 404, "text/plain", "No light video for this part.");
+                        WriteResponse(context, 404, "text/plain", "No video for this part.");
                         return;
                     }
+                    // (the light video is always a .mp4; the original video can be something else: the browser plays it, or not)
+                    var videoType = Path.GetExtension(videoPath).ToLowerInvariant() switch
+                    {
+                        ".webm" => "video/webm",
+                        ".mkv" => "video/x-matroska",
+                        ".mov" => "video/quicktime",
+                        ".m4v" => "video/mp4",
+                        _ => "video/mp4"
+                    };
                     using var file = new FileStream(videoPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                    WriteRanged(context, "video/mp4", file.Length, (position, buffer, count) =>
+                    WriteRanged(context, videoType, file.Length, (position, buffer, count) =>
                     {
                         file.Position = position;
                         return file.Read(buffer, 0, count);
