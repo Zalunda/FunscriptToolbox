@@ -77,6 +77,13 @@ A modular pipeline driven by JSON/C# configuration files to transcribe, identify
 
 ---
 
+## Timing refiner engines (manual-input-preparer)
+
+`RefineTiming` (`TimingRefinerSettings`) snaps the boundaries of each subtitle on the terrain of the audio, then refines them with its `Engine` (shared objects of the default config, chosen with a `$ref`): `TimingRefineEngineNone` (no AI), `TimingRefineEngineVerify` (one request per subtitle), `TimingRefineEngineStartEndJudge` (Start / End passes + optional End tail check).
+- `TimingRefiner`: what is common to all the engines (the candidates, the terrain and the snap, the silence trimming, the overlaps, the stats).
+- `TimingRefineEngine` (abstract): the building blocks (clips + silence padding, dips, hard limits, bleed text, reading an answer, the cache key `BuildCacheKey`). An engine implements `UsesAI`, `InnerOptionsUsed`, `CreatePasses` (+ `Validate`, capabilities); its passes (`TimingRefinePass`: `Begin` / `PrepareNextRound` / `ProcessResults` / `End`, new objects for each refiner: they hold the state of a run) say which answer fields are cached (`CachedMetadataNames`).
+- A new engine: a subclass (no serializer change: the base type is registered), added as a shared object in `SubtitleGeneratorConfigExample`, its tunable settings exposed in the `SharedObjects` of the workflow overrides.
+
 ## Interactive review (web UI)
 
 There is no WPF / desktop dialog anymore: everything the user does is in the web UI (`SubtitlesVerbs/Progress/ui.html`).

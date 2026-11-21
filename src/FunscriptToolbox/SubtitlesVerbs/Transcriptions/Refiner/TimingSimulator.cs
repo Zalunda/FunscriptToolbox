@@ -87,15 +87,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
             var result = new Result { Name = name, Nodes = r_truths.Count };
 
-            foreach (var side in TimingCandidate.Sides)
+            // (the passes of the engine on the boundaries; not the checks of the boundaries chosen, ex. the End tail check)
+            foreach (var pass in settings.Engine.CreatePasses(refiner).Where(p => !p.IsTailCheck))
             {
+                var side = pass.Side;
                 var report = new SideReport { Side = side };
                 result.Sides.Add(report);
 
-                refiner.BeginPhase(side);
+                pass.Begin();
                 while (true)
                 {
-                    refiner.PrepareNextRound(side);
+                    pass.PrepareNextRound();
                     var toTest = refiner.Candidates.Where(c => c.CurrentRound != null).ToList();
                     if (toTest.Count == 0)
                         break;
@@ -125,9 +127,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                         response.AddNewItem(cand.OriginalStartTime, cand.OriginalEndTime, meta);
                     }
 
-                    refiner.ProcessBatchResults(response.Items, side);
+                    pass.ProcessResults(response.Items);
                 }
-                refiner.EndPhase(side);
+                pass.End();
             }
 
             refiner.FinalizeOverlaps();

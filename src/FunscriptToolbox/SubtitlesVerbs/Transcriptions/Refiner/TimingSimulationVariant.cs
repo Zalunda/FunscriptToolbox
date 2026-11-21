@@ -18,21 +18,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public bool? TrimSilenceOnEnd { get; set; }
         public float? ValleyReach { get; set; }
 
-        public TimingRefinerSettings Apply(TimingRefinerSettings b) => new TimingRefinerSettings
+        /// <summary>The settings of the variant: the real ones (their engine must be a StartEndJudge), with the overrides of the variant.</summary>
+        public TimingRefinerSettings Apply(TimingRefinerSettings b)
         {
-            Mode = RefineMode.Full,
-            SourceAudioIdForTerrain = b.SourceAudioIdForTerrain,
-            ValleyReach = ValleyReach ?? b.ValleyReach,
-            StartPassTailPadding = StartPassTailPadding ?? b.StartPassTailPadding,
-            MaxExpansion = MaxExpansion ?? b.MaxExpansion,
-            MaxDipsInward = MaxDipsInward >= 0 ? MaxDipsInward : b.MaxDipsInward,
-            MaxDipsOutward = MaxDipsOutward >= 0 ? MaxDipsOutward : b.MaxDipsOutward,
-            MaxTestsInRequest = MaxTestsInRequest >= 0 ? MaxTestsInRequest : b.MaxTestsInRequest,
-            BleedDetectionMargin = BleedDetectionMargin ?? b.BleedDetectionMargin,
-            TrimSilenceOnStart = TrimSilenceOnStart ?? b.TrimSilenceOnStart,
-            TrimSilenceOnEnd = TrimSilenceOnEnd ?? b.TrimSilenceOnEnd,
-            InnerOptionsStart = b.InnerOptionsStart,
-            InnerOptionsEnd = b.InnerOptionsEnd,
-        };
+            var judge = b.Engine as TimingRefineEngineStartEndJudge
+                ?? throw new InvalidOperationException("The simulations replay the engine 'TimingRefineEngineStartEndJudge' only.");
+            return new TimingRefinerSettings
+            {
+                Enabled = true,
+                SourceAudioIdForTerrain = b.SourceAudioIdForTerrain,
+                ValleyReach = ValleyReach ?? b.ValleyReach,
+                BleedDetectionMargin = BleedDetectionMargin ?? b.BleedDetectionMargin,
+                TrimSilenceOnStart = TrimSilenceOnStart ?? b.TrimSilenceOnStart,
+                TrimSilenceOnEnd = TrimSilenceOnEnd ?? b.TrimSilenceOnEnd,
+                // (no padding and no tail check: like before, the simulation only counts the requests and the audio of the two passes)
+                Engine = new TimingRefineEngineStartEndJudge
+                {
+                    InnerOptionsStart = judge.InnerOptionsStart,
+                    InnerOptionsEnd = judge.InnerOptionsEnd,
+                    StartPassTailPadding = StartPassTailPadding ?? judge.StartPassTailPadding,
+                    MaxExpansion = MaxExpansion ?? judge.MaxExpansion,
+                    MaxDipsInward = MaxDipsInward >= 0 ? MaxDipsInward : judge.MaxDipsInward,
+                    MaxDipsOutward = MaxDipsOutward >= 0 ? MaxDipsOutward : judge.MaxDipsOutward,
+                    MaxTestsInRequest = MaxTestsInRequest >= 0 ? MaxTestsInRequest : judge.MaxTestsInRequest,
+                }
+            };
+        }
     }
 }

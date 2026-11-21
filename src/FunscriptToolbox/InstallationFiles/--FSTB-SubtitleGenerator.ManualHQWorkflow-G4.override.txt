@@ -487,6 +487,49 @@ Output a single, valid JSON array of objects. Extract only the `StartTime` from 
 _______________________________________=",
        "TextAfter": "The target Language is: [TranslationLanguage]",
       "Lines": null
+    },
+    {
+      // The settings of the engine 'TimingRefineEngineStartEndJudge' of the timing refiner (manual-input-preparer: RefineTiming.Engine).
+      // The AI picks the best Start, then the best End, among options built on the terrain (several AI requests and clips per subtitle):
+      //   - MaxDipsInward / MaxDipsOutward: how many options around the snapped boundary are tried (fewer = cheaper,
+      //     but a boundary that is further is flagged Missing instead of being found).
+      //   - MaxTestsInRequest: how many options are in one request (more = bigger requests, fewer retries). Ideally, it should be
+      //     greater than MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibility.
+      //   - MaxExpansion: how far from the snapped boundary the options can go.
+      //   - StartPassTailPadding: Start pass only, every clip ends this long after the initial End (more = more tokens).
+      //   - StartClipPadding / EndClipPadding: the silence at the start (Start pass) / the end (End pass) of every clip.
+      // (its prompts / requests: InnerOptionsStart, InnerOptionsEnd, EndTail.InnerOptions, see --FSTB-SubtitleGenerator.config)
+      "$id": "TimingRefineEngineStartEndJudge",
+      "MaxTestsInRequest": 5,
+      "MaxDipsInward": 2,
+      "MaxDipsOutward": 2,
+      "MaxExpansion": "00:00:02.0",
+      "StartPassTailPadding": "00:00:00.8",
+      "StartClipPadding": "00:00:00.300",
+      "EndClipPadding": "00:00:00.300",
+
+      // ---------------- After the End pass: what did the chosen End append? (optional: set "EndTail": null to not do it) ----------------
+      // When the End chosen by the AI is at least "MinExtra" after the closest option before it, one request (no text) asks
+      // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
+      // to that option (then the new End is checked against the option before it, up to "MaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
+      // By answer of the AI: when the terrain finds Speech over at least this fraction of the extra audio, the answer is not trusted and the End is kept
+      // ("Silence" over loud audio is wrong, "Moaning" over continuous speech is often the last words misidentified). A kind not listed always moves the End back.
+      "EndTail": {
+        "MinExtra": "00:00:00.4",
+        "MaxChecks": 1,
+        "KeepIfSpeechRatio": {
+          "Silence": 0.3,
+          "Moaning": 0.5
+        }
+      }
+    },
+    {
+      // The settings of the engine 'TimingRefineEngineVerify' of the timing refiner (manual-input-preparer: RefineTiming.Engine).
+      // ONE AI request per subtitle with ONE clip (the snapped start to the snapped end) and the text: does the clip contain the text?
+      //   - StartClipPadding: the silence at the start of the clip.
+      // (its prompt / request: InnerOptions, see --FSTB-SubtitleGenerator.config)
+      "$id": "TimingRefineEngineVerify",
+      "StartClipPadding": "00:00:00.000"
     }
   ],
   "Workers": [
@@ -565,54 +608,28 @@ _______________________________________=",
         "FfmpegFilter": "crop=iw*0.20:ih*0.10:iw*0.15:ih*0.45"
       },
 
-      // Refines the Start and End of each subtitle, using the terrain of the audio (where the speech is).
-      // "Mode" is the main lever between the quality of the timings and the cost in AI tokens:
-      //   "Off"           => timings kept as they are. No terrain, no AI. (Validation can't be used.)
-      //   "SnapOnly"      => the initial snap of each boundary on the terrain, and nothing else. No AI request at all (free).
-      //                      Title card detection and Validation work. Expect many warnings (the text is never checked): ignore the
-      //                      codes that fire on almost every node, in Validation.Validations.
-      //   "SnapAndVerify" => SnapOnly, plus ONE AI request per subtitle with ONE clip (exactly the snapped start to the snapped end, no padding)
-      //                      and the text: the AI says if the clip contains the text (HeardText when it differs, Inaudible when nothing).
-      //                      The timings are kept whatever the answer: a problem is only flagged. Uses "InnerOptionsVerify" (see --FSTB-SubtitleGenerator.config).
-      //   "Full"          => the AI picks the best Start, then the best End, among options built on the terrain (several AI requests and
-      //                      clips per subtitle). Uses "InnerOptionsStart" and "InnerOptionsEnd" (see --FSTB-SubtitleGenerator.config). The settings below tune its cost:
-      //                        - MaxDipsInward / MaxDipsOutward: how many options around the snapped boundary are tried (fewer = cheaper,
-      //                          but a boundary that is further is flagged Missing instead of being found).
-      //                        - MaxTestsInRequest: how many options are in one request (more = bigger requests, fewer retries).
-      //                        - MaxExpansion: how far from the snapped boundary the options can go.
-      //                        - StartPassTailPadding: audio added after the end in the Start clips (more = more tokens).
+      // Refines the Start and End of each subtitle: first snapped on the terrain of the audio (where the speech is), then refined by
+      // the engine of the refiner. "Engine" is the main lever between the quality of the timings and the cost in AI tokens
+      // (the settings of the engines: in "SharedObjects", at the top of this file):
+      //   { "$ref": "TimingRefineEngineNone" }          => the snap, and nothing else. No AI request at all (free).
+      //                                                   Title card detection and Validation work. Expect many warnings (the text is never checked):
+      //                                                   ignore the codes that fire on almost every node, in Validation.Validations.
+      //   { "$ref": "TimingRefineEngineVerify" }        => ONE AI request per subtitle with ONE clip (the snapped start to the snapped end) and the text:
+      //                                                   the AI says if the clip contains the text (HeardText when it differs, Inaudible when nothing).
+      //                                                   The timings are kept whatever the answer: a problem is only flagged.
+      //   { "$ref": "TimingRefineEngineStartEndJudge" } => the AI picks the best Start, then the best End, among options built on the terrain
+      //                                                   (several AI requests and clips per subtitle).
+      // "Enabled": false => the timings are kept as they are. No terrain, no AI. (Validation can't be used.)
       "RefineTiming": {
-        "Mode": "SnapOnly",
+        "Enabled": true,
+        "Engine": { "$ref": "TimingRefineEngineNone" },
 
-        // Ideally, MaxTestsInRequest should be greater then MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibilities.
-        "MaxTestsInRequest": 5,
-        "MaxDipsInward": 2,
-        "MaxDipsOutward": 2,
-
-        // Start pass only: every clip ends this long after the initial End.
-        "StartPassTailPadding": "00:00:00.8",
-
-        "MaxExpansion": "00:00:02.0",
+        // The text of a neighbour closer than this is sent with a request (a possible bleed of its voice in the clip).
         "BleedDetectionMargin": "00:00:03.0",
 
-        // After the AI's final answer, move the boundary inward over pure silence (according to the terrain).
+        // After the final answer, move the boundary inward over pure silence (according to the terrain).
         "TrimSilenceOnStart": true,
-        "TrimSilenceOnEnd": true,
-		    "StartClipPadding": "00:00:00.300",
-		    "EndClipPadding": "00:00:00.300",
-
-        // ---------------- After the End pass: what did the chosen End append? (optional: set "InnerOptionsEndTail": null to not do it) ----------------
-        // When the End chosen by the AI is at least "EndTailMinExtra" after the closest option before it, one request (no text) asks
-        // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
-        // to that option (then the new End is checked against the option before it, up to "EndTailMaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
-        // By answer of the AI: when the terrain finds Speech over at least this fraction of the extra audio, the answer is not trusted and the End is kept
-        // ("Silence" over loud audio is wrong, "Moaning" over continuous speech is often the last words misidentified). A kind not listed always moves the End back.
-        "EndTailKeepIfSpeechRatio": {
-          "Silence": 0.3,
-          "Moaning": 0.5
-        },
-        "EndTailMinExtra": "00:00:00.4",
-        "EndTailMaxChecks": 1
+        "TrimSilenceOnEnd": true
       },
 
       // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Timing editor) and fixes some problems. Needs RefineTiming.

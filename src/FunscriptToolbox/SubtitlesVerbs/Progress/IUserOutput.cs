@@ -30,6 +30,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>A problem with the configuration of the short name / metadata (shown on the node), or null.</summary>
         public string ConfigError { get; set; }
 
+        /// <summary>
+        /// The configuration of the scene has no enabled worker: it's listed (state 'inactive'), but not started
+        /// (its .wipsubtitles is not created). 'Retry' / 'Rescan' start it when its configuration has enabled workers.
+        /// </summary>
+        public bool IsInactive { get; set; }
+
         /// <summary>The priority of the scene on the shared resources (0 = the highest, see SubtitleGeneratorGlobalSharedSettings.ScenePriorities).</summary>
         public int PriorityLevel { get; set; }
 

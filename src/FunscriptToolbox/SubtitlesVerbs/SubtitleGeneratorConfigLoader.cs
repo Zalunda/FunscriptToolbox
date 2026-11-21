@@ -3,6 +3,7 @@ using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Outputs;
 using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner;
 using FunscriptToolbox.SubtitlesVerbs.Translations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -31,6 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             typeof(AudioExtractor),
                             typeof(SubtitleOutput),
                             typeof(TranscriberToolAudio),
+                            typeof(TimingRefineEngine),
                             typeof(Transcriber),
                             typeof(Translator)
                         }),

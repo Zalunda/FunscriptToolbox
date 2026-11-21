@@ -351,6 +351,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 RootNodeInfo GetRootNodeInfo(VideoSequence videoSequence, SubtitleGeneratorConfig config)
                 {
                     var info = BuildRootNodeInfo(videoSequence, config);
+                    // (a configuration that can't be loaded: the scene is started, so that the loading error is reported as usual)
+                    info.IsInactive = config != null && config.Workers?.Any(w => w.Enabled) != true;
                     // (its priority on the shared resources, from its metadata: the rules of 'GlobalShared', the same for all the scenes)
                     ApplyScenePriority(info, globalShared?.ScenePriorities);
                     if (info.ConfigError != null && reportedConfigErrors.Add(info.ConfigError))
@@ -379,6 +381,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     var sequenceContext = scene.Context;
                     var sequenceNode = scene.Node;
+
+                    // No enabled worker in its configuration: listed, but nothing is started (Retry / Rescan: when its configuration has some)
+                    if (info.IsInactive)
+                    {
+                        scene.Thread = null;
+                        sequenceNode.SetState(TaskState.Skipped, "no enabled worker in its configuration");
+                        sequenceNode.Dispose();
+                        return;
+                    }
+
                     scene.Thread = new Thread(() =>
                     {
                         // The first sequences have priority on the shared resources (ffmpeg, GPU, ...): they finish first,
@@ -412,12 +424,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     StartScene(videoSequence, config, null);
                 }
 
-                // 'Rescan' (button of the page): the new scenes on disk are started, and the blocked scenes are checked again
-                // (ex. their manual-input file is now there). The other scenes are not touched (running, finished, failed, stopped).
+                // 'Rescan' (button of the page): the new scenes on disk are started, and the blocked / inactive scenes are checked again
+                // (ex. their manual-input file is now there, workers are enabled in their configuration). The other scenes are not touched
+                // (running, finished, failed, stopped).
                 void Rescan()
                 {
                     var nbNew = 0;
                     var nbRetried = 0;
+                    var nbActivated = 0;
                     foreach (var (videoSequence, config) in ListVideoSequences())
                     {
                         var existing = scenes.FirstOrDefault(s => string.Equals(s.Sequence.ContainerFullPath, videoSequence.ContainerFullPath, StringComparison.OrdinalIgnoreCase));
@@ -426,13 +440,23 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             StartScene(videoSequence, config, null);
                             nbNew++;
                         }
+                        else if (existing.Thread == null)
+                        {
+                            // (inactive: started when its configuration has enabled workers now)
+                            if (config == null || config.Workers?.Any(w => w.Enabled) == true)
+                            {
+                                StartScene(videoSequence, config, existing);
+                                nbActivated++;
+                            }
+                        }
                         else if (!existing.Thread.IsAlive && existing.Context.BlockedWorkers.Count > 0 && existing.Context.Errors.Count == 0)
                         {
                             StartScene(videoSequence, config, existing);
                             nbRetried++;
                         }
                     }
-                    var result = $"Rescan: {nbNew} new scene(s) started, {nbRetried} blocked scene(s) checked again.";
+                    var result = $"Rescan: {nbNew} new scene(s) found, {nbRetried} blocked scene(s) checked again"
+                        + (nbActivated > 0 ? $", {nbActivated} inactive scene(s) started (workers enabled in their configuration)." : ".");
                     output.WriteInfo(result, null, false);
                     webOutput.SetRescanState(isRescanning: false, result);
                 }
@@ -466,7 +490,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         var scene = scenes.FirstOrDefault(s => webOutput.GetNodeId(s.Node) == retryId);
                         if (scene == null || webOutput.IsClosing)
                             continue; // (already replaced: ex. two clicks; or closing: nothing new is started)
-                        if (scene.Thread.IsAlive)
+                        if (scene.Thread?.IsAlive == true)
                         {
                             output.WriteInfo($"Retry: '{GetDisplayName(scene.Sequence)}' is still running, it was not started again.", null, false);
                             continue;
@@ -474,7 +498,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         try
                         {
                             StartScene(scene.Sequence, TryLoadConfig(scene.Sequence), scene);
-                            output.WriteInfo($"Retry: '{GetDisplayName(scene.Sequence)}' started again.", null, false);
+                            output.WriteInfo(scene.Thread == null
+                                ? $"Retry: '{GetDisplayName(scene.Sequence)}' is still inactive (no enabled worker in its configuration)."
+                                : $"Retry: '{GetDisplayName(scene.Sequence)}' started again.", null, false);
                         }
                         catch (Exception ex)
                         {
@@ -518,7 +544,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         return (s.Node, errors, todos);
                     }).ToArray());
 
-                    var isAllDone = scenes.All(s => !s.Thread.IsAlive);
+                    var isAllDone = scenes.All(s => s.Thread?.IsAlive != true);
                     if (isAllDone && !isReported)
                     {
                         WriteReport();
@@ -544,7 +570,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // 'Close': right away when nothing is running. Otherwise 'closing' mode: each scene pauses at its next safe point
                     // (between two steps / AI requests: what was received is saved), and the application closes when all the scenes
                     // still alive are paused. 'Force close': right away.
-                    var nbAlive = scenes.Count(s => s.Thread.IsAlive);
+                    var nbAlive = scenes.Count(s => s.Thread?.IsAlive == true);
                     if (webOutput.IsClosing && !webOutput.IsForceClose && nbAlive > 0 && webOutput.NbPausedForClose >= nbAlive)
                     {
                         WriteReport();
@@ -555,7 +581,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
                     if (webOutput.IsForceClose && !isAllDone)
                     {
-                        var nbRunning = scenes.Count(s => s.Thread.IsAlive);
+                        var nbRunning = scenes.Count(s => s.Thread?.IsAlive == true);
                         var message = $"Force close: {nbRunning} scene(s) were still running (what they were doing is lost, the programs they started, ex. ffmpeg, can still be running).";
                         rs_log.Warn(message);
                         Console.ForegroundColor = ConsoleColor.Yellow;
@@ -584,13 +610,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
             public VideoSequence Sequence;
             public SubtitleGeneratorContext Context;
             public ITaskNode Node;
+            /// <summary>null: inactive (no enabled worker in its configuration, not started).</summary>
             public Thread Thread;
         }
 
         /// <summary>
         /// The scenes to process, with their merged configuration (creating the .vseq files, if needed).
-        /// If all the workers of a scene are disabled, there is nothing to do for it: it's not in the list
-        /// (the .wipsubtitles is not loaded and the scene is not added to the UI).
+        /// A scene whose workers are all disabled is in the list too: it's shown as 'inactive' in the UI, and not started
+        /// (its .wipsubtitles is not loaded / created).
         /// </summary>
         private List<(VideoSequence Sequence, SubtitleGeneratorConfig Config)> ListVideoSequences()
         {
@@ -607,7 +634,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 .OrderBy(f => f))
                 .OrderBy(vs => vs.ContainerFullPath)
                 .Select(vs => (Sequence: vs, Config: TryLoadConfig(vs)))
-                .Where(item => item.Config == null || item.Config.Workers?.Any(w => w.Enabled) == true)
                 .ToList();
         }
 

@@ -54,10 +54,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             using var node = context.BeginWorkerTask(this, DisplayName);
 
+            // (in the page, the start / end of the worker are shown from its task: "Started: ...", "Finished: ... (duration)",
+            //  "Skipped: ...: already done", "Blocked: ...: reason". The same messages here only go in the log file)
             if (!IsPrerequisitesMet(context, out var reasonPrerequisites))
             {
-                context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
-                context.WriteInfo();
+                context.WriteLog($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
                 node.SetState(TaskState.Blocked, reasonPrerequisites);
                 context.AddBlockedWorker(DisplayName);
                 return;
@@ -86,7 +87,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (needsToRun)
             {
                 var added = reasonNeedsToRun != null ? $" ({reasonNeedsToRun})" : string.Empty;
-                context.WriteInfo($"{GetExecutionVerb()} '{GetId()}'...{added}");
+                context.WriteLog($"{GetExecutionVerb()} '{GetId()}'...{added}");
+                if (reasonNeedsToRun != null)
+                    context.WriteInfo($"Done again: {reasonNeedsToRun}.");
                 var watch = Stopwatch.StartNew();
                 try
                 {
@@ -94,14 +97,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     DoWork(context);
                     watch.Stop();
 
-                    context.WriteInfo(IsFinished(context)
-                        ? $"Finished in {watch.Elapsed}:"
-                        : $"Not finished yet in {watch.Elapsed}.");
+                    if (IsFinished(context))
+                        context.WriteLog($"Finished in {watch.Elapsed}:");
+                    else
+                        context.WriteInfo($"Not finished yet in {watch.Elapsed}.");
                     foreach (var line in GetAdditionalStatusLines(context))
                     {
-                        context.WriteInfo($"    {line}");
+                        context.WriteInfo(line);
                     }
-                    context.WriteInfo();
                 }
                 catch (UserStoppedWorkerException ex)
                 {
@@ -119,17 +122,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 finally
                 {
                     AfterWork(context, wasAlreadyFinished: false);
-                    context.WriteInfo();
                 }
             }
             else
             {
-                context.WriteInfoAlreadyDone($"{GetWorkerTypeName()} '{GetId()}' has already been done.");
+                context.WriteLog($"{GetWorkerTypeName()} '{GetId()}' has already been done.");
                 foreach (var line in GetAdditionalStatusLines(context))
                 {
-                    context.WriteInfoAlreadyDone($"    {line}");
+                    context.WriteInfoAlreadyDone(line);
                 }
-                context.WriteInfoAlreadyDone();
                 AfterWork(context, wasAlreadyFinished: true);
                 node.SetState(TaskState.Skipped, "already done");
             }

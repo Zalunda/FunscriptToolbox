@@ -6,7 +6,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public const string BestStart = "BestStart";
         public const string BestEnd = "BestEnd";
 
-        /// <summary>SnapAndVerify answer: "OK" (the clip is judged, HeardText says what it contains) or "Inaudible".</summary>
+        /// <summary>TimingRefineEngineVerify answer: "OK" (the clip is judged, HeardText says what it contains) or "Inaudible".</summary>
         public const string Verdict = "Verdict";
         public const string HeardText = "HeardText";
 

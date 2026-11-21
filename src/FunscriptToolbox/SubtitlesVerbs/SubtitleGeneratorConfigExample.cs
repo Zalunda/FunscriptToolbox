@@ -89,6 +89,36 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 FieldsToInclude = NodeFields.StartTime
             };
 
+            // The engines of the timing refiner (manual-input-preparer: RefineTiming.Engine), from the cheapest to the most expensive in AI tokens
+            var timingRefineEngineNone = AddSharedObject(nameof(TimingRefineEngineNone), new TimingRefineEngineNone());
+            AddSharedObject(nameof(TimingRefineEngineVerify), new TimingRefineEngineVerify
+            {
+                InnerOptions = CreateTimingInnerOptions(timingVerifySystemPrompt, "Verdict")
+            });
+            AddSharedObject(nameof(TimingRefineEngineStartEndJudge), new TimingRefineEngineStartEndJudge
+            {
+                InnerOptionsStart = CreateTimingInnerOptions(timingStartJudgeSystemPrompt, "BestStart"),
+                InnerOptionsEnd = CreateTimingInnerOptions(timingEndJudgeSystemPrompt, "BestEnd"),
+                MaxTestsInRequest = 5,
+                MaxDipsInward = 2,
+                MaxDipsOutward = 2,
+                MaxExpansion = TimeSpan.FromSeconds(2.0),
+                StartPassTailPadding = TimeSpan.FromSeconds(0.8),
+                StartClipPadding = TimeSpan.FromMilliseconds(300),
+                EndClipPadding = TimeSpan.FromMilliseconds(300),
+                EndTail = new TimingRefineEndTailSettings
+                {
+                    InnerOptions = CreateTimingInnerOptions(timingEndTailSystemPrompt, "TailKind"),
+                    MinExtra = TimeSpan.FromSeconds(0.4),
+                    MaxChecks = 1,
+                    KeepIfSpeechRatio = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "Silence", 0.3f },
+                        { "Moaning", 0.5f }
+                    }
+                }
+            });
+
             var config = new SubtitleGeneratorConfig()
             {
                 SharedObjects = sharedObjects.ToArray(),
@@ -194,7 +224,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MetadataProduced = "TranslatedText"
                     },
                     // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings (terrain of the audio, + AI depending
-                    // on RefineTiming.Mode), adds the title cards, and flags what needs a look ('[REVIEW:Code:Detail] reason' lines).
+                    // on RefineTiming.Engine), adds the title cards, and flags what needs a look ('[REVIEW:Code:Detail] reason' lines).
                     // Enabled by the workflows (with 'full' using it as its source).
                     new TranscriberAIManualInputPreparer()
                     {
@@ -218,30 +248,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         RefineTiming = new TimingRefinerSettings()
                         {
-                            // Off / SnapOnly (no AI request) / SnapAndVerify (one AI request per subtitle) / Full (the AI picks the start and the end)
-                            Mode = RefineMode.SnapOnly,
+                            Enabled = true,
                             SourceAudioIdForTerrain = "audio-clean-waveform",
-                            MaxTestsInRequest = 5,
-                            MaxDipsInward = 2,
-                            MaxDipsOutward = 2,
-                            StartPassTailPadding = TimeSpan.FromSeconds(0.8),
-                            MaxExpansion = TimeSpan.FromSeconds(2.0),
                             BleedDetectionMargin = TimeSpan.FromSeconds(3.0),
                             TrimSilenceOnStart = true,
                             TrimSilenceOnEnd = true,
-                            StartClipPadding = TimeSpan.FromMilliseconds(300),
-                            EndClipPadding = TimeSpan.FromMilliseconds(300),
-                            InnerOptionsStart = CreateTimingInnerOptions(timingStartJudgeSystemPrompt, "BestStart"),
-                            InnerOptionsEnd = CreateTimingInnerOptions(timingEndJudgeSystemPrompt, "BestEnd"),
-                            EndTailKeepIfSpeechRatio = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
-                            {
-                                { "Silence", 0.3f },
-                                { "Moaning", 0.5f }
-                            },
-                            EndTailMinExtra = TimeSpan.FromSeconds(0.4),
-                            EndTailMaxChecks = 1,
-                            InnerOptionsEndTail = CreateTimingInnerOptions(timingEndTailSystemPrompt, "TailKind"),
-                            InnerOptionsVerify = CreateTimingInnerOptions(timingVerifySystemPrompt, "Verdict")
+                            // TimingRefineEngineNone (no AI request) / TimingRefineEngineVerify (one AI request per subtitle) /
+                            // TimingRefineEngineStartEndJudge (the AI picks the start and the end): see the shared objects
+                            Engine = timingRefineEngineNone
                         },
                         Validation = new TimingValidatorSettings()
                         {

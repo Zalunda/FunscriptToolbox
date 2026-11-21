@@ -77,6 +77,50 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
         }
 
+        /// <summary>
+        /// A short summary in the log of the task (after a run, and when it's already done): the total, then one line per task
+        /// (the details are in the report file).
+        /// </summary>
+        protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)
+        {
+            var costs = (context.WIP.Transcriptions?.SelectMany(t => t.Costs) ?? Enumerable.Empty<Cost>())
+                .Concat(context.WIP.Translations?.SelectMany(t => t.Costs) ?? Enumerable.Empty<Cost>())
+                .ToList();
+            if (costs.Count == 0)
+            {
+                yield return "No cost yet.";
+                yield break;
+            }
+
+            static bool IsFallback(Cost c) => c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK))
+                || c.Output.Sections.Keys.Any(k => k.HasFlag(AIResponseSection.FALLBACK));
+            // (no token: not an AI, ex. the time of the user in the Timing editor, or a local tool; except the AI responses without token count)
+            static bool IsAI(Cost c) => c.Input.Tokens > 0 || c.Output.Tokens > 0 || IsFallback(c);
+            static double Dollars(IEnumerable<Cost> list) => list.Sum(c => c.Input.EstimatedCost + c.Output.EstimatedCost);
+            static string Time(TimeSpan t) => $"{(int)t.TotalHours}:{t:mm\\:ss}";
+            static string Tokens(double n) => n >= 1_000_000 ? $"{n / 1_000_000:0.##}M" : n >= 1_000 ? $"{n / 1_000:0.#}k" : $"{n:0}";
+
+            var aiCosts = costs.Where(IsAI).ToList();
+            var fallbackNote = costs.Any(IsFallback) ? " (+ responses without token count, not included)" : string.Empty;
+            yield return $"Total: {Dollars(aiCosts):C} for {aiCosts.Count} AI call(s){fallbackNote}, "
+                + $"{Tokens(aiCosts.Sum(c => c.Input.Tokens))} tokens in / {Tokens(aiCosts.Sum(c => c.Output.Tokens))} out, "
+                + $"{Time(aiCosts.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.TimeTaken))} of AI time (estimate: see the bill of the vendor).";
+
+            foreach (var task in costs.GroupBy(c => c.TaskName).OrderBy(g => g.Min(c => c.CreationTime)))
+            {
+                var ai = task.Where(IsAI).ToList();
+                var other = task.Where(c => !IsAI(c)).ToList();
+                var parts = new List<string>();
+                if (ai.Count > 0)
+                    parts.Add($"{Dollars(ai):C} ({ai.Count} call(s), {Time(ai.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.TimeTaken))})");
+                if (other.Count > 0)
+                    parts.Add($"{Time(other.Aggregate(TimeSpan.Zero, (acc, c) => acc + c.TimeTaken))} ({string.Join(", ", other.Select(c => c.EngineIdentifier).Distinct())})");
+                yield return $"   {task.Key}: {string.Join(", ", parts)}";
+            }
+            if (this.FileSuffix != null)
+                yield return $"Details: '{Path.GetFileName(context.WIP.BaseFilePath + this.FileSuffix)}'.";
+        }
+
         private IEnumerable<string> GenerateConsolidatedReport(
             IEnumerable<Transcription> transcriptions,
             IEnumerable<Translation> translations)

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FunscriptToolbox - Subtitle Creation</title>
+<!-- (the icon of the tab: a speech bubble with two subtitle lines, embedded: nothing to serve) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6fed'/%3E%3Cpath d='M7 7h18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H15l-6 5v-5H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z' fill='%23fff'/%3E%3Crect x='9' y='11.5' width='14' height='2.4' rx='1.2' fill='%232f6fed'/%3E%3Crect x='9' y='16' width='9' height='2.4' rx='1.2' fill='%232f6fed'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #f5f6f8; --panel: #ffffff; --text: #1d2330; --muted: #6a7384; --border: #d9dde5;
@@ -40,6 +42,7 @@
   .sd.needs { background: var(--warn); } .sd.running { background: var(--accent); } .sd.waiting { background: var(--wait); }
   .sd.blocked { background: var(--block); } .sd.stopped { background: var(--skip); } .sd.failed { background: var(--err); } .sd.finished { background: var(--ok); }
   .sd.untouched { background: transparent; border: 1.5px solid var(--ok); }
+  .sd.inactive { background: transparent; border: 1.5px dashed var(--skip); }
   .spacer { flex: 1; }
   .caps { display: flex; gap: 6px; flex-wrap: wrap; }
   .cap { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 6px; background: var(--chip-bg); font-size: 11px; color: var(--muted); white-space: nowrap; cursor: default; }
@@ -309,6 +312,7 @@
   .ll.ev-start { color: var(--accent); } .ll.ev-ok { color: var(--ok); } .ll.ev-fail { color: var(--err); }
   .ll.ev-stop { color: var(--warn); } .ll.ev-block { color: var(--block); } .ll.ev-skip { color: var(--muted); }
   .ll.stream { opacity: .8; }
+  .ll.grp { margin-top: .6em; }   /* (another task than the line before: half a line of space) */
   .empty { color: var(--muted); padding: 12px; text-align: center; font-size: 12px; }
 
   /* ---- Timing editor (a full window over the page) ---- */
@@ -438,7 +442,7 @@
       <button id="forceCloseBtn" class="mini danger" title="Close right away: what the running scenes are doing is lost (what is already saved is kept)">Force close now</button>
     </span>
     <span id="finishedMsg" style="display:none"></span>
-    <!-- (right after 'All scenes finished': the perfect moment to see what went wrong and what to do next) -->
+    <!-- (right after 'All scenes processed': the perfect moment to see what went wrong and what to do next) -->
     <button id="wrongBtn" class="mini" style="display:none" title="The errors of all the scenes">&#9888; What went wrong</button>
     <button id="nextBtn" class="mini" style="display:none" title="What you need to do: the blocked scenes (and what they wait for), and the tasks asked by the workers">&#10140; What's next</button>
     <div class="spacer"></div>
@@ -515,8 +519,8 @@
   var heldBy = {}, waitBy = {};         // nodeId -> [lock]: the locks held / waited by each task
 
   // The states of a scene (in the order of the sections)
-  var STATES = ["needs", "running", "waiting", "blocked", "stopped", "failed", "finished", "untouched"];
-  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched" };
+  var STATES = ["needs", "running", "waiting", "blocked", "stopped", "failed", "finished", "untouched", "inactive"];
+  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched", inactive: "inactive" };
   var TIPS = {
     needs: "A prompt, a dialog or a review (Timing editor) is waiting for you",
     running: "Working right now",
@@ -525,7 +529,8 @@
     stopped: "Stopped by you",
     failed: "Ended with an error",
     finished: "All the enabled workers ran (or were already done), and something was done in this run",
-    untouched: "Nothing new in this run: all the workers were already done (or only refreshed, because of 'CanBeUpdated')"
+    untouched: "Nothing new in this run: all the workers were already done (or only refreshed, because of 'CanBeUpdated')",
+    inactive: "No enabled worker in its configuration: nothing is done for it (enable workers in the configuration of its folder, then Retry or Rescan)"
   };
   var filters = {}; STATES.forEach(function (s) { filters[s] = true; });
   var search = "";
@@ -628,6 +633,7 @@
 
   // ---- State of a scene ----
   function sceneState(r) {
+    if (r.inactive) return "inactive";                                  // no enabled worker: not started
     if (r.state === "Pending") return "waiting";                       // not started yet
     if (!terminal[r.state]) {
       if (r.state === "WaitingForUser" || anyDesc(r, function (k) { return k.state === "WaitingForUser"; })) return "needs";
@@ -1725,8 +1731,13 @@
     var html;
     if (activeTab === "Log") {
       // (a task with sub-tasks: the log of all its sub-tasks, with the start / end of the important ones; the sub-task is shown before the text)
-      html = detail.log.length ? detail.log.map(function (l) {
-        var cls = "ll" + (l.error ? " err" : "") + (l.color ? " c-" + esc(l.color) : "") + (l.ev ? " ev ev-" + esc(l.ev) : "") + (l.stream ? " stream" : "");
+      // (the lines of another task than the line before, ex. another worker: half a line of space before them)
+      var prevGroup = null;
+      html = detail.log.length ? detail.log.map(function (l, li) {
+        var group = l.task ? l.task.split(" > ")[0] : "";
+        var cls = "ll" + (l.error ? " err" : "") + (l.color ? " c-" + esc(l.color) : "") + (l.ev ? " ev ev-" + esc(l.ev) : "") + (l.stream ? " stream" : "") +
+          (li > 0 && group !== prevGroup ? " grp" : "");
+        prevGroup = group;
         var task = "";
         if (l.task) {
           var parts = l.task.split(" > ");
@@ -2299,13 +2310,16 @@
         ? "Looking for scenes on disk..."
         : "Looks again for scenes on disk: the new ones are started, and the blocked ones are checked again (ex. their manual-input file is now there). The other scenes are not touched.";
 
-    // The result of the last rescan, for a few seconds (it's also in the General log). Otherwise: 'All scenes finished'.
+    // The result of the last rescan, for a few seconds (it's also in the General log). Otherwise: 'All scenes processed' (nothing running anymore: the scenes can be finished, blocked, failed...).
     var msg = $("finishedMsg"), msgText = null;
     if (rescanning) msgText = null;
     else if (state.lastRescan && now() - state.lastRescan.ms < 8000) msgText = state.lastRescan.text;
-    else if (state.finished) msgText = "All scenes finished";
+    else if (state.finished) msgText = "All scenes processed";
     msg.style.display = msgText ? "" : "none";
     if (msgText && msg.textContent !== msgText) msg.textContent = msgText;
+    msg.title = msgText === "All scenes processed"
+      ? "Nothing is running anymore: each scene is finished, blocked (ex. waiting for you), failed or stopped (see their state). 'Rescan' starts the new / blocked ones."
+      : "";
   }
   function showClosed() {
     isDisconnected = true;   // (if FunscriptToolbox is started again on this port, this tab reloads by itself)

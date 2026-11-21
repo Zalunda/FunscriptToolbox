@@ -19,10 +19,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// Prepares the subtitles of a transcription (full-ai) for the manual-input file: the nodes that are clean, and the ones
     /// that need the user's attention ('[REVIEW:Code:Detail] message' lines). It does up to three things, each with its own settings and Enabled
     /// (all disabled: the result is a clone of the source):
-    ///   - RefineTiming: refines the timing of each subtitle in two sequential passes:
-    ///       1. START pass: Audio_Max, Audio_S1..Audio_Sn (same end, different starts) -> BestStart
-    ///       2. END pass:   Audio_Max, Audio_E1..Audio_En (start locked, different ends) -> BestEnd
-    ///     Each pass has its own prompt/options (InnerOptionsStart / InnerOptionsEnd).
+    ///   - RefineTiming: snaps the boundaries of each subtitle on the terrain of the audio, then refines them with its engine
+    ///     (RefineTiming.Engine: the passes of requests to the AI, see TimingRefineEngine).
     ///   - Validation: checks the refined subtitles, flags what needs a look and splits the long ones.
     ///   - TitleCardDetection: adds a node for each title card found in the videos.
     /// </summary>
@@ -32,79 +30,41 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // Cache
         // ---------------------------------------------------------------------
 
+        /// <summary>The answer of a request, kept in the cache: the metadata that the pass reads (see TimingRefinePass.CachedMetadataNames).</summary>
         public class CachedCandidateResponse
         {
-            public string BestStart { get; set; }
-            public string BestEnd { get; set; }
-            public string HeardText { get; set; }
-            public string TailKind { get; set; }
+            public Dictionary<string, string> Values { get; set; } = new Dictionary<string, string>();
 
-            public bool IsEmpty => BestStart == null && BestEnd == null && HeardText == null && TailKind == null;
+            [JsonIgnore]
+            public bool IsEmpty => Values == null || Values.Count == 0;
 
-            public static CachedCandidateResponse FromMetadata(MetadataCollection metadata)
+            public static CachedCandidateResponse FromMetadata(MetadataCollection metadata, IEnumerable<string> names)
             {
-                metadata.TryGetValue(TimingMeta.BestStart, out var bestStart);
-                metadata.TryGetValue(TimingMeta.BestEnd, out var bestEnd);
-                metadata.TryGetValue(TimingMeta.HeardText, out var heardText);
-                metadata.TryGetValue(TimingMeta.TailKind, out var tailKind);
-                return new CachedCandidateResponse
+                var response = new CachedCandidateResponse();
+                foreach (var name in names.Where(n => !string.IsNullOrEmpty(n)).Distinct())
                 {
-                    BestStart = bestStart,
-                    BestEnd = bestEnd,
-                    HeardText = heardText,
-                    TailKind = tailKind
-                };
+                    if (metadata.TryGetValue(name, out var value) && value != null)
+                        response.Values[name] = value;
+                }
+                return response;
             }
 
             public MetadataCollection ToMetadata()
             {
                 var metadata = new MetadataCollection();
-                if (BestStart != null) metadata[TimingMeta.BestStart] = BestStart;
-                if (BestEnd != null) metadata[TimingMeta.BestEnd] = BestEnd;
-                if (HeardText != null) metadata[TimingMeta.HeardText] = HeardText;
-                if (TailKind != null) metadata[TimingMeta.TailKind] = TailKind;
+                foreach (var kvp in Values ?? new Dictionary<string, string>())
+                    metadata[kvp.Key] = kvp.Value;
                 return metadata;
             }
         }
 
         public class JobState
         {
+            /// <summary>The answers of the AI, by key of the request (see TimingRefineEngine.BuildCacheKey).</summary>
             public Dictionary<string, CachedCandidateResponse> CachedResults = new Dictionary<string, CachedCandidateResponse>();
 
             /// <summary>By filename of the video.</summary>
             public Dictionary<string, TitleCardProgress> TitleCards = new Dictionary<string, TitleCardProgress>();
-
-            public static string BuildKey(TimeSpan originalStart, TimingRound round)
-            {
-                // (the padding is part of the key: the same clip with another padding is another audio; nothing is added without padding)
-                var clipsSig = string.Join(";", round.Clips.Select(c => $"{c.OptionId}:{c.Start:hh\\:mm\\:ss\\.fff}-{c.End:hh\\:mm\\:ss\\.fff}{c.PaddingSignature}"));
-                return $"{originalStart:hh\\:mm\\:ss\\.fff}|{round.Side}|{round.Center:hh\\:mm\\:ss\\.fff}|{StableHash(round.TextSent)}|{clipsSig}";
-            }
-
-            /// <summary>64-bit FNV-1a (string.GetHashCode is randomized per process on modern .NET, so it can't be used for a persisted cache).</summary>
-            private static string StableHash(string text)
-            {
-                unchecked
-                {
-                    ulong hash = 14695981039346656037;
-                    foreach (var ch in text ?? "")
-                    {
-                        hash ^= ch;
-                        hash *= 1099511628211;
-                    }
-                    return hash.ToString("x16");
-                }
-            }
-
-            public void AddCachedResult(TimeSpan originalStart, TimingRound round, CachedCandidateResponse result)
-            {
-                CachedResults[BuildKey(originalStart, round)] = result;
-            }
-
-            public bool TryGetCachedResult(TimeSpan originalStart, TimingRound round, out CachedCandidateResponse result)
-            {
-                return CachedResults.TryGetValue(BuildKey(originalStart, round), out result);
-            }
         }
 
         // ---------------------------------------------------------------------
@@ -279,8 +239,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.Validation.Enabled && !this.RefineTiming.Enabled)
             {
                 throw new InvalidOperationException(
-                    "Validation is enabled but RefineTiming Mode is 'Off': the validation needs the terrain of the audio (Mode SnapOnly or more). " +
-                    "Change the Mode or disable Validation.");
+                    "Validation is enabled but RefineTiming is disabled: the validation needs the terrain of the audio (RefineTiming enabled, any engine). " +
+                    "Enable RefineTiming or disable Validation.");
             }
 
             this.RefineTiming.Validate();
@@ -297,7 +257,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.RefineTiming?.Enabled == true)
             {
                 flow.Input(DataKind.Audio, this.RefineTiming.SourceAudioIdForTerrain, "terrain");
-                foreach (var inner in this.RefineTiming.InnerOptionsUsed)
+                foreach (var inner in this.RefineTiming.Engine?.InnerOptionsUsed ?? Enumerable.Empty<AIOptions>())
                 {
                     flow.InputExtractors(inner?.BinaryDataExtractors);
                 }
@@ -318,7 +278,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     return false;
                 }
 
-                foreach (var inner in this.RefineTiming.InnerOptionsUsed)
+                foreach (var inner in this.RefineTiming.Engine?.InnerOptionsUsed ?? Enumerable.Empty<AIOptions>())
                 {
                     foreach (var extractor in inner?.BinaryDataExtractors?.OfType<BinaryDataExtractorAudio>() ?? Array.Empty<BinaryDataExtractorAudio>())
                     {
@@ -340,6 +300,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <summary>Everything needed to send one iteration to the AI.</summary>
         private class RefineBatch
         {
+            /// <summary>The pass that asks (its options, its engine: the cache key, what is kept from the answers).</summary>
+            public TimingRefinePass Pass;
             public Transcription Transcription;
             public List<TimedItemWithMetadata> ItemsToProcess = new List<TimedItemWithMetadata>();
             public Dictionary<TimeSpan, List<TimingClipOption>> ClipsByStartTime = new Dictionary<TimeSpan, List<TimingClipOption>>();
@@ -668,7 +630,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             // The long subtitles are split, and only the parts are refined (their outer edges are already validated)
             // (a split part gets its text from the AI: not possible without it)
-            if (this.Validation.Enabled && this.RefineTiming.UsesAI)
+            if (this.Validation.Enabled && this.RefineTiming.Enabled && this.RefineTiming.Engine.CanSplitLongSubtitles)
             {
                 var completed = context.RunStep("Split the long subtitles", splitNode =>
                 {
@@ -715,7 +677,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             });
             if (this.RefineTiming.Enabled)
                 context.RunStep("Summary", _ => PrintSummary(context, transcription, refiner, reports, splitReports, originalCount, partCount));
-            if (this.Simulations != null && this.Simulations.Length > 0 && this.RefineTiming.Mode == RefineMode.Full)
+            if (this.Simulations != null && this.Simulations.Length > 0 && this.RefineTiming.Enabled && this.RefineTiming.Engine.SupportsSimulations)
                 context.RunStep("Simulations", _ => RunSimulations(context, transcription, refiner));
             if (!string.IsNullOrWhiteSpace(this.GroundTruthExtension))
                 context.RunStep("Ground truth analysis", _ => RunGroundTruthAnalysis(context, transcription, refiner));
@@ -727,6 +689,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             });
         }
 
+        /// <summary>The passes of the engine (each one until it has nothing left to ask), then the sides not asked are locked.</summary>
         /// <returns>false when the requests were interrupted (the caller must stop).</returns>
         private bool RunPhases(
             SubtitleGeneratorContext context,
@@ -736,14 +699,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             List<PhaseReport> reports,
             bool exportProgress)
         {
-            if (refiner.SidesToAsk.Count == 0)
-                context.WriteInfo("  RefineTiming is SnapOnly: timings snapped on the audio, no AI request.");
+            var passes = this.RefineTiming.Engine.CreatePasses(refiner);
+            if (passes.Count == 0)
+                context.WriteInfo($"  RefineTiming engine '{this.RefineTiming.Engine.GetType().Name}': timings snapped on the audio, no AI request.");
 
-            foreach (var side in refiner.SidesToAsk)
+            foreach (var pass in passes)
             {
-                var completed = context.RunStep($"{side} pass", passNode =>
+                var completed = context.RunStep(pass.IsTailCheck ? $"{pass.Name} check" : $"{pass.Name} pass", passNode =>
                 {
-                    if (RunPhase(context, transcription, refiner, jobState, side, reports, exportProgress))
+                    if (RunPass(context, transcription, refiner, jobState, pass, reports, exportProgress))
                         return true;
                     passNode.SetState(TaskState.Cancelled, "interrupted");
                     return false;
@@ -752,66 +716,62 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     return false;
             }
 
-            if (refiner.TailCheckEnabled)
-            {
-                var completed = context.RunStep("End tail check", tailNode =>
-                {
-                    if (RunTailCheckPhase(context, transcription, refiner, jobState, reports, exportProgress))
-                        return true;
-                    tailNode.SetState(TaskState.Cancelled, "interrupted");
-                    return false;
-                });
-                if (!completed)
-                    return false;
-            }
-
-            refiner.LockUnaskedBoundaries();
+            refiner.LockUnaskedBoundaries(passes);
             return true;
         }
 
         /// <param name="exportProgress">false when the refiner only has some of the candidates (the parts of the split subtitles): the transcription is not updated with them.</param>
-        private bool RunPhase(
+        /// <returns>false when the requests were interrupted (the caller must stop).</returns>
+        private bool RunPass(
             SubtitleGeneratorContext context,
             Transcription transcription,
             TimingRefiner refiner,
             JobState jobState,
-            BoundarySide side,
+            TimingRefinePass pass,
             List<PhaseReport> reports,
             bool exportProgress)
         {
-            var report = new PhaseReport { Side = side };
+            var report = new PhaseReport { Side = pass.Side, IsTailCheck = pass.IsTailCheck };
             reports.Add(report);
 
-            var options = this.RefineTiming.InnerOptionsFor(side);
-            refiner.BeginPhase(side);
+            pass.Begin();
 
-            // Ends when PrepareNextRound has nothing left to ask (every boundary locked, or the runaway guard was reached)
+            // Ends when the pass has nothing left to ask (every boundary locked, or the runaway guard was reached)
             while (true)
             {
-                refiner.PrepareNextRound(side);
+                pass.PrepareNextRound();
 
-                // PrepareNextRound leaves CurrentRound == null on locked / exhausted / auto-locked candidates
+                // (CurrentRound stays null on the candidates that have nothing to ask)
                 var candidatesToTest = refiner.Candidates.Where(c => c.CurrentRound != null).ToList();
 
-                report.Iterations++;
-                context.WriteInfo($"  [{side}] Iteration {report.Iterations}: " +
-                    $"{refiner.Candidates.Count(c => c[side].Locked)}/{refiner.Candidates.Count} locked, " +
-                    $"testing {candidatesToTest.Count} candidates...");
-
-                if (candidatesToTest.Count == 0)
-                    break;
+                if (pass.IsTailCheck)
+                {
+                    if (candidatesToTest.Count == 0)
+                        break;
+                    report.Iterations++;
+                    context.WriteInfo($"  [{pass.Name}] Iteration {report.Iterations}: checking the audio appended by {candidatesToTest.Count} chosen Ends...");
+                }
+                else
+                {
+                    report.Iterations++;
+                    context.WriteInfo($"  [{pass.Name}] Iteration {report.Iterations}: " +
+                        $"{refiner.Candidates.Count(c => c[pass.Side].Locked)}/{refiner.Candidates.Count} locked, " +
+                        $"testing {candidatesToTest.Count} candidates...");
+                    if (candidatesToTest.Count == 0)
+                        break;
+                }
 
                 var completed = context.RunStep($"Iteration {report.Iterations} ({candidatesToTest.Count} candidates)", iterationNode =>
                 {
-                    var batch = BuildBatchStep(context, transcription, side, report.Iterations, candidatesToTest, jobState, options, report);
-                    if (!ExecuteBatch(context, transcription, jobState, batch, options))
+                    var batch = BuildBatchStep(context, transcription, pass, report.Iterations, candidatesToTest, jobState, report);
+                    if (!ExecuteBatch(context, transcription, jobState, batch))
                     {
                         iterationNode.SetState(TaskState.Cancelled, "interrupted");
                         return false; // Interrupted
                     }
 
-                    refiner.ProcessBatchResults(batch.Transcription.Items, side);
-                    if (exportProgress)
+                    pass.ProcessResults(batch.Transcription.Items);
+                    if (exportProgress && !pass.IsTailCheck)
                     {
                         UpdateTranscription(transcription, refiner.Candidates);
                         DoExportMetatadaSrt(context, transcription, false);
@@ -822,66 +782,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     return false; // Interrupted
             }
 
-            // Whatever is still open on this side is locked and flagged, so the next pass can rely on it
-            refiner.EndPhase(side);
+            // (ex. whatever is still open on this side is locked and flagged, so the next pass can rely on it)
+            pass.End();
             if (exportProgress)
             {
                 UpdateTranscription(transcription, refiner.Candidates);
                 DoExportMetatadaSrt(context, transcription, false);
             }
-            context.WriteInfo($"  [{side}] Pass finished: {report.Tests} requests in {report.Iterations - 1} iterations.");
-            return true;
-        }
-
-        /// <summary>
-        /// After the End pass: for each End chosen far after the closest option before it, one request asks what the audio that it
-        /// appends is (Speech, Silence, Breathing, Laughter, Moaning, Noise), without the text. See TimingRefiner.PrepareTailCheck.
-        /// </summary>
-        /// <returns>false when the requests were interrupted (the caller must stop).</returns>
-        private bool RunTailCheckPhase(
-            SubtitleGeneratorContext context,
-            Transcription transcription,
-            TimingRefiner refiner,
-            JobState jobState,
-            List<PhaseReport> reports,
-            bool exportProgress)
-        {
-            var report = new PhaseReport { Side = BoundarySide.End, IsTailCheck = true };
-            reports.Add(report);
-            var options = this.RefineTiming.InnerOptionsEndTail;
-
-            while (true)
-            {
-                refiner.PrepareTailCheck();
-                var candidatesToTest = refiner.Candidates.Where(c => c.CurrentRound != null).ToList();
-                if (candidatesToTest.Count == 0)
-                    break;
-
-                report.Iterations++;
-                context.WriteInfo($"  [End tail] Iteration {report.Iterations}: checking the audio appended by {candidatesToTest.Count} chosen Ends...");
-
-                var completed = context.RunStep($"Iteration {report.Iterations} ({candidatesToTest.Count} candidates)", iterationNode =>
-                {
-                    var batch = BuildBatchStep(context, transcription, BoundarySide.End, report.Iterations, candidatesToTest, jobState, options, report, tailCheck: true);
-                    if (!ExecuteBatch(context, transcription, jobState, batch, options))
-                    {
-                        iterationNode.SetState(TaskState.Cancelled, "interrupted");
-                        return false; // Interrupted
-                    }
-
-                    refiner.ProcessTailCheckResults(batch.Transcription.Items);
-                    return true;
-                });
-                if (!completed)
-                    return false; // Interrupted
-            }
-
-            if (exportProgress)
-            {
-                UpdateTranscription(transcription, refiner.Candidates);
-                DoExportMetatadaSrt(context, transcription, false);
-            }
-            context.WriteInfo($"  [End tail] Check finished: {report.Tests} requests in {Math.Max(0, report.Iterations)} iterations.");
+            context.WriteInfo(pass.IsTailCheck
+                ? $"  [{pass.Name}] Check finished: {report.Tests} requests in {Math.Max(0, report.Iterations)} iterations."
+                : $"  [{pass.Name}] Pass finished: {report.Tests} requests in {report.Iterations - 1} iterations.");
             return true;
         }
 
@@ -1020,18 +930,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         private RefineBatch BuildBatchStep(
             SubtitleGeneratorContext context,
             Transcription transcription,
-            BoundarySide side,
+            TimingRefinePass pass,
             int iteration,
             List<TimingCandidate> candidatesToTest,
             JobState jobState,
-            AIOptions options,
-            PhaseReport report,
-            bool tailCheck = false)
+            PhaseReport report)
         {
             return context.RunStep("Build the batch", node =>
             {
                 var fromCacheBefore = report.FromCache;
-                var batch = BuildBatch(transcription, side, iteration, candidatesToTest, jobState, options, report, tailCheck);
+                var batch = BuildBatch(transcription, pass, iteration, candidatesToTest, jobState, report);
                 node.SetStatus($"{batch.ItemsToProcess.Count} to ask the AI, {report.FromCache - fromCacheBefore} from the cache");
                 return batch;
             });
@@ -1039,23 +947,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private RefineBatch BuildBatch(
             Transcription transcription,
-            BoundarySide side,
+            TimingRefinePass pass,
             int iteration,
             List<TimingCandidate> candidatesToTest,
             JobState jobState,
-            AIOptions options,
-            PhaseReport report,
-            bool tailCheck = false)
+            PhaseReport report)
         {
-            string defaultProduced = tailCheck ? TimingMeta.TailKind
-                : this.RefineTiming.Mode == RefineMode.SnapAndVerify ? TimingMeta.Verdict
-                : side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd;
+            var side = pass.Side;
+            var options = pass.Options;
             string metadataProduced = string.IsNullOrWhiteSpace(options.MetadataAlwaysProduced)
-                ? defaultProduced
+                ? pass.MetadataProduced
                 : options.MetadataAlwaysProduced;
 
             var batch = new RefineBatch
             {
+                Pass = pass,
                 Transcription = new Transcription(
                     id: transcription.Id,
                     metadataAlwaysProduced: metadataProduced,
@@ -1068,7 +974,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 var round = candidate.CurrentRound;
                 report.ClipDuration += round.Clips.Aggregate(TimeSpan.Zero, (sum, c) => sum + c.TotalDuration);
-                if (jobState.TryGetCachedResult(candidate.OriginalStartTime, round, out var cached))
+                if (jobState.CachedResults.TryGetValue(pass.Engine.BuildCacheKey(candidate, round), out var cached))
                 {
                     batch.Transcription.AddNewItem(candidate.OriginalStartTime, candidate.OriginalEndTime, cached.ToMetadata());
                     report.FromCache++;
@@ -1108,9 +1014,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             SubtitleGeneratorContext context,
             Transcription transcription,
             JobState jobState,
-            RefineBatch batch,
-            AIOptions options)
+            RefineBatch batch)
         {
+            var options = batch.Pass.Options;
             m_activeClipsByStartTime = batch.ClipsByStartTime;
             m_activeContext = context;
             try
@@ -1141,9 +1047,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (!batch.NewlyRequested.TryGetValue(item.StartTime, out var candidate) || candidate.CurrentRound == null)
                     continue;
 
-                var response = CachedCandidateResponse.FromMetadata(item.Metadata);
+                var response = CachedCandidateResponse.FromMetadata(item.Metadata, batch.Pass.CachedMetadataNames);
                 if (!response.IsEmpty)
-                    jobState.AddCachedResult(candidate.OriginalStartTime, candidate.CurrentRound, response);
+                    jobState.CachedResults[batch.Pass.Engine.BuildCacheKey(candidate, candidate.CurrentRound)] = response;
             }
         }
 
@@ -1385,8 +1291,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private void RunSimulations(SubtitleGeneratorContext context, Transcription transcription, TimingRefiner refiner)
         {
-            // (the simulations replay the Full mode)
-            if (this.Simulations == null || this.Simulations.Length == 0 || this.RefineTiming.Mode != RefineMode.Full)
+            // (the simulations replay the engine: only the ones that support it, ex. StartEndJudge)
+            if (this.Simulations == null || this.Simulations.Length == 0 || !this.RefineTiming.Enabled || !this.RefineTiming.Engine.SupportsSimulations)
                 return;
 
             var pcm = context.WIP.AudioExtractions

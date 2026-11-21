@@ -307,8 +307,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             {
                 CurrentNode.SetStatus(message?.Trim());
             }
-            else
+            else if (!string.IsNullOrWhiteSpace(message))
             {
+                // (an empty line: the spacing of the old console output, not shown; the page separates the tasks by itself)
                 CurrentNode.AddLogLine(message, color);
             }
         }
@@ -319,7 +320,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             {
                 CurrentNode.SetStatus(message?.Trim());
             }
-            else if (isVerboseEnabled)
+            else if (isVerboseEnabled && !string.IsNullOrWhiteSpace(message))
             {
                 CurrentNode.AddLogLine(message, color);
             }
@@ -1014,6 +1015,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     shortName = Info?.ShortName,
                     meta = Info?.Metadata,
                     priority = Info?.PriorityText,
+                    inactive = Info?.IsInactive == true,
                     configError = Info?.ConfigError
                 };
             }
