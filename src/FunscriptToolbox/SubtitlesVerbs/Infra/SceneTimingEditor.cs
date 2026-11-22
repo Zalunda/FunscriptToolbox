@@ -107,7 +107,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     offsetMs = (long)p.Offset.TotalMilliseconds,
                     durationMs = (long)p.Duration.TotalMilliseconds,
                     // "light": its .FAST.mp4; "original": the video itself (no light video: can be heavy to play); null: none
-                    video = GetPlayedVideo(wip, p).kind
+                    video = GetPlayedVideo(wip, p, false).kind,
+                    // (the videos there are: the user chooses which one is played)
+                    hasLight = File.Exists(GetLightVideoFullPath(wip, p)),
+                    hasOriginal = File.Exists(Path.Combine(wip.ParentPath, p.Filename))
                 }).ToArray(),
                 lightVideoSuffix = LightVideoSuffix,
                 reviews = GetReviewWorkers().Select(w =>
@@ -143,25 +146,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>
         /// The video played for a part: its light video ('.FAST.mp4', made by the 'fast-video' output), otherwise the video itself
         /// (ex. a 2D video doesn't need a light one; a big one, ex. 8K, can be choppy, and the browser may not be able to play its codec).
+        /// preferOriginal (chosen by the user, ex. for a sharper image): the video itself first, otherwise its light video.
         /// </summary>
-        private static (string path, string kind) GetPlayedVideo(WorkInProgressSubtitles wip, TimelineSegment part)
+        private static (string path, string kind) GetPlayedVideo(WorkInProgressSubtitles wip, TimelineSegment part, bool preferOriginal)
         {
             var light = GetLightVideoFullPath(wip, part);
+            var original = Path.Combine(wip.ParentPath, part.Filename);
+            if (preferOriginal && File.Exists(original))
+                return (original, "original");
             if (File.Exists(light))
                 return (light, "light");
-            var original = Path.Combine(wip.ParentPath, part.Filename);
             if (File.Exists(original))
                 return (original, "original");
             return (null, null);
         }
 
-        public string GetVideoPath(int partIndex)
+        public string GetVideoPath(int partIndex, bool original)
         {
             var wip = Wip;
             var parts = GetParts(wip);
             if (partIndex < 0 || partIndex >= parts.Length)
                 return null;
-            return GetPlayedVideo(wip, parts[partIndex]).path;
+            return GetPlayedVideo(wip, parts[partIndex], original).path;
         }
 
         // ---- The subtitles ----
@@ -224,17 +230,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     origin = jobState.Origin,
                     activeMs = (long)jobState.ActiveTime.TotalMilliseconds,
                     fileSuffix = worker.FileSuffix,
-                    timingValidated = jobState.Items.Where(i => i.TimingValidated).Select(i => KeyOf(i.StartTime, i.EndTime)).ToArray(),
                     // The 'Speakers' pass: the metadata to set (null: no 'Speakers' pass), and the list of the speakers
                     speakersConfig = worker.HasSpeakersPass
                         ? new { speaker = worker.SpeakerMetadata, ongoing = worker.OngoingSpeakersMetadata }
                         : null,
-                    speakers = (jobState.Speakers ?? new List<TranscriberInteractifReview.ReviewSpeaker>()).Select(sp => new { name = sp.Name, alias = sp.Alias }).ToArray(),
+                    speakers = (jobState.Speakers ?? new List<TranscriberInteractifReview.ReviewSpeaker>()).Select(sp => new { name = sp.Name, alias = sp.Alias, image = sp.Image }).ToArray(),
                     subtitles = jobState.Items.OrderBy(i => i.StartTime).Select(i => new
                     {
                         s = (long)i.StartTime.TotalMilliseconds,
                         e = (long)i.EndTime.TotalMilliseconds,
-                        lines = i.Lines ?? Array.Empty<string>()
+                        lines = i.Lines ?? Array.Empty<string>(),
+                        // (its start / its end finalized by the user)
+                        fs = i.StartFinalized,
+                        fe = i.EndFinalized
                     }).ToArray()
                 };
             });
@@ -253,14 +261,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             ChangeReview(reviewId, jobState => jobState.IsDone = true);
         }
 
-        /// <summary>What the user validated: the subtitles with these timings ("start ms-end ms", their timing as saved).</summary>
-        public void SaveValidated(string reviewId, string[] keys)
+        /// <summary>
+        /// What the user finalized: the subtitles known by their timing as saved ("start ms-end ms"). The other subtitles are not changed
+        /// (ex. their timing changed in the page and isn't saved yet: their finalized edges are saved with them, see SaveSubtitles).
+        /// </summary>
+        public void SaveFinalized(string reviewId, TimingEditorFinalized[] items)
         {
-            var validated = new HashSet<string>(keys ?? Array.Empty<string>());
+            var byKey = new Dictionary<string, TimingEditorFinalized>();
+            foreach (var x in items ?? Array.Empty<TimingEditorFinalized>())
+                if (x?.K != null)
+                    byKey[x.K] = x;
             ChangeReview(reviewId, jobState =>
             {
                 foreach (var item in jobState.Items)
-                    item.TimingValidated = validated.Contains(KeyOf(item.StartTime, item.EndTime));
+                {
+                    if (byKey.TryGetValue(KeyOf(item.StartTime, item.EndTime), out var x))
+                    {
+                        item.StartFinalized = x.S;
+                        item.EndFinalized = x.E;
+                    }
+                }
                 return true;
             });
         }
@@ -274,7 +294,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             foreach (var speaker in speakers)
             {
                 var error = TranscriberInteractifReview.GetSpeakerNameError(speaker?.Name)
-                    ?? (string.IsNullOrWhiteSpace(speaker.Alias) ? null : TranscriberInteractifReview.GetSpeakerNameError(speaker.Alias));
+                    ?? (string.IsNullOrWhiteSpace(speaker.Alias) ? null : TranscriberInteractifReview.GetSpeakerNameError(speaker.Alias))
+                    ?? GetSpeakerImageError(speaker.Name, speaker.Image);
                 if (error != null)
                     throw new TimingEditorException(error);
             }
@@ -292,16 +313,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (!force && StampOf(jobState) != stamp)
                     throw new TimingEditorConflictException("The review was saved from somewhere else (another page?) since it was loaded in this page.");
 
-                // (a subtitle whose timing didn't change stays validated; the page then sends what is validated)
-                var validated = new HashSet<string>(jobState.Items.Where(i => i.TimingValidated).Select(i => KeyOf(i.StartTime, i.EndTime)));
+                // (the finalized edges come with the subtitles: a finalized edge stays finalized when it's moved;
+                // not sent, ex. an older page: the ones saved for the same timing)
+                var saved = new Dictionary<string, TranscriberInteractifReview.ReviewItem>();
+                foreach (var item in jobState.Items)
+                    saved[KeyOf(item.StartTime, item.EndTime)] = item;
                 jobState.Items = subtitles
                     .OrderBy(s => s.S)
-                    .Select(s => new TranscriberInteractifReview.ReviewItem
+                    .Select(s =>
                     {
-                        StartTime = TimeSpan.FromMilliseconds(s.S),
-                        EndTime = TimeSpan.FromMilliseconds(s.E),
-                        Lines = s.Lines,
-                        TimingValidated = validated.Contains(KeyOf(TimeSpan.FromMilliseconds(s.S), TimeSpan.FromMilliseconds(s.E)))
+                        var start = TimeSpan.FromMilliseconds(s.S);
+                        var end = TimeSpan.FromMilliseconds(s.E);
+                        saved.TryGetValue(KeyOf(start, end), out var before);
+                        return new TranscriberInteractifReview.ReviewItem
+                        {
+                            StartTime = start,
+                            EndTime = end,
+                            Lines = s.Lines,
+                            StartFinalized = s.Fs ?? before?.StartFinalized ?? false,
+                            EndFinalized = s.Fe ?? before?.EndFinalized ?? false
+                        };
                     })
                     .ToList();
                 jobState.Speakers = speakers
@@ -309,12 +340,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     .Select(g => new TranscriberInteractifReview.ReviewSpeaker
                     {
                         Name = g.Key,
-                        Alias = string.IsNullOrWhiteSpace(g.First().Alias) ? null : g.First().Alias.Trim()
+                        Alias = string.IsNullOrWhiteSpace(g.First().Alias) ? null : g.First().Alias.Trim(),
+                        Image = string.IsNullOrEmpty(g.First().Image) ? null : g.First().Image
                     })
                     .ToList();
                 jobState.Version++;
                 return StampOf(jobState);
             });
+        }
+
+        /// <summary>The image of a speaker (a part of a frame, made by the page): a JPEG / PNG data URL, not too big (it's in the .wipsubtitles).</summary>
+        private const int MaxSpeakerImageLength = 1024 * 1024;
+        private static string GetSpeakerImageError(string name, string image)
+        {
+            if (string.IsNullOrEmpty(image))
+                return null;
+            if (!image.StartsWith("data:image/jpeg;base64,", StringComparison.Ordinal) && !image.StartsWith("data:image/png;base64,", StringComparison.Ordinal))
+                return $"The image of the speaker '{name}' is not a JPEG / PNG image.";
+            if (image.Length > MaxSpeakerImageLength)
+                return $"The image of the speaker '{name}' is too big ({image.Length / 1024} KB, at most {MaxSpeakerImageLength / 1024} KB).";
+            return null;
         }
 
         // ---- The audio ----

@@ -88,6 +88,28 @@ A modular pipeline driven by JSON/C# configuration files to transcribe, identify
 
 There is no WPF / desktop dialog anymore: everything the user does is in the web UI (`SubtitlesVerbs/Progress/ui.html`).
 The **Timing editor** (`TranscriberInteractifReview` + `SubtitlesVerbs/Infra/SceneTimingEditor.cs`) reviews the manual-input file in passes:
-the timings (each subtitle is "timing validated"), the review warnings written by `TranscriberAIManualInputPreparer`
+the timings (the start and the end of each subtitle are finalized on their own, `ReviewItem.StartFinalized` / `EndFinalized`; "timing validated" = both), the review warnings written by `TranscriberAIManualInputPreparer`
 (`[REVIEW:<Code>[:<Detail>]] message` lines, checked one by one: `[CHECKED:...]`), and the speakers (`{OngoingSpeakers:...}` / `{Speaker:...}`).
+Its list can be sorted by any column (the arrows follow the order of the list). The `Conf.` column reads a `[TimingConfidence:0.42] reason` line
+(0 = surely wrong .. 1 = surely right; a text line like the review warnings, not a `{metadata}`): the line a timing refine engine should write.
+The list shows only the kind of review warning chosen in the Warnings tree (none: all), and the subtitles of the filter chosen above it (`S.listFilter`, `filterMatch`):
+All, Timing (not validated; in a session: something to finalize in it), Speakers (not known), Visual training (someone present without a
+`{VisualTraining:Name (description), Name 2 (description)}` anywhere; the most people first), Audio training (its speaker without an `{AudioTraining:Name}`,
+or not known; the longest first). The blocks show what is done (the training: speakers with one / speakers). Adding a VisualTraining / AudioTraining property:
+a description per speaker / the speaker talking (the popup of the properties). A **session** (`Ctrl+Enter`) goes through the subtitles of the list,
+in its order, to finalize their starts and / or ends, one edge at a time (the start, then the end), played in a short loop at the edge (`sessionSegments`, quieter
+outside the subtitle); the longer pieces are played once when going on (`sessionIntro`): the start finalized = from the start to the end; the end finalized and the next one
+to do is the start of the next subtitle = from the end to it (far: 1 s after the end, then from 1 s before the next one). The edge is written on the waveform (START / END). The edge is moved by a few ms or with a click / a drag on the waveform, then Left Shift alone = finalized and the next edge to do (`Space` pauses the loop: finalized while paused,
+the edge goes first where it was paused). The keys of `SESSION_ACTIONS` are looked at first during a session (they can be the keys of other actions outside); a modifier
+pressed and released alone is a key of its own (`Ctrl`, `LeftShift`, `RightShift`). Ctrl alone plays the whole subtitle once, with the pre-roll and the post-roll.
+The tools are in the floating panel of the session, or of the **free form** session (a button of the session dialog: all the tools, nothing guided): its sections
+(timing / playback, speakers, properties, edit) can be reordered (drag) and hidden (not the speakers); the rest is in the keys, the right click menu
+and the Settings tab. In a session, the view puts the edge being finalized at 30 % of the width of the screen (`sessionFocusView`), when the subtitle / the edge changes.
+The tabs under the video (Subtitle: the text (editable), the speakers, the properties, the review warnings; Warnings, Settings, Keys) are closed until clicked.
+The sections of the panel and of the Subtitle tab are groups (`SEC_GROUPS`, `secsHtml`): reordered by dragging their title, hidden, remembered. The speakers (`.te-spkq`)
+and the properties (`.te-propq`: chips, with the speakers ones; ＋ / click = a name / value popup) are drawn in each place they are shown, their events delegated.
+The bars between the 2 sides, the video / the tab and above the waveform are dragged (`splitter`, remembered).
+The video played is chosen (FAST = its light video, the default / original: `video?part=&original=1`). A speaker can have an image (📷 of the speakers: the frame
+of the video, a rectangle drawn on it; a JPEG data URL in `ReviewSpeaker.Image`, saved with the speakers in the .wipsubtitles), shown when the mouse is on its name. The terrain is not drawn (only used by Next speech / Add);
+the bar under the waveform is the progress (the subtitles: validated / half finalized / to do).
 

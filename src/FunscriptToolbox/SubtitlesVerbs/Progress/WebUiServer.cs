@@ -319,12 +319,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// - subs?review=&lt;id&gt;           : the subtitles of a review (JSON, 404 when the review hasn't started yet)
         /// - terrain?audio=&lt;id&gt;         : where the sound is (JSON, { computing: true } while it's computed)
         /// - save?review=&lt;id&gt; (POST)    : saves the subtitles of a review (in the .wipsubtitles)
-        /// - validated?review=&lt;id&gt; (POST) : saves what is validated
+        /// - finalized?review=&lt;id&gt; (POST) : saves the edges finalized by the user
         /// - done?review=&lt;id&gt; (POST)    : the review is done (the scene is rescanned: the worker writes the file)
         /// - peaks?audio=&amp;s=&amp;e=&amp;n=        : the waveform (binary: min / max, signed 16 bits, for each of the n bins)
         /// - audio.wav?audio=           : the whole audio (WAV, with ranges: the browser only reads what it plays)
         /// - snippet.wav?audio=&amp;s=&amp;e=     : a short part of the audio (WAV), ex. to play the start of a subtitle again and again
-        /// - video?part=&lt;index&gt;         : the light video of a part ('.FAST.mp4', with ranges)
+        /// - video?part=&lt;index&gt;         : the light video of a part ('.FAST.mp4', with ranges); &amp;original=1: the video itself (if it's there)
         /// </summary>
         private void HandleTiming(HttpListenerContext context, string method, string rest)
         {
@@ -357,7 +357,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
                 else if (method == "POST" && what == "save")
                 {
-                    // body: { stamp, force, subtitles: [{ s, e, lines }], speakers: [{ name, alias }] } => { stamp } (409: saved from somewhere else since it was loaded)
+                    // body: { stamp, force, subtitles: [{ s, e, lines, fs, fe }], speakers: [{ name, alias }] } => { stamp } (409: saved from somewhere else since it was loaded)
                     var body = JObject.Parse(ReadBody(context));
                     var subtitles = body["subtitles"]?.ToObject<TimingEditorSubtitle[]>();
                     var speakers = body["speakers"]?.ToObject<TimingEditorSpeaker[]>();
@@ -371,11 +371,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                         WriteResponse(context, 409, "text/plain", ex.Message);
                     }
                 }
-                else if (method == "POST" && what == "validated")
+                else if (method == "POST" && what == "finalized")
                 {
-                    // body: { keys: ["start ms-end ms", ...] }: the subtitles whose timing is validated by the user
+                    // body: { items: [{ k: "start ms-end ms", s, e }] }: the edges finalized by the user (the subtitles known by their timing as saved)
                     var body = JObject.Parse(ReadBody(context));
-                    editor.SaveValidated(q["review"], body["keys"]?.ToObject<string[]>());
+                    editor.SaveFinalized(q["review"], body["items"]?.ToObject<TimingEditorFinalized[]>());
                     WriteResponse(context, 200, "text/plain", "OK");
                 }
                 else if (method == "POST" && what == "activetime")
@@ -435,7 +435,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 else if (method == "GET" && what == "video")
                 {
                     // (by the index of the part: never a path given by the page)
-                    var videoPath = int.TryParse(q["part"], out var partIndex) ? editor.GetVideoPath(partIndex) : null;
+                    var videoPath = int.TryParse(q["part"], out var partIndex) ? editor.GetVideoPath(partIndex, q["original"] == "1") : null;
                     if (videoPath == null)
                     {
                         WriteResponse(context, 404, "text/plain", "No video for this part.");

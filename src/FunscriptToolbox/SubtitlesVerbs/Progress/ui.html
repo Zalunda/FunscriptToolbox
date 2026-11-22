@@ -323,7 +323,14 @@
   #te label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
   #te .te-status { font-size: 12px; color: var(--muted); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #te .te-status.err { color: var(--err); }
-  #te .te-mid { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px 16px 0; }
+  #te .te-mid { flex: 1; min-height: 0; display: flex; gap: 0; padding: 10px 16px 0; }
+  /* (the bars between the parts: dragged, see the splitters) */
+  #te .te-vsplit { flex: none; width: 10px; cursor: col-resize; position: relative; }
+  #te .te-hsplit { flex: none; height: 8px; cursor: row-resize; position: relative; }
+  #te .te-vsplit::after, #te .te-hsplit::after { content: ""; position: absolute; background: var(--border); border-radius: 2px; opacity: .35; }
+  #te .te-vsplit::after { left: 4px; width: 2px; top: 30%; bottom: 30%; }
+  #te .te-hsplit::after { top: 3px; height: 2px; left: 40%; right: 40%; }
+  #te .te-vsplit:hover::after, #te .te-hsplit:hover::after { opacity: 1; background: var(--accent); }
   #te .te-left { width: 40%; min-width: 260px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   #te .te-media { flex: 1; min-height: 0; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
   #te .te-media video { max-width: 100%; max-height: 100%; }
@@ -356,6 +363,23 @@
   #te .te-tabs button { padding: 2px 10px; font-size: 12px; border-radius: 6px 6px 0 0; border-bottom-color: transparent; background: transparent; }
   #te .te-tabs button.on { background: var(--panel); border-color: var(--border); border-bottom-color: var(--panel); color: var(--accent); font-weight: 600; position: relative; z-index: 1; }
   #te .te-tabbody { flex: 0 0 38%; min-height: 150px; display: flex; flex-direction: column; }
+  /* (the image of a speaker: the popup to take it from a frame; shown when the mouse is on its name) */
+  #te .te-cap { position: fixed; z-index: 80; left: 4vw; top: 4vh; width: 92vw; height: 90vh; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); display: flex; flex-direction: column; padding: 8px 10px; gap: 8px; font-size: 12px; }
+  #te .te-caphead { display: flex; align-items: center; gap: 10px; }
+  #te .te-caphead .hint { color: var(--muted); }
+  #te .te-capbody { flex: 1; min-height: 0; display: flex; gap: 10px; }
+  #te .te-capimg { flex: 1; min-width: 0; min-height: 0; position: relative; background: #000; border-radius: 6px; overflow: hidden; }
+  #te .te-capimg canvas { position: absolute; left: 0; top: 0; cursor: crosshair; width: 100%; height: 100%; border: none; border-radius: 0; background: #000; }
+  #te .te-capspk { width: 220px; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+  #te .te-capspk .hint { color: var(--muted); font-size: 11px; }
+  #te .te-spkhover { position: fixed; z-index: 90; max-width: 260px; max-height: 260px; border: 2px solid var(--accent); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.4); pointer-events: none; background: #000; }
+  /* (the speakers / the properties of the selected subtitle: in the Subtitle tab and in the panel) */
+  #te .te-propq { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+  #te .te-propchip { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; white-space: normal; }
+  #te .te-propchip.inh { opacity: .6; font-style: italic; }
+  #te .te-propchip button { padding: 0 4px; font-size: 10px; line-height: 1.2; }
+  /* (the tabs under the video: closed until one is clicked) */
+  #te .te-tabs.te-closed { margin-bottom: 0; }
   #te .te-tabpane { flex: 1; min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 0 8px 8px 8px; padding: 8px 10px; font-size: 12px; }
   #te .te-tabpane.te-cur { max-height: none; }
   #te .te-tabpane.te-help { position: static; width: auto; max-height: none; z-index: auto; right: auto; top: auto; }
@@ -398,9 +422,35 @@
   #te .te-spk { display: flex; align-items: center; gap: 6px; }
   #te .te-chip.te-iss { background: transparent; border: 1px solid; }
   #te .te-chip.te-iss.chk { opacity: .45; }
-  #te .te-row.todo .n::before { content: "● "; color: var(--warn); }
   #te .te-list { flex: 1; min-width: 0; min-height: 0; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
-  #te .te-row { display: grid; grid-template-columns: 40px 92px 92px 52px 1fr; gap: 0 8px; padding: 2px 8px; border-bottom: 1px solid var(--border); cursor: pointer; align-items: baseline; }
+  #te .te-row { display: grid; grid-template-columns: 40px 64px 92px 92px 52px 40px 1fr; gap: 0 8px; padding: 2px 8px; border-bottom: 1px solid var(--border); cursor: pointer; align-items: baseline; }
+  #te .te-row .fx { display: inline-flex; gap: 3px; white-space: nowrap; }
+  #te .te-row .fi { font: 600 10px Consolas, "Cascadia Mono", monospace; min-width: 15px; text-align: center; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); opacity: .6; }
+  #te .te-row .fi[data-fin]:hover { border-color: var(--accent); opacity: 1; }
+  #te .te-row .fi.on { color: var(--ok); border-color: var(--ok); opacity: 1; }
+  #te .te-row .fi.no { opacity: .35; }
+  #te .te-row.sesdone { opacity: .45; }
+  #te .te-ses { position: fixed; z-index: 65; right: 24px; top: 70px; width: 380px; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 10px 8px; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 5px; }
+  #te .te-ses .te-seshead { display: flex; align-items: center; gap: 8px; cursor: move; user-select: none; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+  #te .te-ses { max-height: calc(100vh - 16px); overflow: auto; }
+  #te .te-psec { border-top: 1px solid var(--border); padding-top: 4px; display: flex; flex-direction: column; gap: 5px; }
+  #te .te-psechead { display: flex; align-items: center; gap: 6px; cursor: grab; user-select: none; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  #te .te-psechead button { margin-left: auto; padding: 0 7px; }
+  #te .te-psecbody { display: flex; flex-direction: column; gap: 5px; }
+  #te .te-psec.dropbefore { box-shadow: 0 -3px 0 var(--accent); }
+  #te .te-psec.dropafter { box-shadow: 0 3px 0 var(--accent); }
+  #te .te-cur .te-psec:first-of-type { border-top: none; }
+  #te .te-cur textarea.te-curtext { flex: none; min-height: 54px; font: 13px/1.45 system-ui, sans-serif; resize: vertical; }
+  #te .te-ses .hint { color: var(--muted); font-size: 11px; }
+  #te .te-ses .tm { font: 12px Consolas, "Cascadia Mono", monospace; color: var(--muted); }
+  #te .te-sesrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  #te .te-sesrow > b { min-width: 46px; }
+  #te .te-sesind { height: 18px; min-width: 64px; padding: 0 8px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
+  #te .te-sesind.in { background: var(--ok); border-color: var(--ok); color: #fff; }
+  #te .te-sesind.out { background: var(--warn); border-color: var(--warn); color: #000; }
+  #te .te-sesdlg { z-index: 66; }
+  #te .te-sesdlg .hint { color: var(--muted); font-size: 11px; max-width: 320px; }
+  #te .te-row .cf.lo { color: var(--warn); font-weight: 600; }
   #te .te-row:hover { background: var(--row-hover); }
   #te .te-row.sel { background: var(--row-sel); }
   #te .te-row.ok .n { color: var(--ok); font-weight: 600; }
@@ -410,8 +460,10 @@
   #te .te-row .tx { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #te .te-row.sel .tx { white-space: normal; }
   #te .te-row.head { position: sticky; top: 0; background: var(--panel); font-weight: 600; color: var(--muted); cursor: default; z-index: 1; }
+  #te .te-row.head [data-sort] { cursor: pointer; user-select: none; }
+  #te .te-row.head [data-sort]:hover, #te .te-row.head [data-sort].on { color: var(--text); }
   #te .te-chip { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 4px; background: var(--chip-bg); color: var(--wait); font-size: 11px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
-  #te .te-tl { flex: none; padding: 8px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
+  #te .te-tl { flex: none; padding: 0 16px 10px; display: flex; flex-direction: column; gap: 4px; }
   #te canvas { display: block; width: 100%; border-radius: 6px; background: var(--panel); border: 1px solid var(--border); }
   #te #teCanvas { height: 210px; cursor: crosshair; }
   #te #teOverview { height: 24px; cursor: pointer; }
@@ -473,8 +525,9 @@
 <div id="te" style="display:none">
   <div class="te-top">
     <b id="teTitle"></b>
-    <label title="The review (TranscriberInteractifReview): its subtitles are kept in the .wipsubtitles; its file is written when the review is done">Review <select id="teFile"></select></label>
+    <label id="teFileL" title="The review (TranscriberInteractifReview): its subtitles are kept in the .wipsubtitles; its file is written when the review is done (shown only when the configuration has several)">Review <select id="teFile"></select></label>
     <label>Audio <select id="teAudio"></select></label>
+    <label id="teVideoSelL" title="The video played: FAST (its light video, '.FAST.mp4': smooth) or the original (sharper, can be choppy)">Video <select id="teVideoSel"><option value="fast">FAST</option><option value="original">original</option></select></label>
     <span id="teVideoWarn" class="te-vwarn" style="display:none">&#9888; choppy</span>
     <button class="mini primary" id="teSaveBtn" disabled title="Saves the review (in the .wipsubtitles; also saved automatically, see Keys)">&#128190; Save</button>
     <button class="mini" id="teDoneBtn" disabled title="The review is done: its file is written (ex. .manual-input.srt), and the scene continues">&#10004; Review done</button>
@@ -485,23 +538,24 @@
   <div class="te-mid" id="teMid">
     <div class="te-left">
       <div class="te-media"><video id="teVideo" playsinline preload="auto"></video><audio id="teAudioEl" preload="auto"></audio><div id="teNoVideo" class="te-novideo" style="display:none"></div><span class="te-clock" id="teClock"></span></div>
-      <div class="te-tools" id="teTools"></div>
-      <div class="te-spkq" id="teSpkBar" style="display:none"></div>
+      <div class="te-tools" id="teTools" style="display:none"></div>
       <div class="te-spkpop" id="teSpkPop" style="display:none"></div>
+      <div class="te-hsplit" id="teTabSplit" title="Drag: the height of the tab"></div>
       <div class="te-tabs" id="teTabs"></div>
-      <div class="te-tabbody">
+      <div class="te-tabbody" id="teTabBody">
         <div class="te-tabpane te-cur" id="teCur" data-pane="subtitle"></div>
-        <div class="te-tabpane" id="tePropsPane" data-pane="properties" style="display:none"></div>
         <div class="te-tabpane" id="teWarningsPane" data-pane="warnings" style="display:none"></div>
         <div class="te-tabpane" id="teSettingsPane" data-pane="settings" style="display:none"></div>
         <div class="te-tabpane te-help" id="teHelp" data-pane="keys" style="display:none"></div>
       </div>
     </div>
+    <div class="te-vsplit" id="teVSplit" title="Drag: the width of the 2 sides"></div>
     <div class="te-right">
       <div class="te-pass" id="tePass"></div>
       <div class="te-list" id="teList"></div>
     </div>
   </div>
+  <div class="te-hsplit" id="teWaveSplit" title="Drag: the height of the waveform" style="margin:0 16px"></div>
   <div class="te-tl">
     <canvas id="teCanvas"></canvas>
     <canvas id="teOverview" title="The whole scene: click to go there"></canvas>
@@ -2369,20 +2423,29 @@
 
   // ---- Keys: can be changed in the 'Keys' panel (remembered by the browser) ----
   var ACTIONS = [
-    { id: "playPause", label: "Play / pause", def: "Space" },
+    { id: "playPause", label: "Play / pause (in a session for the timings: its loop; paused, finalized: the edge goes where it was paused)", def: "Space" },
     { id: "playSub", label: "Play the selected subtitle", def: "P" },
     { id: "loopStart", label: "Play the START of the subtitle, again and again (until another subtitle is selected)", def: "[" },
     { id: "loopEnd", label: "Play the END of the subtitle, again and again", def: "]" },
-    { id: "stop", label: "Stop", def: "Escape" },
-    { id: "prevSub", label: "Previous subtitle", def: "ArrowUp" },
-    { id: "nextSub", label: "Next subtitle", def: "ArrowDown" },
+    { id: "stop", label: "Stop (in a session for the timings: pause / play its loop)", def: "Escape" },
+    { id: "prevSub", label: "Previous subtitle (in the order of the list: see its columns)", def: "ArrowUp" },
+    { id: "nextSub", label: "Next subtitle (in the order of the list)", def: "ArrowDown" },
+    { id: "loopSub", label: "Play the WHOLE subtitle, again and again (the arrows / a click in the list: it goes on with the subtitle selected; again or Escape: stop)", def: "L" },
     { id: "nextSpeech", label: "Next, in order: the next subtitle, or the next speech without subtitle (terrain), the first one", def: "N" },
     { id: "add", label: "Add a subtitle: on the speech found by 'Next speech', otherwise on the speech under the cursor (terrain), otherwise 1.5 s from the cursor", def: "Insert" },
     { id: "delete", label: "Delete the selected subtitle", def: "Delete" },
     { id: "mergePrev", label: "Merge the selected subtitle with the previous one", def: "M" },
     { id: "mergeNext", label: "Merge the selected subtitle with the next one", def: "Shift+M" },
     { id: "split", label: "Split the selected subtitle at the cursor", def: "X" },
-    { id: "toggleValidated", label: "Timing validated / not validated (a subtitle's timing is validated by itself when the playback goes 0.2 s past its end)", def: "V" },
+    { id: "session", label: "Session: start one (choose what to finalize, for the subtitles of the list, in its order; or free form: all the tools) / end it", def: "Ctrl+Enter" },
+    { id: "sesFinalize", label: "Session (only there: the same key can do something else outside): the edge being finalized (start, then end) is finalized (the loop paused: the edge goes first where it was paused), then the end of the subtitle / the next subtitle to do of the list", def: "LeftShift" },
+    { id: "sesPlayAll", label: "Session: the whole subtitle once, from a little before to a little after (a last check), then the loop again", def: "Ctrl" },
+    { id: "sesSwitchEdge", label: "Session (start + end): the other edge of the subtitle", def: "E" },
+    { id: "sesStartOutFine", label: "Start (in a session: the edge being finalized): a few ms earlier (100 ms, see the session panel)", def: "Q" },
+    { id: "sesStartInFine", label: "Start (in a session: the edge being finalized): a few ms later", def: "W" },
+    { id: "sesEndInFine", label: "End (in a session: the edge being finalized): a few ms earlier", def: "U" },
+    { id: "sesEndOutFine", label: "End (in a session: the edge being finalized): a few ms later", def: "I" },
+    { id: "toggleValidated", label: "Timing validated / not validated (a subtitle's timing is validated by itself when the playback goes 0.2 s past its end, not during a session)", def: "V" },
     { id: "validateUpTo", label: "Timing validated for all the subtitles up to the selected one", def: "Shift+V" },
     { id: "nextTodo", label: "Next subtitle to do in the current pass (Timing: timing not validated; Review warnings: not checked; Speakers: speaker not known)", def: "Ctrl+ArrowDown" },
     { id: "prevTodo", label: "Previous subtitle to do in the current pass", def: "Ctrl+ArrowUp" },
@@ -2408,19 +2471,26 @@
   ];
   var keys = {};       // action -> combo
   var keyMap = {};     // combo -> action
+  // (the actions of a session for the timings: their keys are looked at first during one, they can be the keys of other actions outside, ex. Space)
+  var SESSION_ACTIONS = { sesFinalize: true, sesSwitchEdge: true, sesPlayAll: true };
+  var sesKeyMap = {};  // combo -> action, in a session for the timings
   function loadKeys() {
     var saved = {};
     try { saved = JSON.parse(loadPref("fstTimingKeys") || "{}") || {}; } catch (e) { }
-    keys = {}; keyMap = {};
+    keys = {}; keyMap = {}; sesKeyMap = {};
     ACTIONS.forEach(function (a) { keys[a.id] = saved.hasOwnProperty(a.id) ? saved[a.id] : a.def; });
-    for (var id in keys) if (keys[id]) keyMap[keys[id]] = id;
+    for (var id in keys) if (keys[id]) (SESSION_ACTIONS[id] ? sesKeyMap : keyMap)[keys[id]] = id;
   }
+  // (a modifier pressed and released alone, nothing else meanwhile: a key of its own, ex. LeftShift)
+  var ALONE_KEYS = { Ctrl: true, LeftShift: true, RightShift: true };
+  function keyName(id) { var k = keys[id]; return !k ? "-" : ALONE_KEYS[k] ? k + " (alone)" : k; }
   function saveKeys() {
     var changed = {};
     ACTIONS.forEach(function (a) { if (keys[a.id] !== a.def) changed[a.id] = keys[a.id]; });
     savePref("fstTimingKeys", JSON.stringify(changed));
     loadKeys();
     renderTools();
+    if (S) renderSession();
   }
   function comboOf(e) {
     var k = e.key;
@@ -2440,11 +2510,23 @@
   loadKeys();
 
   // Settings of the 'start-start-start' / 'end-end-end' loops
-  var settings = { auditionMs: 600, auditionGapMs: 250, waveGain: 1, replayAfterEdit: false, padStartMs: 0, padEndMs: 0, auditionMax: 4, fastRate: 200, fastAfterMs: 1000, fastBeforeMs: 500, fastMinGapMs: 3000, autoSaveMin: 2 };
+  var settings = { auditionGapMs: 250, waveGain: 1, replayAfterEdit: false, padStartMs: 0, padEndMs: 0, auditionMax: 4, fastRate: 200, fastAfterMs: 1000, fastBeforeMs: 500, fastMinGapMs: 3000, autoSaveMin: 2,
+    // (the loops of an edge, in a session and outside (⟲ / ⟳): sesEdgeMs of the subtitle, from sesRollStartMs before its start (sesRollStart) / to sesRollEndMs
+    // after its end (sesRollEnd) (the whole subtitle (sesPlayAll): always), sesOutsideVol % of the volume outside the subtitle; the small moves of sesNudgeMs)
+    sesRollStart: false, sesRollStartMs: 300, sesRollEnd: false, sesRollEndMs: 300, sesEdgeMs: 1500, sesOutsideVol: 30, sesNudgeMs: 100,
+    // (the video played with the loops: a checkbox of the panel / the Settings tab)
+    auditionVideo: true,
+    // (the original video: only its left half is shown, ex. the left eye of a VR video side by side)
+    originalLeftHalf: false };
   try {
     var savedSettings = JSON.parse(loadPref("fstTimingSettings") || "{}");
     // (3000 was the default of 'fastBeforeMs' before: the new default is used)
     if (savedSettings.fastBeforeMs === 3000) delete savedSettings.fastBeforeMs;
+    // (50 was the default of 'sesNudgeMs' before: the new default is used)
+    if (savedSettings.sesNudgeMs === 50) delete savedSettings.sesNudgeMs;
+    // (before: one option for the start and the end, sesRoll / sesRollMs)
+    if (typeof savedSettings.sesRoll === "boolean") { savedSettings.sesRollStart = savedSettings.sesRollEnd = savedSettings.sesRoll; delete savedSettings.sesRoll; }
+    if (typeof savedSettings.sesRollMs === "number") { savedSettings.sesRollStartMs = savedSettings.sesRollEndMs = savedSettings.sesRollMs; delete savedSettings.sesRollMs; }
     for (var sk in settings) if (typeof savedSettings[sk] === typeof settings[sk]) settings[sk] = savedSettings[sk];
   } catch (e) { }
 
@@ -2479,7 +2561,14 @@
     if (!text && S.pendingLoop && S.subs[S.pendingLoop.sel]) {
       text = "Playing on: then the " + (S.pendingLoop.edge === "start" ? "START" : "END") + " of #" + (S.pendingLoop.sel + 1) + " again and again.";
     }
-    if (!text && audition && S.subs[audition.sel]) {
+    if (!text && audition && audition.edge === "session" && S.subs[audition.sel]) {
+      text = "#" + (audition.sel + 1) + ": " + (audition.playAll ? "the whole subtitle, once" : "its " + sessionEdge()) + " · " + keyName("sesFinalize") + ": finalized · click: the " + sessionEdge() + " there";
+    }
+    else if (!text && audition && audition.edge === "whole" && S.subs[audition.sel]) {
+      text = "Playing #" + (audition.sel + 1) + " again and again · " +
+        (keys.prevSub || "-") + " / " + (keys.nextSub || "-") + ": the previous / next one of the list · Escape: stop.";
+    }
+    else if (!text && audition && S.subs[audition.sel]) {
       text = "Playing the " + (audition.edge === "start" ? "START" : "END") + " of #" + (audition.sel + 1) + " again and again. Play: from " + (settings.replayAfterEdit || audition.edge === "start" ? "its start" : "its end") + ", and continues. Escape: stop.";
     }
     if (!text && S.info) {
@@ -2491,9 +2580,9 @@
     el.className = "te-status" + (S.msgErr ? " err" : "");
     $("teSaveBtn").disabled = !S.unsaved || S.saving;
     // (the loop being played: its button is lit)
-    $("teTools").querySelectorAll("[data-act]").forEach(function (b) {
+    sesPanel.querySelectorAll("[data-act]").forEach(function (b) {
       var act = b.getAttribute("data-act");
-      b.classList.toggle("on", !!audition && ((act === "loopStart" && audition.edge === "start") || (act === "loopEnd" && audition.edge === "end")));
+      b.classList.toggle("on", !!audition && ((act === "loopStart" && audition.edge === "start") || (act === "loopEnd" && audition.edge === "end") || (act === "loopSub" && audition.edge === "whole")));
     });
   }
   function fail(ex) { status(ex && ex.message ? ex.message : String(ex), true); }
@@ -2529,9 +2618,14 @@
       dirty: true, msg: null, msgErr: false, playingRow: -1, highlight: null,
       undo: [], redo: [], savedJson: "[]", unsaved: false, saving: false, review: null, readOnly: false,
       // The passes (see renderPass): the current one, the kind of review warnings chosen in the tree, the speakers config / list
-      pass: loadPref("fstTimingPass") || "timing", issueFilter: null, spk: null, speakers: []
+      pass: loadPref("fstTimingPass") || "timing", issueFilter: null, spk: null, speakers: [],
+      // (the filter of the list, see filterMatch; its own order (visual / audio) until a column is clicked)
+      listFilter: LIST_FILTERS.indexOf(loadPref("fstTimingListFilter")) >= 0 ? loadPref("fstTimingListFilter") : loadPref("fstTimingOnlyTodo") === "0" ? "all" : "timing",
+      filterSort: true
     };
     var my = S;
+    // (the tabs under the video: closed)
+    showTab(null);
     $("te").style.display = "";
     $("teTitle").textContent = "⏱ Timing · " + name;
     $("teList").innerHTML = ""; $("tePass").innerHTML = ""; $("teCur").innerHTML = ""; $("teNoVideo").style.display = "none";
@@ -2539,6 +2633,7 @@
     getJson("info").then(function (info) {
       if (S !== my) return;
       S.info = info; S.durMs = info.durationMs;
+      applySplits();
       fitCanvas();
       setupMedia();
       if (!setupReviews()) return;
@@ -2555,6 +2650,9 @@
     saveValidation();
     sendActiveTime();
     stopAudition();
+    panelBuilt = null; sesPanel.innerHTML = "";
+    if (cap) closeCapture();
+    sesPanel.style.display = "none"; closeSessionDialog();
     [$("teVideo"), $("teAudioEl")].forEach(function (el) { el.pause(); el.onloadedmetadata = null; el.removeAttribute("src"); el.load(); });
     $("te").style.display = "none";
     S = null;
@@ -2568,31 +2666,33 @@
   // ---- Changes: undo / redo / save ----
   var MIN_DURATION_MS = 100;
   // Each subtitle: rs, re = its timing in the file; s, e = its timing in the editor (shown, played) = the timing in the file,
-  // with the padding when it's not validated (see applyPadding); lines; v = validated; k = its timing in the file on disk, to save 'v'.
+  // with the padding when it's not validated (see applyPadding); lines; fs / fe = its start / its end is finalized (each one on its own;
+  // "validated" = both); k = its timing in the file on disk, to save fs / fe.
   function docOf(subs) { return subs.map(function (x) { return { s: x.rs, e: x.re, lines: x.lines }; }); }
+  /// Its timing is validated: its start and its end are finalized
+  function isValidated(sub) { return !!(sub.fs && sub.fe); }
 
   // ---- Padding: added to the start / the end of the subtitles not validated (+ = longer), while they are edited ----
-  // (only in the editor: in the file, the timing without it; when a subtitle is validated, its timing with the padding becomes its timing)
+  // (only in the editor: in the file, the timing without it; when an edge is finalized, its place with the padding becomes its place)
   function padStart() { return settings.padStartMs || 0; }
   function padEnd() { return settings.padEndMs || 0; }
   function applyPaddingTo(sub) {
-    if (sub.v) { sub.s = sub.rs; sub.e = sub.re; return; }
     var p = S.info.parts[partAt(sub.rs)];
-    sub.s = Math.max(p.offsetMs, sub.rs - padStart());
-    sub.e = Math.min(p.offsetMs + p.durationMs, Math.max(sub.s + MIN_DURATION_MS, sub.re + padEnd()));
+    sub.s = sub.fs ? sub.rs : Math.max(p.offsetMs, sub.rs - padStart());
+    sub.e = sub.fe ? sub.re : Math.min(p.offsetMs + p.durationMs, Math.max(sub.s + MIN_DURATION_MS, sub.re + padEnd()));
   }
   /// The padding of all the subtitles, without overlaps: when two subtitles overlap (with the padding, or already in the file),
-  /// the difference is split: they meet in the middle (of their gap, or of their overlap in the file); a validated one doesn't move
-  /// (the other stops at it). Two validated subtitles that overlap are not changed: they are shown as an error (see refreshOverlaps).
+  /// the difference is split: they meet in the middle (of their gap, or of their overlap in the file); a finalized edge doesn't move
+  /// (the other stops at it). Two finalized edges that overlap are not changed: they are shown as an error (see refreshOverlaps).
   function padAll() {
     S.subs.forEach(applyPaddingTo);
     for (var i = 1; i < S.subs.length; i++) {
       var a = S.subs[i - 1], b = S.subs[i];
-      if (a.e <= b.s || (a.v && b.v)) continue;
+      if (a.e <= b.s || (a.fe && b.fs)) continue;
       var aStart = a.s, bEnd = b.e;
-      if (a.v) {
+      if (a.fe) {
         b.s = a.e;
-      } else if (b.v) {
+      } else if (b.fs) {
         a.e = b.s;
       } else {
         var middle = Math.round((a.re + b.rs) / 2);
@@ -2623,8 +2723,8 @@
   }
   /// After s / e changed in the editor: the timing in the file (without the padding, when not validated). edge: only this one changed.
   function updateFileTiming(sub, edge) {
-    if (edge !== "end") sub.rs = sub.v ? sub.s : sub.s + padStart();
-    if (edge !== "start") sub.re = sub.v ? sub.e : sub.e - padEnd();
+    if (edge !== "end") sub.rs = sub.fs ? sub.s : sub.s + padStart();
+    if (edge !== "start") sub.re = sub.fe ? sub.e : sub.e - padEnd();
     // (a big padding, on a short subtitle: in the file, it stays a subtitle)
     if (sub.re - sub.rs < MIN_DURATION_MS) sub.re = sub.rs + MIN_DURATION_MS;
   }
@@ -2633,7 +2733,7 @@
   function snapshot() { return JSON.stringify(S.subs); }   // (undo: with the validation)
   function updateUnsaved() { S.unsaved = docJson() !== S.savedJson; refreshOverlaps(); refreshStatus(); renderPass(); }
 
-  // ---- Validated subtitles: saved by themselves, in a moment (not a change of the file) ----
+  // ---- Finalized edges (start / end) of the subtitles: saved by themselves, in a moment (not a change of the file) ----
   var validationTimer = null;
   function keyOf(sub) { return sub.rs + "-" + sub.re; }
   function scheduleValidationSave() {
@@ -2647,12 +2747,12 @@
     if (!S.validationChanged) return S.validationInFlight || Promise.resolve();
     S.validationChanged = false;
     var my = S;
-    // Only the subtitles whose timing is the one saved: a validated timing that is not saved yet
-    // (new, or changed) is saved with the subtitles (otherwise, if they are not saved, the old timing would be validated)
-    var keys = S.subs.filter(function (x) { return x.v && x.k && x.k === keyOf(x); }).map(function (x) { return x.k; });
-    var p = fetch(url("validated", { review: S.review }), {
+    // Only the subtitles whose timing is the one saved: the finalized edges of a timing that is not saved yet
+    // (new, or changed) are saved with the subtitles (otherwise, if they are not saved, the old timing would be finalized)
+    var items = S.subs.filter(function (x) { return x.k && x.k === keyOf(x); }).map(function (x) { return { k: x.k, s: !!x.fs, e: !!x.fe }; });
+    var p = fetch(url("finalized", { review: S.review }), {
       method: "POST", headers: { "Content-Type": "application/json" }, keepalive: !!keepalive,
-      body: JSON.stringify({ keys: keys })
+      body: JSON.stringify({ items: items })
     }).then(function (r) {
       if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
     });
@@ -2667,20 +2767,26 @@
     });
     return p;
   }
-  function setValidated(i, value) {
+  /// The timing validated (or not anymore): its start and its end finalized (or not)
+  function setValidated(i, value) { setFinalized(i, value, value); }
+  /// start / end: finalized or not (null: doesn't change)
+  function setFinalized(i, start, end) {
     var sub = S.subs[i];
-    if (!sub || !!sub.v === value) return;
-    sub.v = value;
-    // (validated: its timing with the padding becomes its timing; not validated anymore: the padding is taken out again. It doesn't move)
+    if (!sub) return;
+    var fs = start == null ? !!sub.fs : !!start, fe = end == null ? !!sub.fe : !!end;
+    if (fs === !!sub.fs && fe === !!sub.fe) return;
+    sub.fs = fs; sub.fe = fe;
+    // (finalized: its place with the padding becomes its place; not finalized anymore: the padding is taken out again. It doesn't move)
     updateFileTiming(sub);
     updateUnsaved();
     renderRow(i);
+    if (i === S.sel) renderCur();
     S.validationChanged = true;
     scheduleValidationSave();
     refreshStatus();
     S.dirty = true;
   }
-  function validatedCount() { return S.subs.filter(function (x) { return x.v; }).length; }
+  function validatedCount() { return S.subs.filter(isValidated).length; }
   function pushUndo() {
     // (a change: an information about before is not useful anymore, ex. "Continuing at #14")
     if (S.msg && !S.msgErr) S.msg = null;
@@ -2700,6 +2806,7 @@
     renderList();
     if (state.sel >= 0 && state.sel < S.subs.length) { S.sel = -1; select(state.sel, true); }
     updateUnsaved();
+    if (S.session) renderSession();
     // (the validation can have changed too)
     S.validationChanged = true; scheduleValidationSave();
     S.dirty = true;
@@ -2721,6 +2828,7 @@
   }
   /// Moves an edge. It never overlaps its neighbour: the facing edge of the neighbour is pushed along
   /// (and, during a drag, comes back up to where it was: 'before' = neighbourEdges() at the start of the drag).
+  /// A finalized facing edge is not pushed: the edge stops at it (a finalized edge is only moved on purpose).
   function setEdge(i, edge, ms, before) {
     var sub = S.subs[i];
     if (!sub) return;
@@ -2728,16 +2836,18 @@
     var j = facingNeighbour(i, edge), n = S.subs[j];
     ms = Math.round(ms);
     if (edge === "start") {
-      // (the previous one stays a subtitle)
-      sub.s = clamp(ms, Math.min(n ? Math.max(bounds[0], n.s + MIN_DURATION_MS) : bounds[0], sub.e - MIN_DURATION_MS), sub.e - MIN_DURATION_MS);
-      if (n) {
+      // (the previous one stays a subtitle; its end finalized: up to it)
+      var lowest = n ? Math.max(bounds[0], n.fe ? n.e : n.s + MIN_DURATION_MS) : bounds[0];
+      sub.s = clamp(ms, Math.min(lowest, sub.e - MIN_DURATION_MS), sub.e - MIN_DURATION_MS);
+      if (n && !n.fe) {
         var prevE = before && before.prevE != null ? before.prevE : n.e;
         var newPrevE = Math.min(prevE, sub.s);
         if (newPrevE !== n.e) { n.e = newPrevE; updateFileTiming(n, "end"); n.touched = true; renderRow(j); }
       }
     } else {
-      sub.e = clamp(ms, sub.s + MIN_DURATION_MS, Math.max(n ? Math.min(bounds[1], n.e - MIN_DURATION_MS) : bounds[1], sub.s + MIN_DURATION_MS));
-      if (n) {
+      var highest = n ? Math.min(bounds[1], n.fs ? n.s : n.e - MIN_DURATION_MS) : bounds[1];
+      sub.e = clamp(ms, sub.s + MIN_DURATION_MS, Math.max(highest, sub.s + MIN_DURATION_MS));
+      if (n && !n.fs) {
         var nextS = before && before.nextS != null ? before.nextS : n.s;
         var newNextS = Math.max(nextS, sub.e);
         if (newNextS !== n.s) { n.s = newNextS; updateFileTiming(n, "start"); n.touched = true; renderRow(j); }
@@ -2759,7 +2869,8 @@
     S.saving = true; refreshStatus();
     fetch(url("save", { review: S.review }), {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stamp: S.stamp, force: !!force, subtitles: docOf(S.subs), speakers: S.speakers })
+      // (with their finalized edges: an edge stays finalized when it's moved)
+      body: JSON.stringify({ stamp: S.stamp, force: !!force, subtitles: S.subs.map(function (x) { return { s: x.rs, e: x.re, lines: x.lines, fs: !!x.fs, fe: !!x.fe }; }), speakers: S.speakers })
     }).then(function (r) {
       return r.ok ? r.json() : r.text().then(function (t) { var e = new Error(t || ("HTTP " + r.status)); e.status = r.status; throw e; });
     }).then(function (d) {
@@ -2831,7 +2942,8 @@
   // ---- 'Review done': the worker writes the file, and the scene continues ----
   function reviewDone() {
     if (!S || S.readOnly || !S.subs.length) return;
-    var notValidated = S.subs.filter(function (x) { return !x.v; }).length;
+    var notValidated = S.subs.filter(function (x) { return !isValidated(x); }).length;
+    var startsLeft = S.subs.filter(function (x) { return !x.fs; }).length, endsLeft = S.subs.filter(function (x) { return !x.fe; }).length;
     // (the review warnings not checked, and the subtitles whose speaker will be decided by the AI)
     var openWarnings = 0;
     S.subs.forEach(function (x) { openWarnings += openIssues(x, true).length; });
@@ -2842,7 +2954,7 @@
     var fileOverlaps = 0;
     for (var wi = 1; wi < written.length; wi++) if (written[wi - 1][1] > written[wi][0]) fileOverlaps++;
     var text = "Is the review done?\n\nThe file '" + (S.reviewInfo ? S.reviewInfo.fileSuffix : "") + "' is written, and the scene is started again to continue. The review can't be changed here anymore after.\n\nThe file can still be edited by hand: its metadata (ex. {Note:...}) are always used; its timings only until the next steps use them (then they are frozen)." +
-      (notValidated ? "\n\n" + notValidated + " subtitle(s) have their timing NOT validated" + (padStart() || padEnd() ? " (they are written without the padding)" : "") + "." : "") +
+      (notValidated ? "\n\n" + notValidated + " subtitle(s) have their timing NOT validated: " + startsLeft + " start(s) and " + endsLeft + " end(s) not finalized" + (padStart() || padEnd() ? " (they are written without the padding)" : "") + "." : "") +
       (openWarnings ? "\n\n" + openWarnings + " review warning(s) are not checked (they are not used after this step)." : "") +
       (nAi ? "\n\n" + nAi + " subtitle(s) have several speakers present and no {" + S.spk.speaker + "}: the AI will decide who speaks." : "") +
       (nNobody ? "\n\n" + nNobody + " subtitle(s) have nobody present (no {" + S.spk.ongoing + "} before them): the AI will have no speaker for them." : "") +
@@ -2899,6 +3011,8 @@
       return '<option value="' + esc(r.id) + '">' + esc(r.id + " (" + r.fileSuffix + ", " + r.state + ")") + '</option>';
     }).join("");
     $("teFile").value = S.review;
+    // (only one review in the configuration, the usual case: nothing to choose)
+    $("teFileL").style.display = reviews.length > 1 ? "" : "none";
     S.reviewInfo = reviews.filter(function (r) { return r.id === S.review; })[0];
     return true;
   }
@@ -2912,7 +3026,7 @@
     var remembered = loadPref("fstTimingAudio");
     var choice = fromConfig ? fromConfig.id : (finished.some(function (a) { return a.id === remembered; }) ? remembered : null);
     $("teAudio").innerHTML = (choice ? "" : '<option value="">(choose the audio)</option>') + finished.map(function (a) {
-      return '<option value="' + esc(a.id) + '">' + esc(a.id + (terrainOf[a.id] ? " (terrain of the preparer)" : "")) + '</option>';
+      return '<option value="' + esc(a.id) + '">' + esc(a.id) + '</option>';
     }).join("");
     $("teAudio").value = choice || "";
     if (!finished.length) status("No audio is extracted yet for this scene.", true);
@@ -2950,6 +3064,7 @@
     var my = S;
     S.subs = []; S.sel = -1; S.stamp = null; S.undo = []; S.redo = []; S.savedJson = "[]"; S.unsaved = false;
     S.spk = null; S.speakers = []; S.issueFilter = null;
+    S.session = null; S.freeForm = false; renderSession();
     renderList(); renderCur(); renderPass();
     getJson("subs", { review: S.review }).then(function (d) {
       if (S !== my) return;
@@ -2958,13 +3073,11 @@
       S.reviewInfo = { fileSuffix: d.fileSuffix, origin: d.origin };
       S.readOnly = !!d.done;
       $("teDoneBtn").disabled = S.readOnly;
-      // (the ones with the timing validated, by their timing as saved)
-      var validated = {};
-      (d.timingValidated || []).forEach(function (k) { validated[k] = true; });
-      S.subs.forEach(function (x) { x.rs = x.s; x.re = x.e; x.k = keyOf(x); x.v = !!validated[x.k]; });
+      // (with their finalized start / end)
+      S.subs.forEach(function (x) { x.rs = x.s; x.re = x.e; x.k = keyOf(x); x.fs = !!x.fs; x.fe = !!x.fe; });
       // The 'Speakers' pass (null: not configured in the review). The names already used in the subtitles are in the list.
       S.spk = d.speakersConfig || null;
-      S.speakers = (d.speakers || []).map(function (sp) { return { name: sp.name, alias: sp.alias || null }; });
+      S.speakers = (d.speakers || []).map(function (sp) { return { name: sp.name, alias: sp.alias || null, image: sp.image || null }; });
       if (S.spk) S.subs.forEach(function (x) {
         var sp = getMeta(x, S.spk.speaker);
         splitNames(getMeta(x, S.spk.ongoing)).concat(sp ? [sp] : []).forEach(function (nm) {
@@ -3006,8 +3119,30 @@
       : null;
     warn.style.display = S.videoWarning ? "" : "none";
     warn.title = S.videoWarning || "";
+    // The video played (remembered): FAST (its light video, the default) or the original; one that no part has: not offered
+    var sel = $("teVideoSel");
+    var anyLight = parts.some(function (p) { return p.hasLight; }), anyOriginal = parts.some(function (p) { return p.hasOriginal; });
+    sel.options[0].disabled = !anyLight; sel.options[1].disabled = !anyOriginal;
+    S.videoOriginal = anyOriginal && (loadPref("fstTimingVideo") === "original" || !anyLight);
+    sel.value = S.videoOriginal ? "original" : "fast";
+    $("teVideoSelL").style.display = S.mode === "video" ? "" : "none";
+    applyVideoCrop();
     if (S.mode === "video") loadPart(0, 0, false);
   }
+  /// The original video, option 'only its left half' (ex. the left eye of a VR video side by side): only that half is shown (and taken by 📷)
+  function leftHalfOnly() { return !!(S && S.videoOriginal && settings.originalLeftHalf); }
+  function applyVideoCrop() { $("teVideo").style.objectViewBox = leftHalfOnly() ? "inset(0 50% 0 0)" : ""; }
+  $("teVideoSel").onchange = function () {
+    if (!S || !S.info) return;
+    $("teVideoSel").blur();
+    S.videoOriginal = $("teVideoSel").value === "original";
+    savePref("fstTimingVideo", $("teVideoSel").value);
+    applyVideoCrop();
+    if (S.mode !== "video") return;
+    // (the other video, at the same place)
+    var wasPlaying = isPlaying(), t = curMs();
+    loadPart(partAt(t), (t - S.info.parts[partAt(t)].offsetMs) / 1000, wasPlaying, true);
+  };
   function setMediaMode(mode, noVideoText) {
     S.mode = mode;
     $("teVideo").style.display = mode === "video" ? "" : "none";
@@ -3051,7 +3186,7 @@
       S.pendingSeek = null;
       if (S.pendingPlay) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () { }); }
     };
-    v.src = url("video", { part: p });
+    v.src = url("video", { part: p, original: S.videoOriginal ? 1 : null });
   }
   $("teVideo").addEventListener("ended", function () {
     // (the next part: the scene continues)
@@ -3103,14 +3238,27 @@
         return ab;
       });
   }
-  function startAudition(edge) {
+  // (a jump between 2 pieces: a short silence, to hear it)
+  var JUMP_SILENCE_MS = 150;
+  function concatBuffers(buffers, silenceMs) {
+    var rate = buffers[0].sampleRate, nch = buffers[0].numberOfChannels, gap = Math.round(silenceMs / 1000 * rate);
+    var total = buffers.reduce(function (n, b) { return n + b.length; }, 0) + gap * (buffers.length - 1);
+    var out = actx.createBuffer(nch, total, rate);
+    for (var c = 0; c < nch; c++) {
+      var data = out.getChannelData(c), pos = 0;
+      buffers.forEach(function (b) { data.set(b.getChannelData(Math.min(c, b.numberOfChannels - 1)), pos); pos += b.length + gap; });
+    }
+    return out;
+  }
+  /// playAll (session): the whole subtitle once first (see sessionSegments); intro (session): pieces played once first (see sessionIntro)
+  function startAudition(edge, playAll, intro) {
     if (!S || S.sel < 0) return;
     if (!S.audioId) { status("Choose the audio first.", true); return; }
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === "suspended") actx.resume();
     stopAudition();
     mediaEl().pause(); S.stopAt = null;
-    audition = { edge: edge, gen: ++auditionGen, sel: S.sel, edgeMs: null };
+    audition = { edge: edge, gen: ++auditionGen, sel: S.sel, edgeMs: null, playAll: !!playAll, intro: intro && intro.length ? intro : null };
     if (!S.msgErr) S.msg = null;   // (the status says what a click does now)
     refreshStatus();
     $("teCanvas").style.cursor = "ew-resize";
@@ -3120,26 +3268,52 @@
     if (!S || !audition || audition.gen !== gen) return;
     var sub = S.subs[audition.sel];
     if (!sub) { stopAudition(); return; }
-    // (the edge is read again each time: when it's moved, the next loop plays the new place)
-    var edgeMs = audition.edge === "start" ? sub.s : sub.e;
-    var sMs = audition.edge === "start" ? edgeMs : Math.max(0, edgeMs - settings.auditionMs);
-    var eMs = audition.edge === "start" ? Math.min(S.durMs, edgeMs + settings.auditionMs) : edgeMs;
+    // (the edge is read again each time: when it's moved, the next loop plays the new place; "whole": the whole subtitle;
+    // "session": what the session is for, see sessionSegments)
+    var whole = audition.edge === "whole", inSession = audition.edge === "session";
+    var playAll = inSession && audition.playAll;
+    var edgeMs = audition.edge === "end" || (inSession && !playAll && sessionEdge() === "end") ? sub.e : sub.s;
+    // (the start / end loops: like the ones of a session, see loopPiece)
+    var sMs = whole ? sub.s : loopPiece(sub, audition.edge)[0] - (audition.edge === "start" ? rollBefore() : 0);
+    var eMs = whole ? sub.e : loopPiece(sub, audition.edge)[1] + (audition.edge === "end" ? rollAfter() : 0);
+    // (the pieces played one after the other: a session can jump, see sessionSegments)
+    var intro = inSession && !playAll ? audition.intro : null;
+    var segs = intro || (inSession ? sessionSegments(audition.sel, playAll) : clipSegments([[sMs, eMs]]));
+    if (!segs.length) { stopAudition(); return; }
     if (S.mode === "video" && audition.edgeMs !== edgeMs) seek(edgeMs);   // (the video shows the image at the edge)
     audition.edgeMs = edgeMs;
-    getSnippet(sMs, eMs).then(function (buffer) {
+    Promise.all(segs.map(function (g) { return getSnippet(g[0], g[1]); })).then(function (buffers) {
       if (!S || !audition || audition.gen !== gen) return;
       var src = actx.createBufferSource();
-      src.buffer = buffer; src.connect(actx.destination);
-      audition.src = src; audition.s = sMs; audition.e = eMs; audition.t0 = actx.currentTime;
+      // (several pieces: one buffer, a short silence where it jumps; where each piece is in it)
+      var pieces = [], off = 0;
+      buffers.forEach(function (b, k) { pieces.push({ s: segs[k][0], e: segs[k][1], off: off }); off += b.duration + (k < buffers.length - 1 ? JUMP_SILENCE_MS / 1000 : 0); });
+      src.buffer = buffers.length === 1 ? buffers[0] : concatBuffers(buffers, JUMP_SILENCE_MS);
+      var t0 = actx.currentTime;
+      if (inSession || !whole) {
+        // (outside the subtitle: quieter, to hear where its edges are)
+        var gain = actx.createGain(), out = clamp(settings.sesOutsideVol, 0, 100) / 100;
+        pieces.forEach(function (p) {
+          var at = function (ms) { return t0 + p.off + (ms - p.s) / 1000; };
+          gain.gain.setValueAtTime(p.s >= sub.s && p.s < sub.e ? 1 : out, at(p.s));
+          if (sub.s > p.s && sub.s < p.e) gain.gain.setValueAtTime(1, at(sub.s));
+          if (sub.e > p.s && sub.e < p.e) gain.gain.setValueAtTime(out, at(sub.e));
+        });
+        src.connect(gain); gain.connect(actx.destination);
+      } else src.connect(actx.destination);
+      audition.src = src; audition.s = segs[0][0]; audition.e = segs[segs.length - 1][1]; audition.t0 = t0; audition.pieces = pieces;
       src.onended = function () {
         if (!audition || audition.gen !== gen) return;
         audition.src = null;
+        // (the whole subtitle / the intro played once: the loop of the edge again)
+        if (playAll) { audition.playAll = false; refreshStatus(); }
+        if (intro) audition.intro = null;
         // (the place of the edge that was heard completely: see the end of a drag)
         audition.heardEdgeMs = edgeMs;
         // (while an edge is dragged, the loop goes on: the plays are counted from the end of the drag)
         if (!S.edgeDrag) audition.count = (audition.count || 0) + 1;
-        // (played enough times: moves on, like Play)
-        if (settings.auditionMax > 0 && audition.count >= settings.auditionMax) {
+        // (played enough times: moves on, like Play; the whole subtitle, a session: until good / bad / finalized / stop)
+        if (!whole && !inSession && settings.auditionMax > 0 && audition.count >= settings.auditionMax) {
           audition.timer = setTimeout(function () {
             if (!audition || audition.gen !== gen) return;
             if (S.edgeDrag) auditionOnce(gen); else continueAfterLoop();
@@ -3149,14 +3323,32 @@
         audition.timer = setTimeout(function () { auditionOnce(gen); }, settings.auditionGapMs);
       };
       src.start();
+      if (settings.auditionVideo && S.mode === "video") auditionVideo(pieces, gen);
       S.dirty = true;
     }).catch(function (ex) { status("Can't play: " + ex.message, true); stopAudition(); });
+  }
+  /// The video played with the pieces of a loop (option auditionVideo): muted (the sound is the one of the loop), from the start of each piece
+  /// when it starts, paused at its end (its image a little late after a jump: the time for the video to get there)
+  function auditionVideo(pieces, gen) {
+    var v = $("teVideo"), a = audition;
+    if (!a.video) { a.video = true; a.wasMuted = v.muted; }
+    v.muted = true;
+    (a.vtimers || []).forEach(clearTimeout);
+    a.vtimers = [];
+    pieces.forEach(function (p) {
+      a.vtimers.push(setTimeout(function () {
+        if (!audition || audition.gen !== gen) return;
+        seek(p.s);
+        var pr = v.play(); if (pr && pr.catch) pr.catch(function () { });
+      }, p.off * 1000));
+      a.vtimers.push(setTimeout(function () { if (audition && audition.gen === gen) v.pause(); }, p.off * 1000 + (p.e - p.s)));
+    });
   }
   // An edge moved while playing, the cursor close to (at most LOOP_LATER_MS before) the piece the loop plays, or in it:
   // the playback continues normally, and the loop starts when it reaches the end of that piece.
   var LOOP_LATER_MS = 500;
   function loopPiece(sub, edge) {
-    return edge === "start" ? [sub.s, sub.s + settings.auditionMs] : [sub.e - settings.auditionMs, sub.e];
+    return edge === "start" ? [sub.s, Math.min(sub.e, sub.s + settings.sesEdgeMs)] : [Math.max(sub.s, sub.e - settings.sesEdgeMs), sub.e];
   }
   /// returns true: the loop will start when the playback reaches it
   function loopWhenReached(edge) {
@@ -3182,7 +3374,7 @@
   function continueAfterLoop() {
     var looped = S.subs[audition.sel], loopedEdge = audition.edge;
     stopAudition();
-    if (looped) { S.stopAt = null; seek(settings.replayAfterEdit || loopedEdge === "start" ? looped.s : looped.e); play(); }
+    if (looped) { S.stopAt = null; seek(settings.replayAfterEdit || loopedEdge !== "end" ? looped.s : looped.e); play(); }
   }
   function stopAudition() {
     if (!audition) return;
@@ -3190,12 +3382,19 @@
     audition = null;
     if (a.timer) clearTimeout(a.timer);
     if (a.src) { a.src.onended = null; try { a.src.stop(); } catch (e) { } }
+    // (the video played with it: stopped, its sound back)
+    if (a.video) { (a.vtimers || []).forEach(clearTimeout); var v = $("teVideo"); v.pause(); v.muted = !!a.wasMuted; }
     $("teCanvas").style.cursor = "";
     if (S) { S.dirty = true; refreshStatus(); }
   }
   function auditionPos() {
     if (!audition || !audition.src) return null;
-    return Math.min(audition.e, audition.s + (actx.currentTime - audition.t0) * 1000);
+    var el = actx.currentTime - audition.t0, ps = audition.pieces;
+    if (!ps) return Math.min(audition.e, audition.s + el * 1000);
+    // (the piece being played; in the silence of a jump: the end of the piece before)
+    var p = ps[0];
+    for (var k = 1; k < ps.length; k++) if (ps[k].off <= el) p = ps[k];
+    return Math.min(p.e, p.s + (el - p.off) * 1000);
   }
 
   // ---- Passes: what the user goes through, one subtitle after the other ("next to do"): Timing, Review warnings, Speakers ----
@@ -3218,6 +3417,15 @@
   function issuesOf(sub) {
     var r = [];
     sub.lines.forEach(function (l, li) { var x = parseIssue(l); if (x) { x.li = li; r.push(x); } });
+    return r;
+  }
+  // The confidence in the timing of a subtitle (written by a timing refine engine): a line '[TimingConfidence:0.42] reason'
+  // (0: surely wrong .. 1: surely right; the last one wins). Like the review warnings, it's only for this step (not a {metadata}).
+  var CONF_RE = /^\s*\[TimingConfidence:([0-9]*\.?[0-9]+)\]\s?(.*)$/i;
+  /// { value, msg }, null when the subtitle has none
+  function confidenceOf(sub) {
+    var r = null;
+    sub.lines.forEach(function (l) { var m = CONF_RE.exec(l); if (m) r = { value: parseFloat(m[1]), msg: m[2] }; });
     return r;
   }
   function inFilter(x) { var f = S.issueFilter; return !f || (x.code === f.code && (f.detail == null || x.detail === f.detail)); }
@@ -3265,7 +3473,7 @@
   }
   /// The text of the subtitle: without its properties and its review warnings (only to be read: it's not used after this step)
   function textOf(sub) {
-    return sub.lines.filter(function (l) { return !parseIssue(l); }).join("\n").replace(PROP_RE, "")
+    return sub.lines.filter(function (l) { return !parseIssue(l) && !CONF_RE.test(l); }).join("\n").replace(PROP_RE, "")
       .split("\n").map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
   }
   function splitNames(v) { return (v || "").split(",").map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; }); }
@@ -3288,31 +3496,65 @@
   function speakerKind(st) { return st.speaker ? "tagged" : st.present.length === 1 ? "single" : st.present.length > 1 ? "ai" : "none"; }
   function isKnown(st) { var k = speakerKind(st); return k === "tagged" || k === "single"; }
 
-  function currentPass() { return (S.pass === "speakers" && !S.spk) || !PASSES[S.pass] ? "timing" : S.pass; }
-  /// For each subtitle: is it to do in the current pass (computed in one go)
+  // ---- Training of the AI (the 'Character Identification Reference'): {VisualTraining:Name (description), Name 2 (description)} on a subtitle
+  // = its screenshot shows them; {AudioTraining:Name} = its audio clip is that speaker talking ----
+  var VISUAL_TRAINING = "VisualTraining", AUDIO_TRAINING = "AudioTraining";
+  /// The people of a VisualTraining value: [{ name, desc }]
+  function visualEntries(value) {
+    var out = [], re = /,?\s*([^()]+?)\s*\(([^()]*)\)/g, m;
+    while ((m = re.exec(value || ""))) if (m[1].trim()) out.push({ name: m[1].trim(), desc: m[2].trim() });
+    return out;
+  }
+  /// The speakers with a training: { visual: { lowercase name: its last description }, audio: { lowercase name: true } }
+  function trainingState() {
+    var visual = {}, audio = {};
+    S.subs.forEach(function (x) {
+      visualEntries(getMeta(x, VISUAL_TRAINING)).forEach(function (en) { if (en.desc) visual[en.name.toLowerCase()] = en.desc; });
+      var a = getMeta(x, AUDIO_TRAINING);
+      if (a) audio[a.toLowerCase()] = true;
+    });
+    return { visual: visual, audio: audio };
+  }
+  /// The speaker of a subtitle (its own, or the only one present), null: not known
+  function speakerOf(st) { return st.speaker || (st.present.length === 1 ? st.present[0] : null); }
+
+  // ---- The filter of the list (the blocks above it; S.listFilter, remembered): "all", "timing" (not validated; in a session: something to
+  // finalize in it), "speakers" (speaker not known), "visual" (someone present without a VisualTraining; sorted: the most people first, then
+  // the time), "audio" (its speaker without an AudioTraining, or not known; sorted: the longest first) ----
+  var LIST_FILTERS = ["all", "timing", "speakers", "visual", "audio"];
+  /// What the filter needs, computed once for the whole list
+  function listCtx() { return { tr: trainingState(), states: S.spk ? speakerStates() : null }; }
+  function filterMatch(i, filter, ctx) {
+    var sub = S.subs[i];
+    switch (filter) {
+      case "timing": return S.session ? sessionTodo(i) : !isValidated(sub);
+      case "speakers": return !!ctx.states && !isKnown(ctx.states[i]);
+      case "visual": return !!ctx.states && ctx.states[i].present.some(function (n) { return !ctx.tr.visual[n.toLowerCase()]; });
+      case "audio": if (!ctx.states) return false; var who = speakerOf(ctx.states[i]); return !who || !ctx.tr.audio[who.toLowerCase()];
+      default: return true;
+    }
+  }
+  /// (no choice of a pass anymore: a kind of review warning chosen in the Warnings tree: its warnings not checked; otherwise the filter of the list)
+  function currentPass() { return S.issueFilter ? "issues" : "timing"; }
+  /// For each subtitle: is it to do ("next to do": the filter of the list; "all": the timing; a kind of review warning chosen: its warnings not checked)
   function todoFlags() {
-    var pass = currentPass();
-    if (pass === "speakers") return speakerStates().map(function (st) { return !isKnown(st); });
-    if (pass === "issues") return S.subs.map(function (x) { return openIssues(x).length > 0; });
-    return S.subs.map(function (x) { return !x.v; });
+    if (currentPass() === "issues") return S.subs.map(function (x) { return openIssues(x).length > 0; });
+    var ctx = listCtx(), f = S.listFilter === "all" ? "timing" : S.listFilter;
+    return S.subs.map(function (x, i) { return filterMatch(i, f, ctx); });
   }
-  function isTodo(i) {
-    var pass = currentPass();
-    if (pass === "speakers") return !isKnown(speakerStateAt(i));
-    if (pass === "issues") return openIssues(S.subs[i]).length > 0;
-    return !S.subs[i].v;
-  }
-  /// dir: 1 next, -1 previous (from the selected subtitle; it doesn't go around)
+  /// dir: 1 next, -1 previous (from the selected subtitle, in the order of the list; it doesn't go around)
   function goTodo(dir) {
     var flags = todoFlags();
-    for (var i = S.sel + dir; i >= 0 && i < S.subs.length; i += dir) {
-      if (flags[i]) { select(i); return; }
+    ensureOrder();
+    var from = S.sel < 0 || S.posOf[S.sel] == null ? (dir > 0 ? -1 : S.order.length) : S.posOf[S.sel];
+    for (var p = from + dir; p >= 0 && p < S.order.length; p += dir) {
+      if (flags[S.order[p]]) { selectKeepLoop(S.order[p]); return; }
     }
     status("Nothing to do " + (dir > 0 ? "after" : "before") + " #" + (S.sel + 1) + " in '" + PASSES[currentPass()] + "'" + (currentPass() === "issues" && S.issueFilter ? " (" + filterLabel() + ")" : "") + ".");
   }
   function restoreSel() { if (S.rowEls && S.rowEls[S.sel]) S.rowEls[S.sel].classList.add("sel"); }
 
-  /// The panel of the passes (above the list): the 3 passes, and what goes with the current one (the tree of the warnings, the speakers)
+  /// The line above the list (what is finalized, the filter of the list, the session), and the Warnings tab (its tree)
   function renderPass() {
     var el = $("tePass");
     if (!S || !S.info) { el.innerHTML = ""; return; }
@@ -3329,22 +3571,32 @@
         }
       });
     });
-    var states = S.spk ? speakerStates() : null;
+    var ctx = listCtx(), states = ctx.states;
     var nKnown = states ? states.filter(isKnown).length : 0;
-    function tab(id, label, title, disabled) {
-      return '<button class="mini' + (pass === id ? " on" : "") + '" data-pass="' + id + '"' + (disabled ? " disabled" : "") + ' title="' + esc(title) + '">' + esc(label) + '</button>';
-    }
+    var nSpk = S.speakers.length;
+    var nVisual = S.speakers.filter(function (sp) { return ctx.tr.visual[sp.name.toLowerCase()]; }).length;
+    var nAudio = S.speakers.filter(function (sp) { return ctx.tr.audio[sp.name.toLowerCase()]; }).length;
     renderSpeakerBar();
-    // The line above the list: the passes (what is to do, ● in the list) and previous / next to do
+    // The line above the list: the filters of the list (a block = a filter, with what is done), previous / next to do, the session
+    var nShown = S.subs.filter(function (x, i) { return inList(i, ctx); }).length;
+    function block(id, label, title) {
+      return '<button class="mini' + (S.listFilter === id ? " on" : "") + '" data-listfilter="' + id + '" title="' + esc(title) + '">' + esc(label) + '</button>';
+    }
     var html = '<div class="te-passtabs">' +
-      tab("timing", "⏱ Timing " + nTiming + "/" + n, "Pass 'Timing': to do = the subtitles whose timing is not validated") +
-      tab("issues", "⚑ Review warnings " + (nAll - nOpen) + "/" + nAll, "Pass 'Review warnings': to do = the subtitles with a [REVIEW:...] line not checked (of the kind chosen in the tree)") +
-      tab("speakers", "👥 Speakers " + nKnown + "/" + n, S.spk
-        ? "Pass 'Speakers': to do = the subtitles whose speaker is not known (several speakers present and no {" + S.spk.speaker + "}, or nobody present)"
-        : "Not configured: 'SpeakerMetadata' and 'OngoingSpeakersMetadata' of the review (TranscriberInteractifReview)", !S.spk) +
-      '<span class="hint" style="margin-left:auto">to do:</span>' +
-      '<button class="mini" data-act="prevTodo" title="Previous subtitle to do in the current pass (' + esc(keys.prevTodo || "-") + ')">⇡</button>' +
-      '<button class="mini" data-act="nextTodo" title="Next subtitle to do in the current pass (' + esc(keys.nextTodo || "-") + ')">⇣</button></div>';
+      block("all", "All", "The list: all the subtitles") +
+      block("timing", "⏱ " + nTiming + "/" + n + " finalized", S.session ? "The list: the subtitles with something to finalize in the session" : "The list: the subtitles whose start or end is not finalized") +
+      (S.spk ? block("speakers", "👤 " + nKnown + "/" + n + " speaker known", "The list: the subtitles whose speaker is not known (several present and no {" + S.spk.speaker + "}, or nobody present)") +
+        block("visual", "🖼 " + nVisual + "/" + nSpk + " visual trained", "Speakers with a description ({" + VISUAL_TRAINING + ":Name (description)}). The list: the subtitles where someone without a description is present, the most people first, then by time") +
+        block("audio", "🔊 " + nAudio + "/" + nSpk + " audio trained", "Speakers with an audio sample ({" + AUDIO_TRAINING + ":Name}). The list: the subtitles whose speaker has no sample (or is not known), the longest first") : '') +
+      '<span class="hint">' + nShown + ' in the list</span>' +
+      '<span style="margin-left:auto"></span>' +
+      '<button class="mini" data-act="prevTodo" title="Previous subtitle to do (' + esc(keys.prevTodo || "-") + ')">⇡</button>' +
+      '<button class="mini" data-act="nextTodo" title="Next subtitle to do (' + esc(keys.nextTodo || "-") + ')">⇣</button>' +
+      '<button class="mini primary' + (S.session || S.freeForm ? " on" : "") + '" data-act="session" title="' + esc((S.session || S.freeForm ? "End the session" : "Start a session: finalize the start / end timings of the subtitles of the list, one after the other, in its order (or free form: all the tools)") + " (" + (keys.session || "-") + ")") + '">' +
+      (S.session ? "■ End session" : S.freeForm ? "■ End free form" : "▶ Session") + '</button></div>' +
+      // (the list shows only a kind of review warning: chosen in the tree of the Warnings tab)
+      (S.issueFilter ? '<div class="te-passtabs"><span class="hint" style="margin-left:0">List: only the subtitles with ⚑ <b>' + esc(filterLabel()) + '</b> (' + nShown + ' of ' + n + ')</span>' +
+        '<button class="mini" data-code="" title="Show all the subtitles in the list">✕ all</button></div>' : '');
     el.innerHTML = html;
     // The tab under the video that goes with it (drawn only when it's shown; it stays where the user scrolled)
     function pane(id, content) {
@@ -3352,8 +3604,7 @@
       p.innerHTML = content;
       p.scrollTop = top;
     }
-    if (teTab === "warnings") pane("teWarningsPane", issuesTreeHtml(tree, nOpen, nAll));
-    else if (teTab === "properties") renderProps();
+    if (teShown === "warnings") pane("teWarningsPane", issuesTreeHtml(tree, nOpen, nAll));
   }
   function issuesTreeHtml(tree, nOpen, nAll) {
     if (!nAll) return '<div class="hint">No review warning ([REVIEW:...] line) in these subtitles.</div>';
@@ -3370,7 +3621,7 @@
       html += item(code, null, code, c, 1);
       Object.keys(c.details).sort().forEach(function (d) { html += item(code, d, d, c.details[d], 2); });
     });
-    return html + '</div><div class="hint">Click: only these ones (in the pass \'Review warnings\', next to do goes from one to the other). ' + esc(keys.checkIssue || "-") +
+    return html + '</div><div class="hint">Click: the list shows only these ones (a session goes through them; in the pass \'Review warnings\', next to do goes from one to the other). ' + esc(keys.checkIssue || "-") +
       ': the warnings of the selected subtitle are checked, then the next one (again: not checked). To fix one: change the timing / the {metadata}, or delete the subtitle (its text is not used after this step).</div>';
   }
   /// A change of the lines of a subtitle by a pass: one undo; the list is drawn again (the 'to do' of the next ones can change), and the text box
@@ -3400,7 +3651,7 @@
   }
   function speakerByIndex(k) {
     if (!checkSpeakersPass()) return;
-    if (!S.speakers[k]) { status("No speaker #" + (k + 1) + " in the list (＋ of the speakers, under the video).", true); return; }
+    if (!S.speakers[k]) { status("No speaker #" + (k + 1) + " in the list (＋ of the speakers, in the panel of a session).", true); return; }
     toggleSpeaker(S.speakers[k].name);
   }
   function speakerNames() { return S.speakers.map(function (sp) { return sp.name; }); }
@@ -3412,10 +3663,14 @@
   function togglePresent(name) {
     var i = S.sel;
     if (!checkSpeakersPass() || !S.subs[i]) return;
+    // (the list of the speakers present is separated by ',': a name with a ',' would be 2 names; ex. a {Speaker:...} written by an AI)
+    if (name.indexOf(",") >= 0) { status("'" + name + "' contains a ',': it can't be in the list of the speakers present. Rename it first (right click on it).", true); renderSpeakerBar(); return; }
     var present = presentAt(i), next;
     if (hasName(present, name)) next = present.filter(function (x) { return !sameName(x, name); });
     else next = speakerNames().filter(function (x) { return hasName(present, x) || sameName(x, name); })
       .concat(present.filter(function (x) { return !hasName(speakerNames(), x); }));
+    // (each name once)
+    next = next.filter(function (x, k) { return !next.slice(0, k).some(function (y) { return sameName(x, y); }); });
     if (!next.length) { status("At least one speaker must be present (an empty list is ignored by the next steps: they keep the last one).", true); renderPass(); return; }
     var before = i > 0 ? presentAt(i - 1) : [];
     var same = before.length === next.length && before.every(function (x) { return hasName(next, x); });
@@ -3441,6 +3696,8 @@
       '<label>Name <input type="text" id="teSpkName" spellcheck="false" placeholder="Nao Jinguuji" value="' + esc(sp ? sp.name : "") + '"></label>' +
       '<label>Alias <input type="text" id="teSpkAlias" spellcheck="false" placeholder="Nao (optional: shown here only)" value="' + esc(sp && sp.alias ? sp.alias : "") + '"></label>' +
       (sp ? '<div class="hint">The name is what is written ({' + esc(S.spk.speaker) + '} / {' + esc(S.spk.ongoing) + '}): changing it changes it in all the subtitles (' + speakerUses(sp.name) + ').</div>' : '') +
+      (sp && sp.image ? '<div style="display:flex;gap:8px;align-items:center"><img src="' + esc(sp.image) + '" style="max-width:120px;max-height:120px;border-radius:4px">' +
+        '<button class="mini" data-spkpop="noimage" title="Its image (📷 of the speakers: a part of a frame) is removed">Remove the image</button></div>' : '') +
       '<div style="display:flex;gap:6px;justify-content:flex-end">' +
       (sp ? '<button class="mini danger" data-spkpop="remove">Remove</button><div class="spacer"></div>' : '') +
       '<button class="mini" data-spkpop="cancel">Cancel</button><button class="mini primary" data-spkpop="ok">' + (sp ? "OK" : "Add") + '</button></div>';
@@ -3475,7 +3732,7 @@
         });
         renderList(); restoreSel(); renderCur();
       }
-      S.speakers[index] = { name: name, alias: alias };
+      S.speakers[index] = { name: name, alias: alias, image: S.speakers[index].image || null };
       status("Speaker #" + (index + 1) + ": " + name + (alias ? " (" + alias + ")" : "") + ".");
     }
     closeSpeakerPopup();
@@ -3494,12 +3751,179 @@
     var b = e.target.closest ? e.target.closest("[data-spkpop]") : null;
     if (!b || !S) return;
     var what = b.getAttribute("data-spkpop");
-    if (what === "ok") speakerPopupOk(); else if (what === "remove") speakerPopupRemove(); else closeSpeakerPopup();
+    if (what === "ok") speakerPopupOk(); else if (what === "remove") speakerPopupRemove();
+    else if (what === "noimage") {
+      var sp = S.speakers[parseInt($("teSpkPop").getAttribute("data-index"), 10)];
+      if (sp) { sp.image = null; status("'" + sp.name + "': its image is removed."); updateUnsaved(); renderSpeakerBar(); }
+      closeSpeakerPopup();
+    }
+    else closeSpeakerPopup();
   });
   $("teSpkPop").addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); speakerPopupOk(); }
     else if (e.key === "Escape") closeSpeakerPopup();
   });
+  // ---- The image of a speaker: the frame of the video where it is (FAST or original: see the Video choice), a rectangle drawn on it, the
+  // speaker chosen; the part in the rectangle is kept with the speaker (in the .wipsubtitles, saved with them), shown when the mouse is on its name ----
+  var SPEAKER_IMAGE_MAX = 320;   // (px: its biggest side)
+  var capPop = document.createElement("div");
+  capPop.className = "te-cap";
+  capPop.style.display = "none";
+  $("te").appendChild(capPop);
+  // (several people of the same frame, one after the other: each one done stays on the image, its rectangle and its name)
+  // cap = { frame (canvas: the frame, or its left half), view (canvas shown), z (zoom), ox / oy (where the frame is in the view),
+  //         rect: [x, y, w, h] in the frame (being drawn), done: [{ rect, name }] }
+  var cap = null;
+  function openCapture() {
+    if (!S || !canEdit() || !checkSpeakersPass()) return;
+    var v = $("teVideo");
+    if (S.mode !== "video" || v.readyState < 2 || !v.videoWidth) { status("No image of the video here (the video is not loaded / not shown).", true); return; }
+    if (!S.speakers.length) { status("No speaker in the list yet (＋ of the speakers).", true); return; }
+    stopAudition(); pause();
+    // (the original video, option 'only its left half': that half)
+    var half = leftHalfOnly(), frame = document.createElement("canvas");
+    frame.width = half ? Math.floor(v.videoWidth / 2) : v.videoWidth; frame.height = v.videoHeight;
+    try { frame.getContext("2d").drawImage(v, 0, 0, frame.width, frame.height, 0, 0, frame.width, frame.height); frame.toDataURL("image/jpeg"); }
+    catch (ex) { status("The image of the video can't be read: " + ex.message, true); return; }
+    capPop.innerHTML = '<div class="te-caphead"><b>Images of the speakers</b><span class="hint">' + esc(fmt(curMs())) + ' · ' + (S.videoOriginal ? "original" : "FAST") + ' video' + (half ? " (left half)" : "") + ' · ' + frame.width + '×' + frame.height +
+      ' · drag: a rectangle around a speaker, choose who it is, ✓ (Enter); then the next one · wheel: zoom · right / middle drag: move · double click: all</span><span style="flex:1"></span>' +
+      '<button class="mini primary" data-cap="set">✓ Set its image</button><button class="mini" data-cap="close">Close</button></div>' +
+      '<div class="te-capbody"><div class="te-capimg"><canvas id="teCapView"></canvas></div><div class="te-capspk" id="teCapSpk"></div></div>';
+    capPop.style.display = "";
+    var view = $("teCapView");
+    view.width = view.parentNode.clientWidth; view.height = view.parentNode.clientHeight;
+    cap = { frame: frame, view: view, rect: null, done: [] };
+    fitCapture();
+    renderCaptureSpeakers(null);
+  }
+  /// The list of the speakers (the one chosen: 'chosen', otherwise the first one present without an image, otherwise the first one without one)
+  function renderCaptureSpeakers(chosen) {
+    var st = S.spk && S.subs[S.sel] ? speakerStateAt(S.sel) : { present: [], speaker: null };
+    var doneHere = function (n) { return cap.done.some(function (d) { return sameName(d.name, n); }); };
+    if (!chosen) {
+      var cands = S.speakers.filter(function (sp) { return !doneHere(sp.name); });
+      var pick = cands.filter(function (sp) { return hasName(st.present, sp.name) && !sp.image; })[0] || cands.filter(function (sp) { return !sp.image; })[0] || cands[0];
+      chosen = pick ? pick.name : null;
+    }
+    $("teCapSpk").innerHTML = S.speakers.map(function (sp) {
+      return '<label><input type="radio" name="teCapSpk" data-capname="' + esc(sp.name) + '"' + (chosen && sameName(sp.name, chosen) ? " checked" : "") + '>' +
+        '<span data-spkname="' + esc(sp.name) + '"' + (doneHere(sp.name) ? ' style="color:var(--ok);font-weight:600"' : '') + '>' + esc(sp.alias || sp.name) +
+        (hasName(st.present, sp.name) ? ' ●' : '') + (sp.image ? ' 🖼' : '') + '</span></label>';
+    }).join("") + '<div class="hint">●: present here. 🖼: has an image (set again: replaced). Green: done on this image.</div>';
+  }
+  function fitCapture() {
+    cap.z = Math.min(cap.view.width / cap.frame.width, cap.view.height / cap.frame.height);
+    cap.ox = (cap.view.width - cap.frame.width * cap.z) / 2; cap.oy = (cap.view.height - cap.frame.height * cap.z) / 2;
+    drawCapture();
+  }
+  function drawCapture() {
+    var ctx = cap.view.getContext("2d"), z = cap.z;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, cap.view.width, cap.view.height);
+    ctx.imageSmoothingEnabled = z < 2;
+    ctx.drawImage(cap.frame, cap.ox, cap.oy, cap.frame.width * z, cap.frame.height * z);
+    var box = function (r, color, label) {
+      var x = cap.ox + r[0] * z, y = cap.oy + r[1] * z;
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(x, y, r[2] * z, r[3] * z);
+      if (!label) return;
+      ctx.font = "bold 12px system-ui, sans-serif";
+      var w = ctx.measureText(label).width + 10;
+      ctx.fillStyle = color; ctx.fillRect(x, y - 18, w, 18);
+      ctx.fillStyle = "#000"; ctx.textBaseline = "middle"; ctx.fillText(label, x + 5, y - 9); ctx.textBaseline = "alphabetic";
+    };
+    cap.done.forEach(function (d) { box(d.rect, colors.ok, shortName(d.name)); });
+    if (cap.rect) box(cap.rect, colors.warn, null);
+  }
+  function closeCapture() { capPop.style.display = "none"; capPop.innerHTML = ""; cap = null; }
+  /// The rectangle: the image of the speaker chosen; it stays on the image (its name), then the next speaker
+  function setCaptureImage() {
+    var who = capPop.querySelector("[data-capname]:checked");
+    if (!cap.rect || cap.rect[2] < 8 || cap.rect[3] < 8) { status("Drag a rectangle around the speaker first.", true); return; }
+    if (!who) { status("Choose the speaker.", true); return; }
+    var r = cap.rect, k = Math.min(1, SPEAKER_IMAGE_MAX / Math.max(r[2], r[3]));
+    var out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round(r[2] * k)); out.height = Math.max(1, Math.round(r[3] * k));
+    out.getContext("2d").drawImage(cap.frame, r[0], r[1], r[2], r[3], 0, 0, out.width, out.height);
+    var name = who.getAttribute("data-capname"), sp = S.speakers.filter(function (x) { return sameName(x.name, name); })[0];
+    if (!sp) return;
+    sp.image = out.toDataURL("image/jpeg", 0.85);
+    cap.done = cap.done.filter(function (d) { return !sameName(d.name, name); }).concat([{ rect: r, name: name }]);
+    cap.rect = null;
+    updateUnsaved(); renderSpeakerBar();
+    renderCaptureSpeakers(null);
+    drawCapture();
+    status("'" + name + "': its image is set (shown when the mouse is on its name; saved with the review).");
+  }
+  capPop.addEventListener("contextmenu", function (e) { if (cap && e.target === cap.view) e.preventDefault(); });
+  capPop.addEventListener("mousedown", function (e) {
+    e.stopPropagation();
+    if (!cap || e.target !== cap.view) return;
+    e.preventDefault();
+    var b = cap.view.getBoundingClientRect();
+    if (e.button === 1 || e.button === 2) {
+      // (right / middle: moves the image)
+      var x0 = e.clientX, y0 = e.clientY, ox = cap.ox, oy = cap.oy;
+      var pan = function (ev) { cap.ox = ox + ev.clientX - x0; cap.oy = oy + ev.clientY - y0; drawCapture(); };
+      var endPan = function () { window.removeEventListener("mousemove", pan); window.removeEventListener("mouseup", endPan); };
+      window.addEventListener("mousemove", pan); window.addEventListener("mouseup", endPan);
+      return;
+    }
+    if (e.button !== 0) return;
+    // (the mouse in the pixels of the frame)
+    var at = function (ev) { return [clamp((ev.clientX - b.left - cap.ox) / cap.z, 0, cap.frame.width), clamp((ev.clientY - b.top - cap.oy) / cap.z, 0, cap.frame.height)]; };
+    var p0 = at(e);
+    var move = function (ev) {
+      var p = at(ev);
+      cap.rect = [Math.min(p0[0], p[0]), Math.min(p0[1], p[1]), Math.abs(p[0] - p0[0]), Math.abs(p[1] - p0[1])];
+      drawCapture();
+    };
+    var up = function () { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+  });
+  capPop.addEventListener("wheel", function (e) {
+    if (!cap || e.target !== cap.view) return;
+    e.preventDefault();
+    // (zoom where the mouse is)
+    var b = cap.view.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top;
+    var fx = (mx - cap.ox) / cap.z, fy = (my - cap.oy) / cap.z;
+    var fit = Math.min(cap.view.width / cap.frame.width, cap.view.height / cap.frame.height);
+    cap.z = clamp(cap.z * (e.deltaY < 0 ? 1.25 : 0.8), fit * 0.5, 8);
+    cap.ox = mx - fx * cap.z; cap.oy = my - fy * cap.z;
+    drawCapture();
+  }, { passive: false });
+  capPop.addEventListener("dblclick", function (e) { if (cap && e.target === cap.view) fitCapture(); });
+  capPop.addEventListener("click", function (e) {
+    var a = e.target.getAttribute && e.target.getAttribute("data-cap");
+    if (a === "set") setCaptureImage(); else if (a === "close") closeCapture();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (!cap) return;
+    // (the keys are for the popup)
+    e.stopImmediatePropagation();
+    if (e.key === "Escape") { e.preventDefault(); closeCapture(); }
+    else if (e.key === "Enter") { e.preventDefault(); setCaptureImage(); }
+  }, true);
+
+  // The image of a speaker, when the mouse is on its name (the speakers bar, the popups of the training, of the image)
+  var spkHover = document.createElement("img");
+  spkHover.className = "te-spkhover";
+  spkHover.style.display = "none";
+  $("te").appendChild(spkHover);
+  $("te").addEventListener("mouseover", function (e) {
+    var el = S && e.target.closest ? e.target.closest("[data-speaker],[data-spkname]") : null;
+    var name = el && (el.getAttribute("data-speaker") || el.getAttribute("data-spkname"));
+    var sp = name ? S.speakers.filter(function (x) { return sameName(x.name, name); })[0] : null;
+    if (!sp || !sp.image) { spkHover.style.display = "none"; return; }
+    spkHover.src = sp.image;
+    spkHover.style.display = "";
+    var r = el.getBoundingClientRect(), w = spkHover.offsetWidth || 200, h = spkHover.offsetHeight || 200;
+    spkHover.style.left = clamp(r.left, 4, window.innerWidth - w - 4) + "px";
+    spkHover.style.top = (r.bottom + 6 + h > window.innerHeight ? Math.max(4, r.top - h - 6) : r.bottom + 6) + "px";
+  });
+  $("te").addEventListener("mouseout", function (e) {
+    var el = e.target.closest ? e.target.closest("[data-speaker],[data-spkname]") : null;
+    if (el && !el.contains(e.relatedTarget)) spkHover.style.display = "none";
+  });
+
   document.addEventListener("mousedown", function (e) {
     var pop = $("teSpkPop");
     if (pop.style.display !== "none" && !pop.contains(e.target)) closeSpeakerPopup();
@@ -3522,37 +3946,31 @@
   }
   $("teMid").addEventListener("click", function (e) {
     if (!S || !S.info) return;
-    var t = e.target.closest ? e.target.closest("#tePass [data-act],[data-pass],[data-code],[data-speaker],[data-spkadd],[data-issueli],[data-propdel],[data-propadd],[data-propfrom]") : null;
+    var t = e.target.closest ? e.target.closest("#tePass [data-act],[data-listfilter],[data-code],[data-speaker],[data-spkadd],[data-spkcap],[data-issueli]," + PROP_TARGETS) : null;
     if (!t) return;
     if (t.tagName === "BUTTON") t.blur();   // (the keys go to the editor)
-    if (t.hasAttribute("data-spkadd")) openSpeakerPopup(null, t);
+    if (propsClick(t)) return;
+    if (t.hasAttribute("data-spkcap")) { openCapture(); return; }
+    if (t.hasAttribute("data-listfilter")) {
+      // (a filter of the list: its own order, until a column is clicked)
+      S.listFilter = t.getAttribute("data-listfilter"); savePref("fstTimingListFilter", S.listFilter);
+      S.filterSort = true;
+      renderList(); restoreSel(); renderPass();
+      if (S.rowEls[S.sel]) keepRowInView(S.rowEls[S.sel]);
+    }
+    else if (t.hasAttribute("data-spkadd")) openSpeakerPopup(null, t);
     else if (t.hasAttribute("data-issueli")) toggleIssueLine(parseInt(t.getAttribute("data-issueli"), 10));
-    else if (t.hasAttribute("data-propdel")) setProperty(t.getAttribute("data-propdel"), null);
-    else if (t.hasAttribute("data-propadd")) addProperty();
-    else if (t.hasAttribute("data-propfrom")) { var nm = t.getAttribute("data-propfrom"); setProperty(nm, inheritedValue(S.sel, nm)); }
     else if (t.hasAttribute("data-act")) run(t.getAttribute("data-act"));
-    else if (t.hasAttribute("data-pass")) {
-      S.pass = t.getAttribute("data-pass"); savePref("fstTimingPass", S.pass);
-      renderList(); restoreSel();
-      // (its tab under the video)
-      showTab(S.pass === "issues" ? "warnings" : "subtitle");
-      renderPass();
-    } else if (t.hasAttribute("data-code")) {
+    else if (t.hasAttribute("data-code")) {
       var code = t.getAttribute("data-code");
       S.issueFilter = code ? { code: code, detail: t.getAttribute("data-detail") || null } : null;
       renderList(); restoreSel(); renderPass();
+      if (S.session) renderSession();
     } else if (t.hasAttribute("data-speaker")) toggleSpeaker(t.getAttribute("data-speaker"));
   });
   $("teMid").addEventListener("change", function (e) {
     if (!S || !e.target.hasAttribute) return;
     if (e.target.hasAttribute("data-present")) { e.target.blur(); togglePresent(e.target.getAttribute("data-present")); }
-    // (the value of a property, changed in the Properties tab: when the box is left, or Enter)
-    else if (e.target.hasAttribute("data-propval")) setProperty(e.target.getAttribute("data-propval"), e.target.value);
-  });
-  $("teMid").addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" || e.shiftKey || !e.target.hasAttribute) return;
-    if (e.target.hasAttribute("data-propval") && e.target.tagName === "INPUT") { e.preventDefault(); e.target.blur(); }
-    else if (e.target.id === "tePropName" || e.target.id === "tePropValue") { e.preventDefault(); addProperty(); }
   });
 
   // ---- The list and the selected subtitle ----
@@ -3568,32 +3986,152 @@
     }).join("") +
       meta.map(function (m) { return '<span class="te-chip" title="' + esc(m) + '">' + esc(m) + '</span>'; }).join("") + esc(text.join(" ⏎ "));
   }
-  function rowHtml(sub, i) {
-    return '<span class="n">' + (sub.v ? "✓" : "") + (i + 1) + '</span><span class="tm">' + fmt(sub.s) + '</span><span class="tm">' + fmt(sub.e) +
-      '</span><span class="tm">' + fmtDur(sub.e - sub.s) + '</span><span class="tx">' + textHtml(sub) + '</span>';
+  /// Under this confidence, the value is shown in another color
+  var LOW_CONFIDENCE = 0.5;
+  /// The icons of what is finalized: its start (S), its end (E) (click: finalized / not anymore), its speaker (only shown: see the 'Speakers' pass)
+  /// st: the speakers at this subtitle (see speakerStates), otherwise computed
+  function finalIconsHtml(sub, i, st) {
+    var html = '<b class="fi' + (sub.fs ? " on" : "") + '" data-fin="s" title="Start ' + (sub.fs ? "finalized" : "not finalized") + ' (click: ' + (sub.fs ? "not finalized anymore" : "finalized") + ')">S</b>' +
+      '<b class="fi' + (sub.fe ? " on" : "") + '" data-fin="e" title="End ' + (sub.fe ? "finalized" : "not finalized") + ' (click: ' + (sub.fe ? "not finalized anymore" : "finalized") + ')">E</b>';
+    if (S.spk) {
+      st = st || speakerStateAt(i);
+      var kind = speakerKind(st);
+      html += '<b class="fi' + (isKnown(st) ? " on" : " no") + '" title="' + esc(kind === "tagged" ? "Speaker: " + st.speaker : kind === "single" ? "Speaker: " + st.present[0] + " (the only one present)" : kind === "ai" ? "Speaker not known (several present: " + st.present.join(", ") + ")" : "Speaker not known (nobody present)") + '">👤</b>';
+    }
+    return html;
+  }
+  function rowHtml(sub, i, st) {
+    var c = confidenceOf(sub);
+    return '<span class="n">' + (i + 1) + '</span><span class="fx">' + finalIconsHtml(sub, i, st) + '</span><span class="tm">' + fmt(sub.s) + '</span><span class="tm">' + fmt(sub.e) +
+      '</span><span class="tm">' + fmtDur(sub.e - sub.s) + '</span>' +
+      '<span class="tm cf' + (c && c.value < LOW_CONFIDENCE ? " lo" : "") + '"' + (c ? ' title="' + esc("Timing confidence " + c.value + (c.msg ? ": " + c.msg : "")) + '"' : '') + '>' + (c ? c.value.toFixed(2) : "") + '</span>' +
+      '<span class="tx">' + textHtml(sub) + '</span>';
+  }
+
+  // ---- The order of the list: sorted by a column (click on its header; again: the other way). The arrows follow it. ----
+  // (S.subs stays in the order of the time: only the list, and the navigation in it, use S.order)
+  var SORT_COLS = [["n", "#"], ["f", "Final"], ["s", "Start"], ["e", "End"], ["d", "Dur."], ["c", "Conf."], ["t", "Text"]];
+  var listSort = { col: "n", dir: 1 };
+  try { var savedSort = JSON.parse(loadPref("fstTimingSort") || "null"); if (savedSort && SORT_COLS.some(function (c) { return c[0] === savedSort.col; })) listSort = { col: savedSort.col, dir: savedSort.dir < 0 ? -1 : 1 }; } catch (e) { }
+  /// The value of a subtitle for the sort (null: none, always at the end of the list)
+  function sortValue(i, col) {
+    var sub = S.subs[i];
+    switch (col) {
+      case "f": return (sub.fs ? 1 : 0) + (sub.fe ? 1 : 0);   // (the least finalized first)
+      case "s": return sub.s;
+      case "e": return sub.e;
+      case "d": return sub.e - sub.s;
+      case "c": var c = confidenceOf(sub); return c ? c.value : null;
+      case "t": return textOf(sub).join(" ").toLowerCase();
+      default: return i;
+    }
+  }
+  /// The list shows only the subtitles with a review warning of the kind chosen in the tree (Warnings tab), checked or not (none chosen: all of them),
+  /// and of them, the ones of the filter of the list (S.listFilter, see filterMatch). (the selected one stays in it until the list is drawn again,
+  /// ex. the next one selected in a session). ctx: see listCtx (computed once for the whole list)
+  function inList(i, ctx) {
+    if (S.issueFilter && !issuesOf(S.subs[i]).some(inFilter)) return false;
+    return filterMatch(i, S.listFilter, ctx);
+  }
+  function computeOrder() {
+    var col = listSort.col, dir = listSort.dir, ctx = listCtx();
+    var vals = S.subs.map(function (x, i) { return sortValue(i, col); });
+    var order = [];
+    S.subs.forEach(function (x, i) { if (inList(i, ctx) || i === S.sel) order.push(i); });
+    S.orderOf = S.subs.length;
+    // (the filters "visual" / "audio": their own order, until a column is clicked)
+    if (S.filterSort && S.listFilter === "visual" && ctx.states)
+      order.sort(function (a, b) { return (ctx.states[b].present.length - ctx.states[a].present.length) || (S.subs[a].s - S.subs[b].s); });
+    else if (S.filterSort && S.listFilter === "audio")
+      order.sort(function (a, b) { return ((S.subs[b].e - S.subs[b].s) - (S.subs[a].e - S.subs[a].s)) || (a - b); });
+    else order.sort(function (a, b) {
+      var va = vals[a], vb = vals[b];
+      if (va == null || vb == null) return va == null && vb == null ? a - b : va == null ? 1 : -1;
+      var r = va < vb ? -1 : va > vb ? 1 : 0;
+      return r ? r * dir : a - b;
+    });
+    S.order = order;
+    S.posOf = [];
+    order.forEach(function (i, p) { S.posOf[i] = p; });
+  }
+  function ensureOrder() { if (!S.order || S.orderOf !== S.subs.length) computeOrder(); }
+  /// The subtitle 'dir' rows after (1) / before (-1) the selected one in the list (none selected: the first one); -1: none
+  function listStep(dir) {
+    ensureOrder();
+    if (!S.order.length) return -1;
+    if (S.sel < 0 || S.posOf[S.sel] == null) return S.order[0];
+    var p = S.posOf[S.sel] + dir;
+    return p >= 0 && p < S.order.length ? S.order[p] : -1;
+  }
+  /// Selects a subtitle; the whole subtitle playing again and again (Listening): it goes on with the new one
+  function selectKeepLoop(i) {
+    var looping = !!audition && audition.edge === "whole";
+    select(i);
+    if (i < 0) return;
+    if (sessionPlaying()) startAudition("session");
+    else if (looping) startAudition("whole");
+  }
+  /// The whole subtitle again and again (again: stop)
+  function toggleLoopSub() {
+    if (audition && audition.edge === "whole" && audition.sel === S.sel) { stopAudition(); return; }
+    startAudition("whole");
   }
   function renderRow(i) {
     if (!S.rowEls || !S.rowEls[i]) return;
     S.rowEls[i].innerHTML = rowHtml(S.subs[i], i);
-    S.rowEls[i].classList.toggle("ok", !!S.subs[i].v);
-    S.rowEls[i].classList.toggle("todo", isTodo(i));
+    S.rowEls[i].classList.toggle("ok", isValidated(S.subs[i]));
+    S.rowEls[i].classList.toggle("sesdone", !!S.session && !sessionTodo(i));
   }
   function renderList() {
-    var rows = ['<div class="te-row head"><span>#</span><span>Start</span><span>End</span><span>Dur.</span><span>Text</span></div>'];
-    var todo = todoFlags();
-    S.subs.forEach(function (sub, i) {
-      rows.push('<div class="te-row' + (sub.v ? " ok" : "") + (todo[i] ? " todo" : "") + '" data-i="' + i + '">' + rowHtml(sub, i) + '</div>');
+    computeOrder();
+    var isDefault = listSort.col === "n" && listSort.dir === 1;
+    var rows = ['<div class="te-row head">' + SORT_COLS.map(function (c) {
+      var on = listSort.col === c[0];
+      return '<span data-sort="' + c[0] + '" class="' + (on && !isDefault ? "on" : "") + '" title="Sort the list by ' + esc(c[1]) + ' (again: the other way). The arrows go through the list in this order.' +
+        (c[0] === "c" ? " Conf. = the confidence in the timing (a [TimingConfidence:...] line; none: at the end)." : "") + '">' +
+        esc(c[1]) + (on && !isDefault ? (listSort.dir > 0 ? " ▲" : " ▼") : "") + '</span>';
+    }).join("") + '</div>'];
+    var spkStates = S.spk ? speakerStates() : [];
+    S.order.forEach(function (i) {
+      var sub = S.subs[i];
+      rows.push('<div class="te-row' + (isValidated(sub) ? " ok" : "") + (S.session && !sessionTodo(i) ? " sesdone" : "") + '" data-i="' + i + '">' + rowHtml(sub, i, spkStates[i]) + '</div>');
     });
     $("teList").innerHTML = rows.join("");
-    S.rowEls = $("teList").querySelectorAll(".te-row[data-i]");
+    // (by the index of the subtitle, whatever the order of the list)
+    S.rowEls = [];
+    $("teList").querySelectorAll(".te-row[data-i]").forEach(function (el) { S.rowEls[parseInt(el.getAttribute("data-i"), 10)] = el; });
     refreshOverlaps();
     S.playingRow = -1;
     refreshStatus();
   }
+  /// The Subtitle tab: a line (number, times, what is finalized...), then its sections (group "cur", see secsHtml): the text (it can be changed:
+  /// when the box is left), the speakers, the properties, the review warnings. The sections are built once (curBuilt), then filled.
+  var curBuilt = null;
   function renderCur() {
+    var cur = $("teCur"), sub = S.subs[S.sel];
+    if (curBuilt !== secPrefsKey("cur") || !$("teCurInfo")) {
+      var secs = secsHtml("cur", CUR_SECTIONS.map(function (x) { return x[0]; }), function (id) {
+        return id === "text" ? '<textarea class="te-curtext" id="teCurText" spellcheck="false" rows="3"></textarea>'
+          : id === "speakers" ? '<div class="te-spkq"></div>' : id === "props" ? '<div class="te-propq"></div>' : '<div id="teCurIssues"></div>';
+      });
+      cur.innerHTML = '<div style="display:flex;gap:6px;align-items:flex-start"><div class="tm" id="teCurInfo" style="flex:1"></div>' + showAllHtml("cur", secs.nHidden) + '</div>' + secs.html;
+      curBuilt = secPrefsKey("cur");
+    }
     renderSpeakerBar();
-    var sub = S.subs[S.sel];
-    if (!sub) { $("teCur").innerHTML = '<div class="tm">No subtitle selected.</div>'; return; }
+    renderPanelProps();
+    var ta = $("teCurText");
+    if (!sub) {
+      $("teCurInfo").textContent = "No subtitle selected.";
+      if (ta) { ta.value = ""; ta.disabled = true; }
+      if ($("teCurIssues")) $("teCurIssues").innerHTML = "";
+      return;
+    }
+    // (being typed: not changed under the fingers)
+    if (ta && !(document.activeElement === ta && ta.getAttribute("data-sel") === String(S.sel))) {
+      ta.value = textOf(sub).join("\n");
+      ta.setAttribute("data-sel", String(S.sel));
+      ta.disabled = !!S.readOnly;
+    }
     var partNote = "";
     if (S.info && S.info.parts.length > 1) {
       var p = partAt(sub.s);
@@ -3605,19 +4143,38 @@
       var st = speakerStateAt(S.sel), kind = speakerKind(st);
       speakerNote = " · speaker: " + (kind === "tagged" ? st.speaker : kind === "single" ? st.present[0] + " (only one present)" : kind === "ai" ? "the AI decides (" + st.present.join(", ") + ")" : "nobody present");
     }
-    var props = propsOf(sub);
     var issues = [];
     sub.lines.forEach(function (l, li) { var x = parseIssue(l); if (x) { x.li = li; issues.push(x); } });
-    $("teCur").innerHTML = '<div class="tm">' + (sub.v ? '<b style="color:var(--ok)">✓ timing validated</b> · ' : '') + '#' + (S.sel + 1) + ' · ' + fmt(sub.s) + ' → ' + fmt(sub.e) + ' · ' + fmtDur(sub.e - sub.s) + ' s' + esc(partNote) + esc(speakerNote) + '</div>' +
-      '<div class="te-text">' + esc(textOf(sub).join("\n")) + '</div>' +
-      (props.length ? '<div>' + props.map(function (p) { return '<span class="te-chip" title="' + esc(p.value) + '">' + esc(p.name + (p.value ? ": " + p.value : "")) + '</span>'; }).join("") + '</div>' : '') +
-      issues.map(function (x) {
+    var conf = confidenceOf(sub);
+    var finalNote = isValidated(sub) ? '<b style="color:var(--ok)">✓ timing validated</b> · '
+      : sub.fs ? '<b style="color:var(--ok)">✓ start finalized</b> · ' : sub.fe ? '<b style="color:var(--ok)">✓ end finalized</b> · ' : '';
+    $("teCurInfo").innerHTML = finalNote + '#' + (S.sel + 1) + ' · ' + fmt(sub.s) + ' → ' + fmt(sub.e) + ' · ' + fmtDur(sub.e - sub.s) + ' s' + esc(partNote) + esc(speakerNote) +
+      (conf ? ' · <span' + (conf.value < LOW_CONFIDENCE ? ' style="color:var(--warn);font-weight:600"' : '') + ' title="' + esc(conf.msg || "") + '">timing confidence ' + conf.value.toFixed(2) + (conf.msg ? ": " + esc(conf.msg) : "") + '</span>' : '');
+    if ($("teCurIssues")) $("teCurIssues").innerHTML = issues.length ? issues.map(function (x) {
         var c = issueColor(x.code);
         return '<div class="te-issrow' + (x.checked ? " chk" : "") + '" data-issueli="' + x.li + '" title="Click: ' + (x.checked ? "not checked anymore" : "checked") + '">' +
           '<span style="color:' + c + '">' + (x.checked ? "✓" : "⚑") + ' ' + esc(x.code + (x.detail ? ":" + x.detail : "")) + '</span><span>' + esc(x.msg) + '</span></div>';
-      }).join("") +
-      '<div class="hint">The text is only to be read: after this step, only the timings and the properties ({ } Properties tab) are used.</div>';
+      }).join("") : '<span class="hint">None.</span>';
   }
+  /// The text of the subtitle i changed (the Subtitle tab): its other lines (properties, review warnings, confidence) are kept
+  function setText(i, text) {
+    var sub = S.subs[i];
+    if (!sub || !canEdit()) return;
+    var lines = text.split("\n").map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+    if (lines.join("\n") === textOf(sub).join("\n")) return;
+    var keep = [];
+    sub.lines.forEach(function (l) {
+      if (parseIssue(l) || CONF_RE.test(l)) { keep.push(l); return; }
+      var m = l.match(PROP_RE);
+      if (m) keep.push(m.join(""));
+    });
+    if (!lines.length && !keep.length) { status("#" + (i + 1) + ": a subtitle needs a text or a property.", true); renderCur(); return; }
+    if (changeLines(i, function (x) { x.lines = lines.concat(keep); })) status("#" + (i + 1) + ": its text changed.");
+  }
+  $("teCur").addEventListener("change", function (e) {
+    if (e.target.id !== "teCurText" || !S) return;
+    setText(parseInt(e.target.getAttribute("data-sel"), 10), e.target.value);
+  });
   /// One review warning of the selected subtitle: checked / not checked anymore
   function toggleIssueLine(li) {
     var sub = S.subs[S.sel], x = sub ? parseIssue(sub.lines[li] || "") : null;
@@ -3627,7 +4184,7 @@
     });
   }
 
-  // ---- The Properties tab: the properties of the selected subtitle ({Name:Value}), and the {Ongoing...} ones in effect from before ----
+  // ---- The properties of the selected subtitle ({Name:Value}), and the {Ongoing...} ones in effect from before (Subtitle tab, panel) ----
   // (names the next steps know: suggested when adding one, with the ones already used in this review)
   var KNOWN_PROPS = ["OngoingContext", "GrabOnScreenText", "VisualTraining", "AudioTraining", "Note"];
   /// The value of an {Ongoing...} property in effect at the subtitle i, from a subtitle before it (null: none): { value, from }
@@ -3639,67 +4196,149 @@
     return null;
   }
   function inheritedValue(i, name) { var x = inheritedOngoing(i, name); return x ? x.value : ""; }
-  function renderProps() {
-    var pane = $("tePropsPane"), sub = S && S.subs[S.sel];
-    // (typing in it: not drawn again under the fingers)
-    if (pane.contains(document.activeElement) && document.activeElement.tagName !== "BUTTON" && pane.getAttribute("data-sel") === String(S.sel)) return;
-    pane.setAttribute("data-sel", String(S ? S.sel : -1));
-    if (!sub) { pane.innerHTML = '<div class="hint">No subtitle selected.</div>'; return; }
-    var props = propsOf(sub), ro = S.readOnly ? " disabled" : "";
-    var isSpeakerProp = function (n) { return S.spk && (sameName(n, S.spk.speaker) || sameName(n, S.spk.ongoing)); };
-    var rows = props.map(function (p) {
-      var multi = p.value.indexOf("\n") >= 0 || p.value.length > 80;
-      var editor = isSpeakerProp(p.name)
-        ? '<span class="hint">' + esc(p.value) + ' (the speakers bar, under the video)</span>'
-        : multi
-          ? '<textarea data-propval="' + esc(p.name) + '"' + ro + ' spellcheck="false">' + esc(p.value) + '</textarea>'
-          : '<input type="text" data-propval="' + esc(p.name) + '" value="' + esc(p.value) + '"' + ro + ' spellcheck="false" placeholder="(no value: {' + esc(p.name) + '})">';
-      return '<tr><td class="n">' + esc(p.name) + '</td><td>' + editor + '</td><td style="width:1%">' +
-        (isSpeakerProp(p.name) ? '' : '<button class="mini" data-propdel="' + esc(p.name) + '"' + ro + ' title="Remove {' + esc(p.name) + '} from this subtitle">&#10005;</button>') + '</td></tr>';
+  /// The properties of the selected subtitle (with the speakers ones: they are also changed by the speakers bar), as chips: click = change it, ✕ = remove it;
+  /// the {Ongoing...} in effect from a subtitle before (dimmed): click = change it from this subtitle on; ＋ = a new one (a popup: name, value).
+  /// Drawn in each '.te-propq' of the editor (the Subtitle tab, the panel); their clicks: see propsClick.
+  function propsHtml() {
+    var sub = S && S.subs[S.sel];
+    if (!sub) return '<span class="hint">No subtitle selected.</span>';
+    var ro = S.readOnly ? " disabled" : "", props = propsOf(sub);
+    var chips = props.map(function (p) {
+      return '<span class="te-chip te-propchip" data-propedit="' + esc(p.name) + '" title="Click: change it">' + esc(p.name) + (p.value ? ': ' + esc(p.value) : '') +
+        '<button class="mini" data-propdel="' + esc(p.name) + '"' + ro + ' title="Remove {' + esc(p.name) + '} from this subtitle">&#10005;</button></span>';
     });
     // The {Ongoing...} in effect from a subtitle before (not changed on this one)
     var ongoingNames = [];
     S.subs.slice(0, S.sel).forEach(function (x) { propsOf(x).forEach(function (p) { if (/^ongoing/i.test(p.name) && !hasName(ongoingNames, p.name)) ongoingNames.push(p.name); }); });
-    ongoingNames.filter(function (n) { return !props.some(function (p) { return sameName(p.name, n); }) && !isSpeakerProp(n); }).forEach(function (n) {
+    ongoingNames.filter(function (n) { return !props.some(function (p) { return sameName(p.name, n); }); }).forEach(function (n) {
       var inh = inheritedOngoing(S.sel, n);
-      if (!inh) return;
-      rows.push('<tr class="inh"><td class="n">' + esc(n) + '</td><td>' + esc(inh.value) + ' <span class="hint">(from #' + (inh.from + 1) + ')</span></td><td style="width:1%">' +
-        '<button class="mini" data-propfrom="' + esc(n) + '"' + ro + ' title="Change it from this subtitle on">&#9998;</button></td></tr>');
+      if (inh) chips.push('<span class="te-chip te-propchip inh" data-propfrom="' + esc(n) + '" title="From #' + (inh.from + 1) + '. Click: change it from this subtitle on">' + esc(n) + ': ' + esc(inh.value) + '</span>');
     });
+    return chips.join("") + '<button class="mini" data-propnew="1"' + ro + ' title="A new property on this subtitle ({Ongoing...}: also for the next ones, until changed)">&#65291;</button>';
+  }
+  function renderPanelProps() { var html = propsHtml(); document.querySelectorAll("#te .te-propq").forEach(function (el) { el.innerHTML = html; }); }
+  /// A click in a block of the properties: true when it was for it
+  function propsClick(t) {
+    if (!t) return false;
+    if (t.hasAttribute("data-propdel")) { setProperty(t.getAttribute("data-propdel"), null); return true; }
+    if (t.hasAttribute("data-propnew")) { openPropPopup(null, "", t); return true; }
+    if (t.hasAttribute("data-propedit")) { var n = t.getAttribute("data-propedit"); openPropPopup(n, getMeta(S.subs[S.sel], n) || "", t); return true; }
+    if (t.hasAttribute("data-propfrom")) { var f = t.getAttribute("data-propfrom"); openPropPopup(f, inheritedValue(S.sel, f), t, true); return true; }
+    return false;
+  }
+  var PROP_TARGETS = "[data-propdel],[data-propnew],[data-propedit],[data-propfrom]";
+  // The popup of a property: its name (a new one: chosen, with the names known / already used), its value
+  var propPop = document.createElement("div");
+  propPop.className = "te-spkpop";
+  propPop.style.display = "none";
+  $("te").appendChild(propPop);
+  function openPropPopup(name, value, anchor, fromHere) {
+    if (!canEdit() || !S.subs[S.sel]) return;
     var used = KNOWN_PROPS.slice();
     S.subs.forEach(function (x) { propsOf(x).forEach(function (p) { if (!hasName(used, p.name)) used.push(p.name); }); });
-    pane.innerHTML = '<table class="te-props">' + (rows.join("") || '<tr><td class="hint">No property on this subtitle.</td></tr>') + '</table>' +
-      '<div class="te-set" style="margin-top:6px"><input type="text" id="tePropName" list="tePropNames" placeholder="Property (ex. GrabOnScreenText)" spellcheck="false" style="width:200px"' + ro + '>' +
-      '<input type="text" id="tePropValue" placeholder="Value (empty: {Name} alone)" spellcheck="false" style="flex:1;min-width:160px"' + ro + '>' +
-      '<button class="mini" data-propadd="1"' + ro + '>&#65291; Add</button>' +
-      '<datalist id="tePropNames">' + used.filter(function (n) { return !isSpeakerProp(n); }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist></div>' +
-      '<div class="hint">{Ongoing...}: in effect for the next subtitles too, until changed. A value: Enter, or leave the box.</div>';
+    propPop.innerHTML = '<b>' + (name ? "{" + esc(name) + "}" + (fromHere ? " from #" + (S.sel + 1) + " on" : " of #" + (S.sel + 1)) : "New property of #" + (S.sel + 1)) + '</b>' +
+      (name ? '' : '<label>Name <input type="text" id="tePropName" list="tePropNames" spellcheck="false" placeholder="ex. GrabOnScreenText"></label>' +
+        '<datalist id="tePropNames">' + used.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + '</datalist>') +
+      '<div id="tePropValArea" style="display:flex;flex-direction:column;gap:4px"></div>' +
+      '<div class="hint">{Ongoing...}: in effect for the next subtitles too, until changed.</div>' +
+      '<div style="display:flex;gap:6px;justify-content:flex-end"><button class="mini" data-proppop="cancel">Cancel</button><button class="mini primary" data-proppop="ok">' + (name ? "OK" : "Add") + '</button></div>';
+    propPop.setAttribute("data-name", name || "");
+    propPop.style.display = "";
+    renderPropValue(name || "", value);
+    var r = anchor.getBoundingClientRect();
+    propPop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - propPop.offsetWidth - 8)) + "px";
+    propPop.style.top = Math.max(8, Math.min(r.bottom + 4, window.innerHeight - propPop.offsetHeight - 8)) + "px";
+    var first = $("tePropName") || propPop.querySelector("#tePropValArea input, #tePropValArea textarea");
+    if (first) first.focus();
   }
+  /// The value of the popup, for the property 'name': VisualTraining = a description for each speaker (green: it has one already, somewhere;
+  /// empty: not in it); AudioTraining = the speaker that is talking; otherwise a text
+  function propMode(name) { return sameName(name, VISUAL_TRAINING) && S.speakers.length ? "visual" : sameName(name, AUDIO_TRAINING) && S.speakers.length ? "audio" : "text"; }
+  function renderPropValue(name, value) {
+    var area = $("tePropValArea"), mode = propMode(name);
+    if (!area || area.getAttribute("data-mode") === mode) return;
+    area.setAttribute("data-mode", mode);
+    var tr = trainingState(), st = S.spk ? speakerStateAt(S.sel) : { present: [], speaker: null };
+    // (the people present first)
+    var names = S.speakers.map(function (sp) { return sp.name; });
+    names.sort(function (a, b) { return (hasName(st.present, b) ? 1 : 0) - (hasName(st.present, a) ? 1 : 0); });
+    if (mode === "visual") {
+      var current = visualEntries(value);
+      current.forEach(function (en) { if (!hasName(names, en.name)) names.push(en.name); });
+      area.innerHTML = '<span class="hint">For each person on the screenshot: where, what they wear, what they look like (empty: not in it). Green: described already (as the hint).</span>' +
+        names.map(function (n) {
+          var mine = current.filter(function (en) { return sameName(en.name, n); })[0], known = tr.visual[n.toLowerCase()];
+          return '<label style="display:flex;gap:6px"><span data-spkname="' + esc(n) + '" style="min-width:110px;' + (known ? 'color:var(--ok);font-weight:600' : '') + '">' + esc(shortName(n)) + (hasName(st.present, n) ? ' ●' : '') + '</span>' +
+            '<input type="text" data-vtname="' + esc(n) + '" spellcheck="false" style="flex:1" placeholder="' + esc(known || "ex. on the left, blue shirt") + '" value="' + esc(mine ? mine.desc : "") + '"></label>';
+        }).join("");
+    } else if (mode === "audio") {
+      var chosen = value || speakerOf(st) || "";
+      area.innerHTML = '<span class="hint">The speaker talking in this subtitle. Green: has a sample already.</span>' +
+        names.map(function (n) {
+          return '<label><input type="radio" name="teAudioTrain" data-atname="' + esc(n) + '"' + (sameName(n, chosen) ? " checked" : "") + '>' +
+            '<span data-spkname="' + esc(n) + '" style="' + (tr.audio[n.toLowerCase()] ? 'color:var(--ok);font-weight:600' : '') + '">' + esc(shortName(n)) + (hasName(st.present, n) ? ' ●' : '') + '</span></label>';
+        }).join("");
+    } else {
+      var multi = value.indexOf("\n") >= 0 || value.length > 80;
+      area.innerHTML = '<label>Value ' + (multi ? '<textarea id="tePropValue" spellcheck="false" rows="4" style="flex:1">' + esc(value) + '</textarea>'
+        : '<input type="text" id="tePropValue" spellcheck="false" style="flex:1" placeholder="(empty: {Name} alone)" value="' + esc(value) + '">') + '</label>';
+    }
+  }
+  propPop.addEventListener("input", function (e) { if (e.target.id === "tePropName") renderPropValue(e.target.value.trim(), ""); });
+  function closePropPopup() { propPop.style.display = "none"; propPop.innerHTML = ""; }
+  function propPopupOk() {
+    var name = (propPop.getAttribute("data-name") || ($("tePropName") || {}).value || "").trim(), value;
+    if (!name) { status("The name of the property is empty.", true); return; }
+    if (/[{}:,\n]/.test(name)) { status("A property name can't contain '{', '}', ':' or ','.", true); return; }
+    var mode = propMode(name);
+    if (mode === "visual") {
+      // {VisualTraining:Name (description), Name 2 (description)}
+      var parts = [], bad = null;
+      propPop.querySelectorAll("[data-vtname]").forEach(function (inp) {
+        var d = inp.value.trim();
+        if (!d) return;
+        if (/[(){}]/.test(d)) bad = inp.getAttribute("data-vtname");
+        parts.push(inp.getAttribute("data-vtname") + " (" + d + ")");
+      });
+      if (bad) { status("The description of " + bad + " can't contain '(', ')', '{' or '}'.", true); return; }
+      if (!parts.length) { status("Describe at least one person.", true); return; }
+      value = parts.join(", ");
+    } else if (mode === "audio") {
+      var r = propPop.querySelector("[data-atname]:checked");
+      if (!r) { status("Choose the speaker.", true); return; }
+      value = r.getAttribute("data-atname");
+    } else value = (($("tePropValue") || {}).value || "").trim();
+    closePropPopup();
+    setProperty(name, value);
+  }
+  propPop.addEventListener("click", function (e) {
+    var a = e.target.getAttribute && e.target.getAttribute("data-proppop");
+    if (a === "ok") propPopupOk(); else if (a === "cancel") closePropPopup();
+  });
+  propPop.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !(e.target.tagName === "TEXTAREA" && !e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); propPopupOk(); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closePropPopup(); }
+  }, true);
+  document.addEventListener("mousedown", function (e) { if (propPop.style.display !== "none" && !propPop.contains(e.target)) closePropPopup(); }, true);
   function setProperty(name, value) {
     if (!name || !S.subs[S.sel]) return;
-    if (value != null && /[{}]/.test(value)) { status("A value can't contain '{' or '}'.", true); renderProps(); return; }
+    if (value != null && /[{}]/.test(value)) { status("A value can't contain '{' or '}'.", true); return; }
     var current = getMeta(S.subs[S.sel], name);
     if (value != null && current != null && current === value.trim()) return;
     if (changeLines(S.sel, function (x) { setMeta(x, name, value); }))
       status("#" + (S.sel + 1) + ": " + (value == null ? "{" + name + "} removed." : "{" + name + (value ? ":" + value : "") + "}."));
-    renderProps();
-  }
-  function addProperty() {
-    var name = ($("tePropName") || {}).value, value = ($("tePropValue") || {}).value || "";
-    name = (name || "").trim();
-    if (!name) { status("The name of the property is empty.", true); return; }
-    if (/[{}:,\n]/.test(name)) { status("A property name can't contain '{', '}', ':' or ','.", true); return; }
-    if (S.spk && (sameName(name, S.spk.speaker) || sameName(name, S.spk.ongoing))) { status("{" + name + "}: use the speakers bar, under the video.", true); return; }
-    document.activeElement && document.activeElement.blur && document.activeElement.blur();
-    setProperty(name, value.trim());
   }
   /// Always shown (whatever the tab / the pass, ex. while doing the timings): the speakers of the list, in its order (keys 1-9).
   /// The name: the speaker of the selected subtitle ({speaker}; again: removed). The checkbox: present from the selected subtitle on ({ongoing}).
   /// Drag: change the order (ex. 1 = left, 2 = center, 3 = right). Right click: change the name / the alias, or remove. ＋: a new speaker.
+  /// (drawn in each '.te-spkq' of the editor: the Subtitle tab, the panel; their events: on the editor, see below)
   function renderSpeakerBar() {
-    var bar = $("teSpkBar");
-    bar.style.display = S && S.spk ? "" : "none";
-    if (!S || !S.spk) { bar.innerHTML = ""; return; }
+    var bars = document.querySelectorAll("#te .te-spkq");
+    var html = speakerBarHtml();
+    bars.forEach(function (bar) { bar.innerHTML = html; });
+  }
+  function speakerBarHtml() {
+    if (!S || !S.spk) return S && S.info ? '<span class="hint">No speakers: \'SpeakerMetadata\' and \'OngoingSpeakersMetadata\' are not set in the review.</span>' : '';
     var st = S.subs[S.sel] ? speakerStateAt(S.sel) : { present: [], speaker: null };
     var off = S.readOnly || !S.subs[S.sel];
     var chips = S.speakers.map(function (sp, k) {
@@ -3708,41 +4347,45 @@
       return '<span class="te-spkchip' + (isSpeaker ? " on" : "") + '" draggable="' + (S.readOnly ? "false" : "true") + '" data-spkidx="' + k + '" title="' +
         esc(sp.name + (sp.alias ? " (" + sp.alias + ")" : "") + ". Click: the speaker of this subtitle ({" + S.spk.speaker + "}" + (key ? ", key " + key : "") +
           "). Checkbox: present from this subtitle on ({" + S.spk.ongoing + "}). Drag: change the order. Right click: change / remove.") + '">' +
-        '<span class="nm" data-speaker="' + esc(sp.name) + '">' + (k < 9 ? (k + 1) + ". " : "") + esc(sp.alias || sp.name) + '</span>' +
-        '<input type="checkbox" data-present="' + esc(sp.name) + '"' + (hasName(st.present, sp.name) ? " checked" : "") + (off ? " disabled" : "") + '></span>';
+        '<span class="nm" data-speaker="' + esc(sp.name) + '">' + (k < 9 ? (k + 1) + ". " : "") + esc(sp.alias || sp.name) + (sp.image ? ' 🖼' : '') + '</span>' +
+        (sp.name.indexOf(",") >= 0
+          ? '<span class="hint" style="color:var(--warn)" title="Contains a \',\': it can\'t be in the list of the speakers present ({' + esc(S.spk.ongoing) + '}, separated by \',\'). Right click: rename it.">⚠ ,</span>'
+          : '<input type="checkbox" data-present="' + esc(sp.name) + '"' + (hasName(st.present, sp.name) ? " checked" : "") + (off ? " disabled" : "") + '>') + '</span>';
     }).join("");
     var kind = speakerKind(st);
     var here = !S.subs[S.sel] ? "" : kind === "tagged" ? "" : kind === "single" ? "(only " + shortName(st.present[0]) + " present)"
       : kind === "ai" ? "(several present, no speaker: the AI decides)" : "(nobody present: check who is present)";
-    bar.innerHTML = '<span class="tm">Speakers:</span>' + (chips || '<span class="hint">none yet</span>') +
+    return (chips || '<span class="hint">none yet</span>') +
       '<button class="mini" data-spkadd="1"' + (S.readOnly ? " disabled" : "") + ' title="A new speaker (its name, and an alias shown here)">&#65291;</button>' +
+      '<button class="mini" data-spkcap="1"' + (S.readOnly || S.mode !== "video" ? " disabled" : "") + ' title="The image of a speaker: the frame of the video where it is now, then a rectangle around the speaker (shown when the mouse is on its name)">📷</button>' +
       '<span class="hint">' + esc(here) + '</span>';
   }
-  $("teSpkBar").addEventListener("contextmenu", function (e) {
-    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+  function spkChipOf(e) { return e.target.closest ? e.target.closest(".te-spkq [data-spkidx]") : null; }
+  $("te").addEventListener("contextmenu", function (e) {
+    var chip = spkChipOf(e);
     if (!chip || !S) return;
     e.preventDefault();
     openSpeakerPopup(parseInt(chip.getAttribute("data-spkidx"), 10), chip);
   });
-  $("teSpkBar").addEventListener("dragstart", function (e) {
-    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+  $("te").addEventListener("dragstart", function (e) {
+    var chip = spkChipOf(e);
     if (!chip || !S || S.readOnly) return;
     S.dragSpeaker = parseInt(chip.getAttribute("data-spkidx"), 10);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(S.dragSpeaker));
   });
-  $("teSpkBar").addEventListener("dragover", function (e) {
-    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+  $("te").addEventListener("dragover", function (e) {
+    var chip = spkChipOf(e);
     if (!chip || !S || S.dragSpeaker == null) return;
     e.preventDefault();
-    $("teSpkBar").querySelectorAll(".te-spkchip").forEach(function (c) { c.classList.toggle("drop", c === chip); });
+    document.querySelectorAll("#te .te-spkchip").forEach(function (c) { c.classList.toggle("drop", c === chip); });
   });
-  $("teSpkBar").addEventListener("dragend", function () {
+  $("te").addEventListener("dragend", function () {
     if (S) S.dragSpeaker = null;
-    $("teSpkBar").querySelectorAll(".te-spkchip").forEach(function (c) { c.classList.remove("drop"); });
+    document.querySelectorAll("#te .te-spkchip").forEach(function (c) { c.classList.remove("drop"); });
   });
-  $("teSpkBar").addEventListener("drop", function (e) {
-    var chip = e.target.closest ? e.target.closest("[data-spkidx]") : null;
+  $("te").addEventListener("drop", function (e) {
+    var chip = spkChipOf(e);
     if (!chip || !S || S.dragSpeaker == null) return;
     e.preventDefault();
     var from = S.dragSpeaker, to = parseInt(chip.getAttribute("data-spkidx"), 10);
@@ -3758,7 +4401,9 @@
     var list = $("teList"), lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
     var h = list.clientHeight, y = rr.top - lr.top;
     if (y >= h * 0.15 && y + rr.height <= h * 0.7) return;
-    list.scrollTo({ top: Math.max(0, list.scrollTop + y - h * 0.3), behavior: "smooth" });
+    // (far: right there, no animation; close: smooth, to see where it goes)
+    var far = Math.abs(y - h * 0.3) > h * 1.5;
+    list.scrollTo({ top: Math.max(0, list.scrollTop + y - h * 0.3), behavior: far ? "auto" : "smooth" });
   }
   /// noView: the view of the timeline doesn't move (ex. the mouse is on it)
   function select(i, noSeek, noView) {
@@ -3773,8 +4418,10 @@
     if (row) { row.classList.add("sel"); keepRowInView(row); }
     renderCur();
     renderPass();
+    if (S.session) renderSession();
     var sub = S.subs[i];
-    if (!noView) ensureVisible(sub.s, sub.e);
+    // (in a session: the view is placed by renderSession, see sessionFocusView)
+    if (!noView && !S.session) ensureVisible(sub.s, sub.e);
     if (!noSeek) seek(sub.s);
     S.dirty = true;
   }
@@ -3795,7 +4442,8 @@
   // A subtitle is validated when the playback is VALIDATE_AFTER_MS after its end (played without interruption through its end)
   var VALIDATE_AFTER_MS = 200;
   function validateWhilePlaying(playing, t) {
-    if (S.readOnly) return;
+    // (in a session: only its explicit "finalize")
+    if (S.readOnly || S.session) return;
     var last = S.lastPlayT;
     S.lastPlayT = playing ? t : null;
     if (!playing || audition) { S.playRunStart = null; return; }
@@ -3806,7 +4454,7 @@
       if (sub.s > t) break;
       var mark = sub.e + VALIDATE_AFTER_MS;
       // (played through its end; or its start / end was moved by the user (checked), and the playback started before the mark, ex. from its new end)
-      if (!sub.v && mark > last && mark <= t && (S.playRunStart < sub.e || (sub.touched && S.playRunStart < mark))) setValidated(i, true);
+      if (!isValidated(sub) && mark > last && mark <= t && (S.playRunStart < sub.e || (sub.touched && S.playRunStart < mark))) setValidated(i, true);
     }
   }
 
@@ -3871,8 +4519,30 @@
     clampView();
   }
   $("teList").addEventListener("click", function (e) {
+    if (!S) return;
+    // (a header: the list is sorted by that column; again: the other way)
+    var h = e.target.closest ? e.target.closest("[data-sort]") : null;
+    if (h) {
+      var col = h.getAttribute("data-sort");
+      listSort = listSort.col === col && !S.filterSort ? { col: col, dir: -listSort.dir } : { col: col, dir: 1 };
+      S.filterSort = false;   // (a column clicked: the order of the filter is not used anymore)
+      savePref("fstTimingSort", JSON.stringify(listSort));
+      renderList(); restoreSel();
+      if (S.rowEls[S.sel]) keepRowInView(S.rowEls[S.sel]);
+      return;
+    }
     var row = e.target.closest ? e.target.closest(".te-row[data-i]") : null;
-    if (row && S) select(parseInt(row.getAttribute("data-i"), 10));
+    if (!row) return;
+    var ri = parseInt(row.getAttribute("data-i"), 10);
+    // (an icon S / E: that edge finalized / not finalized anymore, the subtitle is not selected)
+    var fin = e.target.closest("[data-fin]");
+    if (fin && S.subs[ri] && canEdit()) {
+      pushUndo();
+      if (fin.getAttribute("data-fin") === "s") setFinalized(ri, !S.subs[ri].fs, null);
+      else setFinalized(ri, null, !S.subs[ri].fe);
+      return;
+    }
+    selectKeepLoop(ri);
   });
   function updatePlayingRow(t) {
     var idx = -1;
@@ -3932,8 +4602,7 @@
   }
 
   // ---- Drawing ----
-  var RULER_H = 18, TERRAIN_Y = 21, TERRAIN_H = 8, WAVE_Y = 32;
-  var TERRAIN_COLORS = { S: "ok", B: "warn", C: "muted" };
+  var RULER_H = 18, WAVE_Y = 21;
   function tickLabel(ms, step) {
     var s = fmt(ms);
     if (step >= 1000) s = s.slice(0, 8);
@@ -3969,17 +4638,7 @@
     }
     ctx.fillStyle = colors.border; ctx.fillRect(0, RULER_H, W, 1);
 
-    // Terrain: a band (speech / breath / click), and the speech lightly behind the waveform
-    if (S.terrain) {
-      var segs = S.terrain.segments;
-      for (var i = firstSegmentFrom(segs, v0); i < segs.length && segs[i][0] <= v1; i++) {
-        var sx = X(segs[i][0]), sw = Math.max(1, X(segs[i][1]) - sx);
-        ctx.fillStyle = colors[TERRAIN_COLORS[segs[i][2]]] || colors.muted;
-        ctx.globalAlpha = 0.85; ctx.fillRect(sx, TERRAIN_Y, sw, TERRAIN_H);
-        if (segs[i][2] === "S") { ctx.globalAlpha = 0.07; ctx.fillRect(sx, WAVE_Y, sw, WH); }
-      }
-      ctx.globalAlpha = 1;
-    }
+    // (the terrain is not drawn: it's only used to find the speech without subtitle, see nextSpeech / addSubtitle)
 
     // Parts (a .vseq): where each part starts
     if (S.info.parts.length > 1) {
@@ -4002,8 +4661,14 @@
       ctx.globalAlpha = sel ? 0.26 : 0.12; ctx.fillRect(x1, WAVE_Y, x2 - x1, WH);
       ctx.globalAlpha = 1;
       ctx.fillRect(x1, WAVE_Y, sel ? 2 : 1, WH); ctx.fillRect(x2 - (sel ? 2 : 1), WAVE_Y, sel ? 2 : 1, WH);
-      // (validated: a green bar at the bottom)
-      if (sub.v) { ctx.fillStyle = colors.ok; ctx.fillRect(x1, WAVE_Y + WH - 4, x2 - x1, 4); }
+      // (validated: a green bar at the bottom; only its start / its end finalized: a green mark on that edge)
+      ctx.fillStyle = colors.ok;
+      if (isValidated(sub)) ctx.fillRect(x1, WAVE_Y + WH - 4, x2 - x1, 4);
+      else {
+        var fw = Math.min(14, (x2 - x1) / 2);
+        if (sub.fs) ctx.fillRect(x1, WAVE_Y + WH - 4, fw, 4);
+        if (sub.fe) ctx.fillRect(x2 - fw, WAVE_Y + WH - 4, fw, 4);
+      }
       // (review warnings not checked: a small square of the color of each kind, at the bottom)
       var codes = {};
       openIssues(sub, true).forEach(function (x) { codes[x.code] = true; });
@@ -4011,7 +4676,7 @@
       if (x2 - x1 > 24) {
         ctx.save(); ctx.beginPath(); ctx.rect(x1 + 3, WAVE_Y, x2 - x1 - 6, WH); ctx.clip();
         ctx.fillStyle = colors.text; ctx.globalAlpha = sel ? 1 : 0.75;
-        ctx.fillText((sub.v ? "✓" : "") + "#" + (idx + 1) + " " + firstLine(sub), x1 + 4, WAVE_Y + 12);
+        ctx.fillText((isValidated(sub) ? "✓" : "") + "#" + (idx + 1) + " " + firstLine(sub), x1 + 4, WAVE_Y + 12);
         ctx.restore();
       }
     });
@@ -4058,13 +4723,29 @@
     if (audition && audition.s != null) {
       // (green: the edge was heard completely where it is now, ex. the mouse not moving during a drag; otherwise yellow)
       var looped = S.subs[audition.sel];
-      var heardHere = looped && audition.heardEdgeMs === (audition.edge === "start" ? looped.s : looped.e);
+      var heardHere = looped && audition.edge !== "session" && audition.heardEdgeMs === (audition.edge === "start" ? looped.s : looped.e);
       ctx.fillStyle = heardHere ? colors.ok : colors.warn; ctx.globalAlpha = heardHere ? 0.3 : 0.22;
-      ctx.fillRect(X(audition.s), RULER_H + 1, X(audition.e) - X(audition.s), H - RULER_H - 1);
+      (audition.pieces || [{ s: audition.s, e: audition.e }]).forEach(function (pc) { ctx.fillRect(X(pc.s), RULER_H + 1, X(pc.e) - X(pc.s), H - RULER_H - 1); });
       ctx.globalAlpha = 1;
       if (at != null) ctx.fillRect(Math.round(X(at)), RULER_H + 1, 1.5, H - RULER_H - 1);
       // (the edge that a click moves)
-      if (looped) ctx.fillRect(Math.round(X(audition.edge === "start" ? looped.s : looped.e)) - 1.5, RULER_H + 1, 3, H - RULER_H - 1);
+      if (looped && audition.edge !== "whole" && audition.edge !== "session") ctx.fillRect(Math.round(X(audition.edge === "start" ? looped.s : looped.e)) - 1.5, RULER_H + 1, 3, H - RULER_H - 1);
+    }
+
+    // In a session: the edge being finalized, a thick line and its name ("START" / "END"), on the side of the subtitle
+    if (S.session && S.subs[S.sel]) {
+      var fsub = S.subs[S.sel], fedge = sessionEdge(), fx = Math.round(X(fedge === "start" ? fsub.s : fsub.e));
+      if (fx >= -40 && fx <= W + 40) {
+        var label = fedge === "start" ? "START" : "END";
+        ctx.fillStyle = colors.warn;
+        ctx.fillRect(fx - 1.5, WAVE_Y, 3, WH);
+        ctx.font = "bold 12px system-ui, sans-serif";
+        var lw = ctx.measureText(label).width + 12, lx = fedge === "start" ? fx : fx - lw, ly = WAVE_Y + 18;
+        ctx.fillRect(lx, ly, lw, 18);
+        ctx.fillStyle = "#000"; ctx.textBaseline = "middle";
+        ctx.fillText(label, lx + 6, ly + 9);
+        ctx.textBaseline = "alphabetic";
+      }
     }
 
     // Playhead
@@ -4078,12 +4759,9 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     var X = function (ms) { return ms / D * W; };
-    if (S.terrain) {
-      ctx.fillStyle = colors.ok; ctx.globalAlpha = 0.35;
-      S.terrain.segments.forEach(function (s) { if (s[2] === "S") ctx.fillRect(X(s[0]), 2, Math.max(1, X(s[1]) - X(s[0])), H / 2 - 3); });
-    }
+    // (the progress: the subtitles, green = validated, yellow = start or end finalized, blue = to do)
     ctx.fillStyle = colors.accent; ctx.globalAlpha = 0.8;
-    S.subs.forEach(function (sub) { ctx.fillStyle = sub.v ? colors.ok : colors.accent; ctx.fillRect(X(sub.s), H / 2, Math.max(1, X(sub.e) - X(sub.s)), H / 2 - 2); });
+    S.subs.forEach(function (sub) { ctx.fillStyle = isValidated(sub) ? colors.ok : sub.fs || sub.fe ? colors.warn : colors.accent; ctx.fillRect(X(sub.s), 3, Math.max(1, X(sub.e) - X(sub.s)), H - 6); });
     // (the overlaps: red marks, to find them)
     ctx.fillStyle = colors.err;
     S.subs.forEach(function (sub) { if (sub.ov) ctx.fillRect(X(sub.s) - 1, 0, 3, H); });
@@ -4106,6 +4784,7 @@
     followPlayback(playing, t);
     updateSpeed(playing, t);
     var at = auditionPos();
+    updateSessionIndicator(at);
     if (playing || at != null || t !== S.lastT) S.dirty = true;
     S.lastT = t;
     var clock = fmt(t) + " / " + fmt(S.durMs) + (S.fast ? "  ▶▶ ×" + (settings.fastRate / 100) : "");
@@ -4162,6 +4841,18 @@
     if (!S || !S.info || e.button !== 0) return;
     e.preventDefault();
     var ms = msAt(cv, e);
+    // In a session for the timings, a click (without Ctrl): moves the edge being finalized there (dragging: follows the mouse)
+    if (S.session && !e.ctrlKey && canEdit() && S.subs[S.sel]) {
+      var sesSub = S.subs[S.sel], sesEdge = sessionEdge(), edgeMs = sesEdge === "start" ? sesSub.s : sesSub.e;
+      if (sesEdge === "start" ? sesSub.fs : sesSub.fe) {
+        status("#" + (S.sel + 1) + ": its " + sesEdge + " is finalized (click its " + (sesEdge === "start" ? "S" : "E") + " icon in the list to change it, or Ctrl+drag it).", true);
+        return;
+      }
+      S.edgeDrag = { i: S.sel, edge: sesEdge, x: e.clientX, undoPushed: false };
+      // (a click right on the edge: nothing changes)
+      if (Math.abs(edgeMs - ms) / (S.viewDur / (cv.clientWidth || 1)) > EDGE_KEEP_PX) moveDraggedEdge(ms);
+      return;
+    }
     // Ctrl: moves the start or the end of a subtitle there (see edgeForClick), and plays it again and again (dragging: follows the mouse).
     // Otherwise: goes there / selects the subtitle there (dragging: moves the view)
     var target = e.ctrlKey && canEdit() ? edgeForClick(ms) : null;
@@ -4179,8 +4870,8 @@
       var d = S.edgeDrag;
       if (Math.abs(e.clientX - d.x) > 2 || d.undoPushed) {
         moveDraggedEdge(msAt(cv, e));
-        // (dragging: the edge being dragged is played again and again, it follows the mouse)
-        if (!audition || audition.sel !== d.i || audition.edge !== d.edge) startAudition(d.edge);
+        // (dragging: the edge being dragged is played again from its new place each time it moves (in a session: the loop of the session))
+        dragReplay();
       }
       return;
     }
@@ -4193,18 +4884,49 @@
       clampView();
     }
   });
+  // A drag of an edge: the audio starts again from the new place each time the edge moves (at most every DRAG_REPLAY_MS: not choppy)
+  var DRAG_REPLAY_MS = 120, dragReplayTimer = null, lastDragReplay = 0;
+  function dragReplay() {
+    if (dragReplayTimer) return;   // (one is planned: it plays the place of the edge at that time)
+    dragReplayTimer = setTimeout(function () {
+      dragReplayTimer = null;
+      if (!S || !S.edgeDrag) return;
+      var d = S.edgeDrag, sub = S.subs[d.i];
+      if (!sub) return;
+      lastDragReplay = performance.now();
+      if (S.session) { S.session.paused = false; S.session.pausedAt = null; startAudition("session"); }
+      else startAudition(d.edge);
+      if (audition) audition.dragMs = d.edge === "start" ? sub.s : sub.e;
+    }, Math.max(0, DRAG_REPLAY_MS - (performance.now() - lastDragReplay)));
+  }
   window.addEventListener("mouseup", function () {
     if (S && S.edgeDrag) {
       // (the loop starts again right away, from the new place)
       var edge = S.edgeDrag.edge, changed = S.edgeDrag.undoPushed, dragged = S.subs[S.edgeDrag.i];
       var heard = !!(changed && audition && dragged && audition.sel === S.edgeDrag.i && audition.edge === edge
         && audition.heardEdgeMs === (edge === "start" ? dragged.s : dragged.e));
+      // (the audio already started again from where the edge is now, during the drag: it goes on)
+      var replaying = !!(dragged && audition && audition.dragMs === (edge === "start" ? dragged.s : dragged.e)) && !dragReplayTimer;
+      if (dragReplayTimer) { clearTimeout(dragReplayTimer); dragReplayTimer = null; }
       S.edgeDrag = null;
       updateUnsaved();
+      // (in a session: its loop again, from the new place; paused (a click, no drag): stays paused)
+      if (S.session) {
+        if (changed) {
+          var sd = edge === "start" ? dragged.s : dragged.e;
+          status("#" + (S.subs.indexOf(dragged) + 1) + ": its " + edge + " moved to " + fmt(sd) + ".");
+          if (!S.session.paused && !replaying) startAudition("session");
+        }
+        renderSession();
+        return;
+      }
       // (the edge was heard completely where it is now, the mouse not moving: it's good, the playback continues, like Play)
       if (heard) { continueAfterLoop(); return; }
       // (the option: the whole subtitle is played once after a change; otherwise / only listening: its start or its end, again and again)
-      if (changed && settings.replayAfterEdit) { stopAudition(); playSub(); }
+      // (in a session: its loop again, from the new place)
+      if (sessionPlaying()) startAudition("session");
+      else if (changed && settings.replayAfterEdit) { stopAudition(); playSub(); }
+      else if (replaying) { }
       else if (!loopWhenReached(edge)) startAudition(edge);
       return;
     }
@@ -4248,6 +4970,500 @@
     e.preventDefault(); overviewGo(e);
     var move = function (ev) { if (S) overviewGo(ev); };
     var up = function () { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+  });
+
+  // ---- Session: what the user finalizes (start, end), for the subtitles of the list (its filter, its order), one after the other ----
+  // S.session = { start, end, paused, phase } (null: no session). One edge at a time: the start, then the end (when both are finalized).
+  // Its edge is played again and again (audition "session", see sessionSegments), moved with the keys (a few ms), a click / a drag,
+  // then "finalize": the end of the same subtitle, or the next one to do. sesPlayAll (Ctrl alone): the whole subtitle once, from a little before
+  // to a little after (to check it), then the loop again. The auto-validation while playing (validateWhilePlaying) doesn't happen
+  // during a session: only the explicit "finalize".
+  function sessionPlaying() { return !!(S && S.session && !S.session.paused); }
+  /// The subtitle i still has something to finalize in the session
+  function sessionTodo(i) {
+    var x = S.subs[i], ses = S.session;
+    return !!(x && ses && ((ses.start && !x.fs) || (ses.end && !x.fe)));
+  }
+  /// The edge being finalized for the selected subtitle: the one chosen (phase), otherwise the first one still to do (start, then end)
+  function sessionEdge() {
+    var ses = S.session, sub = S.subs[S.sel];
+    if (!ses || !sub) return "start";
+    if (!ses.end) return "start";
+    if (!ses.start) return "end";
+    if (ses.phase && ses.phase.sel === S.sel) return ses.phase.edge;
+    return !sub.fs || sub.fe ? "start" : "end";
+  }
+  function setSessionEdge(edge) { if (S.session) S.session.phase = { sel: S.sel, edge: edge }; }
+  /// The pieces ([start ms, end ms], played one after the other) of the loop of the session for the subtitle i, at the edge being finalized:
+  /// - the start: from the start (sesRollStartMs before: option sesRollStart, a checkbox of the panel), sesEdgeMs of the subtitle;
+  /// - the end: from sesEdgeMs before the end, to the end (sesRollEndMs after: option sesRollEnd);
+  /// - all: the whole subtitle, from sesRollStartMs before to sesRollEndMs after.
+  /// The longer pieces (from the start to the end, from the end to the next subtitle) are only played once, when going from an edge
+  /// to the next one (sessionFinalize: see sessionIntro).
+  var END_FAR_MS = 1000;
+  function clipSegments(segs) {
+    return segs.map(function (g) { return [Math.max(0, Math.round(g[0])), Math.min(S.durMs, Math.round(g[1]))]; })
+      .filter(function (g) { return g[1] > g[0]; });
+  }
+  /// The time played before the start / after the end in the loops of the session (their option off: 0)
+  function rollBefore() { return settings.sesRollStart ? settings.sesRollStartMs : 0; }
+  function rollAfter() { return settings.sesRollEnd ? settings.sesRollEndMs : 0; }
+  function sessionSegments(i, all) {
+    var sub = S.subs[i], segs;
+    if (all) segs = [[sub.s - settings.sesRollStartMs, sub.e + settings.sesRollEndMs]];
+    else if (sessionEdge() === "start") segs = [[sub.s - rollBefore(), Math.min(sub.e, sub.s + settings.sesEdgeMs)]];
+    else segs = [[Math.max(sub.s, sub.e - settings.sesEdgeMs), sub.e + rollAfter()]];
+    return clipSegments(segs);
+  }
+  /// Played once when going to the next edge, then its loop:
+  /// - "end" (the start of i was finalized): from the start of i to the end of the loop of its end;
+  /// - "next" (the end of i was finalized, the next one to do is the start of i + 1): from sesEdgeMs before the end of i to the start of i + 1,
+  ///   then on into its loop (the next one far, more than 2 x END_FAR_MS after: to END_FAR_MS after the end of i, then from END_FAR_MS before
+  ///   the start of i + 1).
+  function sessionIntro(kind, i) {
+    var sub = S.subs[i];
+    if (kind === "end") return clipSegments([[sub.s, sub.e + rollAfter()]]);
+    var next = S.subs[i + 1], from = Math.max(sub.s, sub.e - settings.sesEdgeMs), into = next.s + Math.min(next.e - next.s, settings.sesEdgeMs);
+    return clipSegments(next.s - sub.e > 2 * END_FAR_MS ? [[from, sub.e + END_FAR_MS], [next.s - END_FAR_MS, into]] : [[from, into]]);
+  }
+  /// The whole subtitle once, from a little before to a little after, then the loop of the session again
+  function sessionPlayAll() {
+    if (!S.session || !S.subs[S.sel]) return;
+    S.session.paused = false;
+    startAudition("session", true);
+    renderSession();
+  }
+  /// The edge to move with a key: in a session, the one being finalized; otherwise 'edge'.
+  /// later: the key moves it later (to the right) / earlier.
+  function moveKey(edge, later) {
+    var e = S.session ? sessionEdge() : edge;
+    nudgeEdge(e, (e === "start") === later ? "in" : "out");
+  }
+  function sessionLabel(ses) { return ses.start && ses.end ? "start + end" : ses.start ? "start" : "end"; }
+  /// The subtitles of the list that are still to do: [count, total]
+  function sessionCounts() {
+    ensureOrder();
+    var left = 0;
+    S.order.forEach(function (i) { if (sessionTodo(i)) left++; });
+    return [left, S.order.length];
+  }
+
+  // The dialog to start a session (what to finalize), next to the button
+  var sesDlg = document.createElement("div");
+  sesDlg.className = "te-spkpop te-sesdlg";
+  sesDlg.style.display = "none";
+  $("te").appendChild(sesDlg);
+  function openSessionDialog() {
+    if (!canEdit()) return;
+    if (!S.subs.length) { status("No subtitle.", true); return; }
+    ensureOrder();
+    var saved = {};
+    try { saved = JSON.parse(loadPref("fstTimingSessionChoice") || "{}") || {}; } catch (e) { }
+    var start = saved.start !== false, end = saved.end !== false;
+    var col = SORT_COLS.filter(function (c) { return c[0] === listSort.col; })[0];
+    // (finalized / in the list)
+    var nFs = 0, nFe = 0;
+    S.order.forEach(function (i) { if (S.subs[i].fs) nFs++; if (S.subs[i].fe) nFe++; });
+    sesDlg.innerHTML = '<b>Start a session</b>' +
+      '<div class="hint">For the ' + S.order.length + ' subtitle(s) of the list' + (S.issueFilter ? ' (only ⚑ ' + esc(filterLabel()) + ')' : '') +
+      ', in its order (' + esc(col ? col[1] : "#") + (listSort.dir < 0 ? ", the other way" : "") + '). Only the ones with something to finalize.</div>' +
+      '<label><input type="checkbox" id="teSesStart"' + (start ? " checked" : "") + '> Finalize the start timings (' + nFs + '/' + S.order.length + ')</label>' +
+      '<label><input type="checkbox" id="teSesEnd"' + (end ? " checked" : "") + '> Finalize the end timings (' + nFe + '/' + S.order.length + ')</label>' +
+      '<label style="opacity:.5" title="Later"><input type="checkbox" disabled> Finalize the speakers (later)</label>' +
+      '<label style="opacity:.5" title="Later"><input type="checkbox" disabled> Look for missed subtitles in the gaps (later)</label>' +
+      '<div class="hint" id="teSesCount"></div>' +
+      '<div style="display:flex;gap:6px;justify-content:flex-end"><button class="mini" id="teSesFree" style="margin-right:auto" title="A panel with all the tools (play, add, delete, split, merge, validate, the speakers), nothing guided">✎ Free form</button>' +
+      '<button class="mini" id="teSesCancel">Cancel</button><button class="mini primary" id="teSesGo">▶ Start</button></div>';
+    sesDlg.style.display = "";
+    var b = $("tePass").getBoundingClientRect();
+    sesDlg.style.left = Math.max(4, Math.min(b.left, window.innerWidth - sesDlg.offsetWidth - 4)) + "px";
+    sesDlg.style.top = Math.min(b.bottom + 4, window.innerHeight - sesDlg.offsetHeight - 4) + "px";
+    refreshSessionDialog();
+  }
+  function refreshSessionDialog() {
+    var ses = { start: $("teSesStart").checked, end: $("teSesEnd").checked };
+    var left = 0;
+    var keep = S.session;
+    S.session = ses;
+    S.order.forEach(function (i) { if (sessionTodo(i)) left++; });
+    S.session = keep;
+    $("teSesCount").textContent = ses.start || ses.end ? left + " to do." : "Choose what to finalize.";
+    $("teSesGo").disabled = !(ses.start || ses.end) || !left;
+  }
+  function closeSessionDialog() { sesDlg.style.display = "none"; sesDlg.innerHTML = ""; }
+  sesDlg.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+  sesDlg.addEventListener("change", function () { refreshSessionDialog(); });
+  sesDlg.addEventListener("click", function (e) {
+    if (e.target.id === "teSesCancel") closeSessionDialog();
+    else if (e.target.id === "teSesFree") { closeSessionDialog(); startFreeForm(); }
+    else if (e.target.id === "teSesGo") {
+      var ses = { start: $("teSesStart").checked, end: $("teSesEnd").checked, paused: false };
+      savePref("fstTimingSessionChoice", JSON.stringify({ start: ses.start, end: ses.end }));
+      closeSessionDialog();
+      startSession(ses);
+    }
+  });
+  window.addEventListener("mousedown", function () { if (sesDlg.style.display !== "none") closeSessionDialog(); });
+
+  function startSession(ses) {
+    S.session = ses;
+    renderList(); restoreSel();
+    // (from the first one to do of the list)
+    var first = -1;
+    for (var p = 0; p < S.order.length && first < 0; p++) if (sessionTodo(S.order[p])) first = S.order[p];
+    if (first < 0) { S.session = null; status("Nothing to do in the list for this session."); renderList(); restoreSel(); return; }
+    select(first);
+    startAudition("session");
+    renderSession();
+    renderPass();
+  }
+  /// The free form session: a panel with all the tools (see renderSession), nothing guided
+  function startFreeForm() {
+    S.freeForm = true;
+    renderSession();
+    renderPass();
+    status("Free form: all the tools in the panel. " + (keys.session || "-") + ": end it.");
+  }
+  function endFreeForm() {
+    S.freeForm = false;
+    renderSession();
+    renderPass();
+    status("Free form ended.");
+  }
+  function endSession() {
+    if (!S.session) return;
+    if (audition && audition.edge === "session") stopAudition();
+    S.session = null;
+    renderSession();
+    renderList(); restoreSel(); renderPass();
+    status("Session ended.");
+  }
+  /// Pauses the loop of the session; the place where it was is kept (and shown): finalized while paused, the edge goes there
+  function sessionPause() {
+    var at = audition && audition.edge === "session" ? auditionPos() : null, sub = S.subs[S.sel], edge = sessionEdge();
+    S.session.paused = true;
+    stopAudition();
+    S.session.pausedAt = at == null || !sub ? null : { sel: S.sel, edge: edge, ms: Math.round(at), edgeMs: edge === "start" ? sub.s : sub.e };
+    if (at != null) seek(at);
+    renderSession();
+  }
+  function sessionResume() {
+    S.session.paused = false;
+    S.session.pausedAt = null;
+    startAudition("session");
+    renderSession();
+  }
+  /// The edge being finalized is finalized; then the other edge of the same subtitle (start and end: the end after the start),
+  /// otherwise the next one to do of the list (after it, then from the top). Paused (in the loop): the edge goes first where it was paused
+  /// (unless it was moved since). Then the loop plays again.
+  function sessionFinalize() {
+    if (!S.session) { status("No session (" + (keys.session || "-") + ": start one).", true); return; }
+    var i = S.sel, sub = S.subs[i];
+    if (!sub || !canEdit()) return;
+    var edge = sessionEdge();
+    // (the place of the cursor: where it was paused, or moved since with the arrows)
+    var p = S.session.paused && !isPlaying() ? S.session.pausedAt : null, at = Math.round(curMs());
+    S.session.pausedAt = null;
+    if (p && p.sel === i && p.edge === edge && p.edgeMs === (edge === "start" ? sub.s : sub.e) && Math.abs(at - p.edgeMs) > 1) {
+      if (!moveEdgeTo(edge, at, "to the cursor (paused)")) return;
+    }
+    pushUndo();
+    if (edge === "start") setFinalized(i, true, null); else setFinalized(i, null, true);
+    S.session.paused = false;
+    if (S.session.end && edge === "start" && !sub.fe) {
+      setSessionEdge("end");
+      // (once: from its start to its end, then the loop of its end)
+      startAudition("session", false, sessionIntro("end", i));
+      renderSession();
+      status("#" + (i + 1) + ": start finalized. Now its end.");
+      return;
+    }
+    ensureOrder();
+    var from = S.posOf[i] == null ? -1 : S.posOf[i], next = -1;
+    for (var k = 1; k <= S.order.length && next < 0; k++) {
+      var j = S.order[(from + k) % S.order.length];
+      if (sessionTodo(j)) next = j;
+    }
+    if (next < 0) {
+      stopAudition();
+      S.session.paused = true;
+      renderSession();
+      status("#" + (i + 1) + " finalized. The session is done: nothing left to do in the list.");
+      return;
+    }
+    select(next);
+    // (the list: without the one(s) finalized, see inList)
+    renderList(); restoreSel(); renderPass();
+    if (S.rowEls[next]) keepRowInView(S.rowEls[next]);
+    // (the end finalized, the next one to do is the start of the next subtitle: once, from the end to it, then the loop of its start)
+    var junction = edge === "end" && next === i + 1 && sessionEdge() === "start";
+    startAudition("session", false, junction ? sessionIntro("next", i) : null);
+    renderSession();
+    status("#" + (i + 1) + ": " + edge + " finalized. Now #" + (next + 1) + ".");
+  }
+  /// The other edge of the selected subtitle (a session for the start and the end)
+  function sessionSwitchEdge() {
+    if (!S.session) return;
+    if (!(S.session.start && S.session.end)) { status("This session is only for the " + sessionLabel(S.session) + ".", true); return; }
+    setSessionEdge(sessionEdge() === "start" ? "end" : "start");
+    if (!S.session.paused) startAudition("session");
+    renderSession();
+  }
+
+  /// Moves an edge of the selected subtitle by sesNudgeMs, dir: "in" / "out"
+  function nudgeEdge(edge, dir) {
+    var sub = S.subs[S.sel];
+    if (!sub || !canEdit()) return;
+    var later = (edge === "start") === (dir === "in");
+    moveEdgeTo(edge, (edge === "start" ? sub.s : sub.e) + (later ? 1 : -1) * settings.sesNudgeMs, settings.sesNudgeMs + " ms " + (dir === "in" ? "inward" : "outward"));
+  }
+  /// returns true: the edge is where it was asked (false: refused, or stopped by its neighbour)
+  function moveEdgeTo(edge, ms, what) {
+    var i = S.sel, sub = S.subs[i];
+    // (a finalized edge is only moved on purpose: Ctrl+drag, or not finalized anymore first)
+    if (edge === "start" ? sub.fs : sub.fe) {
+      status("#" + (i + 1) + ": its " + edge + " is finalized (click its " + (edge === "start" ? "S" : "E") + " icon in the list to change it, or Ctrl+drag it).", true);
+      return false;
+    }
+    var before = edge === "start" ? sub.s : sub.e;
+    pushUndo();
+    setEdge(i, edge, ms);
+    var after = edge === "start" ? sub.s : sub.e;
+    updateUnsaved();
+    if (after === before) { S.undo.pop(); status("The " + edge + " can't move there (its neighbour, or the subtitle would be too short).", true); return false; }
+    status("#" + (i + 1) + ": its " + edge + " " + what + " (" + fmt(before) + " → " + fmt(after) + ")" + (after !== Math.round(ms) ? ", stopped by its neighbour" : "") + ".");
+    // (heard again right away, from the new place)
+    if (sessionPlaying()) startAudition("session");
+    else if (audition && (audition.edge === edge || audition.edge === "whole")) startAudition(audition.edge);
+    renderSession();
+    return after === Math.round(ms);
+  }
+
+  // The panel of the session: floats over the editor (dragged by its title, the place is remembered)
+  var sesPanel = document.createElement("div");
+  sesPanel.className = "te-ses";
+  sesPanel.style.display = "none";
+  $("te").appendChild(sesPanel);
+  (function () {
+    try { var pos = JSON.parse(loadPref("fstTimingSessionPos") || "null"); if (pos) { sesPanel.style.left = pos[0] + "px"; sesPanel.style.top = pos[1] + "px"; } } catch (e) { }
+  })();
+  function sesKey(id) { return keys[id] ? ' (' + keyName(id) + ')' : ''; }
+  /// The video played with the loops (settings.auditionVideo, see auditionVideo), or only the image at the edge
+  function videoCheckbox() { return '<label title="The video plays with the loops (muted: the sound is the one of the loop); otherwise only the image at the edge"><input type="checkbox" data-showvideo="1"' + (settings.auditionVideo ? " checked" : "") + '> video</label>'; }
+  function setShowVideo(on) {
+    settings.auditionVideo = on;
+    savePref("fstTimingSettings", JSON.stringify(settings));
+    document.querySelectorAll("#te [data-showvideo]").forEach(function (c) { c.checked = on; });
+    // (the loop playing: from its start again, with / without the video)
+    if (audition) startAudition(audition.edge);
+  }
+  function sesButton(act, label, title) {
+    return '<button class="mini" data-sesact="' + act + '" title="' + esc(title + sesKey(act)) + '">' + esc(label) + '</button>';
+  }
+  // Its sections (a session for the timings: timing, speakers, edit; free form: speakers, playback, edit): their order (dragged by
+  // their title) and the hidden ones are remembered. The speakers bar goes in its section (always shown: the speakers are nowhere else).
+  // The rest: keys, the right click menu (validated, validated up to here, review warnings checked), the Settings tab.
+  var PANEL_SECTIONS = [["timing", "Timing"], ["speakers", "Speakers"], ["props", "Properties"], ["play", "Playback"], ["edit", "Edit"]];
+  var PANEL_BUTTONS = {
+    play: [["playPause", "⏯ Play / pause"], ["playSub", "▶ Subtitle"], ["loopSub", "↻ Loop"], "video"],
+    edit: [["add", "＋ Add"], ["delete", "✕ Delete"], ["split", "✂ Split"], ["mergePrev", "⤒ Merge previous"], ["mergeNext", "⤓ Merge next"]]
+  };
+  function panelPref(name, def) { try { return JSON.parse(loadPref(name) || "null") || def; } catch (e) { return def; } }
+  // Groups of sections (the panel, the Subtitle tab): their order (dragged by their title) and the hidden ones (–; 👁: shown again), remembered.
+  // The speakers: always shown (they are nowhere else). 'redraw': the group drawn again (its order / its hidden ones changed).
+  var CUR_SECTIONS = [["text", "Text"], ["speakers", "Speakers"], ["props", "Properties"], ["warnings", "Review warnings"]];
+  var SEC_GROUPS = {
+    panel: { order: "fstTimingPanelOrder", hidden: "fstTimingPanelHidden", list: PANEL_SECTIONS, redraw: function () { renderSession(); } },
+    cur: { order: "fstTimingCurOrder", hidden: "fstTimingCurHidden", list: CUR_SECTIONS, redraw: function () { curBuilt = null; renderCur(); } }
+  };
+  function secOrder(group) {
+    var g = SEC_GROUPS[group], saved = panelPref(g.order, []), all = g.list.map(function (x) { return x[0]; });
+    var order = saved.filter(function (id) { return all.indexOf(id) >= 0; });
+    all.forEach(function (id) { if (order.indexOf(id) < 0) order.push(id); });
+    return order;
+  }
+  function secPrefsKey(group) { var g = SEC_GROUPS[group]; return (loadPref(g.order) || "") + "|" + (loadPref(g.hidden) || ""); }
+  /// The sections of a group (only the ones in 'ids'): { html, nHidden }; bodyOf(id): the content of its body
+  function secsHtml(group, ids, bodyOf) {
+    var g = SEC_GROUPS[group], hidden = panelPref(g.hidden, {}), titleOf = {};
+    g.list.forEach(function (x) { titleOf[x[0]] = x[1]; });
+    var order = secOrder(group).filter(function (id) { return ids.indexOf(id) >= 0; });
+    var shown = order.filter(function (id) { return id === "speakers" || !hidden[id]; });
+    return {
+      nHidden: order.length - shown.length,
+      html: shown.map(function (id) {
+        return '<div class="te-psec" data-secgroup="' + group + '" data-sec="' + id + '"><div class="te-psechead" draggable="true" data-secdrag="' + id + '" title="Drag: move this section">' +
+          '<span>⋮⋮ ' + esc(titleOf[id]) + '</span>' + (id === "speakers" ? '' : '<button class="mini" data-sechide="' + id + '" title="Hide this section (👁: show it again)">–</button>') + '</div>' +
+          '<div class="te-psecbody" data-secbody="' + id + '">' + bodyOf(id) + '</div></div>';
+      }).join("")
+    };
+  }
+  function showAllHtml(group, n) { return n ? '<button class="mini" data-secshowall="' + group + '" title="Show the hidden sections">👁 ' + n + ' hidden</button>' : ''; }
+  var panelBuilt = null;   // (what the skeleton of the panel was built for)
+  function buildPanel(built) {
+    var labelOf = {};
+    ACTIONS.forEach(function (a) { labelOf[a.id] = a.label; });
+    var ids = PANEL_SECTIONS.map(function (x) { return x[0]; }).filter(function (id) { return S.session ? id !== "play" : id !== "timing"; });
+    var secs = secsHtml("panel", ids, function (id) {
+      return PANEL_BUTTONS[id] ? '<div class="te-sesrow">' + PANEL_BUTTONS[id].map(function (b) {
+        if (b === "video") return videoCheckbox();
+        return '<button class="mini" data-act="' + b[0] + '" title="' + esc((labelOf[b[0]] || b[1]) + sesKey(b[0])) + '">' + esc(b[1]) + '</button>';
+      }).join("") + '</div>' : id === "speakers" ? '<div class="te-spkq"></div>' : id === "props" ? '<div class="te-propq"></div>' : id === "timing" ? '<div id="tePsec_timing"></div>' : '';
+    });
+    sesPanel.innerHTML = '<div class="te-seshead" data-sesdrag="1"><b>' + (S.session ? "Session · " + esc(sessionLabel(S.session)) : "Free form") + '</b><span class="hint" id="teSesCounts"></span>' +
+      (S.session ? '<span class="te-sesind" id="teSesInd" title="Green: the subtitle itself is played; yellow: outside it">paused</span>' : '') +
+      '<span style="flex:1"></span>' + showAllHtml("panel", secs.nHidden) +
+      '<button class="mini" data-sesact="session" title="End the ' + (S.session ? "session" : "free form") + esc(sesKey("session")) + '">✕</button></div>' + secs.html;
+    panelBuilt = built;
+    refreshStatus();
+  }
+  /// In a session: the edge being finalized at SESSION_VIEW_AT of the width of the screen (the panel can be on the right of it), the zoom kept
+  var SESSION_VIEW_AT = 0.3;
+  function sessionFocusView() {
+    var sub = S.subs[S.sel], cv = $("teCanvas"), r = cv.getBoundingClientRect();
+    if (!sub || !r.width) return;
+    var f = clamp((window.innerWidth * SESSION_VIEW_AT - r.left) / r.width, 0.05, 0.95);
+    S.viewStart = (sessionEdge() === "start" ? sub.s : sub.e) - f * S.viewDur;
+    clampView();
+  }
+  function renderSession() {
+    if (!S || !(S.session || S.freeForm)) { sesPanel.style.display = "none"; panelBuilt = null; sesPanel.innerHTML = ""; return; }
+    var built = (S.session ? "s:" + sessionLabel(S.session) : "f") + "|" + secPrefsKey("panel") + "|" + JSON.stringify(keys);
+    if (panelBuilt !== built) { buildPanel(built); renderSpeakerBar(); renderPanelProps(); }
+    sesPanel.style.display = "";
+    var host = $("tePsec_timing");
+    if (!S.session) return;
+    var ses = S.session, sub = S.subs[S.sel], counts = sessionCounts();
+    // (another subtitle / edge: the view is placed again, not when the edge moves: it stays under the mouse)
+    var focusKey = S.sel + ":" + sessionEdge();
+    if (sub && ses.focusKey !== focusKey) { ses.focusKey = focusKey; sessionFocusView(); }
+    $("teSesCounts").textContent = counts[0] + " to do / " + counts[1];
+    lastSesInd = null;
+    if (!host) return;
+    // (the settings of the session: in the Settings tab)
+    var edge = sessionEdge(), isStart = edge === "start", nudge = settings.sesNudgeMs + " ms";
+    var done = sub && (isStart ? sub.fs : sub.fe);
+    var pausedAt = ses.paused && ses.pausedAt && ses.pausedAt.sel === S.sel && ses.pausedAt.edge === edge ? ses.pausedAt : null;
+    // (the text, the times: on the waveform)
+    host.innerHTML = !sub ? '' :
+      '<div class="te-sesrow"><b>#' + (S.sel + 1) + ' ' + (isStart ? "Start" : "End") + (done ? ' <span style="color:var(--ok)">✓</span>' : '') + '</b>' +
+      sesButton("sesStartOutFine", "◀ " + nudge, nudge + " earlier") + sesButton("sesStartInFine", nudge + " ▶", nudge + " later") +
+      (ses.start && ses.end ? sesButton("sesSwitchEdge", "⇄ " + (isStart ? "end" : "start"), "The other edge of this subtitle") : '') + '</div>' +
+      (pausedAt ? '<div class="hint">Paused: ' + esc(keyName("sesFinalize")) + ' = the ' + edge + ' at the cursor.</div>' : '') +
+      '<div class="te-sesrow">' + sesButton("sesFinalize", "✓ Finalize", "The " + edge + " is finalized, then " + (ses.start && ses.end && isStart ? "its end" : "the next one to do")) +
+      sesButton("playPause", ses.paused ? "▶ Play" : "⏸ Pause", "Pause / play the loop (paused, then finalized: the edge goes to the cursor)") +
+      '<label title="' + (isStart ? "The loop of the start begins " + settings.sesRollStartMs + " ms before it" : "The loop of the end goes " + settings.sesRollEndMs + " ms after it") +
+      ' (an option of its own for the start and for the end; Settings tab: how much)"><input type="checkbox" data-sesroll="' + edge + '"' + ((isStart ? settings.sesRollStart : settings.sesRollEnd) ? " checked" : "") + '> ' +
+      'add ' + (isStart ? settings.sesRollStartMs + ' ms before the start' : settings.sesRollEndMs + ' ms after the end') + '</label>' + videoCheckbox() + '</div>';
+  }
+  // (the big indicator: green while the subtitle itself is played, yellow outside it: before its start / after its end)
+  var lastSesInd = null;
+  function updateSessionIndicator(at) {
+    if (!S.session) return;
+    var el = $("teSesInd");
+    if (!el) return;
+    var sub = S.subs[S.sel], state = "paused";
+    if (audition && audition.edge === "session" && sub) state = at == null ? "wait" : at >= sub.s && at < sub.e ? "in" : "out";
+    if (state === lastSesInd) return;
+    lastSesInd = state;
+    el.className = "te-sesind " + state;
+    el.textContent = state === "in" ? "inside" : state === "out" ? "outside" : state === "wait" ? "…" : "paused";
+  }
+  sesPanel.addEventListener("click", function (e) {
+    if (!S || !S.info || !e.target.closest) return;
+    // (the speakers bar, in the panel: its clicks are handled here, not by the editor (teMid))
+    // (the properties, in the panel)
+    var pt = e.target.closest(PROP_TARGETS);
+    if (pt) { if (pt.tagName === "BUTTON") pt.blur(); propsClick(pt); return; }
+    var spk = e.target.closest(".te-spkq [data-speaker],.te-spkq [data-spkadd],.te-spkq [data-spkcap]");
+    if (spk) {
+      if (spk.tagName === "BUTTON") spk.blur();
+      if (spk.hasAttribute("data-spkadd")) openSpeakerPopup(null, spk);
+      else if (spk.hasAttribute("data-spkcap")) openCapture();
+      else toggleSpeaker(spk.getAttribute("data-speaker"));
+      return;
+    }
+    var b = e.target.closest("[data-sesact],[data-act]");
+    if (!b) return;
+    b.blur();   // (the keys go to the editor)
+    run(b.getAttribute(b.hasAttribute("data-sesact") ? "data-sesact" : "data-act"));
+    if (S && S.session) renderSession();
+  });
+  // (the sections of a group (the panel, the Subtitle tab): hidden / shown again; dragged by their title, dropped before / after another one of the group)
+  $("te").addEventListener("click", function (e) {
+    var hide = e.target.closest ? e.target.closest("[data-sechide]") : null;
+    if (hide) {
+      var group = hide.closest("[data-secgroup]").getAttribute("data-secgroup"), g = SEC_GROUPS[group];
+      var hidden = panelPref(g.hidden, {});
+      hidden[hide.getAttribute("data-sechide")] = true;
+      savePref(g.hidden, JSON.stringify(hidden));
+      g.redraw();
+      return;
+    }
+    var all = e.target.closest ? e.target.closest("[data-secshowall]") : null;
+    if (all) { var ga = SEC_GROUPS[all.getAttribute("data-secshowall")]; savePref(ga.hidden, null); ga.redraw(); }
+  });
+  var dragSec = null;   // { group, id }
+  $("te").addEventListener("dragstart", function (e) {
+    var h = e.target.closest ? e.target.closest("[data-secdrag]") : null;
+    if (!h) return;
+    dragSec = { group: h.closest("[data-secgroup]").getAttribute("data-secgroup"), id: h.getAttribute("data-secdrag") };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", dragSec.id);
+  });
+  function secDropPlace(e) {
+    var sec = dragSec && e.target.closest ? e.target.closest("[data-sec]") : null;
+    if (!sec || sec.getAttribute("data-secgroup") !== dragSec.group || sec.getAttribute("data-sec") === dragSec.id) return null;
+    var r = sec.getBoundingClientRect();
+    return { el: sec, id: sec.getAttribute("data-sec"), after: e.clientY > r.top + r.height / 2 };
+  }
+  function clearDropMarks() { document.querySelectorAll("#te .dropbefore, #te .dropafter").forEach(function (x) { x.classList.remove("dropbefore", "dropafter"); }); }
+  $("te").addEventListener("dragover", function (e) {
+    var p = secDropPlace(e);
+    if (!p) return;
+    e.preventDefault(); e.stopPropagation();
+    clearDropMarks();
+    p.el.classList.add(p.after ? "dropafter" : "dropbefore");
+  }, true);
+  $("te").addEventListener("drop", function (e) {
+    var p = secDropPlace(e);
+    clearDropMarks();
+    if (!p) return;
+    e.preventDefault(); e.stopPropagation();
+    var g = SEC_GROUPS[dragSec.group], moved = dragSec.id;
+    var order = secOrder(dragSec.group).filter(function (id) { return id !== moved; });
+    order.splice(order.indexOf(p.id) + (p.after ? 1 : 0), 0, moved);
+    dragSec = null;
+    savePref(g.order, JSON.stringify(order));
+    g.redraw();
+  }, true);
+  $("te").addEventListener("dragend", function () { dragSec = null; clearDropMarks(); });
+  sesPanel.addEventListener("change", function (e) {
+    if (e.target.hasAttribute && e.target.hasAttribute("data-present") && e.target.closest(".te-spkq")) { e.target.blur(); togglePresent(e.target.getAttribute("data-present")); }
+    else if (e.target.hasAttribute && e.target.hasAttribute("data-showvideo")) { e.target.blur(); setShowVideo(e.target.checked); }
+    else if (e.target.hasAttribute && e.target.hasAttribute("data-sesroll")) {
+      // (before the start / after the end (each its own option), or not: right away)
+      if (e.target.getAttribute("data-sesroll") === "start") settings.sesRollStart = e.target.checked; else settings.sesRollEnd = e.target.checked;
+      if (teShown === "settings") renderSettings();
+      savePref("fstTimingSettings", JSON.stringify(settings));
+      e.target.blur();
+      if (sessionPlaying()) startAudition("session");
+    }
+  });
+  sesPanel.addEventListener("mousedown", function (e) {
+    e.stopPropagation();
+    if (!e.target.closest || !e.target.closest("[data-sesdrag]") || e.target.closest("button")) return;
+    e.preventDefault();
+    var r = sesPanel.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    var move = function (ev) {
+      sesPanel.style.left = clamp(ev.clientX - dx, 0, window.innerWidth - 60) + "px";
+      sesPanel.style.top = clamp(ev.clientY - dy, 0, window.innerHeight - 30) + "px";
+    };
+    var up = function () {
+      window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up);
+      savePref("fstTimingSessionPos", JSON.stringify([parseInt(sesPanel.style.left, 10), parseInt(sesPanel.style.top, 10)]));
+    };
     window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
   });
 
@@ -4344,7 +5560,8 @@
     S.dirty = true;
   }
 
-  /// Splits the subtitle i in 2 at 'ms': both keep all its lines (to remove what doesn't belong in each); not validated anymore (new timings).
+  /// Splits the subtitle i in 2 at 'ms': both keep all its lines (to remove what doesn't belong in each); nothing finalized anymore
+  /// in both (2 new subtitles, to do again).
   function splitSubtitle(i, ms) {
     if (!canEdit()) return;
     var sub = S.subs[i];
@@ -4356,8 +5573,8 @@
     }
     pushUndo();
     stopAudition();
-    var second = { s: ms, e: sub.e, lines: sub.lines.slice(), v: false, touched: true };
-    sub.e = ms; sub.v = false; sub.touched = true;
+    var second = { s: ms, e: sub.e, lines: sub.lines.slice(), fs: false, fe: false, touched: true };
+    sub.e = ms; sub.fs = false; sub.fe = false; sub.touched = true;
     updateFileTiming(sub);
     updateFileTiming(second);
     S.subs.splice(i + 1, 0, second);
@@ -4370,7 +5587,7 @@
   }
 
   /// Merges the subtitle i into the one before it: from the first start to the last end, with the lines of both
-  /// (a line already there is not repeated, ex. the same metadata). Validated only if both were.
+  /// (a line already there is not repeated, ex. the same metadata). Its start / its end stay finalized or not, like they were.
   function mergeWithPrevious(i) {
     if (!canEdit()) return;
     var prev = S.subs[i - 1], cur = S.subs[i];
@@ -4380,10 +5597,10 @@
     stopAudition();
     var lines = prev.lines.slice();
     cur.lines.forEach(function (l) { if (lines.indexOf(l) < 0) lines.push(l); });
-    prev.s = Math.min(prev.s, cur.s);
-    prev.e = Math.max(prev.e, cur.e);
+    // (the start of the first one, the end of the last one: with their finalized state)
+    if (cur.s < prev.s) { prev.s = cur.s; prev.fs = !!cur.fs; }
+    if (cur.e > prev.e) { prev.e = cur.e; prev.fe = !!cur.fe; }
     prev.lines = lines;
-    prev.v = !!(prev.v && cur.v);
     updateFileTiming(prev);
     S.subs.splice(i, 1);
     renderList();
@@ -4417,7 +5634,8 @@
         item("splitHere", "✂ Split " + (splitMs != null ? "here" : "at the cursor") + " (" + fmt(splitAt) + ")", splitAt < sub.s + MIN_DURATION_MS || splitAt > sub.e - MIN_DURATION_MS) +
         item("mergePrev", "⤒ Merge with the previous one", i === 0) + item("mergeNext", "⤓ Merge with the next one", i === S.subs.length - 1) +
         '<div class="sep"></div>' +
-        item("toggleValidated", sub.v ? "✓ Not validated" : "✓ Validated") + item("validateUpTo", "✓ Validate up to this one") +
+        item("toggleValidated", isValidated(sub) ? "✓ Not validated" : "✓ Validated") + item("validateUpTo", "✓ Validate up to this one") +
+        (issuesOf(sub).length ? item("checkIssue", "⚑ Its review warnings checked / not checked") : "") +
         '<div class="sep"></div>' +
         item("delete", "✕ Delete");
     };
@@ -4474,6 +5692,7 @@
     ["playSub", "▶"], ["loopStart", "⟲"], ["loopEnd", "⟳"], ["stop", "■"], null,
     ["add", "＋"], ["delete", "✕"], ["split", "✂"], ["mergePrev", "⤒"], ["mergeNext", "⤓"], null,
     ["toggleValidated", "✓"], ["validateUpTo", "✓⇡"], ["checkIssue", "⚑"], null,
+    ["loopSub", "↻"], null,
     ["undo", "↶"], ["redo", "↷"]
   ];
   function renderTools() {
@@ -4503,13 +5722,37 @@
       '<div class="te-set"><b>Faster between subtitles</b> ' + numSetting("teFastRate", settings.fastRate, 100, 800, 25, 56) + ' % from ' + numSetting("teFastAfter", settings.fastAfterMs, 0, 10000, 100, 64) + ' ms after a subtitle until ' +
       numSetting("teFastBefore", settings.fastBeforeMs, 0, 10000, 100, 64) + ' ms before the next one, when the gap is at least ' + numSetting("teFastMinGap", settings.fastMinGapMs, 0, 60000, 500, 64) + ' ms' +
       '<span class="hint">(100 %: off). Play during that time: back 1 s, and normal speed for 3 s.</span></div>' +
-      '<div class="te-set"><b>Start / end loops</b> play ' + numSetting("teAudMs", settings.auditionMs, 100, 5000, 50, 64) + ' ms at the edge, wait ' + numSetting("teGapMs", settings.auditionGapMs, 0, 3000, 50, 64) +
+      '<div class="te-set"><b>Loops of a start / an end</b> (in a session, and ⟲ / ⟳ / Ctrl+click) ' +
+      '<label><input type="checkbox" id="teSesRollStart"' + (settings.sesRollStart ? " checked" : "") + '> add</label>' + numSetting("teSesRollStartMs", settings.sesRollStartMs, 0, 3000, 50, 56) + ' ms before the start · ' +
+      '<label><input type="checkbox" id="teSesRollEnd"' + (settings.sesRollEnd ? " checked" : "") + '> add</label>' + numSetting("teSesRollEndMs", settings.sesRollEndMs, 0, 3000, 50, 56) + ' ms after the end · ' +
+      numSetting("teSesEdgeMs", settings.sesEdgeMs, 300, 10000, 100, 60) + ' ms of the subtitle · outside the subtitle at ' + numSetting("teSesVol", settings.sesOutsideVol, 0, 100, 5, 48) + ' % volume · ' +
+      videoCheckbox() + '<span class="hint">(the checkboxes: also in the panel of a session; the whole subtitle, with Ctrl alone: always with both)</span></div>' +
+      '<div class="te-set"><b>Loops outside a session</b> wait ' + numSetting("teGapMs", settings.auditionGapMs, 0, 3000, 50, 64) +
       ' ms, at most ' + numSetting("teAudMax", settings.auditionMax, 0, 99, 1, 44) + ' times<span class="hint">(0: no limit), then it plays on, like Play.</span></div>' +
       '<div class="te-set"><b>After a change of an edge</b><label><input type="checkbox" id="teReplayOpt"' + (settings.replayAfterEdit ? " checked" : "") + '> replay the whole subtitle</label>' +
       '<span class="hint">(instead of its start / end again and again; and Play during a start / end loop: from the start of the subtitle, otherwise from the edge being played)</span></div>' +
+      '<div class="te-set"><b>Original video</b><label><input type="checkbox" id="teLeftHalf"' + (settings.originalLeftHalf ? " checked" : "") + '> only its left half</label>' +
+      '<span class="hint">(a VR video side by side: the left eye; also for the images of the speakers, 📷). The FAST video is shown whole.</span></div>' +
+      '<div class="te-set"><b>Small moves</b> of ' + numSetting("teSesNudge", settings.sesNudgeMs, 5, 1000, 5, 48) + ' ms<span class="hint">(the buttons ◀ / ▶ of the panel, their keys)</span></div>' +
       '<div class="te-set"><b>Saved automatically</b> every ' + numSetting("teAutoSave", settings.autoSaveMin, 0, 60, 1, 48) + ' minutes while there are changes<span class="hint">(0: never). It saves the review (in the .wipsubtitles), not the file: the file is written when the review is done.</span></div>';
   }
   $("teSettingsPane").addEventListener("change", function (e) {
+    if (e.target.hasAttribute && e.target.hasAttribute("data-showvideo")) { e.target.blur(); setShowVideo(e.target.checked); return; }
+    if (e.target.id === "teLeftHalf") {
+      settings.originalLeftHalf = e.target.checked;
+      savePref("fstTimingSettings", JSON.stringify(settings));
+      e.target.blur();
+      if (S) applyVideoCrop();
+      return;
+    }
+    if (e.target.id === "teSesRollStart" || e.target.id === "teSesRollEnd") {
+      if (e.target.id === "teSesRollStart") settings.sesRollStart = e.target.checked; else settings.sesRollEnd = e.target.checked;
+      savePref("fstTimingSettings", JSON.stringify(settings));
+      e.target.blur();
+      if (S && sessionPlaying()) startAudition("session");
+      if (S && S.session) renderSession();
+      return;
+    }
     if (e.target.id !== "teReplayOpt") return;
     settings.replayAfterEdit = e.target.checked;
     savePref("fstTimingSettings", JSON.stringify(settings));
@@ -4525,10 +5768,14 @@
       case "teFastAfter": settings.fastAfterMs = clamp(v, 0, 10000); break;
       case "teFastBefore": settings.fastBeforeMs = clamp(v, 0, 10000); break;
       case "teFastMinGap": settings.fastMinGapMs = clamp(v, 0, 60000); break;
-      case "teAudMs": settings.auditionMs = clamp(v, 100, 5000); break;
       case "teGapMs": settings.auditionGapMs = clamp(v, 0, 3000); break;
       case "teAudMax": settings.auditionMax = clamp(v, 0, 99); break;
       case "teAutoSave": settings.autoSaveMin = clamp(v, 0, 60); break;
+      case "teSesRollStartMs": settings.sesRollStartMs = clamp(v, 0, 3000); if (S && S.session) renderSession(); break;
+      case "teSesRollEndMs": settings.sesRollEndMs = clamp(v, 0, 3000); if (S && S.session) renderSession(); break;
+      case "teSesVol": settings.sesOutsideVol = clamp(v, 0, 100); break;
+      case "teSesEdgeMs": settings.sesEdgeMs = clamp(v, 300, 10000); break;
+      case "teSesNudge": settings.sesNudgeMs = clamp(v, 5, 1000); if (S && S.session) renderSession(); break;
       default: return;
     }
     savePref("fstTimingSettings", JSON.stringify(settings));
@@ -4537,36 +5784,73 @@
   });
 
   // ---- The tabs under the video ----
-  var TE_TABS = [["subtitle", "Subtitle"], ["properties", "{ } Properties"], ["warnings", "⚑ Warnings"], ["settings", "⚙ Settings"], ["keys", "⌨ Keys"]];
-  var teTab = loadPref("fstTimingTab") || "subtitle";
-  if (!TE_TABS.some(function (t) { return t[0] === teTab; })) teTab = "subtitle";
+  var TE_TABS = [["subtitle", "Subtitle"], ["warnings", "⚑ Warnings"], ["settings", "⚙ Settings"], ["keys", "⌨ Keys"]];
+  // (all closed until one is clicked; clicked again: closed)
+  var teShown = null;   // (the tab shown, null: none)
   function showTab(id) {
-    teTab = id; savePref("fstTimingTab", id);
+    teShown = id;
     capturing = null;
-    $("teTabs").innerHTML = TE_TABS.map(function (t) { return '<button class="mini' + (t[0] === id ? " on" : "") + '" data-tab="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join("");
+    $("teTabs").innerHTML = TE_TABS.map(function (t) { return '<button class="mini' + (t[0] === id ? " on" : "") + '" data-tab="' + t[0] + '" title="Click again: closed">' + esc(t[1]) + '</button>'; }).join("");
+    $("teTabs").classList.toggle("te-closed", !id);
+    $("teTabBody").style.display = id ? "" : "none";
+    $("teTabSplit").style.display = id ? "" : "none";
     document.querySelectorAll("#te .te-tabpane").forEach(function (p) { p.style.display = p.getAttribute("data-pane") === id ? "" : "none"; });
     if (id === "settings") renderSettings();
     else if (id === "keys") renderHelp();
     else if (S && S.info) renderPass();
   }
+  // ---- The bars between the parts (dragged; remembered by this browser): the 2 sides, the video / the tab, the waveform ----
+  function splitter(bar, onStart, onMove, pref) {
+    bar.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      var from = onStart(), x0 = e.clientX, y0 = e.clientY, last = null;
+      document.body.style.cursor = getComputedStyle(bar).cursor;
+      var move = function (ev) { last = onMove(from, ev.clientX - x0, ev.clientY - y0); };
+      var up = function () {
+        window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up);
+        document.body.style.cursor = "";
+        if (last != null) savePref(pref, String(Math.round(last)));
+      };
+      window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+    });
+  }
+  var teLeft = document.querySelector("#te .te-left");
+  function setLeftWidth(w) { w = clamp(w, 260, Math.max(260, $("teMid").clientWidth - 360)); teLeft.style.width = w + "px"; return w; }
+  function setTabHeight(h) { h = clamp(h, 80, Math.max(80, teLeft.clientHeight - 120)); $("teTabBody").style.flex = "0 0 " + h + "px"; return h; }
+  function setWaveHeight(h) { h = clamp(h, 80, Math.max(80, window.innerHeight * 0.7)); $("teCanvas").style.height = h + "px"; fitCanvas(); return h; }
+  splitter($("teVSplit"), function () { return teLeft.getBoundingClientRect().width; }, function (w, dx) { return setLeftWidth(w + dx); }, "fstTimingLeftW");
+  splitter($("teTabSplit"), function () { return $("teTabBody").getBoundingClientRect().height; }, function (h, dx, dy) { return setTabHeight(h - dy); }, "fstTimingTabH");
+  splitter($("teWaveSplit"), function () { return $("teCanvas").getBoundingClientRect().height; }, function (h, dx, dy) { return setWaveHeight(h - dy); }, "fstTimingWaveH");
+  /// (the sizes remembered: when the editor is shown, it has its size)
+  function applySplits() {
+    var w = parseInt(loadPref("fstTimingLeftW"), 10), th = parseInt(loadPref("fstTimingTabH"), 10), wh = parseInt(loadPref("fstTimingWaveH"), 10);
+    if (w > 0) setLeftWidth(w);
+    if (th > 0) $("teTabBody").style.flex = "0 0 " + th + "px";
+    if (wh > 0) setWaveHeight(wh);
+  }
   $("teTabs").addEventListener("click", function (e) {
     var b = e.target.closest ? e.target.closest("[data-tab]") : null;
     if (!b) return;
     b.blur();
-    showTab(b.getAttribute("data-tab"));
+    var id = b.getAttribute("data-tab");
+    showTab(id === teShown ? null : id);
   });
 
   function run(action) {
     var t = curMs();
     switch (action) {
       case "playPause":
-        if (audition) continueAfterLoop();
+        // (in a session: its loop paused / played again)
+        if (S.session && audition && audition.edge === "session") sessionPause();
+        else if (S.session && (S.session.paused || !isPlaying()) && S.subs[S.sel]) { pause(); sessionResume(); }
+        else if (audition) continueAfterLoop();
         // (going fast between subtitles: back 1 s, and normal speed for 3 s)
         else if (isPlaying() && S.fast) { S.slowUntil = t - 1000 + 3000; seek(t - 1000); updateSpeed(true, t - 1000); }
         else if (isPlaying()) pause();
         else play();
         break;
-      case "toggleValidated": if (S.subs[S.sel] && canEdit()) setValidated(S.sel, !S.subs[S.sel].v); break;
+      case "toggleValidated": if (S.subs[S.sel] && canEdit()) setValidated(S.sel, !isValidated(S.subs[S.sel])); break;
       case "validateUpTo":
         if (!canEdit()) break;
         for (var vi = 0; vi <= S.sel && vi < S.subs.length; vi++) setValidated(vi, true);
@@ -4575,9 +5859,26 @@
       case "playSub": playSub(); break;
       case "loopStart": startAudition("start"); break;
       case "loopEnd": startAudition("end"); break;
-      case "stop": stopAudition(); pause(); break;
-      case "prevSub": select(S.sel > 0 ? S.sel - 1 : 0); break;
-      case "nextSub": select(S.sel < 0 ? 0 : Math.min(S.subs.length - 1, S.sel + 1)); break;
+      case "stop":
+        // (in a session: pauses its loop; paused: plays it again)
+        if (S.session && S.session.paused && S.subs[S.sel]) { pause(); sessionResume(); break; }
+        if (S.session && audition && audition.edge === "session") { sessionPause(); break; }
+        if (S.session) { S.session.paused = true; renderSession(); }
+        stopAudition(); pause();
+        break;
+      case "session": if (S.session) endSession(); else if (S.freeForm) endFreeForm(); else openSessionDialog(); break;
+      case "sesFinalize": sessionFinalize(); break;
+      // (in a session: the edge being finalized; the keys of the start and of the end do the same, earlier / later)
+      case "sesStartOutFine": moveKey("start", false); break;
+      case "sesStartInFine": moveKey("start", true); break;
+      case "sesEndInFine": moveKey("end", false); break;
+      case "sesEndOutFine": moveKey("end", true); break;
+      case "sesSwitchEdge": sessionSwitchEdge(); break;
+      case "sesPlayAll": sessionPlayAll(); break;
+      // (in the order of the list; at its first / last one: stays there)
+      case "prevSub": var pi = listStep(-1); selectKeepLoop(pi >= 0 ? pi : S.sel); break;
+      case "nextSub": var ni = listStep(1); selectKeepLoop(ni >= 0 ? ni : S.sel); break;
+      case "loopSub": toggleLoopSub(); break;
       case "nextSpeech": nextSpeech(); break;
       case "back": seek(t - 1000); break;
       case "forward": seek(t + 1000); break;
@@ -4603,20 +5904,28 @@
   }
 
   var capturing = null;   // the action that waits for its new key (Keys panel)
+  function setCapturedKey(combo) {
+    if (combo !== "Escape") {
+      // (the key is moved: the action that had it has no key anymore; a key of a session action and a key of another action can be the same)
+      for (var id in keys) if (keys[id] === combo && !!SESSION_ACTIONS[id] === !!SESSION_ACTIONS[capturing]) keys[id] = "";
+      keys[capturing] = combo;
+      saveKeys();
+    }
+    capturing = null;
+    renderHelp();
+  }
+  // (Ctrl / Left Shift / Right Shift pressed alone, nothing else before it's released: see the keyup)
+  var aloneMod = null;
+  function modCombo(e) { return e.key === "Control" ? "Ctrl" : e.key === "Shift" ? (e.code === "ShiftRight" ? "RightShift" : "LeftShift") : null; }
   document.addEventListener("keydown", function (e) {
     if (!S) return;
+    var mc = modCombo(e);
+    if (!mc) aloneMod = null;
+    else if (!e.repeat) aloneMod = aloneMod ? null : mc;   // (2 modifiers together: none alone)
     if (capturing) {
       e.preventDefault(); e.stopPropagation();
       var combo = comboOf(e);
-      if (!combo) return;
-      if (combo !== "Escape") {
-        // (the key is moved: the action that had it has no key anymore)
-        for (var id in keys) if (keys[id] === combo) keys[id] = "";
-        keys[capturing] = combo;
-        saveKeys();
-      }
-      capturing = null;
-      renderHelp();
+      if (combo) setCapturedKey(combo);   // (a modifier alone: when it's released)
       return;
     }
     var tag = e.target && e.target.tagName;
@@ -4625,17 +5934,33 @@
       if (e.key === "Escape") { e.preventDefault(); e.target.blur(); return; }
       if (keyMap[comboOf(e)] !== "save") return;
     }
-    var action = keyMap[comboOf(e)];
+    var combo = comboOf(e);
+    var action = (S.session && sesKeyMap[combo]) || keyMap[combo];
     if (!action || !S.info) return;
     e.preventDefault(); e.stopPropagation();
     run(action);
   }, true);
+  // A modifier alone (pressed and released, nothing else meanwhile): its action (ex. in a session, LeftShift: finalized, Ctrl: the whole subtitle once)
+  document.addEventListener("keyup", function (e) {
+    var mc = modCombo(e);
+    if (!mc) return;
+    var alone = aloneMod === mc;
+    aloneMod = null;
+    if (!alone || !S || cap) return;
+    if (capturing) { e.preventDefault(); setCapturedKey(mc); return; }
+    var tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    var action = (S.session && sesKeyMap[mc]) || keyMap[mc];
+    if (action && S.info) run(action);
+  }, true);
+  // (Ctrl+click, Shift+wheel...: not alone)
+  ["mousedown", "wheel", "blur"].forEach(function (ev) { window.addEventListener(ev, function () { aloneMod = null; }, true); });
 
   // ---- Keys panel ----
   function renderHelp() {
     var rows = ACTIONS.map(function (a) {
       return '<tr><td>' + esc(a.label) + '</td><td style="text-align:right;white-space:nowrap"><kbd data-key="' + a.id + '" class="' + (capturing === a.id ? "wait" : "") + '" title="Click, then press the new key (Escape: cancel)">' +
-        esc(capturing === a.id ? "press a key..." : (keys[a.id] || "(none)")) + '</kbd></td></tr>';
+        esc(capturing === a.id ? "press a key..." : (keys[a.id] ? keyName(a.id) : "(none)")) + '</kbd></td></tr>';
     }).join("");
     $("teHelp").innerHTML =
       '<div style="display:flex;align-items:center;gap:8px"><b>Keys</b><div class="spacer"></div><button class="mini" data-reset="1">Default keys</button></div>' +
@@ -4643,11 +5968,26 @@
       '<table>' + rows + '</table>' +
       '<div class="note"><b>Click</b> (timeline) = go there and select the subtitle there &middot; drag = move the view &middot; wheel = scroll &middot; Ctrl+wheel = zoom &middot; Shift+wheel = taller / shorter waveform &middot; right click = menu. The bar under the timeline is the whole scene (click: go there).</div>' +
       '<div class="note"><b>Ctrl+click</b>: moves an edge there (Ctrl+drag: it follows the mouse), then plays it again and again. In a subtitle: its start (left half) or its end (right half). Between two subtitles: the end of the previous one or the start of the next one (the nearest). Right on the edge (' + EDGE_KEEP_PX + ' pixels): only plays it. Then Play: plays and continues, from the start of the subtitle (option "Replay the whole subtitle after a change"), otherwise from the edge being played.</div>' +
-      '<div class="note"><b>Timing validated</b> (&#10003;, green): a subtitle\'s timing is validated by itself when the playback goes 0.2 s past its end (without a stop since before its end). Saved with the review (in the .wipsubtitles).</div>' +
-      '<div class="note"><b>Passes</b> (above the list): Timing, Review warnings, Speakers (choosing one also opens its tab). Each one says what is to do (&#9679; in the list); "next to do" goes from one to the other. Next time, the editor starts at the first one to do in the current pass. ' +
+      '<div class="note"><b>The list</b>: click on the header of a column to sort it (again: the other way); the arrows (previous / next, next to do) go through the list in that order. ' +
+      '<b>Conf.</b> = the confidence in the timing, from a timing refine engine (a <code>[TimingConfidence:0.42] reason</code> line; 0: surely wrong, 1: surely right; none: at the end of the list). ' +
+      '</div>' +
+      '<div class="note"><b>Timing validated</b> (&#10003;, green): its start and its end are finalized (the icons S and E of the list: click to change one). A subtitle\'s timing is validated by itself when the playback goes 0.2 s past its end (without a stop since before its end; not in a session). Saved with the review (in the .wipsubtitles). A finalized edge is not pushed by its neighbour; split: both parts are to do again; merge: each edge keeps its state.</div>' +
+      '<div class="note"><b>Free form</b> (a button of the dialog of the sessions): a panel with all the tools (play, add, delete, split, merge, validate, the speakers), nothing guided. ' +
+      '<b>The panel</b> (a session, the free form): drag its title to move it; its sections: drag their title to change their order, – hides one (👁 at the top: show them again; the speakers can\'t be hidden). In a session, the edge being finalized is placed at 30 % of the width of the screen: the panel can go on the right. The keys work everywhere. ' +
+      'A speaker whose name has a \',\' (⚠) can\'t be present ({...} lists are separated by \',\'): right click on it to rename it.</div>' +
+      '<div class="note"><b>Session</b> (' + esc(keys.session || "-") + ', button above the list): finalize the starts and / or the ends of the subtitles of the list (only the ones of the kind chosen in the Warnings tree, if one is chosen), in its order, only the ones still to do. ' +
+      'One edge at a time: the start of the subtitle, then its end, played again and again (quieter outside the subtitle; the box is green while the subtitle itself plays, yellow outside). ' +
+      'The loop: the start = from the start, 1.5 s of the subtitle; the end = from 1.5 s before the end to the end (the checkbox "before / after" of the panel: from a little before the start / to a little after the end). Played once when going on: the start finalized = from the start to the end; ' +
+      'the end finalized, the next one to do is the start of the next subtitle = from the end to it (far: to 1 s after the end, then from 1 s before the next one). The edge being finalized is written on the waveform (START / END). ' +
+      esc(keys.sesStartOutFine || "-") + ' / ' + esc(keys.sesStartInFine || "-") + ' = the edge a few ms earlier / later (the keys of the end do the same). ' +
+      esc(keyName("sesFinalize")) + ' = finalized, then its end / the next one to do (the loop paused with ' + esc(keyName("playPause")) + ': the edge goes first where it was paused); ' + esc(keys.sesSwitchEdge || "-") + ' = the other edge; ' + esc(keyName("sesPlayAll")) + ' = the whole subtitle once, from a little before to a little after (a last check); ' +
+      '<b>a click on the waveform</b> = the edge being finalized there (drag: it follows the mouse; Ctrl+click: like outside a session); ' +
+      esc(keyName("playPause")) + ' / ' + esc(keys.stop || "-") + ' = pause / play; the arrows = previous / next of the list (without finalizing). Outside a session: ' +
+      esc(keys.sesStartOutFine || "-") + ' / ' + esc(keys.sesStartInFine || "-") + ' move the start, ' + esc(keys.sesEndInFine || "-") + ' / ' + esc(keys.sesEndOutFine || "-") + ' the end.</div>' +
+      '<div class="note"><b>Above the list</b>: how many are finalized; "only the ones to finalize" = the list shows only the subtitles whose timing is not validated (in a session: the ones with something to finalize in it; not checked: all of them). "next to do" goes from one to the other (the number of a subtitle is green when its start and its end are finalized). Next time, the editor starts at the first one to do. ' +
       '<b>Review warnings</b>: the [REVIEW:Code:Detail] lines of the preparer, by kind (tree): checked one by one (they become [CHECKED:...]). ' +
       '<b>Speakers</b>: the list of the speakers; the checkboxes = who is present from the selected subtitle on ({OngoingSpeakers}, added only where it changes); a name = the speaker of the selected subtitle ({Speaker}). A deleted subtitle gives its {Ongoing...} metadata to the next one.</div>' +
-      '<div class="note">Terrain band (under the ruler): <span style="color:' + esc(colors.ok) + '">&#9632; speech</span> <span style="color:' + esc(colors.warn) + '">&#9632; breath</span> <span style="color:' + esc(colors.muted) + '">&#9632; click</span>.</div>';
+      '<div class="note">The bar under the waveform: the whole scene, its subtitles <span style="color:' + esc(colors.ok) + '">&#9632; validated</span> <span style="color:' + esc(colors.warn) + '">&#9632; start or end finalized</span> <span style="color:' + esc(colors.accent) + '">&#9632; to do</span> (click: go there).</div>';
   }
   $("teHelp").addEventListener("click", function (e) {
     var k = e.target.getAttribute && e.target.getAttribute("data-key");
@@ -4655,7 +5995,7 @@
     if (e.target.getAttribute && e.target.getAttribute("data-reset")) { savePref("fstTimingKeys", null); loadKeys(); renderHelp(); return; }
   });
   $("teCloseBtn").onclick = close;
-  showTab(teTab);
+  showTab(null);
   // (after a choice, the keys go to the editor again, not to the list)
   $("teFile").onchange = function () {
     if (!S) return;

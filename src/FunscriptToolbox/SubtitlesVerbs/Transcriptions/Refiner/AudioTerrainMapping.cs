@@ -60,7 +60,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public float WhisperRelativeDb { get; set; } = 6f;
 
         /// <summary>A Breath is only promoted if a Speech piece (or an already promoted Breath) is at most this far from it. A Breath on an island is never promoted.</summary>
-        public TimeSpan MaxWhisperGap { get; set; } = TimeSpan.FromMilliseconds(300);
+        /// <remarks>25 ms (was 300 ms): with a wider gap, the breath after the last word became "speech" and the snapped End was extended over it
+        /// (HNVR-141: both bounds good +3 to +9 points, see GeminiDecisionProbes.md, "Terrain: why the snapped Ends are too wide").</remarks>
+        public TimeSpan MaxWhisperGap { get; set; } = TimeSpan.FromMilliseconds(25);
 
         /// <summary>A run of at least this many loud Breath pieces, close to each other, is a whispered phrase (even with no Speech around): a real breath is a single bump, a whisper is a series of syllables.</summary>
         public int WhisperMinPieces { get; set; } = 2;

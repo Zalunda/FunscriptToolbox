@@ -30,15 +30,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public TimeSpan StartTime { get; set; }
             public TimeSpan EndTime { get; set; }
             public string[] Lines { get; set; }
-            public bool TimingValidated { get; set; }
+            /// <summary>The start / the end of its timing is finalized by the user (each one on its own, see the Timing editor).</summary>
+            public bool StartFinalized { get; set; }
+            public bool EndFinalized { get; set; }
+
+            /// <summary>The whole timing is validated: its start and its end are finalized.</summary>
+            [JsonIgnore]
+            public bool TimingValidated => this.StartFinalized && this.EndFinalized;
+
+            /// <summary>Read from the reviews saved before the start / the end were finalized on their own: validated = both are finalized.</summary>
+            [JsonProperty("TimingValidated")]
+            private bool LegacyTimingValidated { set { if (value) this.StartFinalized = this.EndFinalized = true; } }
         }
 
-        /// <summary>A speaker of the list of the Timing editor: its name (in the metadata) and an alias (shorter, only shown in the editor).</summary>
+        /// <summary>A speaker of the list of the Timing editor: its name (in the metadata), an alias (shorter, only shown in the editor)
+        /// and an image (a part of a frame of the video, chosen by the user, shown in the editor: a data URL, ex. "data:image/jpeg;base64,...").</summary>
         [JsonConverter(typeof(ReviewSpeakerConverter))]
         public class ReviewSpeaker
         {
             public string Name { get; set; }
             public string Alias { get; set; }
+            public string Image { get; set; }
         }
 
         /// <summary>A speaker saved as a name only (before the aliases): read as a speaker without alias.</summary>
@@ -54,7 +66,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     return new ReviewSpeaker { Name = (string)token };
                 if (token.Type != Newtonsoft.Json.Linq.JTokenType.Object)
                     return null;
-                return new ReviewSpeaker { Name = (string)token["Name"], Alias = (string)token["Alias"] };
+                return new ReviewSpeaker { Name = (string)token["Name"], Alias = (string)token["Alias"], Image = (string)token["Image"] };
             }
 
             public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer) => throw new NotSupportedException();
@@ -236,12 +248,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     Origin = $"imported from the file '{this.FileSuffix}'"
                         + (alreadyReviewed ? " (already reviewed)" : string.Empty)
                         + (validated.Count > 0 ? $", {validated.Count} validated" : string.Empty),
-                    Items = existingFile.Subtitles.Select(s => new ReviewItem
+                    Items = existingFile.Subtitles.Select(s =>
                     {
-                        StartTime = s.StartTime,
-                        EndTime = s.EndTime,
-                        Lines = SplitLines(s.Lines),
-                        TimingValidated = validated.Contains($"{(long)s.StartTime.TotalMilliseconds}-{(long)s.EndTime.TotalMilliseconds}")
+                        var isValidated = validated.Contains($"{(long)s.StartTime.TotalMilliseconds}-{(long)s.EndTime.TotalMilliseconds}");
+                        return new ReviewItem
+                        {
+                            StartTime = s.StartTime,
+                            EndTime = s.EndTime,
+                            Lines = SplitLines(s.Lines),
+                            StartFinalized = isValidated,
+                            EndFinalized = isValidated
+                        };
                     }).ToList()
                 };
             }

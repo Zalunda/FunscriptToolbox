@@ -27,9 +27,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         string SaveSubtitles(string reviewId, string stamp, bool force, TimingEditorSubtitle[] subtitles, TimingEditorSpeaker[] speakers);
 
         /// <summary>
-        /// Saves which subtitles have their timing validated by the user, known by their timing as saved ("start ms-end ms").
+        /// Saves which edges (start / end) of the subtitles are finalized by the user, the subtitles known by their timing as saved ("start ms-end ms").
         /// </summary>
-        void SaveValidated(string reviewId, string[] keys);
+        void SaveFinalized(string reviewId, TimingEditorFinalized[] items);
 
         /// <summary>Time of active work of the user in the editor, to add to the review (see TranscriberInteractifReview.JobState.ActiveTime).</summary>
         void AddActiveTime(string reviewId, long ms);
@@ -43,8 +43,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The whole audio (mono, 16 bits, little endian).</summary>
         (int samplingRate, byte[] pcm) GetAudio(string audioId);
 
-        /// <summary>The video of a part: its light video ('.FAST.mp4'), otherwise the video itself; null when there is none (then only the audio can be played).</summary>
-        string GetVideoPath(int partIndex);
+        /// <summary>
+        /// The video of a part: its light video ('.FAST.mp4'), otherwise the video itself (original: the video itself, otherwise its light video);
+        /// null when there is none (then only the audio can be played).
+        /// </summary>
+        string GetVideoPath(int partIndex, bool original);
     }
 
     /// <summary>A subtitle, as sent by the page (times in ms, in the time of the whole scene; the lines as they are in the file).</summary>
@@ -53,6 +56,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public long S { get; set; }
         public long E { get; set; }
         public string[] Lines { get; set; }
+        /// <summary>Its start / its end is finalized by the user (null: not sent, ex. an older page: what was saved for this timing is kept).</summary>
+        public bool? Fs { get; set; }
+        public bool? Fe { get; set; }
+    }
+
+    /// <summary>The finalized edges of a subtitle, known by its timing as saved (K = "start ms-end ms").</summary>
+    public class TimingEditorFinalized
+    {
+        public string K { get; set; }
+        public bool S { get; set; }
+        public bool E { get; set; }
     }
 
     /// <summary>A speaker of the list of the editor (its order is the order of the list: keys 1-9).</summary>
@@ -62,6 +76,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public string Name { get; set; }
         /// <summary>A shorter name, only shown in the editor (ex. "Nao"), or null.</summary>
         public string Alias { get; set; }
+        /// <summary>An image of the speaker (a part of a frame of the video), only shown in the editor: a data URL (JPEG / PNG), or null.</summary>
+        public string Image { get; set; }
     }
 
     /// <summary>An error of the timing editor that is shown to the user as is (ex. "The scene is not loaded yet.").</summary>
