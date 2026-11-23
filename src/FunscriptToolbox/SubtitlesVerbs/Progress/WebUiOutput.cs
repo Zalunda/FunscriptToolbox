@@ -149,8 +149,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The scenes paused by the user ('Pause scene'), by their name: still paused when they are started again (Rescan, Retry).</summary>
         private readonly HashSet<string> r_pausedScenes = new HashSet<string>();
 
-        /// <summary>'Pause scene' / 'Resume scene' (rootNodeId: the node of the scene). False: unknown scene.</summary>
-        internal bool SetScenePaused(int rootNodeId, bool isPaused)
+        /// <summary>
+        /// 'Pause scene' / 'Resume scene' (rootNodeId: the node of the scene). False: unknown scene.
+        /// The change is also queued for the main thread, which saves it in the .wipsubtitles of the scene (see <see cref="ConsumeScenePauseChange"/>).
+        /// </summary>
+        public bool SetScenePaused(int rootNodeId, bool isPaused)
         {
             lock (this.Gate)
             {
@@ -159,9 +162,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 if (isPaused) r_pausedScenes.Add(node.Name); else r_pausedScenes.Remove(node.Name);
                 Touch();
             }
+            r_scenePauseChanges.Enqueue((rootNodeId, isPaused));
             r_requestReceived.Set();
             return true;
         }
+
+        /// <summary>The scene (rootNodeId: the node of the scene) is paused by the user ('Pause scene').</summary>
+        public bool IsScenePaused(int rootNodeId)
+        {
+            lock (this.Gate)
+            {
+                return m_nodesById.TryGetValue(rootNodeId, out var node) && r_pausedScenes.Contains(node.Name);
+            }
+        }
+
+        private readonly System.Collections.Concurrent.ConcurrentQueue<(int RootNodeId, bool IsPaused)> r_scenePauseChanges
+            = new System.Collections.Concurrent.ConcurrentQueue<(int, bool)>();
+
+        /// <summary>The next 'Pause scene' / 'Resume scene' to save in the .wipsubtitles of the scene (done by the main thread), or null.</summary>
+        public (int RootNodeId, bool IsPaused)? ConsumeScenePauseChange()
+            => r_scenePauseChanges.TryDequeue(out var change) ? change : ((int, bool)?)null;
 
         public string GetPauseAtSafePointReason(int? sceneNodeId)
         {
@@ -171,7 +191,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             lock (this.Gate)
             {
                 return m_nodesById.TryGetValue(sceneNodeId.Value, out var node) && r_pausedScenes.Contains(node.Name)
-                    ? "paused: 'Pause scene' (click on 'Resume scene' to continue)"
+                    ? "on hold: 'Pause scene', saved in its .wipsubtitles (click on 'Resume scene' to continue)"
                     : null;
             }
         }
@@ -387,7 +407,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             return true;
         }
 
-        /// <summary>A Stop button of a task: 'now' (right away), 'after' (after this request) or 'undo' (undo 'after').</summary>
+        /// <summary>
+        /// A Stop button of a task: 'now' (right away), 'after' (after this request), 'undo' (undo 'after')
+        /// or 'skip' (the button of ITaskNode.SetSkippable).
+        /// </summary>
         internal bool RequestCancel(int nodeId, string mode)
         {
             lock (this.Gate)
@@ -398,6 +421,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     case "now": node.RequestCancelInternal(); return true;
                     case "after": return node.RequestStopAfterInternal(true);
                     case "undo": return node.RequestStopAfterInternal(false);
+                    case "skip": return node.RequestSkipInternal();
                     default: return false;
                 }
             }
@@ -578,6 +602,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             public bool CanStopAfter { get; private set; }
             private volatile bool m_stopAfterRequested;
             public bool IsStopAfterRequested => m_stopAfterRequested;
+            /// <summary>The button of <see cref="SetSkippable"/> (null: not offered) and its tooltip.</summary>
+            public string SkipLabel { get; private set; }
+            public string SkipHint { get; private set; }
+            private volatile bool m_skipRequested;
+            public bool IsSkipRequested => m_skipRequested;
             public string StopNowWarning { get; private set; }
             public int ErrorCount { get; private set; }
             public bool IsBackground { get; }
@@ -820,6 +849,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
             }
 
+            public void SetSkippable(string label, string hint)
+            {
+                lock (r_owner.Gate)
+                {
+                    SkipLabel = label;
+                    SkipHint = label == null ? null : hint;
+                    r_owner.Touch();
+                }
+            }
+
+            internal bool RequestSkipInternal()
+            {
+                // Called with the gate held.
+                if (SkipLabel == null || IsTerminal || m_skipRequested)
+                    return false;
+                m_skipRequested = true;
+                AddLogLine($"'{SkipLabel}' requested by the user.");
+                return true;
+            }
+
             public void SetStopAfterSupported()
             {
                 lock (r_owner.Gate)
@@ -1004,6 +1053,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     stopNowRequested = CancelRequests > m_cancelConsumed,
                     canStopAfter = CanStopAfter && !IsTerminal,
                     stopAfter = m_stopAfterRequested,
+                    skipLabel = IsTerminal ? null : SkipLabel,
+                    skipHint = SkipHint,
+                    skipRequested = m_skipRequested,
                     stopWarning = StopNowWarning,
                     background = IsBackground,
                     progressDone = (m_progressTotal != null || m_progressDone > 0) ? m_progressDone : (long?)null,

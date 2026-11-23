@@ -513,6 +513,15 @@ namespace FunscriptToolbox.Properties {
         }
 
         /// <summary>
+        ///   Looks up a localized string (the prompt in SubtitlesVerbs\Prompts\TimingSpokenMarkersSystemPrompt.txt).
+        /// </summary>
+        internal static string TimingSpokenMarkersSystemPrompt {
+            get {
+                return ResourceManager.GetString("TimingSpokenMarkersSystemPrompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to # **TRANSLATION OPERATIVE MANDATE: The Foundational Protocol (version 2025-11-25)**
         ///
         ///### **Role**

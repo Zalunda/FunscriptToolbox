@@ -156,7 +156,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <summary>What the web UI offers to the user while the review is not done (see ITaskNode.SetUserAction).</summary>
         private string UserAction => $"timing:{this.TranscriptionId}";
 
-        private string WaitingReason => $"waiting for the review of '{this.FileSuffix}' in the Timing editor of the web UI (button 'Timing' of the scene), then 'Review done'";
+        private string WaitingReason => $"waiting for the review of '{this.FileSuffix}' in the Review editor of the web UI (button 'Review' of the scene), then 'Review done'";
 
         protected override bool IsPrerequisitesMet(SubtitleGeneratorContext context, out string reason)
         {
@@ -174,7 +174,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (jobState != null)
             {
                 reason = this.WaitingReason;
-                context.AddUserTodo($"Review '{this.FileSuffix}' in the Timing editor, then click 'Review done'.");
+                context.AddUserTodo($"Review '{this.FileSuffix}' in the Review editor, then click 'Review done'.");
                 // (the scene is shown as 'needs you' in the web UI, with a button to open the review)
                 TaskScope.Current.SetUserAction(this.UserAction);
                 return false;
@@ -218,7 +218,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     TaskScope.Current.SetUserAction(this.UserAction);
                     TaskScope.Current.SetState(TaskState.Blocked, this.WaitingReason);
                     context.AddBlockedWorker(DisplayName);
-                    context.AddUserTodo($"Review '{this.FileSuffix}' in the Timing editor, then click 'Review done'.");
+                    context.AddUserTodo($"Review '{this.FileSuffix}' in the Review editor, then click 'Review done'.");
                     return;
                 }
             }
@@ -356,9 +356,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var candidates = new List<(ReviewItem item, string speaker)>();
             foreach (var item in items)
             {
-                var names = SplitNames(GetMetadataValue(item, this.OngoingSpeakersMetadata));
-                if (names.Length > 0)
-                    present = names;
+                // ({OngoingSpeakers} alone, empty: nobody present from there on, like the Timing editor and the AI requests read it)
+                var presentValue = GetMetadataValue(item, this.OngoingSpeakersMetadata);
+                if (presentValue != null)
+                    present = SplitNames(presentValue);
                 allNames.UnionWith(present);
                 var speaker = GetMetadataValue(item, this.SpeakerMetadata);
                 if (!string.IsNullOrEmpty(speaker))
@@ -416,7 +417,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             // (how long the review took: in the first subtitle, as a text line, not a metadata)
             var activeTime = jobState.ActiveTime;
-            var reviewTimeLine = $"(Timing review: {(int)activeTime.TotalHours}:{activeTime:mm\\:ss} of active work in the Timing editor, {items.Length} subtitles, {items.Count(i => i.TimingValidated)} with the timing validated)";
+            var reviewTimeLine = $"(Review: {(int)activeTime.TotalHours}:{activeTime:mm\\:ss} of active work in the Review editor, {items.Length} subtitles, {items.Count(i => i.TimingValidated)} with the timing validated)";
 
             // (the speaker of the subtitles where only one speaker is present: written, see GetImplicitSpeakers)
             var implicitSpeakers = GetImplicitSpeakers(items);
@@ -437,7 +438,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
             if (activeTime > TimeSpan.Zero)
             {
-                context.WriteInfo($"  Review of '{this.FileSuffix}': {(int)activeTime.TotalHours}:{activeTime:mm\\:ss} of active work in the Timing editor.");
+                context.WriteInfo($"  Review of '{this.FileSuffix}': {(int)activeTime.TotalHours}:{activeTime:mm\\:ss} of active work in the Review editor.");
             }
             if (jobState.FileAlreadyReviewed && context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) != null)
             {

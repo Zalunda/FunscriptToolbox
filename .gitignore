@@ -364,3 +364,6 @@ dist/
 .history/
 .csharp/
 .roslyn/
+
+# Experiments of the timing refiner (probe scripts, clips, AI answers): local only
+src/FunscriptToolbox/SubtitlesVerbs/Transcriptions/Refiner/scratchbook/

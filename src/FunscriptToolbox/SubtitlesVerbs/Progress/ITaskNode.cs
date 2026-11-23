@@ -94,6 +94,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The user asked this node to 'Stop after this request' (and didn't undo it).</summary>
         bool IsStopAfterRequested { get; }
 
+        /// <summary>
+        /// Besides 'Stop' (the worker stops, it continues at the next run), the UI offers a button to skip the rest of what this node
+        /// does, as a choice of the user (ex. 'No more title cards': the work continues as if there was nothing more to find).
+        /// The code reads <see cref="IsSkipRequested"/>. Null label: not offered anymore.
+        /// </summary>
+        /// <param name="label">The text of the button.</param>
+        /// <param name="hint">Its tooltip, also the confirmation asked before it's done.</param>
+        void SetSkippable(string label, string hint);
+
+        /// <summary>The user clicked on the button of <see cref="SetSkippable"/>.</summary>
+        bool IsSkipRequested { get; }
+
         /// <summary>The code turns a 'Stop now' into a 'Stop after this request' (ex. the batch finished before it could be cancelled: its response is kept).</summary>
         void ConvertToStopAfter(string reason);
 
@@ -160,6 +172,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetCancellable(string hint) { }
         public void SetStopAfterSupported() { }
         public bool IsStopAfterRequested => false;
+        public void SetSkippable(string label, string hint) { }
+        public bool IsSkipRequested => false;
         public void ConvertToStopAfter(string reason) { }
         public void SetStopNowWarning(string warning) { }
         public bool ConsumeCancelRequest() => false;

@@ -61,6 +61,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var timingEndJudgeSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingEndJudgeSystemPrompt), Resources.TimingEndJudgeSystemPrompt);
             var timingEndTailSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingEndTailSystemPrompt), Resources.TimingEndTailSystemPrompt);
             var timingVerifySystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingVerifySystemPrompt), Resources.TimingVerifySystemPrompt);
+            var timingSpokenMarkersSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingSpokenMarkersSystemPrompt), Resources.TimingSpokenMarkersSystemPrompt);
 
             // A request of the timing refiner: one audio clip per node, the node known only by its StartTime
             static AIOptions CreateTimingInnerOptions(AIPrompt systemPrompt, string metadataProduced) => new AIOptions()
@@ -118,6 +119,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
                 }
             });
+            // The spoken markers: ONE request per subtitle and per run, in batches of 50 nodes (the batch of the tests: the less the AI
+            // thinks per node, the cheaper; the AI engine needs a maxOutputTokens big enough for 50 answers, ex. 16384)
+            var spokenMarkersOptions = CreateTimingInnerOptions(timingSpokenMarkersSystemPrompt, TimingMeta.MarkedTranscription);
+            spokenMarkersOptions.BatchSize = 50;
+            spokenMarkersOptions.NbItemsMinimumReceivedToContinue = 40;
+            AddSharedObject(nameof(TimingRefineEngineSpokenMarkers), new TimingRefineEngineSpokenMarkers
+            {
+                InnerOptions = spokenMarkersOptions,
+                Runs = 2,
+                OnDisagreement = SpokenMarkersPick.Wider,
+                StartOptionsBefore = 2,
+                StartOptionsAfter = 2,
+                EndOptionsBefore = 4,
+                EndOptionsAfter = 2,
+                MaxExpansion = TimeSpan.FromSeconds(2.0),
+                MarkerMergeDistance = TimeSpan.FromMilliseconds(80),
+                ClipMargin = TimeSpan.FromSeconds(0.7)
+            });
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -149,7 +168,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".asig",
                         SaveFullFileToo = true
                     },
-                    // The light video of each part ("<video>.FAST.mp4"), for the Timing editor of the web UI and the speaker correction.
+                    // The light video of each part ("<video>.FAST.mp4"), for the Review editor of the web UI and the speaker correction.
                     // 'crop=iw/2:ih:0:0': the left eye of a VR video (side by side).
                     new SubtitleOutputFastVideo()
                     {
@@ -342,7 +361,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TextSources = "full",
                         AddToFirstSubtitle = "[USER-REVISION-NEEDED] <= remove this line when revision is done\n{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)"
                     },
-                    // The review of the manual-input file in the Timing editor of the web UI (button 'Timing' of the scene), instead of editing
+                    // The review of the manual-input file in the Review editor of the web UI (button 'Review' of the scene), instead of editing
                     // the file by hand (replaces 'generated-manual-input-srt'). Kept in the .wipsubtitles; when the user clicks 'Review done',
                     // the file is written (then imported by 'manual-input'). ReviewNeeded = false: the file is written right away (no review).
                     new TranscriberInteractifReview()
@@ -363,8 +382,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { "VoiceTextForManualReview", null }
                             }
                         },
-                        // (the speakers are set with the 'Speakers' pass of the Timing editor)
-                        // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Timing editor)
+                        // (the speakers are set with the 'Speakers' pass of the Review editor)
+                        // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Review editor)
                         AddToFirstSubtitle = "{OngoingContext:The scene take place in...}",
                         SpeakerMetadata = "Speaker",
                         OngoingSpeakersMetadata = "OngoingSpeakers"

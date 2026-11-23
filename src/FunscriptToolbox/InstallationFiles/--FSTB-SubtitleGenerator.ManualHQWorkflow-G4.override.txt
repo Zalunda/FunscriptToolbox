@@ -530,6 +530,33 @@ _______________________________________=",
       // (its prompt / request: InnerOptions, see --FSTB-SubtitleGenerator.config)
       "$id": "TimingRefineEngineVerify",
       "StartClipPadding": "00:00:00.000"
+    },
+    {
+      // The settings of the engine 'TimingRefineEngineSpokenMarkers' of the timing refiner (manual-input-preparer: RefineTiming.Engine).
+      // Short English number words are inserted in the audio of each subtitle at the possible places of its start and its end (the dips
+      // of the terrain); the AI transcribes the clip with the markers inline and the line between « and »: the markers around the line
+      // give its start and its end. One request per subtitle and per run, in batches of 50 nodes.
+      // The AI engine of the task needs a "maxOutputTokens" big enough for 50 answers (ex. 16384) and, ideally, a low thinking level.
+      //   - Runs: how many times each subtitle is asked (other random labels each time). 1 = no cross-check (no real confidence).
+      //     2 = the best value in the tests: when the runs agree, the boundary gets a high confidence ('Conf.' column of the Review editor).
+      //   - OnDisagreement: "Wider" (the widest answer: extra silence is better than a cut) or "Majority" (needs Runs >= 3).
+      //   - StartOptionsBefore / StartOptionsAfter / EndOptionsBefore / EndOptionsAfter: how many dips around the snapped boundary get a
+      //     marker (the snapped ends are often too wide: more options before the end). At most 12 markers in total (the number of labels).
+      //   - MaxExpansion: how far from the snapped boundary a marker can be.
+      //   - MarkerMergeDistance: two markers closer than this are one marker.
+      //   - ClipMargin: the audio kept before the first marker and after the last one.
+      // The long subtitles are not split with this engine (a split part has no text to give).
+      // (its prompt / request: InnerOptions, see --FSTB-SubtitleGenerator.config)
+      "$id": "TimingRefineEngineSpokenMarkers",
+      "Runs": 2,
+      "OnDisagreement": "Wider",
+      "StartOptionsBefore": 2,
+      "StartOptionsAfter": 2,
+      "EndOptionsBefore": 4,
+      "EndOptionsAfter": 2,
+      "MaxExpansion": "00:00:02.0",
+      "MarkerMergeDistance": "00:00:00.080",
+      "ClipMargin": "00:00:00.700"
     }
   ],
   "Workers": [
@@ -552,12 +579,13 @@ _______________________________________=",
       "Enabled": true
     },
     {
-      // The light video of each part ("<video>.FAST.mp4", next to it), for the Timing editor of the web UI ('manual-input-review')
+      // The light video of each part ("<video>.FAST.mp4", next to it), for the Review editor of the web UI ('manual-input-review')
       // and the speaker correction (one video at a time: lock 'ENC'). Done early, with the other preparations of the files:
       // ready when the review can start. Already there (ex. made by a script): not created again.
       // (its ffmpeg parameters: in the main configuration; the 2D override removes the crop of the left eye)
       "Id": "fast-video",
-      "Enabled": true
+      // [OPTION] set to true to speed up playback in Subtitle build in editor
+      "Enabled": false
     },
     // -----------------------------
     // Creating initial manual-input source
@@ -575,7 +603,7 @@ _______________________________________=",
     },
     {
       // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings, adds the title cards, and flags what needs
-      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Timing editor).
+      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Review editor).
       // (defined in --FSTB-SubtitleGenerator.config: here, the settings that can be adjusted)
       "Id": "manual-input-preparer",
       "Enabled": true,
@@ -589,11 +617,18 @@ _______________________________________=",
       "Engine": {
         "$ref": "AIEngineGemini4"
       },
+      // (merged into the request body of the engine: everything goes inside "RequestBodyExtension")
+      // (Google API: "temperature" must be inside "generationConfig": at the top level, the request is rejected, HTTP 400)
+      // [OPTION] With TimingRefineEngineSpokenMarkers (50 answers per request): "maxOutputTokens": 16384 and
+      // "thinkingConfig": { "thinkingLevel": "LOW" } (the tests: ~90 thinking tokens per answer instead of ~680).
+      // ("includeThoughts": true comes from the engine: the nested objects are merged)
       "EngineConfigOverride": {
-          "temperature": 0.0,
+        "RequestBodyExtension": {
           "generationConfig": {
+            "temperature": 0.0,
             "maxOutputTokens": 2048
           }
+        }
       },
 
       "IncludeTraceInVoiceTextForManualReviewAlways": false,
@@ -619,6 +654,10 @@ _______________________________________=",
       //                                                   The timings are kept whatever the answer: a problem is only flagged.
       //   { "$ref": "TimingRefineEngineStartEndJudge" } => the AI picks the best Start, then the best End, among options built on the terrain
       //                                                   (several AI requests and clips per subtitle).
+      //   { "$ref": "TimingRefineEngineSpokenMarkers" } => markers spoken in the audio at the options of the terrain, the AI transcribes them
+      //                                                   around the line (one request per subtitle and per run, in batches; a confidence per subtitle).
+      // A setting of the engine can be changed for this task only, next to its "$ref" (the shared object, in "SharedObjects", is not changed):
+      //   { "$ref": "TimingRefineEngineSpokenMarkers", "Runs": 3 }
       // "Enabled": false => the timings are kept as they are. No terrain, no AI. (Validation can't be used.)
       "RefineTiming": {
         "Enabled": true,
@@ -632,7 +671,7 @@ _______________________________________=",
         "TrimSilenceOnEnd": true
       },
 
-      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Timing editor) and fixes some problems. Needs RefineTiming.
+      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Review editor) and fixes some problems. Needs RefineTiming.
       // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
       "Validation": {
         "Enabled": true,
@@ -651,6 +690,8 @@ _______________________________________=",
           "BoundariesCrossed": "Warn",
           "NoAnswer": "Warn",
           "UnrecognisedAnswer": "Warn",
+          "UnsureStart": "Warn",
+          "UnsureEnd": "Warn",
           "NoSpeechInside": "Warn",
           "TooShort": "Warn",
           "TooFast": "Warn",
@@ -722,12 +763,12 @@ _______________________________________=",
       "SourceId": "manual-input-preparer"
     },
     {
-      // (replaced by 'manual-input-review': the review is done in the Timing editor of the web UI)
+      // (replaced by 'manual-input-review': the review is done in the Review editor of the web UI)
       "Id": "generated-manual-input-srt",
       "Enabled": false
     },
     {
-      // The review of the manual-input file in the Timing editor of the web UI (button 'Timing' of the scene), instead of editing the file by hand:
+      // The review of the manual-input file in the Review editor of the web UI (button 'Review' of the scene), instead of editing the file by hand:
       // passes 'Timing', 'Review warnings' and 'Speakers'. Kept in the .wipsubtitles; when the user clicks 'Review done', the file is written
       // (then imported by 'manual-input'). An existing .manual-input.srt is imported once (a review started by editing the file continues in the editor).
       "Id": "manual-input-review",
@@ -735,7 +776,7 @@ _______________________________________=",
       // [OPTION] Change to "manual-input-preparer,full-ai_google" (and enable 'full-ai_google' above) if you also want a basic english translation in the manual-input file.
       "TextSources": "manual-input-preparer",
       // [OPTION] What is added to the first subtitle, for the user to fill (ex. the context of the scene).
-      // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Timing editor)
+      // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Review editor)
       "AddToFirstSubtitle": "{OngoingContext:The scene take place in...}",
       // [OPTION] Uncomment the following line to be in 'fully automatic' generation (no review: the file is written right away).
       //"ReviewNeeded": false

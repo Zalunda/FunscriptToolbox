@@ -113,7 +113,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         getDataFunc = (section, timing, _, silent) =>
                         {
                             // (not silent = the request being prepared needs it now: the background didn't get to it yet)
-                            if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Audio clip not ready yet, waiting for ffmpeg...");
+                            if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", "Audio clip not ready yet, waiting for the background preparation...");
                             // (when the background holds extractionLock, it gets the priority of the request while the request waits for it)
                             using var waitingForBackground = silent ? null : LockPriority.ForegroundWaitingForBackground();
                             lock (extractionLock)
@@ -152,12 +152,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                 if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
                                 else Interlocked.Increment(ref backgroundGenerated);
 
-                                var tempWavFile = PathExtension.GetTempFileName(".wav");
                                 var snippet = fullPcmAudio.ExtractSnippet(startTime, endTime);
-                                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile, workload: FfmpegWorkload.Clip);
-
-                                var audioBytesGenerated = File.ReadAllBytes(tempWavFile);
-                                File.Delete(tempWavFile);
+                                var audioBytesGenerated = snippet.ToWavBytes();
 
                                 if (extractor.KeepTemporaryFiles)
                                     File.WriteAllBytes(backupFilePath, audioBytesGenerated);

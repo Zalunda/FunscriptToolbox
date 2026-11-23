@@ -64,12 +64,13 @@
       "Enabled": true
     },
     {
-      // The light video of each part ("<video>.FAST.mp4", next to it), for the Timing editor of the web UI ('manual-input-review')
+      // The light video of each part ("<video>.FAST.mp4", next to it), for the Review editor of the web UI ('manual-input-review')
       // and the speaker correction (one video at a time: lock 'ENC'). Done early, with the other preparations of the files:
       // ready when the review can start. Already there (ex. made by a script): not created again.
       // (its ffmpeg parameters: in the main configuration; the 2D override removes the crop of the left eye)
       "Id": "fast-video",
-      "Enabled": true
+      // [OPTION] set to true to speed up playback in Subtitle build in editor
+      "Enabled": false
     },
     // -----------------------------
     // Creating initial manual-input source
@@ -93,7 +94,7 @@
     },
     {
       // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings, adds the title cards, and flags what needs
-      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Timing editor).
+      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Review editor).
       // (defined in --FSTB-SubtitleGenerator.config: here, the settings that can be adjusted)
       "Id": "manual-input-preparer",
       "Enabled": true,
@@ -131,6 +132,8 @@
       //                                                   The timings are kept whatever the answer: a problem is only flagged.
       //   { "$ref": "TimingRefineEngineStartEndJudge" } => the AI picks the best Start, then the best End, among options built on the terrain
       //                                                   (several AI requests and clips per subtitle).
+      // A setting of the engine can be changed for this task only, next to its "$ref" (the shared object, in "SharedObjects", is not changed):
+      //   { "$ref": "TimingRefineEngineStartEndJudge", "MaxDipsInward": 3 }
       // "Enabled": false => the timings are kept as they are. No terrain, no AI. (Validation can't be used.)
       "RefineTiming": {
         "Enabled": true,
@@ -144,7 +147,7 @@
         "TrimSilenceOnEnd": true
       },
 
-      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Timing editor) and fixes some problems. Needs RefineTiming.
+      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Review editor) and fixes some problems. Needs RefineTiming.
       // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
       "Validation": {
         "Enabled": true,
@@ -163,6 +166,8 @@
           "BoundariesCrossed": "Warn",
           "NoAnswer": "Warn",
           "UnrecognisedAnswer": "Warn",
+          "UnsureStart": "Warn",
+          "UnsureEnd": "Warn",
           "NoSpeechInside": "Warn",
           "TooShort": "Warn",
           "TooFast": "Warn",
@@ -234,7 +239,7 @@
       "Enabled": false
     },
     {
-      // The review of the manual-input file in the Timing editor of the web UI (button 'Timing' of the scene), instead of editing the file by hand:
+      // The review of the manual-input file in the Review editor of the web UI (button 'Review' of the scene), instead of editing the file by hand:
       // passes 'Timing', 'Review warnings' and 'Speakers'. Kept in the .wipsubtitles; when the user clicks 'Review done', the file is written
       // (then imported by 'manual-input'). An existing .manual-input.srt is imported once (a review started by editing the file continues in the editor).
       "Id": "manual-input-review",
@@ -243,7 +248,7 @@
       // [OPTION] Change to "manual-input-preparer" if you prefer having only the original text in the manual-input file.
       "TextSources": "manual-input-preparer,full-ai_google",
       // [OPTION] What is added to the first subtitle, for the user to fill (ex. the context of the scene).
-      // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Timing editor)
+      // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Review editor)
       "AddToFirstSubtitle": "{OngoingContext:The scene take place in...}"
     },
     {

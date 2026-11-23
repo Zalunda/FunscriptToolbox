@@ -81,6 +81,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     if (requests != null && requests.Length > 0)
                     {
+                        // (safe point: the preparation lock is released, nothing is sent yet)
+                        // A pause asked while the request was being prepared ('Pause scene', 'Pause all', closing): it waits here,
+                        // before the request is sent (the prepared request is sent when it's resumed).
+                        r_context.PauseIfClosing();
+
                         var watch = Stopwatch.StartNew();
                         AIResponse[] responses;
                         var firstRequest = requests[0];

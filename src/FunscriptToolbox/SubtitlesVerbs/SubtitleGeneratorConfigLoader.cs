@@ -139,6 +139,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             if (!targetFileDir.StartsWith(baseConfigDir + @"\", StringComparison.OrdinalIgnoreCase))
             {
                 // If not, no overrides can be applied. Just return the base config.
+                ExpandReferencesWithOverrides(finalConfig);
                 return finalConfig.ToObject<SubtitleGeneratorConfig>(rs_serializer);
             }
 
@@ -215,7 +216,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
             }
 
-            // 7. Deserialize the final JObject into a config object.
+            // 7. The '$ref' with other properties are replaced by a copy of their object, with these properties merged in it.
+            try
+            {
+                ExpandReferencesWithOverrides(finalConfig);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error in the merged configuration for '{lastFullPath}': {ex.Message}", ex);
+            }
+
+            // 8. Deserialize the final JObject into a config object.
             var finalConfigText = finalConfig.ToString();
             try
             {
@@ -320,9 +331,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
                 else if (baseProp != null && userProp.Value is JObject userObject && baseProp.Value is JObject baseObject)
                 {
-                    // --- Recursive Object Merge ---
-                    // This property is an object, so we continue the merge recursively, passing the updated path.
-                    MergeConfigs(baseObject, userObject, newPath);
+                    if (IsAnotherObject(baseObject, userObject))
+                    {
+                        // --- Object Replaced ---
+                        // The override points to another object (another '$ref', or another '$type'): its properties replace the
+                        // whole object (the properties of the old one would not apply to it).
+                        var baseId = baseObject.Property("$id");
+                        if (baseId != null)
+                        {
+                            throw new Exception(
+                                $"'{string.Join(".", newPath)}' defines the object '$id': '{baseId.Value}' (it can be used elsewhere with a '$ref'): " +
+                                "it can't be replaced by another '$ref' or '$type'. Change its properties instead, or define it in 'SharedObjects'.");
+                        }
+                        baseProp.Value = userObject;
+                    }
+                    else
+                    {
+                        // --- Recursive Object Merge ---
+                        // This property is an object, so we continue the merge recursively, passing the updated path.
+                        MergeConfigs(baseObject, userObject, newPath);
+                    }
                 }
                 else
                 {
@@ -339,6 +367,97 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// True when the override is another object than the base, and replaces it instead of being merged in it:
+        /// another '$ref', a '$ref' over an object defined in place (or the reverse), or another '$type'.
+        /// The same '$ref' (ex. { "$ref": "X", "Runs": 3 } then { "Runs": 4 }) or no '$ref' / '$type' in the override: merged.
+        /// </summary>
+        private static bool IsAnotherObject(JObject baseObject, JObject userObject)
+        {
+            var userRef = (string)userObject["$ref"];
+            var baseRef = (string)baseObject["$ref"];
+            if (userRef != null)
+                return !string.Equals(userRef, baseRef, StringComparison.Ordinal);
+
+            var userType = (string)userObject["$type"];
+            if (userType != null)
+                return baseRef != null || !string.Equals(userType, (string)baseObject["$type"], StringComparison.Ordinal);
+
+            return false;
+        }
+
+        /// <summary>
+        /// A '$ref' with other properties (ex. "Engine": { "$ref": "TimingRefineEngineSpokenMarkers", "Runs": 3 }): replaced by a copy of
+        /// the object it points to, with these properties merged in it (same rules as an override file). The shared object itself is not
+        /// changed (the other '$ref' to it are not affected). Done once, after all the override files are merged, so the copy has the final
+        /// values of the shared object. (Newtonsoft.Json refuses a '$ref' with other properties.)
+        /// </summary>
+        private static void ExpandReferencesWithOverrides(JObject root)
+        {
+            var definitions = root.DescendantsAndSelf()
+                .OfType<JObject>()
+                .Where(o => o.Property("$id")?.Value.Type == JTokenType.String)
+                .GroupBy(o => (string)o["$id"], StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+            ExpandReferencesWithOverrides(root, definitions, new List<string>(), new List<string>());
+        }
+
+        private static void ExpandReferencesWithOverrides(
+            JToken token,
+            Dictionary<string, List<JObject>> definitions,
+            List<string> path,
+            List<string> expanding)
+        {
+            if (token is JArray array)
+            {
+                // (the items of an array have the path of the array, like in MergeArraysByKey)
+                foreach (var item in array.ToList())
+                    ExpandReferencesWithOverrides(item, definitions, path, expanding);
+                return;
+            }
+            if (!(token is JObject obj))
+                return;
+
+            var referenceProp = obj.Property("$ref");
+            var overrides = obj.Properties().Where(p => p.Name != "$ref").ToList();
+            if (referenceProp != null && overrides.Count > 0)
+            {
+                var id = (string)referenceProp.Value;
+                var where = path.Count == 0 ? "(root)" : string.Join(".", path);
+                if (id == null)
+                    throw new Exception($"'{where}': '$ref' must be the name of an object ('$id').");
+                if (expanding.Contains(id, StringComparer.Ordinal))
+                    throw new Exception($"'{where}': the object '{id}' contains a '$ref' to itself with other properties ({string.Join(" -> ", expanding.Append(id))}).");
+                if (!definitions.TryGetValue(id, out var candidates))
+                    throw new Exception($"'{where}': '$ref' to '{id}' with other properties, but no object has '$id': '{id}'.");
+                if (candidates.Count > 1)
+                    throw new Exception($"'{where}': '$ref' to '{id}' with other properties, but {candidates.Count} objects have '$id': '{id}'.");
+
+                // A copy of the shared object (without any '$id': they are defined once, by the original), then the properties given with the '$ref'
+                var expanded = (JObject)candidates[0].DeepClone();
+                foreach (var idProp in expanded.DescendantsAndSelf().OfType<JObject>().Select(o => o.Property("$id")).Where(p => p != null).ToList())
+                    idProp.Remove();
+                MergeConfigs(expanded, new JObject(overrides.Select(p => new JProperty(p.Name, p.Value.DeepClone()))), path);
+
+                // ('$type' must be the first property, to be read as the type of the object)
+                var typeProp = expanded.Property("$type");
+                if (typeProp != null && expanded.Properties().First() != typeProp)
+                {
+                    typeProp.Remove();
+                    expanded.AddFirst(typeProp);
+                }
+
+                obj.Replace(expanded);
+                expanding.Add(id);
+                ExpandReferencesWithOverrides(expanded, definitions, path, expanding);
+                expanding.RemoveAt(expanding.Count - 1);
+                return;
+            }
+
+            foreach (var prop in obj.Properties().ToList())
+                ExpandReferencesWithOverrides(prop.Value, definitions, new List<string>(path) { prop.Name }, expanding);
         }
 
         /// <summary>

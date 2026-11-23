@@ -3,6 +3,12 @@ using System.Dynamic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
+    /// <summary>
+    /// Changes merged into the request body of the engine, for one task. The changes go in 'RequestBodyExtension'
+    /// (ex. "EngineConfigOverride": { "RequestBodyExtension": { "generationConfig": { ... } } }): any other property is a configuration
+    /// error (a property put directly under "EngineConfigOverride" would otherwise be silently ignored).
+    /// </summary>
+    [JsonObject(MissingMemberHandling = MissingMemberHandling.Error)]
     public class AIEngineConfigOverride
     {
         public ExpandoObject RequestBodyExtension { get; set; }

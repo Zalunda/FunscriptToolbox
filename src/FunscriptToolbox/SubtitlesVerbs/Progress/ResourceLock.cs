@@ -244,7 +244,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         /// <param name="description">What will be done while holding the lock.</param>
         /// <param name="cancellable">If true, the user can cancel the wait with the node's cancel button (throws <see cref="UserStoppedWorkerException"/>).</param>
-        public IDisposable Acquire(string description, bool cancellable = false)
+        /// <param name="cancellationToken">Ends the wait (throws <see cref="OperationCanceledException"/>), ex. for a background work stopped by the user.</param>
+        public IDisposable Acquire(string description, bool cancellable = false, CancellationToken cancellationToken = default)
         {
             var owned = r_ownedByFlow.Value;
             if (owned != null)
@@ -299,6 +300,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                         {
                             throw new UserStoppedWorkerException();
                         }
+                        cancellationToken.ThrowIfCancellationRequested();
                     }
                 }
                 finally
@@ -470,7 +472,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             var enc = Get("ENC", DefaultVideoEncodingConcurrency);
             this.VideoEncoding = new ResourceLock(
                 "video encoding (ffmpeg)", "ENC",
-                $"ffmpeg creating a whole video (ex. the light '.FAST.mp4' of a part, for the Timing editor). {AtATime(enc)}",
+                $"ffmpeg creating a whole video (ex. the light '.FAST.mp4' of a part, for the Review editor). {AtATime(enc)}",
                 maxConcurrent: enc);
         }
 

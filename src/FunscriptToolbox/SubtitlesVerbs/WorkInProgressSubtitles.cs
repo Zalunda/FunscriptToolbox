@@ -112,6 +112,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public string FormatVersion { get; set; } = CURRENT_FORMAT_VERSION;
 
+        /// <summary>
+        /// 'Pause scene' in the web UI, remembered: the scene pauses at its first safe point each time it's loaded (also after a restart
+        /// of the application), until 'Resume scene'. (not written when false)
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool IsOnHold { get; set; }
+
         public TimelineMap TimelineMap { get; set; }
         public List<AudioExtraction> AudioExtractions { get; set; }
         public List<Transcription> Transcriptions { get; set; }

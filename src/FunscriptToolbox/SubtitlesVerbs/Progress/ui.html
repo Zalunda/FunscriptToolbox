@@ -43,6 +43,7 @@
   .sd.blocked { background: var(--block); } .sd.stopped { background: var(--skip); } .sd.failed { background: var(--err); } .sd.finished { background: var(--ok); }
   .sd.untouched { background: transparent; border: 1.5px solid var(--ok); }
   .sd.inactive { background: transparent; border: 1.5px dashed var(--skip); }
+  .sd.onhold { background: transparent; border: 1.5px solid var(--wait); }
   .spacer { flex: 1; }
   .caps { display: flex; gap: 6px; flex-wrap: wrap; }
   .cap { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 6px; background: var(--chip-bg); font-size: 11px; color: var(--muted); white-space: nowrap; cursor: default; }
@@ -573,12 +574,13 @@
   var heldBy = {}, waitBy = {};         // nodeId -> [lock]: the locks held / waited by each task
 
   // The states of a scene (in the order of the sections)
-  var STATES = ["needs", "running", "waiting", "blocked", "stopped", "failed", "finished", "untouched", "inactive"];
-  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched", inactive: "inactive" };
+  var STATES = ["needs", "running", "waiting", "onhold", "blocked", "stopped", "failed", "finished", "untouched", "inactive"];
+  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", onhold: "on hold", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched", inactive: "inactive" };
   var TIPS = {
-    needs: "A prompt, a dialog or a review (Timing editor) is waiting for you",
+    needs: "A prompt, a dialog or a review (Review editor) is waiting for you",
     running: "Working right now",
     waiting: "Waiting for a shared resource (lock), or not started yet",
+    onhold: "Paused by you ('Pause scene'): saved in its .wipsubtitles, still paused after a restart, until 'Resume scene'",
     blocked: "Done for now, but a worker can't run yet (something it needs is missing)",
     stopped: "Stopped by you",
     failed: "Ended with an error",
@@ -686,8 +688,12 @@
   }
 
   // ---- State of a scene ----
+  // 'Pause scene' (on hold: saved in its .wipsubtitles)
+  function isHeld(r) { return (state.pausedScenes || []).indexOf(r.name) >= 0; }
   function sceneState(r) {
     if (r.inactive) return "inactive";                                  // no enabled worker: not started
+    // (on hold: when it's paused at its safe point, or not running anymore; until then, it's still working)
+    if (isHeld(r) && (terminal[r.state] || r.state === "Pending" || fgLeaf(r).state === "WaitingForLock")) return "onhold";
     if (r.state === "Pending") return "waiting";                       // not started yet
     if (!terminal[r.state]) {
       if (r.state === "WaitingForUser" || anyDesc(r, function (k) { return k.state === "WaitingForUser"; })) return "needs";
@@ -766,6 +772,11 @@
           '<button class="mini" data-cancel="' + n.id + '" data-mode="undo" title="Undo: the worker continues after this request">Undo</button>';
       else if (n.canStopAfter)
         after = '<button class="mini" data-cancel="' + n.id + '" data-mode="after" title="Let this request finish (its response is saved), then stop the worker. Nothing is wasted: it continues from there on the next run (Retry or Rescan).">Stop after this request</button>';
+      // A choice of the user, besides 'Stop' (ex. 'No more title cards': the rest is skipped, the work continues without it)
+      if (n.skipRequested)
+        after += '<span class="tag stopping" title="' + esc(n.skipHint || "") + '">' + esc(n.skipLabel || "skipping") + '…</span>';
+      else if (n.skipLabel)
+        after += '<button class="mini" data-cancel="' + n.id + '" data-mode="skip" data-confirm="' + esc(n.skipHint || "") + '" title="' + esc(n.skipHint || "") + '">' + esc(n.skipLabel) + '</button>';
       return after + '<button class="danger mini" data-cancel="' + n.id + '" data-mode="now"' +
         (n.stopWarning ? ' data-warning="' + esc(n.stopWarning) + '"' : "") +
         ' title="' + esc(n.cancelHint) + '">' + (n.canStopAfter ? "Stop now!" : "Stop") + '</button>';
@@ -867,7 +878,7 @@
     if (x.st === "needs" && actionWorker) {
       var action = actionWorker.userAction, button = "";
       if (action.indexOf("timing:") === 0)
-        button = '<button class="mini primary" data-useraction="' + esc(action) + '" data-root="' + r.id + '" title="' + esc(actionWorker.reason || "") + '">&#9201; Review timings</button>';
+        button = '<button class="mini primary" data-useraction="' + esc(action) + '" data-root="' + r.id + '" title="' + esc(actionWorker.reason || "") + '">&#9998; Review</button>';
       return {
         key: r.id, cls: "run" + sel, title: sceneTip(r),
         html: '<div class="rh"><span class="sd needs"></span>' + nameHtml(r) + errors + button +
@@ -1045,7 +1056,7 @@
   function blockedWorkers() {
     var out = [];
     state.roots.forEach(function (r) {
-      if (r.kind === "General" || !terminal[r.state]) return;
+      if (r.kind === "General" || !terminal[r.state] || isHeld(r)) return;   // (on hold: for later)
       var first = kids(r).filter(function (k) { return k.kind === "Worker" && k.state === "Blocked"; })[0];
       if (first) out.push({ scene: r, worker: first });
     });
@@ -1762,12 +1773,15 @@
       ? '<button class="mini" data-retry="' + r.id + '" title="Starts this scene again (its configuration is read again). What is already done is not done again, but what failed can send new AI requests.">&#8635; Retry this scene</button>'
       : "";
     // 'Timing': the editor of the timings of the file the user revises (ex. '.manual-input.srt')
-    // 'Pause scene' / 'Resume scene': only this scene, at its next safe point (between two steps / AI requests: what was received is saved)
-    var isPaused = r && (state.pausedScenes || []).indexOf(r.name) >= 0;
-    var pause = r && r.kind !== "General" && (isPaused || !terminal[r.state])
+    // 'Pause scene' / 'Resume scene': only this scene, at its next safe point (between two steps / AI requests: what was received is saved).
+    // Saved in its .wipsubtitles (on hold): still paused when it's loaded again (Rescan, Retry, a restart of the application).
+    // (also for a scene that waits for you or is blocked: put aside for later)
+    var isPaused = r && isHeld(r);
+    var rState = r ? sceneState(r) : null;
+    var pause = r && r.kind !== "General" && (isPaused || !terminal[r.state] || rState === "needs" || rState === "blocked")
       ? (isPaused
-        ? '<button class="mini primary" data-scenepause="0" data-root="' + r.id + '" title="This scene continues">&#9654; Resume scene</button>'
-        : '<button class="mini" data-scenepause="1" data-root="' + r.id + '" title="This scene pauses at its next safe point (between two steps / AI requests: what was received is saved). It stays paused if it\'s started again (Rescan, Retry).">&#9208; Pause scene</button>')
+        ? '<button class="mini primary" data-scenepause="0" data-root="' + r.id + '" title="This scene continues (it\'s not on hold anymore). A scene that is not running anymore: Retry or Rescan starts it again.">&#9654; Resume scene</button>'
+        : '<button class="mini" data-scenepause="1" data-root="' + r.id + '" title="On hold: this scene pauses at its next safe point (between two steps / AI requests: what was received is saved). Saved in its .wipsubtitles: it stays paused when it\'s started again (Rescan, Retry, a restart of the application), until \'Resume scene\'.">&#9208; Pause scene</button>')
       : "";
     var head = '<div class="hl"><div class="path">' + esc(r && r !== n ? sceneName(r) + " > " + detail.path.split(" > ").slice(1).join(" > ") : detail.path) + '</div>' + pause + retry + '</div><div class="sub">' + esc(n.state) +
       (n.startedMs ? ' &middot; started ' + fmtClock(n.startedMs) + ' &middot; ' + elapsedText(n) : '') + (n.reason ? ' &middot; ' + esc(n.reason) : '') + '</div>';
@@ -1901,6 +1915,8 @@
     // 'Stop now' on what may still be billed (ex. an AI request already sent): confirm first
     var warning = e.target.getAttribute("data-warning");
     if (mode === "now" && warning && !confirm("Stop now?\n\n" + warning)) return true;
+    // (a choice of the user that changes the result, ex. 'No more title cards': confirm first)
+    if (mode === "skip" && !confirm(e.target.textContent + "?\n\n" + (e.target.getAttribute("data-confirm") || ""))) return true;
     fetch("/api/cancel/" + cancelId + "?mode=" + encodeURIComponent(mode), { method: "POST" });
     return true;
   }
@@ -1913,7 +1929,7 @@
   });
   $("board").addEventListener("click", function (e) {
     if (onCancelClick(e)) return;
-    // ('Review timings': opens the Timing editor on that review)
+    // ('Review': opens the Review editor on that review)
     var action = e.target.closest ? e.target.closest("[data-useraction]") : null;
     if (action) {
       e.stopPropagation();
@@ -2412,6 +2428,26 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function loadPref(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
   function savePref(key, v) { try { if (v == null) localStorage.removeItem(key); else localStorage.setItem(key, v); } catch (e) { } }
+
+  // The filter of the list (All / finalized / speakers / visual / audio), remembered by scene (its full name): a filter chosen
+  // in a scene is not used for another one ('All' when nothing was chosen for it). Only the scenes where it's not 'All' are kept
+  // (the last MAX_SCENE_FILTERS ones).
+  var MAX_SCENE_FILTERS = 200;
+  function loadSceneFilters() { try { return JSON.parse(loadPref("fstTimingListFilterByScene") || "{}") || {}; } catch (e) { return {}; } }
+  function loadSceneListFilter(sceneName) {
+    // (the old setting, the same for all the scenes: not used anymore)
+    savePref("fstTimingListFilter", null); savePref("fstTimingOnlyTodo", null);
+    var f = loadSceneFilters()[sceneName];
+    return LIST_FILTERS.indexOf(f) >= 0 ? f : "all";
+  }
+  function saveSceneListFilter(sceneName, filter) {
+    var map = loadSceneFilters();
+    delete map[sceneName];   // (re-added at the end: the most recent last)
+    if (filter !== "all") map[sceneName] = filter;
+    var names = Object.keys(map);
+    for (var i = 0; i < names.length - MAX_SCENE_FILTERS; i++) delete map[names[i]];
+    savePref("fstTimingListFilterByScene", JSON.stringify(map));
+  }
   function pad(v) { return v < 10 ? "0" + v : "" + v; }
   function fmt(ms) {
     ms = Math.max(0, Math.round(ms));
@@ -2438,7 +2474,7 @@
     { id: "mergeNext", label: "Merge the selected subtitle with the next one", def: "Shift+M" },
     { id: "split", label: "Split the selected subtitle at the cursor", def: "X" },
     { id: "session", label: "Session: start one (choose what to finalize, for the subtitles of the list, in its order; or free form: all the tools) / end it", def: "Ctrl+Enter" },
-    { id: "sesFinalize", label: "Session (only there: the same key can do something else outside): the edge being finalized (start, then end) is finalized (the loop paused: the edge goes first where it was paused), then the end of the subtitle / the next subtitle to do of the list", def: "LeftShift" },
+    { id: "sesFinalize", label: "Session (only there: the same key can do something else outside): the edge being finalized (start, then end) is finalized (the loop paused: the edge goes first where it was paused), then the end of the subtitle / the next subtitle to do of the list", def: "Tab" },
     { id: "sesPlayAll", label: "Session: the whole subtitle once, from a little before to a little after (a last check), then the loop again", def: "Ctrl" },
     { id: "sesSwitchEdge", label: "Session (start + end): the other edge of the subtitle", def: "E" },
     { id: "sesStartOutFine", label: "Start (in a session: the edge being finalized): a few ms earlier (100 ms, see the session panel)", def: "Q" },
@@ -2620,14 +2656,15 @@
       // The passes (see renderPass): the current one, the kind of review warnings chosen in the tree, the speakers config / list
       pass: loadPref("fstTimingPass") || "timing", issueFilter: null, spk: null, speakers: [],
       // (the filter of the list, see filterMatch; its own order (visual / audio) until a column is clicked)
-      listFilter: LIST_FILTERS.indexOf(loadPref("fstTimingListFilter")) >= 0 ? loadPref("fstTimingListFilter") : loadPref("fstTimingOnlyTodo") === "0" ? "all" : "timing",
+      // (remembered by scene: 'All' for a scene where no other filter was chosen)
+      listFilter: loadSceneListFilter(fullName),
       filterSort: true
     };
     var my = S;
     // (the tabs under the video: closed)
     showTab(null);
     $("te").style.display = "";
-    $("teTitle").textContent = "⏱ Timing · " + name;
+    $("teTitle").textContent = "✎ Review · " + name;
     $("teList").innerHTML = ""; $("tePass").innerHTML = ""; $("teCur").innerHTML = ""; $("teNoVideo").style.display = "none";
     status("Loading...");
     getJson("info").then(function (info) {
@@ -2800,11 +2837,15 @@
     if (!state) return;
     to.push({ subs: snapshot(), sel: S.sel });
     stopAudition();
+    // (a session: the edge being finalized is kept by subtitle (see sessionEdge); the subtitles are new objects after this:
+    //  the edge chosen for the selected one is kept when the same subtitle is selected again)
+    var keptSel = S.sel, keptEdge = S.session && S.session.phase && S.session.phase.sub === S.subs[S.sel] ? S.session.phase.edge : null;
     S.subs = JSON.parse(state.subs);
     // (the padding can have changed since)
     padAll();
     renderList();
     if (state.sel >= 0 && state.sel < S.subs.length) { S.sel = -1; select(state.sel, true); }
+    if (keptEdge && S.sel === keptSel && S.subs[S.sel]) setSessionEdge(keptEdge);
     updateUnsaved();
     if (S.session) renderSession();
     // (the validation can have changed too)
@@ -3477,18 +3518,19 @@
       .split("\n").map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
   }
   function splitNames(v) { return (v || "").split(",").map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; }); }
-  /// For each subtitle: the speakers present (the last {ongoing} with names, up to it) and its speaker
+  /// For each subtitle: the speakers present (the last {ongoing} up to it; an empty one, {OngoingSpeakers} alone = nobody
+  /// from there on, like the next steps read it) and its speaker
   function speakerStates() {
     var cur = [], out = [];
     S.subs.forEach(function (sub) {
-      var names = splitNames(getMeta(sub, S.spk.ongoing));
-      if (names.length) cur = names;
+      var value = getMeta(sub, S.spk.ongoing);
+      if (value != null) cur = splitNames(value);
       out.push({ present: cur, speaker: getMeta(sub, S.spk.speaker) || null });
     });
     return out;
   }
   function presentAt(i) {
-    for (var k = i; k >= 0; k--) { var names = splitNames(getMeta(S.subs[k], S.spk.ongoing)); if (names.length) return names; }
+    for (var k = i; k >= 0; k--) { var value = getMeta(S.subs[k], S.spk.ongoing); if (value != null) return splitNames(value); }
     return [];
   }
   function speakerStateAt(i) { return { present: presentAt(i), speaker: getMeta(S.subs[i], S.spk.speaker) || null }; }
@@ -3659,7 +3701,8 @@
     var sp = S.speakers.filter(function (x) { return sameName(x.name, name); })[0];
     return sp && sp.alias ? sp.alias : name;
   }
-  /// Present from the selected subtitle on: {ongoing:...} on it, only when it's not the same as before it (otherwise: removed from it)
+  /// Present from the selected subtitle on: {ongoing:...} on it, only when it's not the same as before it (otherwise: removed from it).
+  /// Nobody checked: {ongoing} alone (nobody present from this subtitle on).
   function togglePresent(name) {
     var i = S.sel;
     if (!checkSpeakersPass() || !S.subs[i]) return;
@@ -3671,11 +3714,12 @@
       .concat(present.filter(function (x) { return !hasName(speakerNames(), x); }));
     // (each name once)
     next = next.filter(function (x, k) { return !next.slice(0, k).some(function (y) { return sameName(x, y); }); });
-    if (!next.length) { status("At least one speaker must be present (an empty list is ignored by the next steps: they keep the last one).", true); renderPass(); return; }
     var before = i > 0 ? presentAt(i - 1) : [];
     var same = before.length === next.length && before.every(function (x) { return hasName(next, x); });
+    // (nobody: {ongoing} alone, written "" by setMeta)
     if (changeLines(i, function (x) { setMeta(x, S.spk.ongoing, same ? null : next.join(", ")); }))
       status(same ? "#" + (i + 1) + ": the same speakers as before it are present: no {" + S.spk.ongoing + "} needed on it."
+        : !next.length ? "#" + (i + 1) + ": {" + S.spk.ongoing + "}: nobody present (from this subtitle on)."
         : "#" + (i + 1) + ": {" + S.spk.ongoing + ":" + next.join(", ") + "} (from this subtitle on).");
   }
   /// The subtitles that use a speaker (its {speaker}, or in the list of the speakers present)
@@ -3953,7 +3997,7 @@
     if (t.hasAttribute("data-spkcap")) { openCapture(); return; }
     if (t.hasAttribute("data-listfilter")) {
       // (a filter of the list: its own order, until a column is clicked)
-      S.listFilter = t.getAttribute("data-listfilter"); savePref("fstTimingListFilter", S.listFilter);
+      S.listFilter = t.getAttribute("data-listfilter"); saveSceneListFilter(S.sceneName, S.listFilter);
       S.filterSort = true;
       renderList(); restoreSel(); renderPass();
       if (S.rowEls[S.sel]) keepRowInView(S.rowEls[S.sel]);
@@ -4191,7 +4235,8 @@
   function inheritedOngoing(i, name) {
     for (var k = i - 1; k >= 0; k--) {
       var v = getMeta(S.subs[k], name);
-      if (v) return { value: v, from: k };
+      // ({Name} alone, empty: it ends what was before it, nothing is in effect from there on)
+      if (v != null) return v === "" ? null : { value: v, from: k };
     }
     return null;
   }
@@ -4991,10 +5036,11 @@
     if (!ses || !sub) return "start";
     if (!ses.end) return "start";
     if (!ses.start) return "end";
-    if (ses.phase && ses.phase.sel === S.sel) return ses.phase.edge;
+    // (the subtitle itself, not its index: after a delete / a merge, the next one takes the index of the one that was there)
+    if (ses.phase && ses.phase.sub === sub) return ses.phase.edge;
     return !sub.fs || sub.fe ? "start" : "end";
   }
-  function setSessionEdge(edge) { if (S.session) S.session.phase = { sel: S.sel, edge: edge }; }
+  function setSessionEdge(edge) { if (S.session) S.session.phase = { sub: S.subs[S.sel], edge: edge }; }
   /// The pieces ([start ms, end ms], played one after the other) of the loop of the session for the subtitle i, at the edge being finalized:
   /// - the start: from the start (sesRollStartMs before: option sesRollStart, a checkbox of the panel), sesEdgeMs of the subtitle;
   /// - the end: from sesEdgeMs before the end, to the end (sesRollEndMs after: option sesRollEnd);
@@ -5144,7 +5190,8 @@
     var at = audition && audition.edge === "session" ? auditionPos() : null, sub = S.subs[S.sel], edge = sessionEdge();
     S.session.paused = true;
     stopAudition();
-    S.session.pausedAt = at == null || !sub ? null : { sel: S.sel, edge: edge, ms: Math.round(at), edgeMs: edge === "start" ? sub.s : sub.e };
+    // (the subtitle itself, not its index: see sessionEdge)
+    S.session.pausedAt = at == null || !sub ? null : { sub: sub, edge: edge, ms: Math.round(at), edgeMs: edge === "start" ? sub.s : sub.e };
     if (at != null) seek(at);
     renderSession();
   }
@@ -5165,7 +5212,7 @@
     // (the place of the cursor: where it was paused, or moved since with the arrows)
     var p = S.session.paused && !isPlaying() ? S.session.pausedAt : null, at = Math.round(curMs());
     S.session.pausedAt = null;
-    if (p && p.sel === i && p.edge === edge && p.edgeMs === (edge === "start" ? sub.s : sub.e) && Math.abs(at - p.edgeMs) > 1) {
+    if (p && p.sub === sub && p.edge === edge && p.edgeMs === (edge === "start" ? sub.s : sub.e) && Math.abs(at - p.edgeMs) > 1) {
       if (!moveEdgeTo(edge, at, "to the cursor (paused)")) return;
     }
     pushUndo();
@@ -5344,7 +5391,7 @@
     // (the settings of the session: in the Settings tab)
     var edge = sessionEdge(), isStart = edge === "start", nudge = settings.sesNudgeMs + " ms";
     var done = sub && (isStart ? sub.fs : sub.fe);
-    var pausedAt = ses.paused && ses.pausedAt && ses.pausedAt.sel === S.sel && ses.pausedAt.edge === edge ? ses.pausedAt : null;
+    var pausedAt = ses.paused && ses.pausedAt && ses.pausedAt.sub === S.subs[S.sel] && ses.pausedAt.edge === edge ? ses.pausedAt : null;
     // (the text, the times: on the waveform)
     host.innerHTML = !sub ? '' :
       '<div class="te-sesrow"><b>#' + (S.sel + 1) + ' ' + (isStart ? "Start" : "End") + (done ? ' <span style="color:var(--ok)">✓</span>' : '') + '</b>' +
@@ -5540,10 +5587,10 @@
     stopAudition();
     S.subs.splice(i, 1);
     // Its {Ongoing...} metadata (ex. the context, the speakers present) are for the subtitles after it too: moved to the next one
-    // (unless it has its own: it replaces them anyway)
+    // (unless it has its own: it replaces them anyway). An empty one too ({OngoingSpeakers} alone: nobody present from there on)
     var moved = [], lost = [];
     propsOf(sub).forEach(function (p) {
-      if (!/^ongoing/i.test(p.name) || !p.value.trim()) return;
+      if (!/^ongoing/i.test(p.name)) return;
       var next = S.subs[i];
       if (!next) lost.push(p.name);
       else if (getMeta(next, p.name) == null) { setMeta(next, p.name, p.value); moved.push(p.name); }
@@ -5938,9 +5985,11 @@
     var action = (S.session && sesKeyMap[combo]) || keyMap[combo];
     if (!action || !S.info) return;
     e.preventDefault(); e.stopPropagation();
+    // (a key held down: the actions of a session are done once, ex. Tab held must not finalize several edges one after the other)
+    if (e.repeat && SESSION_ACTIONS[action]) return;
     run(action);
   }, true);
-  // A modifier alone (pressed and released, nothing else meanwhile): its action (ex. in a session, LeftShift: finalized, Ctrl: the whole subtitle once)
+  // A modifier alone (pressed and released, nothing else meanwhile): its action (ex. in a session, Ctrl: the whole subtitle once)
   document.addEventListener("keyup", function (e) {
     var mc = modCombo(e);
     if (!mc) return;
@@ -5986,7 +6035,7 @@
       esc(keys.sesStartOutFine || "-") + ' / ' + esc(keys.sesStartInFine || "-") + ' move the start, ' + esc(keys.sesEndInFine || "-") + ' / ' + esc(keys.sesEndOutFine || "-") + ' the end.</div>' +
       '<div class="note"><b>Above the list</b>: how many are finalized; "only the ones to finalize" = the list shows only the subtitles whose timing is not validated (in a session: the ones with something to finalize in it; not checked: all of them). "next to do" goes from one to the other (the number of a subtitle is green when its start and its end are finalized). Next time, the editor starts at the first one to do. ' +
       '<b>Review warnings</b>: the [REVIEW:Code:Detail] lines of the preparer, by kind (tree): checked one by one (they become [CHECKED:...]). ' +
-      '<b>Speakers</b>: the list of the speakers; the checkboxes = who is present from the selected subtitle on ({OngoingSpeakers}, added only where it changes); a name = the speaker of the selected subtitle ({Speaker}). A deleted subtitle gives its {Ongoing...} metadata to the next one.</div>' +
+      '<b>Speakers</b>: the list of the speakers; the checkboxes = who is present from the selected subtitle on ({OngoingSpeakers}, added only where it changes; nobody checked: {OngoingSpeakers} alone, nobody present); a name = the speaker of the selected subtitle ({Speaker}). A deleted subtitle gives its {Ongoing...} metadata to the next one.</div>' +
       '<div class="note">The bar under the waveform: the whole scene, its subtitles <span style="color:' + esc(colors.ok) + '">&#9632; validated</span> <span style="color:' + esc(colors.warn) + '">&#9632; start or end finalized</span> <span style="color:' + esc(colors.accent) + '">&#9632; to do</span> (click: go there).</div>';
   }
   $("teHelp").addEventListener("click", function (e) {

@@ -243,11 +243,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
                 else if (method == "POST" && path.StartsWith("/api/cancel/"))
                 {
-                    // (?mode=now|after|undo: 'Stop now', 'Stop after this request', undo 'Stop after this request')
+                    // (?mode=now|after|undo|skip: 'Stop now', 'Stop after this request', undo 'Stop after this request',
+                    //  the 'skip' button of a task, see ITaskNode.SetSkippable)
                     var mode = context.Request.QueryString["mode"];
-                    if (mode != "now" && mode != "after" && mode != "undo")
+                    if (mode != "now" && mode != "after" && mode != "undo" && mode != "skip")
                     {
-                        WriteResponse(context, 400, "text/plain", "Missing or unknown 'mode' (now, after or undo).");
+                        WriteResponse(context, 400, "text/plain", "Missing or unknown 'mode' (now, after, undo or skip).");
                     }
                     else
                     {
@@ -333,7 +334,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             var editor = sceneId >= 0 ? r_output.GetTimingEditor(sceneId) : null;
             if (editor == null)
             {
-                WriteResponse(context, 404, "text/plain", "Unknown scene, or no timing editor for it (yet).");
+                WriteResponse(context, 404, "text/plain", "Unknown scene, or no Review editor for it (yet).");
                 return;
             }
             var what = rest.Substring(slash + 1);
@@ -406,7 +407,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 else if (method == "GET" && what == "audio.wav")
                 {
                     var (samplingRate, pcm) = editor.GetAudio(q["audio"]);
-                    var header = CreateWavHeader(samplingRate, pcm.Length);
+                    var header = AudioExtractions.PcmAudio.CreateWavHeader(samplingRate, pcm.Length);
                     WriteRanged(context, "audio/wav", header.Length + pcm.LongLength, (position, buffer, count) =>
                     {
                         // (the header, then the samples)
@@ -425,7 +426,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     var start = Math.Min(pcm.LongLength, 2 * (long)(Seconds("s").TotalSeconds * samplingRate));
                     var end = Math.Min(pcm.LongLength, 2 * (long)(Seconds("e").TotalSeconds * samplingRate));
                     var length = (int)Math.Max(0, Math.Min(end - start, 2L * samplingRate * 60));   // (at most a minute)
-                    var header = CreateWavHeader(samplingRate, length);
+                    var header = AudioExtractions.PcmAudio.CreateWavHeader(samplingRate, length);
                     var bytes = new byte[header.Length + length];
                     Array.Copy(header, bytes, header.Length);
                     Array.Copy(pcm, start, bytes, header.Length, length);
@@ -466,27 +467,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             {
                 WriteResponse(context, 400, "text/plain", ex.Message);
             }
-        }
-
-        private static byte[] CreateWavHeader(int samplingRate, int dataLength)
-        {
-            // (mono, 16 bits)
-            using var stream = new MemoryStream();
-            using var writer = new BinaryWriter(stream);
-            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
-            writer.Write(36 + dataLength);
-            writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
-            writer.Write(16);
-            writer.Write((short)1);                 // PCM
-            writer.Write((short)1);                 // mono
-            writer.Write(samplingRate);
-            writer.Write(samplingRate * 2);         // bytes per second
-            writer.Write((short)2);                 // bytes per sample
-            writer.Write((short)16);                // bits per sample
-            writer.Write(Encoding.ASCII.GetBytes("data"));
-            writer.Write(dataLength);
-            writer.Flush();
-            return stream.ToArray();
         }
 
         /// <summary>

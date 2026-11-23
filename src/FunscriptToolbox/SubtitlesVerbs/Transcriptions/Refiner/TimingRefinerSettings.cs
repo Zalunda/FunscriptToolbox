@@ -35,7 +35,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>
         /// How the timings snapped on the terrain are refined (the cost in AI tokens): TimingRefineEngineNone (nothing more, no AI),
         /// TimingRefineEngineVerify (one request per subtitle: does the clip contain the text?), TimingRefineEngineStartEndJudge
-        /// (the AI picks the best Start, then the best End, among the options of the terrain). Required when Enabled.
+        /// (the AI picks the best Start, then the best End, among the options of the terrain), TimingRefineEngineSpokenMarkers
+        /// (markers spoken in the audio at the options of the terrain, the AI transcribes them around the line). Required when Enabled.
         /// </summary>
         [JsonProperty(Order = 10)]
         public TimingRefineEngine Engine { get; set; }
@@ -54,7 +55,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 throw new InvalidOperationException("RefineTiming is enabled but 'SourceAudioIdForTerrain' is not set.");
             if (this.Engine == null)
                 throw new InvalidOperationException(
-                    "RefineTiming is enabled but 'Engine' is not set (ex. { \"$ref\": \"TimingRefineEngineNone\" }, TimingRefineEngineVerify or TimingRefineEngineStartEndJudge).");
+                    "RefineTiming is enabled but 'Engine' is not set (ex. { \"$ref\": \"TimingRefineEngineNone\" }, TimingRefineEngineVerify, TimingRefineEngineStartEndJudge or TimingRefineEngineSpokenMarkers).");
             this.Engine.Validate();
         }
     }

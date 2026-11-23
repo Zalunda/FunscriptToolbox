@@ -42,7 +42,6 @@
       "^(?<Type>\\d+-[^\\\\]+)\\\\"
     ],
     "SceneDisplayName": "{ShortName}[ ({Type})]",
-
   },
 
   "SharedObjects": [
@@ -317,7 +316,7 @@
       "$type": "AIEngineAPIGoogle",
       "$id": "AIEngineGemini4OnGoogle",
       "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-      "Model": "gemini-4-argon",
+      "Model": "gemini-4-neon",
       "APIKeyName": "APIKeyGemini",
       // [OPTION] Set BatchMode to false to remove wait time (but without the cost saving).
       "UseBatchMode": true,
@@ -354,8 +353,8 @@
       "SupportAudio": true,
       "SupportImage": true,
 
-      "EstimatedCostPerInputMillionTokens": 2,
-      "EstimatedCostPerOutputMillionTokens": 10,
+      "EstimatedCostPerInputMillionTokens": 3,
+      "EstimatedCostPerOutputMillionTokens": 15,
       "PauseBeforeSendingRequest": false,
       "PauseBeforeSavingResponse": false,
     },
@@ -363,14 +362,14 @@
       "$type": "AIEngineAPIPoe",
       "$id": "AIEngineGemini4OnPoe",
       "BaseAddress": "https://api.poe.com/v1",
-      "Model": "gemini-4-argon",
+      "Model": "gemini-4-neon",
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": true,
       "SupportImage": true,
 
       // For Poe, it's hard to compute. I just put the number from the vendor.
-      "EstimatedCostPerInputMillionTokens": 2,
-      "EstimatedCostPerOutputMillionTokens": 10,
+      "EstimatedCostPerInputMillionTokens": 3,
+      "EstimatedCostPerOutputMillionTokens": 15,
     },
     {
       "$type": "AIEngineCollection",

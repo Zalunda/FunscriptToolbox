@@ -48,6 +48,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public List<ValidationNote> ValidationNotes { get; set; } = new List<ValidationNote>();
         public List<string> Traces { get; set; } = new List<string>();
 
+        /// <summary>
+        /// The confidence of the engine in the final timing (0 = surely wrong .. 1 = surely right), null when the engine gives none.
+        /// Written as a '[TimingConfidence:0.42] reason' line in the manual-input file (the 'Conf.' column of the Timing editor).
+        /// </summary>
+        public double? TimingConfidence { get; set; }
+
+        /// <summary>Why <see cref="TimingConfidence"/> has its value (one line).</summary>
+        public string TimingConfidenceReason { get; set; }
+
         public void LockAll()
         {
             Start.Locked = true;

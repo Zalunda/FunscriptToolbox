@@ -76,11 +76,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         GetData = (section, timing, _, __) =>
                         {
                             context.DefaultProgressUpdateHandler("ffmpeg", $"{timing.StartTime}", $"Generating .wav for {timing.StartTime} to {timing.EndTime}");
-                            var tempWavFile = PathExtension.GetTempFileName(".wav");
                             var snippet = fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime);
-                            context.FfmpegHelper.ConvertPcmAudioToOtherFormat(snippet, tempWavFile, workload: FfmpegWorkload.Clip);
-
-                            var audioBytes = File.ReadAllBytes(tempWavFile);
+                            var audioBytes = snippet.ToWavBytes();
                             var data = new[]
                             {
                                 new AIRequestPartAudio(
@@ -90,7 +87,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     snippet.Duration,
                                     timing.StartTime)
                             };
-                            File.Delete(tempWavFile);
 
                             if (this.KeepTemporaryFiles)
                                 context.CreateVerboseBinaryFile($"{transcription.Id}_{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav", audioBytes, processStartTime);
@@ -138,6 +134,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         requestNumber++,
                         chunkTiming,
                         binaryDataExtractors));
+                // A pause asked while the chunk was being prepared: it waits here, before the request is sent.
+                context.PauseIfClosing();
                 AIResponse response;
                 // (the name of the transcription is already the name of the parent task)
                 using (var requestNode = context.BeginTask("AI request", chunkName))

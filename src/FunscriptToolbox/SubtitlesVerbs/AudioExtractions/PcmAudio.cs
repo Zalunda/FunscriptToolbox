@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
@@ -118,6 +119,38 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                 peaks[i] = maxAbs;
             }
             return peaks;
+        }
+
+        /// <summary>The audio as a .wav file (the samples as they are, after a 44-bytes header: mono, 16 bits, at its sampling rate). No ffmpeg needed.</summary>
+        public byte[] ToWavBytes()
+        {
+            var data = this.Data;
+            var header = CreateWavHeader(this.SamplingRate, data.Length);
+            var bytes = new byte[header.Length + data.Length];
+            Array.Copy(header, bytes, header.Length);
+            Array.Copy(data, 0, bytes, header.Length, data.Length);
+            return bytes;
+        }
+
+        /// <summary>The header of a .wav file of PCM samples (mono, 16 bits), followed by 'dataLength' bytes of samples.</summary>
+        public static byte[] CreateWavHeader(int samplingRate, int dataLength)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+            writer.Write(36 + dataLength);
+            writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+            writer.Write(16);
+            writer.Write((short)1);                                     // PCM
+            writer.Write((short)1);                                     // mono
+            writer.Write(samplingRate);
+            writer.Write(samplingRate * NbBytesPerSamples);             // bytes per second
+            writer.Write((short)NbBytesPerSamples);                     // bytes per sample
+            writer.Write((short)(NbBytesPerSamples * 8));               // bits per sample
+            writer.Write(Encoding.ASCII.GetBytes("data"));
+            writer.Write(dataLength);
+            writer.Flush();
+            return stream.ToArray();
         }
 
         private static TimeSpan IndexToTimeSpan(int index, int samplingRate) => TimeSpan.FromSeconds((double)index / samplingRate / NbBytesPerSamples);

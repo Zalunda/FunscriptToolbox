@@ -104,6 +104,22 @@ When `OngoingSpeakers` lists more than one character or multiple speakers intera
 
 _______________________________________=",
     },
+    {
+      // The prompt of the timing refine engine 'TimingRefineEngineSpokenMarkers' (manual-input-preparer: RefineTiming.Engine):
+      // with several speakers in a node, the AI must bracket all of them (tested on TMAVR-269: without this, it sometimes
+      // bracketed only the first speaker, and the End cut the second one).
+      "$id": "TimingSpokenMarkersSystemPrompt",
+      "TextAfter": "
+=_______________________________________
+
+# MULTI-SPEAKER ADDENDUM
+
+When `OriginalText` has several lines starting with `- `, several women speak in this node (one line per speaker). Their lines can follow each other or overlap (spoken at the same time).
+- Write ONE « where the FIRST of these speakers starts and ONE » where the LAST of them stops: the whole node is between them, all the speakers included.
+- Transcribe what each speaker says, in the order you hear it (when they talk at the same time, write one after the other). The markers stay exactly where you hear them, even when one speaker is talking while a marker is heard.
+- Background murmurs (うん, あー) or giggles of other women that are not in `OriginalText` are not part of the line: leave them outside « and ».
+_______________________________________=",
+    },
   ],
   "Workers": [
     {

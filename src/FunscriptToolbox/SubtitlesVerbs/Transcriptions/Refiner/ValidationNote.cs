@@ -15,6 +15,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         NoAnswer,
         UnrecognisedAnswer,
 
+        /// <summary>The engine is not sure of the Start (TimingRefineEngineSpokenMarkers: the runs did not all give the same marker, tight; or a single run).</summary>
+        UnsureStart,
+
+        /// <summary>The engine is not sure of the End (same as UnsureStart, or the End was capped by the next Start).</summary>
+        UnsureEnd,
+
         // Checks done on the final result (thresholds in TimingChecksSettings)
         NoSpeechInside,
         TooShort,

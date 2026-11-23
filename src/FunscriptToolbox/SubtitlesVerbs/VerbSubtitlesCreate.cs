@@ -508,6 +508,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     }
 
+                    // 'Pause scene' / 'Resume scene' (button of a scene in the page): saved in the .wipsubtitles of the scene, so it's still on hold
+                    // when it's loaded again (Retry, Rescan, a restart of the application). Also for a scene that is not running anymore.
+                    for (var change = webOutput.ConsumeScenePauseChange(); change != null; change = webOutput.ConsumeScenePauseChange())
+                    {
+                        var (pauseNodeId, isPaused) = change.Value;
+                        var scene = scenes.FirstOrDefault(s => webOutput.GetNodeId(s.Node) == pauseNodeId);
+                        var wip = scene?.Context.WIP;
+                        if (wip == null || wip.IsOnHold == isPaused)
+                            continue; // (its .wipsubtitles is not loaded yet: saved when it's loaded; or nothing to change)
+                        try
+                        {
+                            wip.IsOnHold = isPaused;
+                            wip.Save();
+                        }
+                        catch (Exception ex)
+                        {
+                            output.WriteError($"Can't save the 'on hold' state of '{GetDisplayName(scene.Sequence)}' in its .wipsubtitles: {ex.Message}");
+                        }
+                    }
+
                     // Final report (also on the console: the web page has it in the 'General' log)
                     // (the full report goes in the log file; the page shows it in 'What went wrong' / 'What's next':
                     // the console only gets a summary)
@@ -820,6 +840,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         context.WriteInfo($"{nbRemoved} old copy(ies) of an alias ({string.Join(", ", aliasIds)}) removed from the .wipsubtitles.");
                     context.ChangeCurrentFile(config, wipsub);
                     UpdateWipSubFileIfNeeded(context);
+
+                    // 'Pause scene' is remembered in the .wipsubtitles (on hold): paused again, it waits at its first safe point.
+                    // (paused before its .wipsubtitles was loaded, ex. just after a 'Retry': saved now)
+                    if (context.SceneNodeId is int sceneNodeId)
+                    {
+                        if (wipsub.IsOnHold)
+                        {
+                            context.Output.SetScenePaused(sceneNodeId, true);
+                        }
+                        else if (context.Output.IsScenePaused(sceneNodeId))
+                        {
+                            wipsub.IsOnHold = true;
+                            wipsub.Save();
+                        }
+                    }
                 });
 
                 if (context.Config.Workers != null)

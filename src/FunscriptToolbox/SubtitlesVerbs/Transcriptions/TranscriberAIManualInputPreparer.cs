@@ -7,6 +7,7 @@ using FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -158,19 +159,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             using var waitingForBackground = silent ? null : LockPriority.ForegroundWaitingForBackground();
             lock (m_paddedClipLock)
             {
-                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{clip.Start}", $"Generating padded .wav for {clip.Start} to {clip.End} (+{clip.TotalDuration - (clip.End - clip.Start):ss\\.fff}s of silence)");
+                if (!silent) context.DefaultProgressUpdateHandler("ffmpeg", $"{clip.Start}", clip.Inserts.Count > 0
+                    ? $"Generating the .wav for {clip.Start} to {clip.End} with {clip.Inserts.Count} spoken markers"
+                    : $"Generating padded .wav for {clip.Start} to {clip.End} (+{clip.TotalDuration - (clip.End - clip.Start):ss\\.fff}s of silence)");
 
-                var pieces = clip.LeadingPieces
-                    .Concat(new[] { (From: clip.Start, To: clip.End) })
-                    .Concat(clip.TrailingPieces)
-                    .Select(p => pcm.ExtractSnippet(p.From, p.To))
-                    .ToList();
-                var joined = new PcmAudio(pieces);
+                // [silence before] + [Start, End] (with the spoken markers inserted, if any) + [silence after]
+                var joined = SpokenMarkers.BuildClipAudio(pcm, clip);
 
-                var tempWavFile = PathExtension.GetTempFileName(".wav");
-                context.FfmpegHelper.ConvertPcmAudioToOtherFormat(joined, tempWavFile, workload: FfmpegWorkload.Clip);
-                var bytes = File.ReadAllBytes(tempWavFile);
-                File.Delete(tempWavFile);
+                var bytes = joined.ToWavBytes();
 
                 // To listen to what the AI hears (the silence spliced in front / after included).
                 // Named <video>_<field>_padded_<original start of the subtitle>_<start of the clip>_<option>, so the files of a
@@ -373,6 +369,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             public bool Done;
 
+            /// <summary>
+            /// 'No more title cards' (a choice of the user): Done without being scanned after ProcessedUntil (considered to have no title card there).
+            /// </summary>
+            public bool SkippedByUser;
+
             /// <summary>The cards found, in the time of the video.</summary>
             public List<TitleCardSegment> Segments = new List<TitleCardSegment>();
         }
@@ -391,8 +392,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             /// <summary>The length of the whole timeline.</summary>
             public TimeSpan Total;
 
-            /// <summary>True when the user stopped the detection (what is after Processed is not scanned).</summary>
+            /// <summary>
+            /// True when the user stopped the detection ('Stop'): the worker stops, the detection continues from where it stopped at the next run.
+            /// </summary>
             public volatile bool StoppedByUser;
+
+            /// <summary>
+            /// True when the user chose 'No more title cards': what is after Processed is considered to have no title card (also in the next runs).
+            /// </summary>
+            public volatile bool SkippedByUser;
+
+            /// <summary>True while the detection waits for the lock 'VID' (the step that waits for the detection is shown as waiting too).</summary>
+            public volatile bool IsWaitingForLock;
 
             /// <summary>How far the detection went in the whole timeline.</summary>
             public TimeSpan Processed => TimeSpan.FromTicks(Interlocked.Read(ref m_processedTicks));
@@ -463,7 +474,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     var foundCards = await DetectTitleCardsAsync();
                     if (ct.IsCancellationRequested)
-                        backgroundNode.SetState(TaskState.Skipped, run.StoppedByUser ? "stopped by the user" : "stopped");
+                        backgroundNode.SetState(TaskState.Skipped,
+                            run.StoppedByUser ? "stopped by the user (it continues at the next run)"
+                            : run.SkippedByUser ? "'No more title cards' (the rest is not scanned)"
+                            : "stopped");
                     return foundCards;
                 }
                 catch (Exception ex)
@@ -481,29 +495,62 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             async Task<List<TitleCardSegment>> DetectTitleCardsAsync()
             {
                 var cards = new List<TitleCardSegment>();
-                foreach (var timelineSegment in timelineSegments)
+                // The lock 'VID' (reading the original video: limited like the other ffmpeg work on the video, when several videos are
+                // processed in parallel): taken for the first part to scan, kept until the last one. Once a scene has started its
+                // detection, it finishes all its parts before another scene can start (the scenes don't take the lock from each other
+                // between two parts, and none is left half done, waiting).
+                IDisposable videoLock = null;
+                // 'No more title cards' (a choice of the user): the parts after it are done without being scanned
+                var isRestSkipped = false;
+                try
                 {
-                    // What the background thread changes in the job state is changed while no save is in progress
-                    TitleCardProgress progress = null;
-                    context.WIP.ExecuteLocked(() =>
+                    foreach (var timelineSegment in timelineSegments)
                     {
-                        if (!jobState.TitleCards.TryGetValue(timelineSegment.Filename, out progress) || progress.OptionsSignature != signature)
+                        // What the background thread changes in the job state is changed while no save is in progress
+                        TitleCardProgress progress = null;
+                        context.WIP.ExecuteLocked(() =>
                         {
-                            progress = new TitleCardProgress { OptionsSignature = signature };
-                            jobState.TitleCards[timelineSegment.Filename] = progress;
-                        }
-                    });
-
-                    // Resuming: the progress shown starts from where the previous run stopped
-                    run.Report(timelineSegment.Offset + progress.ProcessedUntil, cards.Count + progress.Segments.Count);
-
-                    if (!progress.Done)
-                    {
-                        try
-                        {
-                            // Reads the original video: limited like the other ffmpeg work on the video, when several videos are processed in parallel.
-                            using (context.Locks.VideoSource.Acquire("title card detection (ffmpeg)"))
+                            if (!jobState.TitleCards.TryGetValue(timelineSegment.Filename, out progress) || progress.OptionsSignature != signature)
                             {
+                                progress = new TitleCardProgress { OptionsSignature = signature };
+                                jobState.TitleCards[timelineSegment.Filename] = progress;
+                            }
+                        });
+
+                        // Resuming: the progress shown starts from where the previous run stopped
+                        run.Report(timelineSegment.Offset + progress.ProcessedUntil, cards.Count + progress.Segments.Count);
+
+                        if (isRestSkipped && !progress.Done)
+                        {
+                            context.WIP.ExecuteLocked(() =>
+                            {
+                                progress.Done = true;
+                                progress.SkippedByUser = true;
+                            });
+                        }
+
+                        if (!progress.Done)
+                        {
+                            try
+                            {
+                                if (videoLock == null)
+                                {
+                                    var nbParts = timelineSegments.Count();
+                                    run.IsWaitingForLock = true;
+                                    try
+                                    {
+                                        // (the wait ends when the user stops / skips the detection meanwhile)
+                                        videoLock = context.Locks.VideoSource.Acquire(nbParts > 1
+                                            ? $"title card detection of the {nbParts} parts (ffmpeg)"
+                                            : "title card detection (ffmpeg)",
+                                            cancellationToken: ct);
+                                    }
+                                    finally
+                                    {
+                                        run.IsWaitingForLock = false;
+                                    }
+                                }
+
                                 await detector.DetectAsync(
                                     Path.Combine(parentPath, timelineSegment.Filename),
                                     progress.ProcessedUntil,
@@ -518,19 +565,34 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                     },
                                     ct,
                                     scannedUntil => run.ReportScanned(timelineSegment.Offset + scannedUntil));
+                                context.WIP.ExecuteLocked(() => progress.Done = true);
                             }
-                            context.WIP.ExecuteLocked(() => progress.Done = true);
+                            catch (OperationCanceledException) when (ct.IsCancellationRequested && run.SkippedByUser && !run.StoppedByUser)
+                            {
+                                // 'No more title cards' (a choice of the user): what was found so far is kept, the rest of this part and
+                                // the next parts are done without title cards (in the job state: not scanned again in the next runs)
+                                context.WIP.ExecuteLocked(() =>
+                                {
+                                    progress.Done = true;
+                                    progress.SkippedByUser = true;
+                                });
+                                isRestSkipped = true;
+                            }
+                            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                            {
+                                // Stopped: what was found so far is kept (and in the job state: the next run resumes from there)
+                                cards.AddRange(ToTimeline(progress.Segments, timelineSegment.Offset));
+                                break;
+                            }
                         }
-                        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                        {
-                            // Stopped: what was found so far is kept (and in the job state: the next run resumes from there)
-                            cards.AddRange(ToTimeline(progress.Segments, timelineSegment.Offset));
-                            break;
-                        }
-                    }
 
-                    cards.AddRange(ToTimeline(progress.Segments, timelineSegment.Offset));
-                    run.Report(timelineSegment.Offset + timelineSegment.Duration, cards.Count);
+                        cards.AddRange(ToTimeline(progress.Segments, timelineSegment.Offset));
+                        run.Report(timelineSegment.Offset + timelineSegment.Duration, cards.Count);
+                    }
+                }
+                finally
+                {
+                    videoLock?.Dispose();
                 }
                 return cards;
             }
@@ -553,15 +615,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             if (!run.Task.IsCompleted)
             {
-                context.WriteInfo("  Waiting for the title card detection to finish (it can be stopped with the Stop button of the task: the manual-input file will then have no title card for the part that was not scanned)...");
+                context.WriteInfo("  Waiting for the title card detection to finish ('Stop': the worker stops, the detection continues at the next run; " +
+                    "'No more title cards': the rest of the scene is considered to have no title card, and the work continues)...");
 
                 var lastSave = DateTime.Now;
-                TaskScope.Current.SetCancellable("Stop the title card detection (the manual-input file will have no title card for the part that was not scanned).");
+                // Two buttons: 'Stop' (the worker stops, nothing is decided: the detection continues where it stopped at the next run,
+                // Retry or Rescan) and 'No more title cards' (a choice of the user: the rest is not scanned, now or in the next runs).
+                TaskScope.Current.SetCancellable("Stop the title card detection: the worker stops, and the detection continues where it stopped at the next run (Retry or Rescan).");
+                TaskScope.Current.SetSkippable(
+                    "No more title cards",
+                    "The title card detection stops here, as your choice: the title cards found so far are kept, the rest of the scene is " +
+                    "considered to have none (it's not scanned again in the next runs), and the work continues.");
+                // While the detection (in the background) waits for the lock 'VID', this step is shown as waiting too: nothing is done
+                // for the scene meanwhile (the web UI shows the scene in 'waiting', not in 'running').
+                var isShownWaiting = false;
                 while (!run.Task.IsCompleted)
                 {
+                    if (run.IsWaitingForLock != isShownWaiting)
+                    {
+                        isShownWaiting = run.IsWaitingForLock;
+                        if (isShownWaiting)
+                            TaskScope.Current.SetState(TaskState.WaitingForLock,
+                                $"waiting for the title card detection, which waits for '{context.Locks.VideoSource.Name}' (used by: {context.Locks.VideoSource.CurrentHolderDescription ?? "?"})");
+                        else
+                            TaskScope.Current.SetState(TaskState.Running);
+                    }
+
                     var scanned = run.Scanned;
                     var percent = run.Total > TimeSpan.Zero ? 100.0 * scanned.Ticks / run.Total.Ticks : 0;
-                    var stopText = run.StoppedByUser ? " Stopping..." : string.Empty;
+                    var stopText = run.StoppedByUser ? " Stopping..." : run.SkippedByUser ? " No more title cards: stopping..." : string.Empty;
                     context.DefaultProgressUpdateHandler(
                         "TitleCardDetector",
                         null,
@@ -572,6 +654,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         run.StoppedByUser = true;
                         run.Cancellation.Cancel();
                     }
+                    else if (TaskScope.Current.IsSkipRequested && !run.SkippedByUser && !run.StoppedByUser)
+                    {
+                        run.SkippedByUser = true;
+                        run.Cancellation.Cancel();
+                    }
 
                     if (DateTime.Now - lastSave > TimeSpan.FromSeconds(30))
                     {
@@ -580,16 +667,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     }
                     Task.WaitAny(new Task[] { run.Task }, TimeSpan.FromMilliseconds(250));
                 }
+                if (isShownWaiting)
+                    TaskScope.Current.SetState(TaskState.Running);
                 context.ClearProgressUpdate();
                 TaskScope.Current.SetCancellable(null);
+                TaskScope.Current.SetSkippable(null, null);
             }
 
             var cards = run.Task.GetAwaiter().GetResult() // throws what went wrong in the detection
                 .Where(c => IsIncludedInTest(c.StartTime, c.EndTime)) // (test mode: the cards outside of the test are left out)
                 .ToList();
+
+            if (run.StoppedByUser)
+            {
+                // 'Stop': nothing is decided, the worker stops (the answers of the AI and what the detection did are kept: the next run
+                // continues the detection where it stopped)
+                context.WIP.Save();
+                throw new UserStoppedWorkerException($"Title card detection stopped by the user at {run.Processed:hh\\:mm\\:ss}: it continues there at the next run.");
+            }
+
             refiner.SpliceTitleCards(cards.Select(c => (c.StartTime, c.EndTime)));
-            context.WriteInfo(run.StoppedByUser
-                ? $"  Title cards: {cards.Count} detected (stopped at {run.Processed:hh\\:mm\\:ss}: none after that)."
+            context.WriteInfo(run.SkippedByUser
+                ? $"  Title cards: {cards.Count} detected ('No more title cards' at {run.Processed:hh\\:mm\\:ss}: none after that, as chosen by the user)."
                 : $"  Title cards: {cards.Count} detected.");
         }
 
@@ -1100,7 +1199,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     sb.AppendLine(note.ToReviewLine());
             }
 
-            if (this.IncludeTraceInVoiceTextForManualReviewAlways || (this.IncludeTraceInVoiceTextForManualReviewOnError && sb.Length > 0))
+            // The confidence of the engine in the timing (the 'Conf.' column of the Timing editor): not a finding, so not only when NeedsReview
+            bool hasConfidence = candidate.TimingConfidence.HasValue;
+            if (hasConfidence)
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "[TimingConfidence:{0:0.00}] {1}",
+                    candidate.TimingConfidence.Value, (candidate.TimingConfidenceReason ?? "").Replace("\r", " ").Replace("\n", " ")).TrimEnd());
+
+            if (this.IncludeTraceInVoiceTextForManualReviewAlways || (this.IncludeTraceInVoiceTextForManualReviewOnError && sb.Length > 0 && (candidate.NeedsReview || !hasConfidence)))
             {
                 sb.AppendLine("[TRACES]");
                 foreach (var trace in candidate.Traces)

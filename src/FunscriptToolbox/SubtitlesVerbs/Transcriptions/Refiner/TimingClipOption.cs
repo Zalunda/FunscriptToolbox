@@ -25,16 +25,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>Audio put AFTER [Start, End] (in order): silence for the AI to finish hearing (see TimingRefinerSettings.EndClipPadding).</summary>
         public List<(TimeSpan From, TimeSpan To)> TrailingPieces { get; } = new List<(TimeSpan From, TimeSpan To)>();
 
-        public bool HasPadding => LeadingPieces.Count > 0 || TrailingPieces.Count > 0;
+        /// <summary>
+        /// Spoken markers INSERTED in [Start, End] (the audio after each one is pushed later, nothing is overwritten), in time order:
+        /// see <see cref="SpokenMarkers"/> and <see cref="TimingRefineEngineSpokenMarkers"/>.
+        /// </summary>
+        public List<TimingClipInsert> Inserts { get; } = new List<TimingClipInsert>();
 
-        /// <summary>The length of the audio really sent (the padding included).</summary>
+        /// <summary>The clip is not the plain [Start, End] of the audio: it is built from pieces (silence before / after, spoken markers inside).</summary>
+        public bool HasPadding => LeadingPieces.Count > 0 || TrailingPieces.Count > 0 || Inserts.Count > 0;
+
+        /// <summary>The length of the audio really sent (the padding and the spoken markers included).</summary>
         public TimeSpan TotalDuration => (End - Start)
             + LeadingPieces.Aggregate(TimeSpan.Zero, (sum, p) => sum + (p.To - p.From))
-            + TrailingPieces.Aggregate(TimeSpan.Zero, (sum, p) => sum + (p.To - p.From));
+            + TrailingPieces.Aggregate(TimeSpan.Zero, (sum, p) => sum + (p.To - p.From))
+            + Inserts.Aggregate(TimeSpan.Zero, (sum, i) => sum + SpokenMarkers.DurationOf(i.Label));
 
-        /// <summary>Empty without padding. Part of the cache key: the same [Start, End] with another padding is another audio.</summary>
+        /// <summary>Empty without padding / markers. Part of the cache key: the same [Start, End] with another padding or other markers is another audio.</summary>
         public string PaddingSignature =>
             string.Concat(LeadingPieces.Select(p => $"<{p.From:hh\\:mm\\:ss\\.fff}-{p.To:hh\\:mm\\:ss\\.fff}"))
-            + string.Concat(TrailingPieces.Select(p => $">{p.From:hh\\:mm\\:ss\\.fff}-{p.To:hh\\:mm\\:ss\\.fff}"));
+            + string.Concat(TrailingPieces.Select(p => $">{p.From:hh\\:mm\\:ss\\.fff}-{p.To:hh\\:mm\\:ss\\.fff}"))
+            + string.Concat(Inserts.Select(i => $"+{i.Label}@{i.At:hh\\:mm\\:ss\\.fff}"));
+    }
+
+    /// <summary>A spoken marker inserted in a clip: its label (a word of <see cref="SpokenMarkers.Labels"/>) at a time of the audio.</summary>
+    public class TimingClipInsert
+    {
+        public TimeSpan At { get; set; }
+        public string Label { get; set; }
     }
 }

@@ -17,6 +17,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             (ValidationCode.BoundariesCrossed,  "Boundaries Crossed"),
             (ValidationCode.NoAnswer,           "No Answer from the AI"),
             (ValidationCode.UnrecognisedAnswer, "Unrecognised Answer"),
+            (ValidationCode.UnsureStart,        "Unsure Start (runs disagree)"),
+            (ValidationCode.UnsureEnd,          "Unsure End (runs disagree / capped)"),
             (ValidationCode.NoSpeechInside,     "No Speech Inside"),
             (ValidationCode.TooShort,           "Too Short"),
             (ValidationCode.TooFast,            "Too Fast (chars/s)"),
