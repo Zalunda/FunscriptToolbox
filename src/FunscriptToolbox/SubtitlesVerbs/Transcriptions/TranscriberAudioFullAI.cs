@@ -111,12 +111,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             while (nextStartTime < fullPcmAudio.EndTime)
             {
                 // (safe point: the previous chunk is saved)
-                // 'Stop after this request' (button of the previous request): the worker stops here.
+                // A 'Stop now' that came too late (ex. the batch had already finished, its response is kept): the worker stops here.
                 if (isStopAfterRequested)
                 {
                     throw new UserStoppedWorkerException("Stopped after the request, as asked by the user.");
                 }
                 // When the application is closing, no new request is sent.
+                // (also 'Pause scene', and 'Pause after this request' on the previous request, which is the same: it waits here)
                 context.PauseIfClosing();
 
                 var chunkStartTime = nextStartTime;
@@ -141,7 +142,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 using (var requestNode = context.BeginTask("AI request", chunkName))
                 {
                     requestNode.SetCancellable(AIEngineAPI.StopNowHint);
-                    requestNode.SetStopAfterSupported();
+                    requestNode.SetPauseAfterSupported();
                     requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
                     try
                     {

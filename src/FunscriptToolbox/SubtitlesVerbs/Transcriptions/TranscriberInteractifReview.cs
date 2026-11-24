@@ -30,17 +30,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public TimeSpan StartTime { get; set; }
             public TimeSpan EndTime { get; set; }
             public string[] Lines { get; set; }
-            /// <summary>The start / the end of its timing is finalized by the user (each one on its own, see the Timing editor).</summary>
-            public bool StartFinalized { get; set; }
-            public bool EndFinalized { get; set; }
+            /// <summary>Its timing (the whole subtitle: its start and its end) is finalized by the user, see the Review editor.</summary>
+            public bool Finalized { get; set; }
+            /// <summary>
+            /// The user chose / confirmed its speaker in the Review editor: a speaker to confirm (ex. {Speaker:Multiple}, from the AI) is to do
+            /// until then. Only in the review: nothing in the file.
+            /// </summary>
+            public bool SpeakerConfirmed { get; set; }
 
-            /// <summary>The whole timing is validated: its start and its end are finalized.</summary>
-            [JsonIgnore]
-            public bool TimingValidated => this.StartFinalized && this.EndFinalized;
-
-            /// <summary>Read from the reviews saved before the start / the end were finalized on their own: validated = both are finalized.</summary>
+            /// <summary>Read from the reviews saved before the timing was finalized as a whole.</summary>
             [JsonProperty("TimingValidated")]
-            private bool LegacyTimingValidated { set { if (value) this.StartFinalized = this.EndFinalized = true; } }
+            private bool LegacyTimingValidated { set { if (value) this.Finalized = true; } }
+
+            /// <summary>Read from the reviews saved when the start / the end were finalized on their own: finalized = both were.</summary>
+            [JsonProperty("StartFinalized")]
+            private bool LegacyStartFinalized { set { m_legacyStart = value; this.Finalized = m_legacyStart && m_legacyEnd; } }
+            [JsonProperty("EndFinalized")]
+            private bool LegacyEndFinalized { set { m_legacyEnd = value; this.Finalized = m_legacyStart && m_legacyEnd; } }
+            private bool m_legacyStart;
+            private bool m_legacyEnd;
         }
 
         /// <summary>A speaker of the list of the Timing editor: its name (in the metadata), an alias (shorter, only shown in the editor)
@@ -90,6 +98,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             /// (visible, with the focus, and the user did something in the last minute, or it's playing).
             /// </summary>
             public TimeSpan ActiveTime { get; set; }
+            /// <summary>
+            /// The parts of the scene that the user listened to, to validate the gaps (the parts without subtitle, see the Timing editor: a gap is
+            /// validated when it's inside one of them). Sorted, not overlapping. Kept as parts of the scene, not by gap: a gap that grows
+            /// (ex. a subtitle shortened) is to do again only for its new part.
+            /// </summary>
+            public List<ReviewTimeRange> ValidatedGaps { get; set; } = new List<ReviewTimeRange>();
+        }
+
+        /// <summary>A part of the scene (in the time of the whole scene).</summary>
+        public class ReviewTimeRange
+        {
+            public TimeSpan Start { get; set; }
+            public TimeSpan End { get; set; }
         }
 
         private const string ToolName = "InteractifReview";
@@ -152,6 +173,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         internal JobState GetJobState(WorkInProgressSubtitles wip)
             => wip.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId)?.CurrentJobState as JobState;
+
+        protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)
+        {
+            foreach (var line in base.GetAdditionalStatusLines(context))
+            {
+                yield return line;
+            }
+
+            // (the time of the user in the Review editor: from the job state, or from the cost added when the review was done)
+            TimeSpan? activeTime = null;
+            context.WIP.ExecuteLocked(() =>
+            {
+                var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+                activeTime = (transcription?.CurrentJobState as JobState)?.ActiveTime
+                    ?? transcription?.Costs.FirstOrDefault(c => c.EngineIdentifier == ToolName)?.TimeTaken;
+            });
+            if (activeTime != null)
+            {
+                yield return $"Review time = {(int)activeTime.Value.TotalHours}:{activeTime.Value:mm\\:ss} of active work in the Review editor";
+            }
+        }
 
         /// <summary>What the web UI offers to the user while the review is not done (see ITaskNode.SetUserAction).</summary>
         private string UserAction => $"timing:{this.TranscriptionId}";
@@ -256,8 +298,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             StartTime = s.StartTime,
                             EndTime = s.EndTime,
                             Lines = SplitLines(s.Lines),
-                            StartFinalized = isValidated,
-                            EndFinalized = isValidated
+                            Finalized = isValidated
                         };
                     }).ToList()
                 };
@@ -417,7 +458,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
             // (how long the review took: in the first subtitle, as a text line, not a metadata)
             var activeTime = jobState.ActiveTime;
-            var reviewTimeLine = $"(Review: {(int)activeTime.TotalHours}:{activeTime:mm\\:ss} of active work in the Review editor, {items.Length} subtitles, {items.Count(i => i.TimingValidated)} with the timing validated)";
+            var reviewTimeLine = $"(Review: {(int)activeTime.TotalHours}:{activeTime:mm\\:ss} of active work in the Review editor, {items.Length} subtitles, {items.Count(i => i.Finalized)} with the timing validated)";
 
             // (the speaker of the subtitles where only one speaker is present: written, see GetImplicitSpeakers)
             var implicitSpeakers = GetImplicitSpeakers(items);
@@ -448,7 +489,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             else
             {
                 file.Save(context.WIP.ParentPath, this.FileSuffix, context.SoftDelete);
-                context.WriteInfo($"  '{this.FileSuffix}' written ({items.Length} subtitles, {items.Count(i => i.TimingValidated)} with the timing validated).");
+                context.WriteInfo($"  '{this.FileSuffix}' written ({items.Length} subtitles, {items.Count(i => i.Finalized)} with the timing validated).");
             }
 
             context.WIP.ExecuteLocked(() =>

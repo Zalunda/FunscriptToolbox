@@ -11,7 +11,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public Language Language { get; }
         [JsonProperty(Order = 11)]
         public bool HasStoppedOnFirstExecution { get; set; } = false;
+        /// <summary>(a job state that can't be read anymore, ex. its class changed since: read as null, see TolerantJobStateConverter)</summary>
         [JsonProperty(Order = 12, TypeNameHandling = TypeNameHandling.Auto)]
+        [JsonConverter(typeof(TolerantJobStateConverter))]
         public object CurrentJobState { get; set; }
 
         public Transcription(

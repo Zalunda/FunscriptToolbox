@@ -26,7 +26,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         };
 
         private readonly WebUiOutput r_output;
-        private readonly HttpListener r_listener = new HttpListener();
+        /// <summary>A new one when the first start is refused (a listener that failed to start can't be started again).</summary>
+        private HttpListener m_listener = new HttpListener();
+        /// <summary>The locks 'VID' / 'ENC' held by the Review editors open in a browser.</summary>
+        private readonly ReviewLockLeases r_reviewLeases;
         private Thread m_thread;
 
         public int Port { get; }
@@ -51,24 +54,53 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 throw new ArgumentException($"Invalid host '{host}' for --runasserver (ex. 'localhost:5055', '*:5055', a name or an address of this machine).");
 
             r_output = output;
+            r_reviewLeases = new ReviewLockLeases(output.Locks);
             Port = port;
             Host = host ?? "localhost";
         }
 
         public void Start()
         {
-            r_listener.Prefixes.Add(ListenUrl);
             try
             {
-                r_listener.Start();
+                StartListener();
             }
-            catch (HttpListenerException ex) when (ex.ErrorCode == 5 && IsReachableFromNetwork)
+            catch (HttpListenerException ex) when (ex.ErrorCode == 5 && IsReachableFromNetwork && OperatingSystem.IsWindows())
             {
-                // Access denied: on Windows, listening on the network needs an URL reservation (once, as administrator)
-                throw new Exception(
-                    $"Can't start the web UI on '{ListenUrl}': access denied. To allow it, run this once in a command prompt opened as administrator:\n"
-                    + $"    netsh http add urlacl url={ListenUrl} user=\"{Environment.UserDomainName}\\{Environment.UserName}\"\n"
-                    + $"(and allow the port {Port} in the firewall, for the other machines)", ex);
+                // Access denied: on Windows, listening on the network needs an URL reservation (once, as administrator).
+                // Windows is asked for it (UAC prompt), with a firewall rule for the port, then it's started again.
+                var manualCommands =
+                    $"    {UrlReservationCommand}\n"
+                    + $"    {FirewallRuleCommand}\n";
+                string refusal;
+                try
+                {
+                    refusal = AddUrlReservationAsAdministrator();
+                }
+                catch (Exception ex2)
+                {
+                    refusal = ex2.Message;
+                }
+                if (refusal != null)
+                {
+                    throw new Exception(
+                        $"Can't start the web UI on '{ListenUrl}': access denied, and the URL reservation couldn't be added ({refusal}).\n"
+                        + "To allow it, run this once in a command prompt opened as administrator:\n"
+                        + manualCommands, ex);
+                }
+
+                try
+                {
+                    m_listener = new HttpListener();
+                    StartListener();
+                }
+                catch (HttpListenerException ex3)
+                {
+                    throw new Exception(
+                        $"Can't start the web UI on '{ListenUrl}', even after adding the URL reservation: {ex3.Message}\n"
+                        + "To allow it, run this once in a command prompt opened as administrator:\n"
+                        + manualCommands, ex3);
+                }
             }
             catch (HttpListenerException ex)
             {
@@ -77,6 +109,61 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
             m_thread = new Thread(Loop) { IsBackground = true, Name = "WebUiServer" };
             m_thread.Start();
+        }
+
+        private void StartListener()
+        {
+            m_listener.Prefixes.Add(ListenUrl);
+            m_listener.Start();
+        }
+
+        private string FirewallRuleName => $"FunscriptToolbox {Port}";
+
+        /// <summary>The URL reservation that allows this user to listen on the network (on Windows).</summary>
+        private string UrlReservationCommand => $"netsh http add urlacl url={ListenUrl} user=\"{Environment.UserDomainName}\\{Environment.UserName}\"";
+
+        /// <summary>The firewall rule that lets the other machines of the local network (only) open the page.</summary>
+        private string FirewallRuleCommand => $"netsh advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow protocol=TCP localport={Port} remoteip=localsubnet";
+
+        /// <summary>
+        /// Adds the URL reservation and the firewall rule (replacing the previous one with the same name), in one process run as administrator:
+        /// Windows asks the user (UAC prompt). Returns null when done, otherwise why not (ex. refused by the user).
+        /// </summary>
+        private string AddUrlReservationAsAdministrator()
+        {
+            Console.WriteLine($"The web UI needs a URL reservation to be reachable from the network ('{ListenUrl}'): asking Windows for it (administrator)...");
+            var commands = string.Join(" & ",
+                UrlReservationCommand,
+                $"netsh advfirewall firewall delete rule name=\"{FirewallRuleName}\" >nul",
+                FirewallRuleCommand);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                // /s: only the first and the last quotes are removed, the ones of the commands are kept
+                Arguments = $"/s /c \"{commands}\"",
+                Verb = "runas",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            try
+            {
+                using (var process = Process.Start(startInfo))
+                {
+                    if (process == null)
+                        return "the command couldn't be started";
+                    if (!process.WaitForExit(60000))
+                        return "the command didn't end after 60 seconds";
+                    // (the exit code is the one of the firewall rule, the last command: the reservation is checked by starting again)
+                    if (process.ExitCode != 0)
+                        Console.WriteLine($"Warning: the firewall rule '{FirewallRuleName}' couldn't be added (exit code {process.ExitCode}): the other machines may not reach the page.");
+                }
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                return "refused in the Windows prompt";
+            }
+            Console.WriteLine($"URL reservation and firewall rule '{FirewallRuleName}' added.");
+            return null;
         }
 
         public void OpenBrowser() => OpenBrowser(Url);
@@ -162,12 +249,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         private void Loop()
         {
-            while (r_listener.IsListening)
+            while (m_listener.IsListening)
             {
                 HttpListenerContext context;
                 try
                 {
-                    context = r_listener.GetContext();
+                    context = m_listener.GetContext();
                 }
                 catch (Exception)
                 {
@@ -229,8 +316,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                         && TimeSpan.TryParse(q["e"], System.Globalization.CultureInfo.InvariantCulture, out var end)
                         && !string.IsNullOrEmpty(q["key"]) && !string.IsNullOrEmpty(q["field"]))
                     {
-                        try { image = r_output.GetFlowImage(sceneId, q["key"], q["field"], start, end, q["cached"] == "1"); }
-                        catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't take the screenshot: {ex.Message}"); return; }
+                        // 1. The one in memory or on disk (kept by the run): always, even when a Review editor is open
+                        try { image = r_output.GetFlowImage(sceneId, q["key"], q["field"], start, end, onlyIfAvailable: true); }
+                        catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't read the screenshot: {ex.Message}"); return; }
+                        // 2. Otherwise, taken with ffmpeg (not for 'cached=1')
+                        if (image == null && q["cached"] != "1")
+                        {
+                            // (a Review editor is open: it holds the lock of ffmpeg on the videos, a new screenshot would wait until it's closed)
+                            if (r_reviewLeases.IsHeldByAReview(r_output.Locks.VideoSource))
+                            {
+                                WriteResponse(context, 503, "text/plain", $"Not kept on disk, and a Review editor is open: it holds the lock '{r_output.Locks.VideoSource.ShortName}' (no ffmpeg on the videos meanwhile). Close it to take the screenshot.");
+                                return;
+                            }
+                            try { image = r_output.GetFlowImage(sceneId, q["key"], q["field"], start, end, onlyIfAvailable: false); }
+                            catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't take the screenshot: {ex.Message}"); return; }
+                        }
                     }
                     if (image == null) { WriteResponse(context, 404, "text/plain", "No screenshot for this item."); return; }
                     // (the same item: the same image, the browser can keep it)
@@ -243,12 +343,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
                 else if (method == "POST" && path.StartsWith("/api/cancel/"))
                 {
-                    // (?mode=now|after|undo|skip: 'Stop now', 'Stop after this request', undo 'Stop after this request',
-                    //  the 'skip' button of a task, see ITaskNode.SetSkippable)
+                    // (?mode=now|skip: 'Stop now', the 'skip' button of a task, see ITaskNode.SetSkippable;
+                    //  'Pause after this request' is 'Pause scene': /api/scenepause)
                     var mode = context.Request.QueryString["mode"];
-                    if (mode != "now" && mode != "after" && mode != "undo" && mode != "skip")
+                    if (mode != "now" && mode != "skip")
                     {
-                        WriteResponse(context, 400, "text/plain", "Missing or unknown 'mode' (now, after, undo or skip).");
+                        WriteResponse(context, 400, "text/plain", "Missing or unknown 'mode' (now or skip).");
                     }
                     else
                     {
@@ -320,8 +420,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// - subs?review=&lt;id&gt;           : the subtitles of a review (JSON, 404 when the review hasn't started yet)
         /// - terrain?audio=&lt;id&gt;         : where the sound is (JSON, { computing: true } while it's computed)
         /// - save?review=&lt;id&gt; (POST)    : saves the subtitles of a review (in the .wipsubtitles)
-        /// - finalized?review=&lt;id&gt; (POST) : saves the edges finalized by the user
+        /// - finalized?review=&lt;id&gt; (POST) : saves which subtitles are finalized by the user
         /// - done?review=&lt;id&gt; (POST)    : the review is done (the scene is rescanned: the worker writes the file)
+        /// - gaps?review=&lt;id&gt; (POST)    : saves the parts listened to, to validate the gaps (JSON { ranges: [{ s, e }] }, ms)
+        /// - hold?client=&amp;name= (POST)  : the editor is open: the locks VID / ENC are held (JSON: their state), see ReviewLockLeases
+        /// - release?client= (POST)     : the editor is closed: its locks are released
         /// - peaks?audio=&amp;s=&amp;e=&amp;n=        : the waveform (binary: min / max, signed 16 bits, for each of the n bins)
         /// - audio.wav?audio=           : the whole audio (WAV, with ranges: the browser only reads what it plays)
         /// - snippet.wav?audio=&amp;s=&amp;e=     : a short part of the audio (WAV), ex. to play the start of a subtitle again and again
@@ -331,6 +434,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         {
             var slash = rest.IndexOf('/');
             var sceneId = slash > 0 && int.TryParse(rest.Substring(0, slash), out var id) ? id : -1;
+            // (the locks of an editor: released even when its scene has no editor anymore, ex. it was started again)
+            if (method == "POST" && slash > 0 && rest.Substring(slash + 1) == "release")
+            {
+                r_reviewLeases.Release(context.Request.QueryString["client"]);
+                WriteResponse(context, 200, "text/plain", "OK");
+                return;
+            }
             var editor = sceneId >= 0 ? r_output.GetTimingEditor(sceneId) : null;
             if (editor == null)
             {
@@ -372,9 +482,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                         WriteResponse(context, 409, "text/plain", ex.Message);
                     }
                 }
+                else if (method == "POST" && what == "gaps")
+                {
+                    // body: { ranges: [{ s, e }] }: the parts listened to, to validate the gaps (ms; they replace the ones saved before)
+                    var body = JObject.Parse(ReadBody(context));
+                    editor.SaveValidatedGaps(q["review"], body["ranges"]?.ToObject<TimingEditorRange[]>());
+                    WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && what == "hold")
+                {
+                    // ?client=<id of the page>&name=<scene>: the locks VID / ENC held while the editor is open (called again regularly, see ReviewLockLeases)
+                    WriteJson(context, r_reviewLeases.Hold(q["client"], q["name"]));
+                }
                 else if (method == "POST" && what == "finalized")
                 {
-                    // body: { items: [{ k: "start ms-end ms", s, e }] }: the edges finalized by the user (the subtitles known by their timing as saved)
+                    // body: { items: [{ k: "start ms-end ms", f }] }: the subtitles finalized by the user (known by their timing as saved)
                     var body = JObject.Parse(ReadBody(context));
                     editor.SaveFinalized(q["review"], body["items"]?.ToObject<TimingEditorFinalized[]>());
                     WriteResponse(context, 200, "text/plain", "OK");
@@ -579,7 +701,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         public void Dispose()
         {
-            try { r_listener.Stop(); r_listener.Close(); } catch { }
+            try { m_listener.Stop(); m_listener.Close(); } catch { }
+            r_reviewLeases.Dispose();
         }
     }
 }

@@ -27,9 +27,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         string SaveSubtitles(string reviewId, string stamp, bool force, TimingEditorSubtitle[] subtitles, TimingEditorSpeaker[] speakers);
 
         /// <summary>
-        /// Saves which edges (start / end) of the subtitles are finalized by the user, the subtitles known by their timing as saved ("start ms-end ms").
+        /// Saves which subtitles have their timing finalized by the user, the subtitles known by their timing as saved ("start ms-end ms").
         /// </summary>
         void SaveFinalized(string reviewId, TimingEditorFinalized[] items);
+
+        /// <summary>
+        /// The parts of the scene listened to by the user to validate the gaps (see TranscriberInteractifReview.JobState.ValidatedGaps):
+        /// they replace the ones saved before.
+        /// </summary>
+        void SaveValidatedGaps(string reviewId, TimingEditorRange[] ranges);
 
         /// <summary>Time of active work of the user in the editor, to add to the review (see TranscriberInteractifReview.JobState.ActiveTime).</summary>
         void AddActiveTime(string reviewId, long ms);
@@ -56,17 +62,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public long S { get; set; }
         public long E { get; set; }
         public string[] Lines { get; set; }
-        /// <summary>Its start / its end is finalized by the user (null: not sent, ex. an older page: what was saved for this timing is kept).</summary>
-        public bool? Fs { get; set; }
-        public bool? Fe { get; set; }
+        /// <summary>Its timing is finalized by the user (null: not sent, ex. an older page: what was saved for this timing is kept).</summary>
+        public bool? F { get; set; }
+        /// <summary>Its speaker is chosen / confirmed by the user (null: not sent: what was saved for this timing is kept).</summary>
+        public bool? Sc { get; set; }
     }
 
-    /// <summary>The finalized edges of a subtitle, known by its timing as saved (K = "start ms-end ms").</summary>
+    /// <summary>Whether the timing of a subtitle is finalized, the subtitle known by its timing as saved (K = "start ms-end ms").</summary>
     public class TimingEditorFinalized
     {
         public string K { get; set; }
-        public bool S { get; set; }
-        public bool E { get; set; }
+        public bool F { get; set; }
+    }
+
+    /// <summary>A part of the scene, as sent by the page (times in ms, in the time of the whole scene).</summary>
+    public class TimingEditorRange
+    {
+        public long S { get; set; }
+        public long E { get; set; }
     }
 
     /// <summary>A speaker of the list of the editor (its order is the order of the list: keys 1-9).</summary>

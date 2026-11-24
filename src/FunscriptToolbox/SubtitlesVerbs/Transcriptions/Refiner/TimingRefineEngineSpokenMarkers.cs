@@ -243,6 +243,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             public List<Marker> Markers;
             public readonly List<Reading> Readings = new List<Reading>();
             public bool Decided;
+            /// <summary>The snapped timing (before the runs): where a subtitle placed inside its neighbour goes back to (see RevertInsideNeighbours).</summary>
+            public TimeSpan SnappedStart;
+            public TimeSpan SnappedEnd;
         }
 
         private class MarkersPass : TimingRefinePass
@@ -280,7 +283,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     cand.PossibleBleedFromNext = null;
 
                     var markers = BuildMarkers(cand, i > 0 ? candidates[i - 1] : null, i + 1 < candidates.Count ? candidates[i + 1] : null);
-                    r_states[cand] = new CandidateState { Markers = markers };
+                    r_states[cand] = new CandidateState { Markers = markers, SnappedStart = cand.Start.Current, SnappedEnd = cand.End.Current };
 
                     // The options of each side are its dips (for the summary: how many dips the final boundary is from the snapped one)
                     foreach (var m in markers)
@@ -470,13 +473,28 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 var reasons = new List<string>();
                 var missing = new HashSet<BoundarySide>();
 
+                // A run that heard the whole line outside of its place (its Start at or after the snapped End, and its End after every marker;
+                // or the mirror) found the words somewhere else (ex. the same words in the next line): it says nothing about this line, ignored
+                // (it still counts in 'runs': the confidence is lower)
+                var usable = new List<Reading>();
+                for (int k = 0; k < state.Readings.Count; k++)
+                {
+                    var reading = state.Readings[k];
+                    bool outside = (reading.End.Beyond && reading.Start.Time.HasValue && reading.Start.Time.Value >= state.SnappedEnd)
+                        || (reading.Start.Beyond && reading.End.Time.HasValue && reading.End.Time.Value <= state.SnappedStart);
+                    if (outside)
+                        reasons.Add($"run {k + 1}: the whole line {(reading.End.Beyond ? "after" : "before")} its place (ignored)");
+                    else
+                        usable.Add(reading);
+                }
+
                 foreach (var side in TimingCandidate.Sides)
                 {
                     // A run that heard the line start before every marker (end after every marker) votes for the outermost marker:
                     // the boundary is beyond the options (the snapped boundary is too far inside), flagged MissingStart / MissingEnd
                     var outermost = side == BoundarySide.Start ? state.Markers[0].Time : state.Markers[state.Markers.Count - 1].Time;
-                    int beyond = state.Readings.Count(r => r[side].Beyond);
-                    var times = state.Readings
+                    int beyond = usable.Count(r => r[side].Beyond);
+                    var times = usable
                         .Select(r => r[side].Beyond ? outermost : r[side].Time)
                         .Where(t => t.HasValue).Select(t => t.Value).ToList();
                     if (times.Count == 0)
@@ -491,7 +509,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     cand[side].Current = pick;
                     MarkDipSelected(cand, side, pick);
 
-                    int agree = state.Readings.Count(r => r[side].Time == pick && r[side].Tight);
+                    int agree = usable.Count(r => r[side].Time == pick && r[side].Tight);
                     if (runs == 1)
                     {
                         scores[side] = state.Readings[0][side].Tight ? 0.5 : 0.3;
@@ -527,11 +545,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     // ignored on its own in Validation.Validations, ex. to validate only the Starts). A side without any answer is already NoAnswer.
                     foreach (var side in TimingCandidate.Sides)
                     {
-                        if (scores[side] >= 1.0 || missing.Contains(side) || !state.Readings.Any(r => r[side].Time.HasValue))
+                        if (scores[side] >= 1.0 || missing.Contains(side) || !usable.Any(r => r[side].Time.HasValue))
                             continue;
                         var detail = runs == 1
                             ? "a single run (nothing to cross-check it)"
-                            : $"{state.Readings.Count(r => r[side].Time == cand[side].Current && r[side].Tight)}/{runs} runs agree: " +
+                            : $"{usable.Count(r => r[side].Time == cand[side].Current && r[side].Tight)}/{runs} runs agree: " +
                               string.Join(" | ", state.Readings.Select((r, k) => $"run {k + 1}: {Describe(r[side])}"));
                         this.Refiner.Flag(cand, side == BoundarySide.Start ? ValidationCode.UnsureStart : ValidationCode.UnsureEnd,
                             $"Unsure {side} (spoken markers): {detail}");
@@ -567,6 +585,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 }
 
                 CapEndsByNextStarts();
+                RevertInsideNeighbours();
                 LockUnfinished(this.Refiner, BoundarySide.Start);
                 LockUnfinished(this.Refiner, BoundarySide.End);
             }
@@ -603,6 +622,58 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                     this.Refiner.Flag(cur, ValidationCode.UnsureEnd,
                         $"Unsure End (spoken markers): it was after the next Start ({next.Start.Current:mm\\:ss\\.fff}), moved back to {cap:mm\\:ss\\.fff}");
                 }
+            }
+
+            /// <summary>
+            /// Still overlapping after CapEndsByNextStarts, more than the final clamp fixes (ex. the AI heard the words of a line inside the next
+            /// line: both start at the same place, too short to cap): the one with the lower confidence (same: the first one) goes back to its
+            /// snapped timing, when that doesn't overlap its neighbours (otherwise the other one; neither: left to the final overlap check, flagged
+            /// Overlap). Its confidence is then 0, flagged InsideNeighbour. Only moves timings: it never stops the work.
+            /// </summary>
+            private void RevertInsideNeighbours()
+            {
+                var candidates = this.Refiner.Candidates;
+                for (int i = 0; i < candidates.Count - 1; i++)
+                {
+                    var cur = candidates[i];
+                    var next = candidates[i + 1];
+                    if (cur.End.Current - next.Start.Current <= TimingRefiner.MaxFinalClampOverlap)
+                        continue;
+
+                    var curConf = cur.TimingConfidence ?? 0.0;
+                    var nextConf = next.TimingConfidence ?? 0.0;
+                    var order = nextConf < curConf ? new[] { i + 1, i } : new[] { i, i + 1 };
+                    foreach (var k in order)
+                    {
+                        if (TryRevertToSnapped(candidates, k, k == i ? next : cur))
+                            break;
+                    }
+                }
+            }
+
+            private bool TryRevertToSnapped(IReadOnlyList<TimingCandidate> candidates, int k, TimingCandidate other)
+            {
+                var cand = candidates[k];
+                if (!r_states.TryGetValue(cand, out var state))
+                    return false;
+                var start = state.SnappedStart;
+                var end = state.SnappedEnd;
+                if (end - start < TimingRefiner.MinClipDuration
+                    || (k > 0 && candidates[k - 1].End.Current > start)
+                    || (k + 1 < candidates.Count && candidates[k + 1].Start.Current < end))
+                    return false;
+
+                var prevStart = cand.Start.Current;
+                var prevEnd = cand.End.Current;
+                cand.Start.Current = start;
+                cand.End.Current = end;
+                cand.Trace("Rvrt", prevStart, prevEnd, $"Inside its neighbour ({other.Start.Current:mm\\:ss\\.fff}=>{other.End.Current:mm\\:ss\\.fff}): back to the snapped timing");
+                cand.TimingConfidence = 0.0;
+                cand.TimingConfidenceReason = (cand.TimingConfidenceReason == null ? "" : cand.TimingConfidenceReason + " ") + "(inside its neighbour: back to the snapped timing)";
+                this.Refiner.Flag(cand, ValidationCode.InsideNeighbour,
+                    $"Inside its neighbour (spoken markers): the timing picked ({prevStart:mm\\:ss\\.fff}=>{prevEnd:mm\\:ss\\.fff}) overlapped " +
+                    $"{other.Start.Current:mm\\:ss\\.fff}=>{other.End.Current:mm\\:ss\\.fff}, back to the snapped timing (the same words as the other line? not in the audio?)");
+                return true;
             }
 
             private static TimeSpan TimeSpanMin(TimeSpan a, TimeSpan b) => a < b ? a : b;

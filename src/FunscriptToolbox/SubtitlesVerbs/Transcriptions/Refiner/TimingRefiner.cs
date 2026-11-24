@@ -23,7 +23,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>The shortest clip / subtitle (a boundary never goes closer than this to the other one).</summary>
         internal static readonly TimeSpan MinClipDuration = TimeSpan.FromSeconds(0.05);
         private static readonly TimeSpan MaxSnapDrift = TimeSpan.FromSeconds(1.2);
-        private static readonly TimeSpan MaxFinalClampOverlap = TimeSpan.FromMilliseconds(150);
+        internal static readonly TimeSpan MaxFinalClampOverlap = TimeSpan.FromMilliseconds(150);
 
         // ---------------------------------------------------------------------
         // Settings & state

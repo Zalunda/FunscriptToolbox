@@ -19,6 +19,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             (ValidationCode.UnrecognisedAnswer, "Unrecognised Answer"),
             (ValidationCode.UnsureStart,        "Unsure Start (runs disagree)"),
             (ValidationCode.UnsureEnd,          "Unsure End (runs disagree / capped)"),
+            (ValidationCode.InsideNeighbour,    "Inside its Neighbour (kept as snapped)"),
             (ValidationCode.NoSpeechInside,     "No Speech Inside"),
             (ValidationCode.TooShort,           "Too Short"),
             (ValidationCode.TooFast,            "Too Fast (chars/s)"),

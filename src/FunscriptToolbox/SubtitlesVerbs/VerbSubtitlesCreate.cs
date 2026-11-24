@@ -44,7 +44,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             [Option("background", Required = false, HelpText = "Runs without a console. The application starts itself again, hidden, and this one ends right away: the page is the only way to follow it. If it's already running on this port, it only opens the browser (with --openbrowser) and ends.", Default = false)]
             public bool Background { get; set; }
 
-            [Option("runasserver", Required = false, HelpText = "Runs as a server (the web UI is implied): '<host>[:<port>]', ex. 'localhost:5055' (only this machine) or '*:5055' (the page can be opened from other machines: needs an URL reservation, see the message if it fails, and the firewall). The port can also be given with --ui (default: 5055). The page has no 'Close' button (only 'Pause all'): the application keeps running, 'Rescan' starts the new scenes; stop it by ending its process. Warning: there is no password, use it only on a trusted network.")]
+            [Option("runasserver", Required = false, HelpText = "Runs as a server (the web UI is implied): '<host>[:<port>]', ex. 'localhost:5055' (only this machine) or '*:5055' (the page can be opened from other machines: on Windows, needs an URL reservation and a firewall rule, asked once to Windows with an administrator prompt; if refused, the message gives the commands). The port can also be given with --ui (default: 5055). The page has no 'Close' button (only 'Pause all'): the application keeps running, 'Rescan' starts the new scenes; stop it by ending its process. Warning: there is no password, use it only on a trusted network.")]
             public string RunAsServer { get; set; }
 
             /// <summary>--runasserver is used.</summary>
@@ -874,6 +874,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TaskScope.Current.SetFlowInspector(key => Infra.SceneFlowInspector.Inspect(context, key));
                         // (the number of items of each transcription / translation: in a corner of their box)
                         TaskScope.Current.SetFlowCounter(() => Infra.SceneFlowInspector.CountItems(context));
+                        // (the total cost of the AI of the scene, in $: a pill beside its name)
+                        TaskScope.Current.SetCostProvider(() => Outputs.SubtitleOutputCostReport.GetTotalAICost(context.WIP));
                         // (the screenshot sent to the AI for an item: shown when asked, in the tables of the inspector)
                         TaskScope.Current.SetFlowImageProvider((key, field, start, end, onlyIfAvailable) => Infra.SceneFlowInspector.GetImage(context, key, field, start, end, onlyIfAvailable));
                         // (the 'Timing' editor: to revise the timings of the file imported by the scene, ex. '.manual-input.srt')

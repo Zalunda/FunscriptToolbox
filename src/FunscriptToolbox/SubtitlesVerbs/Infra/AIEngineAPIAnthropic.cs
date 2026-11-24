@@ -225,7 +225,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     while (DateTime.Now - waitStart < waitDuration)
                     {
                         // 'Stop now' button of the task: the batch exists (it has an id), it can be cancelled.
-                        // ('Stop after this request' is handled by the caller, once the response is saved)
+                        // ('Pause after this request' is handled by the caller, once the response is saved)
                         if (context.PollStopRequest())
                         {
                             waitDuration = TimeSpan.Zero;

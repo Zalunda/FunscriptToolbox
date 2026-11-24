@@ -48,12 +48,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 do
                 {
                     // (safe point: the previous responses are saved)
-                    // 'Stop after this request' (button of the previous request): the worker stops here.
+                    // A 'Stop now' that came too late (ex. the batch had already finished, its response is kept): the worker stops here.
                     if (isStopAfterRequested)
                     {
                         throw new UserStoppedWorkerException("Stopped after the request, as asked by the user.");
                     }
                     // When the application is closing, no new request is prepared / sent.
+                    // (also 'Pause scene', and 'Pause after this request' on the previous request, which is the same: it waits here)
                     r_context.PauseIfClosing();
 
                     // Building the nodes of the request (and waiting for their audio clips / screenshots, when they are not ready yet)
@@ -96,7 +97,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 : $"{firstRequest.TaskId}, {firstRequest.UpdateMessage}, batch of {requests.Length} requests"))
                         {
                             requestNode.SetCancellable(AIEngineAPI.StopNowHint);
-                            requestNode.SetStopAfterSupported();
+                            requestNode.SetPauseAfterSupported();
                             requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
                             try
                             {

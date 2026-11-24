@@ -77,6 +77,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
         }
 
+        private static bool IsFallback(Cost c) => c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK))
+            || c.Output.Sections.Keys.Any(k => k.HasFlag(AIResponseSection.FALLBACK));
+        // (no token: not an AI, ex. the time of the user in the Timing editor, or a local tool; except the AI responses without token count)
+        private static bool IsAI(Cost c) => c.Input.Tokens > 0 || c.Output.Tokens > 0 || IsFallback(c);
+        private static double Dollars(IEnumerable<Cost> list) => list.Sum(c => c.Input.EstimatedCost + c.Output.EstimatedCost);
+
+        /// <summary>
+        /// The total cost of the AI of a scene, in $ (the same as the 'Total' of the report: an estimate), or null when there is no AI cost yet.
+        /// (read while the scene can be adding costs, on its own thread: a copy, made while no save is in progress; when a list changes
+        /// during the copy, it throws: the caller shows nothing this time)
+        /// </summary>
+        public static double? GetTotalAICost(WorkInProgressSubtitles wip)
+        {
+            if (wip == null)
+                return null;
+            List<Cost> costs = null;
+            wip.ExecuteLocked(() => costs = (wip.Transcriptions?.ToArray().SelectMany(t => t.Costs.ToArray()) ?? Enumerable.Empty<Cost>())
+                .Concat(wip.Translations?.ToArray().SelectMany(t => t.Costs.ToArray()) ?? Enumerable.Empty<Cost>())
+                .Where(c => c != null && IsAI(c))
+                .ToList());
+            return costs.Count == 0 ? (double?)null : Dollars(costs);
+        }
+
         /// <summary>
         /// A short summary in the log of the task (after a run, and when it's already done): the total, then one line per task
         /// (the details are in the report file).
@@ -92,11 +115,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 yield break;
             }
 
-            static bool IsFallback(Cost c) => c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK))
-                || c.Output.Sections.Keys.Any(k => k.HasFlag(AIResponseSection.FALLBACK));
-            // (no token: not an AI, ex. the time of the user in the Timing editor, or a local tool; except the AI responses without token count)
-            static bool IsAI(Cost c) => c.Input.Tokens > 0 || c.Output.Tokens > 0 || IsFallback(c);
-            static double Dollars(IEnumerable<Cost> list) => list.Sum(c => c.Input.EstimatedCost + c.Output.EstimatedCost);
             static string Time(TimeSpan t) => $"{(int)t.TotalHours}:{t:mm\\:ss}";
             static string Tokens(double n) => n >= 1_000_000 ? $"{n / 1_000_000:0.##}M" : n >= 1_000 ? $"{n / 1_000:0.#}k" : $"{n:0}";
 

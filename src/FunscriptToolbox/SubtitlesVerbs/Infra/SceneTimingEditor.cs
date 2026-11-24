@@ -235,14 +235,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         ? new { speaker = worker.SpeakerMetadata, ongoing = worker.OngoingSpeakersMetadata }
                         : null,
                     speakers = (jobState.Speakers ?? new List<TranscriberInteractifReview.ReviewSpeaker>()).Select(sp => new { name = sp.Name, alias = sp.Alias, image = sp.Image }).ToArray(),
+                    // (the parts listened to, to validate the gaps)
+                    gaps = (jobState.ValidatedGaps ?? new List<TranscriberInteractifReview.ReviewTimeRange>())
+                        .Select(r => new { s = (long)r.Start.TotalMilliseconds, e = (long)r.End.TotalMilliseconds }).ToArray(),
                     subtitles = jobState.Items.OrderBy(i => i.StartTime).Select(i => new
                     {
                         s = (long)i.StartTime.TotalMilliseconds,
                         e = (long)i.EndTime.TotalMilliseconds,
                         lines = i.Lines ?? Array.Empty<string>(),
-                        // (its start / its end finalized by the user)
-                        fs = i.StartFinalized,
-                        fe = i.EndFinalized
+                        // (its timing finalized by the user)
+                        f = i.Finalized,
+                        // (its speaker chosen / confirmed by the user, ex. {Speaker:Multiple} from the AI: to do until then)
+                        sc = i.SpeakerConfirmed
                     }).ToArray()
                 };
             });
@@ -256,6 +260,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             ChangeReview(reviewId, jobState => jobState.ActiveTime += TimeSpan.FromMilliseconds(ms));
         }
 
+        public void SaveValidatedGaps(string reviewId, TimingEditorRange[] ranges)
+        {
+            if (ranges == null)
+                throw new TimingEditorException("No ranges received.");
+            if (ranges.Length > 100000)
+                throw new TimingEditorException($"Too many ranges: {ranges.Length}.");
+            foreach (var r in ranges)
+            {
+                if (r == null || r.S < 0 || r.E <= r.S)
+                    throw new TimingEditorException($"Invalid range: {r?.S}-{r?.E} ms.");
+            }
+            // (sorted, the ones that touch / overlap merged)
+            var merged = new List<TranscriberInteractifReview.ReviewTimeRange>();
+            foreach (var r in ranges.OrderBy(r => r.S))
+            {
+                var last = merged.LastOrDefault();
+                if (last != null && r.S <= (long)last.End.TotalMilliseconds)
+                {
+                    if (r.E > (long)last.End.TotalMilliseconds)
+                        last.End = TimeSpan.FromMilliseconds(r.E);
+                }
+                else
+                {
+                    merged.Add(new TranscriberInteractifReview.ReviewTimeRange { Start = TimeSpan.FromMilliseconds(r.S), End = TimeSpan.FromMilliseconds(r.E) });
+                }
+            }
+            ChangeReview(reviewId, jobState => jobState.ValidatedGaps = merged);
+        }
+
         public void MarkReviewDone(string reviewId)
         {
             ChangeReview(reviewId, jobState => jobState.IsDone = true);
@@ -263,7 +296,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         /// <summary>
         /// What the user finalized: the subtitles known by their timing as saved ("start ms-end ms"). The other subtitles are not changed
-        /// (ex. their timing changed in the page and isn't saved yet: their finalized edges are saved with them, see SaveSubtitles).
+        /// (ex. their timing changed in the page and isn't saved yet: whether they are finalized is saved with them, see SaveSubtitles).
         /// </summary>
         public void SaveFinalized(string reviewId, TimingEditorFinalized[] items)
         {
@@ -277,8 +310,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     if (byKey.TryGetValue(KeyOf(item.StartTime, item.EndTime), out var x))
                     {
-                        item.StartFinalized = x.S;
-                        item.EndFinalized = x.E;
+                        item.Finalized = x.F;
                     }
                 }
                 return true;
@@ -313,8 +345,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (!force && StampOf(jobState) != stamp)
                     throw new TimingEditorConflictException("The review was saved from somewhere else (another page?) since it was loaded in this page.");
 
-                // (the finalized edges come with the subtitles: a finalized edge stays finalized when it's moved;
-                // not sent, ex. an older page: the ones saved for the same timing)
+                // (finalized or not comes with the subtitles: a finalized subtitle stays finalized when it's moved;
+                // not sent, ex. an older page: what was saved for the same timing)
                 var saved = new Dictionary<string, TranscriberInteractifReview.ReviewItem>();
                 foreach (var item in jobState.Items)
                     saved[KeyOf(item.StartTime, item.EndTime)] = item;
@@ -330,8 +362,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                             StartTime = start,
                             EndTime = end,
                             Lines = s.Lines,
-                            StartFinalized = s.Fs ?? before?.StartFinalized ?? false,
-                            EndFinalized = s.Fe ?? before?.EndFinalized ?? false
+                            Finalized = s.F ?? before?.Finalized ?? false,
+                            SpeakerConfirmed = s.Sc ?? before?.SpeakerConfirmed ?? false
                         };
                     })
                     .ToList();

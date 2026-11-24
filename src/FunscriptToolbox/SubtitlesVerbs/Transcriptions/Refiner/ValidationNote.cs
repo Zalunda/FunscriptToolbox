@@ -21,6 +21,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// <summary>The engine is not sure of the End (same as UnsureStart, or the End was capped by the next Start).</summary>
         UnsureEnd,
 
+        /// <summary>
+        /// TimingRefineEngineSpokenMarkers: the timing picked put the subtitle inside its neighbour (ex. the AI heard its words in the next line,
+        /// or the line is not in the audio): it went back to its snapped timing.
+        /// </summary>
+        InsideNeighbour,
+
         // Checks done on the final result (thresholds in TimingChecksSettings)
         NoSpeechInside,
         TooShort,

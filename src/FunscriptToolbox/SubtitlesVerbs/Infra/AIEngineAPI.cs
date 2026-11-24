@@ -142,7 +142,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>'Stop now' on an AI request: shown to the user, to confirm (the engines can change it, ex. a batch still queued: null).</summary>
         internal const string StopNowCostWarning =
             "The request was already sent to the AI: what it already processed may still be billed (the tokens of the request, and what was generated so far), "
-            + "and the response is lost.\n\n'Stop after this request' keeps the response (and its cost) and stops the worker right after.";
+            + "and the response is lost.\n\n'Pause after this request' keeps the response (and its cost) and pauses the scene right after ('Resume scene' to continue).";
 
         /// <summary>The hint of the 'Stop now' button of an AI request.</summary>
         internal const string StopNowHint = "Stops right away: a streaming/normal request is aborted (the response is lost), a batch is cancelled on the server.";

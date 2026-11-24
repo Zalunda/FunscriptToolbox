@@ -291,6 +291,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { ValidationCode.BoundariesCrossed, ValidationMode.Warn },
                                 { ValidationCode.NoAnswer, ValidationMode.Warn },
                                 { ValidationCode.UnrecognisedAnswer, ValidationMode.Warn },
+                                { ValidationCode.InsideNeighbour, ValidationMode.Warn },
                                 { ValidationCode.NoSpeechInside, ValidationMode.Warn },
                                 { ValidationCode.TooShort, ValidationMode.Warn },
                                 { ValidationCode.TooFast, ValidationMode.Warn },

@@ -100,8 +100,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                         }
                         finally
                         {
-                            if (File.Exists(partialPath))
-                                File.Delete(partialPath);
+                            // (an incomplete file that can't be deleted (ex. still open somewhere) doesn't hide why it ended:
+                            //  stopped by the user, ffmpeg failed; it's overwritten the next time)
+                            try
+                            {
+                                if (File.Exists(partialPath))
+                                    File.Delete(partialPath);
+                            }
+                            catch (IOException ex)
+                            {
+                                node.AddLogLine($"Can't delete '{Path.GetFileName(partialPath)}' (it's overwritten the next time): {ex.Message}", ConsoleColor.Yellow);
+                            }
+                            catch (UnauthorizedAccessException ex)
+                            {
+                                node.AddLogLine($"Can't delete '{Path.GetFileName(partialPath)}' (it's overwritten the next time): {ex.Message}", ConsoleColor.Yellow);
+                            }
                         }
                     });
                 }

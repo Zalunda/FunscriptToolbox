@@ -291,7 +291,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                     while (DateTime.Now - waitStart < waitDuration)
                     {
-                        // 'Stop now' button of the task ('Stop after this request' is handled by the caller, once the response is saved)
+                        // 'Stop now' button of the task ('Pause after this request' is handled by the caller, once the response is saved)
                         if (context.PollStopRequest())
                         {
                             var isCurrentlyQueuing = operation?.GetState() != "BATCH_STATE_RUNNING";

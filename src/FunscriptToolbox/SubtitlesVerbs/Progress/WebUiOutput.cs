@@ -408,8 +408,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         }
 
         /// <summary>
-        /// A Stop button of a task: 'now' (right away), 'after' (after this request), 'undo' (undo 'after')
-        /// or 'skip' (the button of ITaskNode.SetSkippable).
+        /// A Stop button of a task: 'now' (right away) or 'skip' (the button of ITaskNode.SetSkippable).
+        /// ('Pause after this request' is 'Pause scene', see SetScenePaused.)
         /// </summary>
         internal bool RequestCancel(int nodeId, string mode)
         {
@@ -419,8 +419,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 switch (mode)
                 {
                     case "now": node.RequestCancelInternal(); return true;
-                    case "after": return node.RequestStopAfterInternal(true);
-                    case "undo": return node.RequestStopAfterInternal(false);
                     case "skip": return node.RequestSkipInternal();
                     default: return false;
                 }
@@ -507,7 +505,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider;
             lock (this.Gate)
             {
-                if (!m_nodesById.TryGetValue(sceneNodeId, out var node)) return null;
+                // (not a node anymore: the scene was started again, ex. 'Retry', the page still asks with the id of the old node)
+                if (!m_nodesById.TryGetValue(sceneNodeId, out var node))
+                    throw new InvalidOperationException("the scene was started again (Retry / Rescan): click on the box again in its graph.");
                 provider = node.FlowImageProvider;
             }
             // (called without the gate: it can take a screenshot with ffmpeg, and wait for the ffmpeg lock of the video)
@@ -526,22 +526,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         internal object CreateNodeDetail(int nodeId)
         {
             // A scene: the number of items of the boxes of its graph (read without the gate: it reads the .wipsubtitles of the scene)
+            // (and the total cost of the AI of its scene, for any task of the scene: a pill beside its name)
             Func<object> counter;
+            Func<double?> costProvider;
             lock (this.Gate)
             {
                 if (!m_nodesById.TryGetValue(nodeId, out var found)) return null;
                 counter = found.FlowCounter;
+                var root = found;
+                while (root.Parent != null) root = root.Parent;
+                costProvider = root.CostProvider;
             }
             object flowCounts = null;
             if (counter != null)
             {
                 try { flowCounts = counter(); } catch (Exception) { /* (only an indicator: not shown this time) */ }
             }
+            double? sceneCost = null;
+            if (costProvider != null)
+            {
+                try { sceneCost = costProvider(); } catch (Exception) { /* (only an indicator: not shown this time) */ }
+            }
 
             lock (this.Gate)
             {
                 if (!m_nodesById.TryGetValue(nodeId, out var node)) return null;
-                return node.ToDetail(flowCounts);
+                return node.ToDetail(flowCounts, sceneCost);
             }
         }
 
@@ -598,8 +608,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             public string CancelHint { get; private set; }
             public int CancelRequests { get; private set; }
             private int m_cancelConsumed;
-            /// <summary>'Stop after this request' is offered (an AI request).</summary>
-            public bool CanStopAfter { get; private set; }
+            /// <summary>'Pause after this request' is offered (an AI request): the page shows it, it's 'Pause scene' (see SetScenePaused).</summary>
+            public bool CanPauseAfter { get; private set; }
+            /// <summary>A 'Stop now' changed into a stop after this request (see ConvertToStopAfter).</summary>
             private volatile bool m_stopAfterRequested;
             public bool IsStopAfterRequested => m_stopAfterRequested;
             /// <summary>The button of <see cref="SetSkippable"/> (null: not offered) and its tooltip.</summary>
@@ -827,24 +838,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 AddLogLine("'Stop now' requested by the user.");
             }
 
-            internal bool RequestStopAfterInternal(bool isRequested)
-            {
-                // Called with the gate held.
-                if (!CanStopAfter || IsTerminal || m_stopAfterRequested == isRequested)
-                    return false;
-                m_stopAfterRequested = isRequested;
-                AddLogLine(isRequested
-                    ? "'Stop after this request' requested by the user: the worker will stop once the response is received and saved."
-                    : "'Stop after this request' cancelled by the user: the worker continues.");
-                return true;
-            }
-
             public void ConvertToStopAfter(string reason)
             {
                 lock (r_owner.Gate)
                 {
                     m_stopAfterRequested = true;
-                    AddLogLine($"'Stop now' changed to 'Stop after this request': {reason}");
+                    AddLogLine($"'Stop now' changed to a stop after this request: {reason}");
                     r_owner.Touch();
                 }
             }
@@ -869,11 +868,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 return true;
             }
 
-            public void SetStopAfterSupported()
+            public void SetPauseAfterSupported()
             {
                 lock (r_owner.Gate)
                 {
-                    CanStopAfter = true;
+                    CanPauseAfter = true;
                     r_owner.Touch();
                 }
             }
@@ -960,6 +959,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 lock (r_owner.Gate)
                 {
                     FlowCounter = counter;
+                }
+            }
+
+            /// <summary>See <see cref="ITaskNode.SetCostProvider"/>.</summary>
+            internal Func<double?> CostProvider { get; private set; }
+
+            public void SetCostProvider(Func<double?> provider)
+            {
+                lock (r_owner.Gate)
+                {
+                    CostProvider = provider;
                 }
             }
 
@@ -1051,7 +1061,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     errors = ErrorCount,
                     cancelHint = CancelHint,
                     stopNowRequested = CancelRequests > m_cancelConsumed,
-                    canStopAfter = CanStopAfter && !IsTerminal,
+                    canPauseAfter = CanPauseAfter && !IsTerminal,
                     stopAfter = m_stopAfterRequested,
                     skipLabel = IsTerminal ? null : SkipLabel,
                     skipHint = SkipHint,
@@ -1072,7 +1082,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 };
             }
 
-            public object ToDetail(object flowCounts = null)
+            public object ToDetail(object flowCounts = null, double? sceneCost = null)
             {
                 // Called with the gate held.
                 // A task with sub-tasks: its log is combined with the log of all its sub-tasks (including the responses streamed by the AIs),
@@ -1112,7 +1122,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     combined = r_children.Count > 0,
                     flow = m_flowGraph,
                     flowCounts,
-                    log = lines.OrderBy(x => x.t).ThenBy(x => x.order).Select(x => x.line).TakeLast(MaxCombinedLogLines).ToArray(),
+                    sceneCost,
+                    log =lines.OrderBy(x => x.t).ThenBy(x => x.order).Select(x => x.line).TakeLast(MaxCombinedLogLines).ToArray(),
                     details = r_details.Select(d => new { name = d.Key, content = d.Value.Content.ToString(), truncated = d.Value.Truncated }).ToArray()
                 };
             }

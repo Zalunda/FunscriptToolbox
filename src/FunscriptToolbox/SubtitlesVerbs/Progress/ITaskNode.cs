@@ -86,12 +86,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         void SetCancellable(string hint);
 
         /// <summary>
-        /// An AI request: the UI also offers 'Stop after this request' (the request finishes, its response is saved, then the worker stops).
-        /// The code reads <see cref="IsStopAfterRequested"/> once the response is saved.
+        /// An AI request: the UI also offers 'Pause after this request'. It's 'Pause scene': the scene pauses at its next safe point,
+        /// once the response of the request is saved (the code calls <c>PauseIfClosing</c> between two requests), until 'Resume scene'.
         /// </summary>
-        void SetStopAfterSupported();
+        void SetPauseAfterSupported();
 
-        /// <summary>The user asked this node to 'Stop after this request' (and didn't undo it).</summary>
+        /// <summary>A 'Stop now' changed by the code into a stop after this request (see <see cref="ConvertToStopAfter"/>): the worker stops once the response is saved.</summary>
         bool IsStopAfterRequested { get; }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The user clicked on the button of <see cref="SetSkippable"/>.</summary>
         bool IsSkipRequested { get; }
 
-        /// <summary>The code turns a 'Stop now' into a 'Stop after this request' (ex. the batch finished before it could be cancelled: its response is kept).</summary>
+        /// <summary>The code turns a 'Stop now' into a stop after this request (ex. the batch finished before it could be cancelled: its response is kept, then the worker stops).</summary>
         void ConvertToStopAfter(string reason);
 
         /// <summary>
@@ -137,6 +137,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         /// <summary>How to count the items of the boxes of the graph (shown in a corner of the boxes of the 'Flow' view).</summary>
         void SetFlowCounter(Func<object> counter);
+
+        /// <summary>How to read the total cost of the AI of the scene, in $ (estimate; null: no AI cost yet): a pill beside its name (only on a first-level node).</summary>
+        void SetCostProvider(Func<double?> provider);
 
         /// <summary>
         /// How to read the screenshot sent to the AI for an item (key of the worker, name of the extractor, start, end):
@@ -170,7 +173,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetDetail(string name, string content) { }
         public void AppendDetail(string name, string content) { }
         public void SetCancellable(string hint) { }
-        public void SetStopAfterSupported() { }
+        public void SetPauseAfterSupported() { }
         public bool IsStopAfterRequested => false;
         public void SetSkippable(string label, string hint) { }
         public bool IsSkipRequested => false;
@@ -183,6 +186,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetFlowGraph(object graph) { }
         public void SetFlowInspector(Func<string, object> inspector) { }
         public void SetFlowCounter(Func<object> counter) { }
+        public void SetCostProvider(Func<double?> provider) { }
         public void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider) { }
         public void SetTimingEditor(ITimingEditor editor) { }
         public void SetUserAction(string action) { }
