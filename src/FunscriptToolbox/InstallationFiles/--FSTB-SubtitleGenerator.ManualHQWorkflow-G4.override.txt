@@ -617,11 +617,8 @@ _______________________________________=",
       "Engine": {
         "$ref": "AIEngineGemini4"
       },
-      // (merged into the request body of the engine: everything goes inside "RequestBodyExtension")
       // (Google API: "temperature" must be inside "generationConfig": at the top level, the request is rejected, HTTP 400)
-      // [OPTION] With TimingRefineEngineSpokenMarkers (50 answers per request): "maxOutputTokens": 16384 and
-      // "thinkingConfig": { "thinkingLevel": "LOW" } (the tests: ~90 thinking tokens per answer instead of ~680).
-      // ("includeThoughts": true comes from the engine: the nested objects are merged)
+      // [OPTION] With TimingRefineEngineSpokenMarkers (50 answers per request): "maxOutputTokens": 16384.
       "EngineConfigOverride": {
         "RequestBodyExtension": {
           "generationConfig": {
@@ -656,8 +653,8 @@ _______________________________________=",
       //                                                   (several AI requests and clips per subtitle).
       //   { "$ref": "TimingRefineEngineSpokenMarkers" } => markers spoken in the audio at the options of the terrain, the AI transcribes them
       //                                                   around the line (one request per subtitle and per run, in batches; a confidence per subtitle).
-      // A setting of the engine can be changed for this task only, next to its "$ref" (the shared object, in "SharedObjects", is not changed):
-      //   { "$ref": "TimingRefineEngineSpokenMarkers", "Runs": 3 }
+      // WARNING: for now, none of the engines that send AI requests (Verify, StartEndJudge, SpokenMarkers) is worth its cost: a lot of
+      //          tokens, and the timings still need to be checked in the Review editor. TimingRefineEngineNone is the recommended choice.
       // "Enabled": false => the timings are kept as they are. No terrain, no AI. (Validation can't be used.)
       "RefineTiming": {
         "Enabled": true,

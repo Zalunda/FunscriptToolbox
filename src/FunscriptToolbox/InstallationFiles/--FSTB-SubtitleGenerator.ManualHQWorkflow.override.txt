@@ -132,8 +132,8 @@
       //                                                   The timings are kept whatever the answer: a problem is only flagged.
       //   { "$ref": "TimingRefineEngineStartEndJudge" } => the AI picks the best Start, then the best End, among options built on the terrain
       //                                                   (several AI requests and clips per subtitle).
-      // A setting of the engine can be changed for this task only, next to its "$ref" (the shared object, in "SharedObjects", is not changed):
-      //   { "$ref": "TimingRefineEngineStartEndJudge", "MaxDipsInward": 3 }
+      // WARNING: for now, none of the engines that send AI requests (Verify, StartEndJudge) is worth its cost: a lot of
+      //          tokens, and the timings still need to be checked in the Review editor. TimingRefineEngineNone is the recommended choice.
       // "Enabled": false => the timings are kept as they are. No terrain, no AI. (Validation can't be used.)
       "RefineTiming": {
         "Enabled": true,

@@ -16,7 +16,7 @@
     },
     {
       "Id": "asig",
-      "Enabled": true     
+      "Enabled": true
     },
     // -----------------------------
     // Transcription with Whisper with a basic google translation

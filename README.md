@@ -1,6 +1,6 @@
 # FunscriptToolbox
 
-A modular suite of .NET / C# command-line tools, native C++ utilities, and a web UI designed for funscript authoring, acoustic synchronization, variable-speed video retiming, AI-powered subtitle generation and translation, and real-time motion-vector tracking in [OpenFunscripter (OFS)](https://github.com/OpenFunscripter/OFS).
+A modular suite of .NET / C# command-line tools and a web UI designed for funscript authoring, acoustic synchronization, variable-speed video retiming, and AI-powered subtitle generation and translation.
 
 ---
 
@@ -11,7 +11,6 @@ A modular suite of .NET / C# command-line tools, native C++ utilities, and a web
   - [2. Audio Synchronization (`audiosync`)](#2-audio-synchronization-audiosync)
   - [3. Smart Video Retimer (`retimer`)](#3-smart-video-retimer-retimer)
   - [4. AI Subtitle Generation & Translation (`subtitles`)](#4-ai-subtitle-generation--translation-subtitles)
-  - [5. Motion Vectors & OFS Plugin (`motionvectors`)](#5-motion-vectors--ofs-plugin-motionvectors)
 - [Quick Start](#quick-start)
 - [Solution Architecture](#solution-architecture)
 - [Building from Source](#building-from-source)
@@ -63,7 +62,7 @@ A modular pipeline to extract dialogue, perform voice activity detection, transc
   * **Transcription**: Powered by Purfview Faster-Whisper, standalone Whisper, or LLM-based speech transcribers.
   * **Speaker Diarization**: Separates and attributes dialogue across multiple speakers.
   * **Translation**: Translates dialogue via Google Translate API or AI/LLMs.
-  * **Web UI**: progress of all the scenes on a web page, and the Timing editor for the human-in-the-loop review (timings, review warnings, speakers).
+  * **Web UI**: progress of all the scenes on a web page, and the Review editor for the human-in-the-loop review (timings, review warnings, speakers). `FSTB-SubtitlesServer.bat` / `.sh` (next to `FunscriptToolbox.exe`) runs it as a server, reachable from the other machines of the local network.
 
 ---
 
@@ -92,17 +91,16 @@ FunscriptToolbox/
 │   └── silero-vad/                # Silero Voice Activity Detection Python scripts
 └── src/
     ├── FunscriptToolbox.sln       # Main Visual Studio Solution
-    ├── FunscriptToolbox/          # CLI Application & verb implementations (.NET 4.8)
-    ├── FunscriptToolbox.Core/     # Domain models & parsers (.NET 4.8)
-    ├── AudioSynchronization/      # Acoustic fingerprinting & sync engine (.NET 4.8)
-    └── MotionVectorsExtractor/    # Native C++ motion vector extractor (MSVC v143, x64)
+    ├── FunscriptToolbox/          # CLI Application & verb implementations (.NET 10)
+    ├── FunscriptToolbox.Core/     # Domain models & parsers (.NET 10)
+    └── AudioSynchronization/      # Acoustic fingerprinting & sync engine (.NET 10)
 ```
 
 | Project | Language / Framework | Description |
 | :--- | :--- | :--- |
-| **`FunscriptToolbox`** | C# / .NET 4.8 | Main console executable exposing all CLI verbs. |
-| **`FunscriptToolbox.Core`** | C# / .NET 4.8 | Core domain models, `.funscript` and `.srt` parsers. |
-| **`AudioSynchronization`** | C# / .NET 4.8 | Acoustic waveform fingerprinting (`.asig`) & cross-correlation. |
+| **`FunscriptToolbox`** | C# / .NET 10 | Main console executable exposing all CLI verbs. |
+| **`FunscriptToolbox.Core`** | C# / .NET 10 | Core domain models, `.funscript` and `.srt` parsers. |
+| **`AudioSynchronization`** | C# / .NET 10 | Acoustic waveform fingerprinting (`.asig`) & cross-correlation. |
 
 ---
 

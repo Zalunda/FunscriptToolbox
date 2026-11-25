@@ -11,7 +11,6 @@ echo --- subtitles.create ---
 		--recursive ^
 		--verbose ^
 		--autovseq ^
-		--ui 5055 ^
 		"*.mp4" "*.vseq"
 pause
 REM Remove REM from the start of the next line to have a looping script (i.e. run tool, press space, run tool, ...)

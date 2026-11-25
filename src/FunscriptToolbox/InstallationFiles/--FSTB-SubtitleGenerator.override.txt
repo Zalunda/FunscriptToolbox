@@ -24,7 +24,7 @@
   "Global": {
     // By default, the backup folder of a scene ('<scene>_Backup') is created next to the video.
     // Remove '//' on next line to create them under another folder instead ('<BackupParentFolder>\\<scene>_Backup'). Must be a full path (with '\' doubled => '\\').
-    //"BackupParentFolder": "D:\\FSTB-Backups",
+    //"BackupParentFolder": "C:\\...\\FSTB-LogsAndBackups",
 
     // Web UI (--ui): a shorter name for each scene, made from 'metadata' extracted from the path of the video / .vseq,
     //    relative to the folder of this configuration (ex. '03-REDO\3DSVR-1072\3DSVR-1072- - ....vseq').
@@ -342,7 +342,8 @@
         ],
         "generationConfig": {
           "thinkingConfig": {
-            // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
+            // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => seem to be HIGH). LOW is smart enough for the task needed.
+            "thinkingLevel": "LOW",
             "includeThoughts": true
           },
           // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
@@ -419,7 +420,7 @@
       "SupportImage": true,
       "RequestBodyExtension": {
         "extra_body": {
-            "output_effort": "none"
+          "output_effort": "none"
         }
       },
       "SupportAudio": false,

@@ -10,7 +10,6 @@ FunscriptToolbox \
 		--recursive \
 		--verbose \
 		--autovseq \
-		--ui 5055 \
 		"*.mp4" "*.vseq"
 
 read -p "Press [Enter] to continue..."
