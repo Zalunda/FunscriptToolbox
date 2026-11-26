@@ -9,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
     {
         /// <summary>
         /// Settings shared by all the scenes processed at the same time (ex. how many ffmpeg at the same time).
-        /// Only read once, at the start, from the main configuration file (and the .override.config in the same folder):
+        /// Only read once, at the start, from the main configuration file (and the .override.config / .override.user.config in the same folder):
         /// an error is reported if a configuration file of a sub-folder has this section.
         /// </summary>
         [JsonProperty(Order = -1)]
@@ -27,6 +27,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         [JsonProperty(Order = 3)]
         public SubtitleWorker[] Workers { get; set; }
+
+        /// <summary>
+        /// A hash of the merged configuration, when it was loaded: the 'Config' tab of the web UI reads the files again, and says when
+        /// they changed since the scene loaded its configuration (see SubtitleGeneratorConfigLoader.LoadHierarchically).
+        /// </summary>
+        [JsonIgnore]
+        internal string MergedConfigHash { get; set; }
     }
 
     /// <summary>See <see cref="SubtitleGeneratorConfig.GlobalShared"/>.</summary>

@@ -125,6 +125,61 @@
   #flowPanel .fitable tr.open td,
   #flowPanel #fiBody.wrap .fitable td { white-space: pre-wrap; word-break: break-word; max-width: 420px; }   /* (a clicked row, or 'Full text': the values in full) */
   #flowPanel .fitable tr.todo td:first-child { box-shadow: inset 3px 0 0 var(--block); }
+  /* Inspector tabs: 'Items' (what a box receives / produced) and 'Config' (the configuration of a step) */
+  #flowPanel .fitabs { display: flex; gap: 2px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+  #flowPanel .fitabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 2px 10px; color: var(--muted); }
+  #flowPanel .fitabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  #flowPanel .fitabs button:disabled { opacity: .4; }
+  /* 'Config' tab: a tree, the level of each value (where it was written) in a column on the left */
+  #flowPanel .cfsrc { margin: 4px 0 8px; font-size: 11px; }
+  #flowPanel .cfsrc summary { cursor: pointer; color: var(--muted); }
+  #flowPanel .cfsrc .cfsrow { display: flex; align-items: center; gap: 6px; margin: 2px 0; white-space: nowrap; }
+  #flowPanel .cfsrc .cfsrow.missing { opacity: .55; }
+  #flowPanel .cftree { font: 11px/1.45 Consolas, "Cascadia Mono", monospace; }
+  #flowPanel .cfrow { display: flex; align-items: baseline; gap: 4px; padding: 0 4px; border-radius: 4px; cursor: default; white-space: nowrap; min-width: 0; }
+  #flowPanel .cfrow:hover { background: var(--row-hover); }
+  #flowPanel .cfrow.cont, #flowPanel .cfrow.long { cursor: pointer; }
+  #flowPanel .cfrow .cfind { flex: none; }
+  #flowPanel .cfrow .cftog { flex: none; width: 10px; color: var(--muted); }
+  #flowPanel .cfrow .cfname { flex: none; color: var(--text); }
+  #flowPanel .cfrow .cfval { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #flowPanel .cfrow.open .cfval { white-space: pre-wrap; word-break: break-word; }
+  #flowPanel .cfrow.open { white-space: normal; flex-wrap: wrap; }
+  #flowPanel .cfval.vt-str { color: var(--ok); }
+  #flowPanel .cfval.vt-num, #flowPanel .cfval.vt-bool { color: var(--accent); }
+  #flowPanel .cfval.vt-null { color: var(--muted); }
+  #flowPanel .cfmeta { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  #flowPanel .cfmeta .cfref { color: var(--wait); }
+  #flowPanel .cfhist { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+  #flowPanel .cfunused { color: var(--err); font-size: 10px; flex: none; }
+  #flowPanel .cfrow.unused .cfname { color: var(--err); text-decoration: line-through; }
+  #flowPanel .cfrow.def .cfname, #flowPanel .cfrow.def .cfval { opacity: .55; font-style: italic; }
+  #flowPanel .cflv { flex: none; display: inline-block; min-width: 34px; text-align: center; padding: 0 3px; border-radius: 3px; font-size: 10px; line-height: 15px;
+    border: 1px solid var(--border); background: var(--chip-bg); color: var(--muted); }
+  #flowPanel .cflv.k-main { color: var(--muted); }
+  #flowPanel .cflv.k-override { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  #flowPanel .cflv.k-user { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); font-weight: 600; }
+  #flowPanel .cflv.k-replace { color: var(--block); border-color: color-mix(in srgb, var(--block) 50%, transparent); }
+  #flowPanel .cflv.k-folder-name, #flowPanel .cflv.k-file-name { color: var(--wait); border-color: color-mix(in srgb, var(--wait) 50%, transparent); }
+  #flowPanel .cflv.def { border-style: dashed; background: transparent; }
+  #flowPanel .cflv.none { visibility: hidden; }
+  #flowPanel .cflvs { display: inline-flex; gap: 2px; flex: none; }
+  /* Changing a value: ✎ on the row (on hover), the editor below it */
+  #flowPanel .cfeditbtn { flex: none; padding: 0 5px; margin-left: 4px; visibility: hidden; }
+  #flowPanel .cfrow:hover .cfeditbtn { visibility: visible; }
+  #flowPanel .cfeditor { margin: 2px 4px 6px; padding: 6px 8px; border: 1px solid var(--accent); border-radius: 6px; background: var(--panel);
+    font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; gap: 5px; }
+  #flowPanel .cfedrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #flowPanel .cfedrow label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+  #flowPanel .cfedlbl { color: var(--muted); min-width: 34px; }
+  #flowPanel .cfeditor input[type=text], #flowPanel .cfeditor select, #flowPanel .cfeditor textarea {
+    font: 11px Consolas, "Cascadia Mono", monospace; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  #flowPanel .cfeditor input[type=text] { min-width: 220px; flex: 1; }
+  #flowPanel .cfeditor select[data-cflevel] { max-width: 100%; }
+  #flowPanel .cfeditor textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+  #flowPanel .finote.cfok { color: var(--ok); }
+  #flowPanel .finote.cferr { color: var(--err); }
+  #flowPanel .cflvs .cflv { min-width: 0; font-size: 9px; line-height: 13px; }
 
   /* 'Flow' of a scene */
   #content .flowbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; white-space: normal; }
@@ -175,6 +230,9 @@
   .flowwrap .fcount text { fill: var(--muted); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .flowwrap .fcount.done rect { fill: var(--ok); stroke: var(--ok); stroke-dasharray: none; }
   .flowwrap .fcount.done text { fill: #fff; }
+  /* The AI cost of a step, in the top right corner of its box */
+  .flowwrap .fcost rect { fill: var(--panel); stroke: var(--warn); stroke-width: 1; }
+  .flowwrap .fcost text { fill: var(--warn); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .flowwrap .fcallout { pointer-events: none; }
   .flowwrap .fcallout rect { fill: var(--accent); }
   .flowwrap .fcallout text { fill: #fff; font-size: 11px; font-weight: 600; }
@@ -1404,9 +1462,21 @@
       if (n.type === "worker") {
         var w = n.w, st = n.status;
         var tip = w.name + "\n" + w.type + "\n" + st.text;
+        // The AI cost of the step (estimate, like the 'costs' report), in the top right corner
+        // (no pill when nothing is known to cost, ex. a local AI that doesn't report its tokens: only in the tooltip)
+        var wcost = flowCounts[k], costBadge = "";
+        if (wcost && wcost.cost != null) {
+          if (wcost.cost > 0) {
+            var costLabel = fmtStepCost(wcost.cost) + (wcost.fallbacks ? "+" : ""), cw = 10 + costLabel.length * 6.5;
+            costBadge = '<g class="fcost"><rect x="' + (b.x + b.w - cw + 6) + '" y="' + (b.y - 8) + '" width="' + cw + '" height="15" rx="7.5"/>' +
+              '<text x="' + (b.x + b.w - cw / 2 + 6) + '" y="' + (b.y + 3) + '" text-anchor="middle">' + esc(costLabel) + '</text></g>';
+          }
+          tip += "\nAI cost: $" + wcost.cost.toFixed(2) + " for " + wcost.calls + " call(s) (estimate: see the bill of the vendor)" +
+            (wcost.fallbacks ? "\n(" + wcost.fallbacks + " response(s) without token count: not included)" : "");
+        }
         parts.push('<g class="fnode fw st-' + st.cls + (dim ? " dim" : "") + (flowFocus === k ? " focus" : "") + '" data-fkey="' + k + '">' +
           '<title>' + esc(tip) + '</title><rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="6"/>' +
-          '<text x="' + (b.x + 10) + '" y="' + (b.y + b.h / 2 + 4) + '">' + esc(trunc(w.name, 30)) + '</text></g>');
+          '<text x="' + (b.x + 10) + '" y="' + (b.y + b.h / 2 + 4) + '">' + esc(trunc(w.name, 30)) + '</text>' + costBadge + '</g>');
       } else {
         var dd = n.d;
         var dtip = dd.kind + ": " + dd.name + (n.avail === "input" ? "\n(an input of the scene: produced by no worker)" : n.avail === "yes" ? "\n(available)" : "\n(not produced yet)") +
@@ -1473,6 +1543,9 @@
     inspectFlowBox(n.id, bestKey);
   }
 
+  /// The AI cost of a step, on its box (like the cost of the scene: "$1.23")
+  function fmtStepCost(dollars) { return dollars > 0 && dollars < 0.005 ? "<$0.01" : "$" + dollars.toFixed(2); }
+
   function renderFlow(n, flow, counts) {
     flowCounts = counts || {};
     if (flowAutoSelectPending && flow) autoSelectFlowBox(n, flow);
@@ -1534,7 +1607,382 @@
   }
 
   // ---- Flow panel (right pane, in the 'Flow' tab): switches, help, and the inspector of the clicked box ----
-  var flowInspect = { sceneId: null, key: null, data: null, loading: false, search: "" };
+  var flowInspect = { sceneId: null, key: null, data: null, loading: false, search: "", tab: "items" };
+
+  // ---------------- 'Config' tab of the inspector: the configuration of a step, with the level where each value was written ----------------
+  // (read again from the files by the server, when asked: /api/flowconfig/<scene>?key=<worker>; see SceneConfigView)
+  // Levels: "0" = the main configuration, "0-S" = its .override.config (Standard), "0-U" = its .override.user.config (User), "1-S" = the
+  // .override.config of the first sub-folder, ..., "1-R" = a full configuration that Replaces everything in a sub-folder, "–" = written nowhere (the default).
+  /// show: "all", "overrides" (written in an override file / a shortcut) or "user" (written in a .override.user.config)
+  /// rows: the values shown (path -> where they are), edit: the value being changed, notice: the result of the last change
+  var flowConfig = { sceneId: null, key: null, data: null, dataId: 0, loading: false, open: {}, search: "", defaults: true, show: "all", rows: {}, edit: null, notice: null };
+  function isConfigKey(key) { return /^w\d+$/.test(key || "") || key === CFG_ALL; }
+  // (no box selected in the graph: the whole configuration of the scene, all its steps, read-only; see SceneConfigView.WholeConfigKey)
+  var CFG_ALL = "all";
+  function inspHasBox() { return !!flowInspect.key && flowInspect.sceneId === selectedId; }
+  /// The tab shown: the one chosen, or 'Config' when no box is selected (nothing to show in 'Items')
+  function inspTab() { return inspHasBox() ? flowInspect.tab : "config"; }
+  /// The configuration shown in the 'Config' tab: the one of the selected box, or the whole configuration of the scene
+  function cfgTarget() { return inspHasBox() ? { sceneId: flowInspect.sceneId, key: flowInspect.key } : { sceneId: selectedId, key: CFG_ALL }; }
+  function cfgIsWhole() { return flowConfig.key === CFG_ALL; }
+  function loadFlowConfig(force) {
+    var target = cfgTarget(), sceneId = target.sceneId, key = target.key;
+    if (!isConfigKey(key) || sceneId == null) return;
+    if (!force && flowConfig.sceneId === sceneId && flowConfig.key === key && (flowConfig.data || flowConfig.loading)) return;
+    // (another step: the change being typed is dropped)
+    if (flowConfig.sceneId !== sceneId || flowConfig.key !== key) { flowConfig.edit = null; flowConfig.notice = null; }
+    flowConfig.sceneId = sceneId; flowConfig.key = key; flowConfig.loading = true;
+    if (!force) flowConfig.data = null;
+    renderInspector();
+    fetch("/api/flowconfig/" + sceneId + "?key=" + encodeURIComponent(key))
+      .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { return { error: t || ("HTTP " + r.status) }; }); })
+      .then(function (d) {
+        if (flowConfig.key === key && flowConfig.sceneId === sceneId) { flowConfig.data = d; flowConfig.dataId++; flowConfig.loading = false; renderInspector(); }
+      })
+      .catch(function (ex) {
+        if (flowConfig.key === key && flowConfig.sceneId === sceneId) { flowConfig.data = { error: "Can't read it: " + ex }; flowConfig.dataId++; flowConfig.loading = false; renderInspector(); }
+      });
+  }
+  function cfgSource(level) {
+    var list = (flowConfig.data && flowConfig.data.sources) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].level === level) return list[i];
+    return null;
+  }
+  function cfgBadge(level, isDefault, extraClass, added) {
+    if (isDefault) return '<span class="cflv def' + (extraClass || "") + '" title="Written in no file: the default value of the code">–</span>';
+    if (level == null) return '<span class="cflv none' + (extraClass || "") + '"></span>';
+    var s = cfgSource(level);
+    return '<span class="cflv k-' + esc(s ? s.kind : "") + (extraClass || "") + '" title="' + esc(level + (s ? ": " + s.file : "") +
+      (added ? "\nFirst defined here (no file read before has it): not an override of another value" : "")) + '">' + (added ? "+" : "") + esc(level) + '</span>';
+  }
+  /// The value is first defined in an override file (no file read before has it, ex. a step added by a workflow): not an override of another value
+  function cfgAdded(n) { return !n.d && !!n.lv && n.lv !== "0" && !(n.h && n.h.length); }
+  /// The tooltip of a row: where the value was written, and the values it replaced
+  function cfgTitle(n) {
+    var lines = [];
+    if (n.d) lines.push("Written in no file: the default value of the code.");
+    else if (n.lv) {
+      var s = cfgSource(n.lv);
+      lines.push((cfgAdded(n) ? "First defined in " : n.lv === "0" ? "Written in " : "Overridden in ") + n.lv + (s ? ": " + s.file : ""));
+      if (cfgAdded(n)) lines.push("(no file read before has it: not an override of another value)");
+    }
+    if (n.ref) lines.push(n.refo ? "The shared object '" + n.ref + "', with values changed for this step only (a '$ref' with other properties)." : "The shared object '" + n.ref + "' (a '$ref'): its values are the ones of the shared object.");
+    if (n.id) lines.push("Defines the shared object '" + n.id + "' (it can be used elsewhere with a '$ref').");
+    if (n.u) lines.push("No class has this setting: it is ignored when the configuration is read (a typo, a setting at the wrong place, or an old setting).");
+    if (n.h && n.h.length) {
+      lines.push("", "It replaced (the oldest first):");
+      n.h.forEach(function (h) { lines.push("  " + h.lv + ": " + h.v); });
+    }
+    return lines.join("\n");
+  }
+  function cfgMatches(n, filter) {
+    return n.n.toLowerCase().indexOf(filter) >= 0 || (n.v || "").toLowerCase().indexOf(filter) >= 0 || (n.ref || "").toLowerCase().indexOf(filter) >= 0;
+  }
+  /// The options say to show this value ('Defaults', 'All' / 'Overrides only' / 'User overrides only')
+  function cfgPassesOptions(n) {
+    if (n.d && !flowConfig.defaults) return false;
+    // (an override: a value that replaced the value of a file read before; not one first defined in an override file)
+    if (flowConfig.show === "overrides" && (n.d || !n.lv || n.lv === "0" || cfgAdded(n))) return false;
+    if (flowConfig.show === "user") {
+      var s = n.d || !n.lv ? null : cfgSource(n.lv);
+      if (!s || s.kind !== "user") return false;
+    }
+    return true;
+  }
+  function cfgOnlySome() { return flowConfig.show !== "all"; }
+  /// Marks what is shown (n._kids: the children shown) and the levels inside a container (n._lvs). Returns: the node is shown.
+  /// forced: an ancestor matches the filter (all its content is shown, with the options)
+  function cfgMark(n, filter, forced) {
+    var selfMatch = !filter || forced || cfgMatches(n, filter);
+    var levels = {};
+    if (!n.c) {
+      n._kids = null;
+      if (n.lv && !n.d) levels[n.lv] = true;
+      n._lvs = levels;
+      return selfMatch && cfgPassesOptions(n);
+    }
+    var forceKids = forced || (!!filter && cfgMatches(n, filter));
+    n._kids = n.c.filter(function (c) {
+      var shown = cfgMark(c, filter, forceKids);
+      Object.keys(c._lvs).forEach(function (l) { levels[l] = true; });
+      return shown;
+    });
+    n._lvs = levels;
+    if (n._kids.length) return true;
+    // (an empty container, or all its content hidden: shown only without a filter, if the options allow it)
+    return !cfgOnlySome() && cfgPassesOptions(n) && selfMatch && (n.c.length === 0 || (!filter && flowConfig.defaults));
+  }
+  function cfgSortLevels(levels) {
+    var order = ((flowConfig.data && flowConfig.data.sources) || []).map(function (s) { return s.level; });
+    return Object.keys(levels).sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+  }
+  /// ctx: where the row is (segs: the names from the step; ref: the shared object it's in; arrAny / arrSinceRef: a list on the way)
+  function cfgRows(n, path, depth, expandAll, out, ctx) {
+    var isContainer = !!n.c, open = expandAll || !!flowConfig.open[path];
+    var cls = "cfrow" + (isContainer ? " cont" : "") + (n.d ? " def" : "") + (n.u ? " unused" : "");
+    var isLong = !isContainer && n.v != null && (n.v.length > 60 || n.v.indexOf("\n") >= 0);
+    if (isLong) cls += " long" + (flowConfig.open[path] ? " open" : "");
+    // (the level just before the name: indented with it)
+    var html = '<div class="' + cls + '" data-cfpath="' + esc(path) + '" title="' + esc(cfgTitle(n)) + '">' +
+      '<span class="cfind" style="width:' + (depth * 14) + 'px"></span>' +
+      '<span class="cftog">' + (isContainer && n.c.length ? (open ? "▾" : "▸") : "") + '</span>' +
+      cfgBadge(n.lv, n.d, "", cfgAdded(n)) +
+      '<span class="cfname">' + esc(n.n) + '</span>';
+    if (isContainer) {
+      var meta = [];
+      if (n.ty) meta.push(esc(n.ty));
+      if (n.ref) meta.push('<span class="cfref">→ ' + esc(n.ref) + (n.refo ? " (changed for this step)" : " (shared)") + '</span>');
+      if (n.id) meta.push('<span class="cfref">defines \'' + esc(n.id) + '\'</span>');
+      if (n.k === "arr") meta.push(n.c.length + " item(s)");
+      html += '<span class="cfmeta">' + meta.join(" · ") + '</span>';
+      if (!open) {
+        // (closed: the levels written inside, to see where the changes are)
+        var inside = cfgSortLevels(n._lvs);
+        if (inside.length) html += '<span class="cflvs">' + inside.map(function (l) { return cfgBadge(l, false); }).join("") + '</span>';
+      }
+    } else {
+      var shown = n.vt === "str" && !(isLong && flowConfig.open[path]) ? n.v.replace(/\r?\n/g, " ⏎ ") : n.v;
+      html += '<span class="cfval vt-' + esc(n.vt || "str") + '">' + (n.vt === "str" ? '"' + esc(shown) + '"' : esc(shown)) + '</span>';
+    }
+    if (n.u) html += '<span class="cfunused">not used</span>';
+    if (n.h && n.h.length) {
+      html += '<span class="cfhist">' + n.h.slice().reverse().map(function (h) {
+        var v = h.v.replace(/\r?\n/g, " ");
+        return "← " + esc(h.lv) + ": " + esc(v.length > 40 ? v.slice(0, 40) + "…" : v);
+      }).join(" ") + '</span>';
+    }
+    // A value (or the object of a property that has choices: another shared object, a new object): it can be changed (written in a
+    // .override.user.config), unless it's in a list (a list is replaced as a whole)
+    // (the whole configuration of the scene: a value is written in its 'parent', the step / shared object it's in, or at the root;
+    // an item of 'Workers' / 'SharedObjects' itself can't be replaced)
+    if ((!isContainer || n.oc) && !ctx.isItem) {
+      var info = { node: n, segs: ctx.segs, ref: ctx.ref, stepOk: !ctx.arrAny, sharedOk: !!ctx.ref && !ctx.arrSinceRef, parent: ctx.parent };
+      flowConfig.rows[path] = info;
+      if (info.stepOk || info.sharedOk)
+        html += '<button class="mini cfeditbtn" data-cfedit="' + esc(path) + '" title="' + (n.u ? "Remove it from a .override.user.config" : n.oc ? "Choose another object: a shared object, or a new one (written in a .override.user.config)" : "Change this value (written in a .override.user.config)") + '">✎</button>';
+      // (written in a .override.user.config: ↶ removes it from there, back to the value of the level before)
+      var revert = cfgRevertInfo(n);
+      if (revert && (info.stepOk || info.sharedOk))
+        html += '<button class="mini cfeditbtn" data-cfrevert="' + esc(path) + '" title="' + esc(revert) + '">↶</button>';
+    }
+    out.push(html + '</div>');
+    if (flowConfig.edit && flowConfig.edit.path === path && flowConfig.rows[path]) out.push(cfgEditorHtml(path, flowConfig.rows[path], depth));
+    // (the whole configuration: the items of 'Workers' / 'SharedObjects' are the 'parents' of their values, like a step in its own view)
+    var isParentList = cfgIsWhole() && ctx.segs.length === 1 && n.k === "arr" && (n.n === "Workers" || n.n === "SharedObjects");
+    if (isContainer && open) n._kids.forEach(function (c) {
+      cfgRows(c, path + "/" + c.n, depth + 1, expandAll, out, isParentList
+        ? { segs: ctx.segs.concat([c.n]), ref: null, arrAny: false, arrSinceRef: false, isItem: true, parent: c.n }
+        : {
+          segs: ctx.segs.concat([c.n]),
+          ref: n.ref || ctx.ref,
+          arrAny: ctx.arrAny || n.k === "arr",
+          arrSinceRef: n.ref ? n.k === "arr" : (ctx.arrSinceRef || n.k === "arr"),
+          parent: ctx.parent
+        });
+    });
+  }
+
+  // ---- Changing a value: written in a .override.user.config (the other files are replaced by a new version) ----
+  function cfgDepth(level) { var d = parseInt(level, 10); return isNaN(d) ? 999 : d; }
+  /// The .override.user.config of the scene (from the main folder to the folder of the scene), with where they apply
+  function cfgUserLevels() {
+    var list = ((flowConfig.data && flowConfig.data.sources) || []).filter(function (s) { return s.kind === "user"; });
+    return list.map(function (s, i) {
+      var where = !s.folder ? "the main folder: all the scenes" : i === list.length - 1 ? "'" + s.folder + "': the scenes in this folder (this scene's folder)" : "'" + s.folder + "': the scenes in this folder";
+      return { level: s.level, label: s.level + " — " + where + (s.exists ? "" : " (created)"), depth: cfgDepth(s.level) };
+    });
+  }
+  function cfgOpenEditor(path) {
+    var info = flowConfig.rows[path];
+    if (!info) return;
+    var n = info.node, levels = cfgUserLevels();
+    var shared = !info.stepOk && info.sharedOk;
+    // (the level by default: not above the one that writes the value now, and for a step, at least its workflow folder)
+    // (the whole configuration: a value at the root, or in a shared object, like a shared value)
+    var isStepValue = !cfgIsWhole() || /^Workers$/.test(info.segs[0] || "");
+    var curDepth = n.d || !n.lv ? 0 : cfgDepth(n.lv), wanted = shared || !isStepValue ? curDepth : Math.max(curDepth, 1);
+    var level = (levels.filter(function (l) { return l.depth >= wanted; })[0] || levels[levels.length - 1] || {}).level;
+    // (a value that is written in a .override.user.config: that one)
+    var src = n.lv && cfgSource(n.lv);
+    if (src && src.kind === "user") level = n.lv;
+    // (the value proposed: the opposite of the current one when possible (true <-> false, null -> a value), otherwise the current one, to edit)
+    var value;
+    if (n.vt === "null") value = n.t === "bool" ? "true" : n.t === "enum" ? ((n.opts || [])[0] || "") : "";
+    else if (n.t === "bool") value = n.v === "true" ? "false" : "true";
+    else value = n.v || "";
+    flowConfig.edit = { path: path, value: value, isNull: false, level: level, shared: shared, busy: false, error: null };
+    // (an object: the shared object used now, otherwise a new object of its type)
+    var ch = n.oc && cfgChoices(n.oc);
+    if (ch) {
+      var e = flowConfig.edit;
+      e.obj = n.ref && ch.shared.some(function (s) { return s.id === n.ref; }) ? "ref:" + n.ref : n.vt === "null" ? "#null" : "#new";
+      if (e.obj === "#new" && !ch.types.length) e.obj = ch.shared.length ? "ref:" + ch.shared[0].id : "#null";
+      e.newType = ch.types.indexOf(n.ty) >= 0 ? n.ty : (ch.types[0] || "");
+      e.newId = ""; e.copyFrom = "";
+    }
+    renderInspector();
+  }
+  function cfgChoices(key) {
+    return ((flowConfig.data && flowConfig.data.choices) || []).filter(function (c) { return c.key === key; })[0] || null;
+  }
+  /// The editor of a property whose value is an object: a shared object, a new object (in place, or shared with an id), or null
+  function cfgObjectEditorHtml(n, e, ch) {
+    var h = '<div class="cfedrow"><span class="cfedlbl">Object</span><select data-cfobj>' +
+      (ch.shared.length ? '<optgroup label="Shared objects (' + esc(ch.declared) + ')">' + ch.shared.map(function (s) {
+        return '<option value="ref:' + esc(s.id) + '"' + (e.obj === "ref:" + s.id ? " selected" : "") + '>' + esc(s.id) + (s.id === n.ref ? " (now)" : "") + ' — ' + esc(s.type) + (s.lv ? ", " + esc(s.lv) : "") + '</option>';
+      }).join("") + '</optgroup>' : '') +
+      (ch.types.length ? '<option value="#new"' + (e.obj === "#new" ? " selected" : "") + '>New object…</option>' : '') +
+      '<option value="#null"' + (e.obj === "#null" ? " selected" : "") + '>null (no object)</option></select></div>';
+    if (e.obj === "#new") {
+      var copies = ch.shared.filter(function (s) { return s.type === e.newType; });
+      h += '<div class="cfedrow"><span class="cfedlbl">Type</span><select data-cfnewtype>' + ch.types.map(function (t) {
+        return '<option' + (t === e.newType ? " selected" : "") + '>' + esc(t) + '</option>';
+      }).join("") + '</select>' +
+        '<span class="cfedlbl">Copy of</span><select data-cfcopy><option value="">(nothing: the defaults of the code)</option>' + copies.map(function (s) {
+          return '<option value="' + esc(s.id) + '"' + (s.id === e.copyFrom ? " selected" : "") + '>' + esc(s.id) + '</option>';
+        }).join("") + '</select></div>' +
+        '<div class="cfedrow"><span class="cfedlbl">Id</span><input type="text" data-cfnewid spellcheck="false" placeholder="(empty: defined here, for this property only)" value="' + esc(e.newId || "") + '"></div>' +
+        '<div class="finote">With an id, it\'s a new shared object: defined in \'SharedObjects\' of the file chosen below, other steps can use it. ' +
+        'Its values can then be changed with ✎.</div>';
+    }
+    if (n.refo && e.obj !== "ref:" + n.ref)
+      h += '<div class="finote">This step changed values of \'' + esc(n.ref) + '\' (a \'$ref\' with other properties): with another object, the ones written in the file chosen are lost, and the other ones don\'t apply anymore.</div>';
+    return h;
+  }
+  /// The value is written in a .override.user.config: what '↶' does (removes it from there, back to the level before). null: can't be reverted.
+  function cfgRevertInfo(n) {
+    var src = !n.d && n.lv ? cfgSource(n.lv) : null;
+    if (!src || src.kind !== "user") return null;
+    var prev = (n.h || [])[(n.h || []).length - 1];
+    var v = prev ? prev.v.replace(/\r?\n/g, " ") : null;
+    return "Revert: removes it from " + n.lv + ", back to " +
+      (prev ? "the value of " + prev.lv + ": " + (v.length > 60 ? v.slice(0, 60) + "…" : v) : n.u ? "nothing (it's not used)" : "the default of the code");
+  }
+  function cfgRevert(path) {
+    var info = flowConfig.rows[path];
+    if (!info || (flowConfig.edit && flowConfig.edit.busy)) return;
+    flowConfig.notice = null;
+    flowConfig.edit = { path: path, value: "", isNull: false, level: info.node.lv, shared: false, busy: false, error: null, revert: true };
+    cfgSave(true);
+  }
+  function cfgEditorHtml(path, info, depth) {
+    var e = flowConfig.edit, n = info.node, levels = cfgUserLevels();
+    var h = '<div class="cfeditor" style="margin-left:' + (depth * 14 + 14) + 'px">';
+    if (!levels.length) return h + '<div class="finote">No .override.user.config can be used for this scene.</div></div>';
+    if (e.revert)
+      return h + '<div class="cfedrow">' + (e.busy ? '<span class="fimeta">Reverting (removed from ' + esc(e.level) + ')...</span>' : '') +
+        '<button class="mini" data-cfcancel>Close</button></div>' + (e.error ? '<div class="finote cferr">' + esc(e.error) + '</div>' : '') + '</div>';
+    if (info.ref && info.sharedOk) {
+      h += '<div class="cfedrow"><span class="cfedlbl">For</span>' +
+        (info.stepOk ? '<label><input type="radio" name="cfscope" data-cfscope="step"' + (!e.shared ? " checked" : "") + '> ' +
+          (cfgIsWhole() ? (info.parent ? esc(info.parent) + " only" : "here only") : "this step only") + '</label>' : '') +
+        '<label><input type="radio" name="cfscope" data-cfscope="shared"' + (e.shared ? " checked" : "") + '> every step that uses \'' + esc(info.ref) + '\'</label></div>';
+    }
+    var och = n.oc && cfgChoices(n.oc);
+    if (och) h += cfgObjectEditorHtml(n, e, och);
+    else if (!n.u) {
+      var input;
+      var disabled = e.isNull ? " disabled" : "";
+      if (n.t === "bool" || n.t === "enum") {
+        var opts = n.t === "bool" ? ["true", "false"] : (n.opts || []);
+        input = '<select data-cfval' + disabled + '>' + opts.map(function (o) { return '<option' + (o === e.value ? " selected" : "") + '>' + esc(o) + '</option>'; }).join("") + '</select>';
+      } else if (e.value.indexOf("\n") >= 0 || e.value.length > 80) {
+        input = '<textarea data-cfval rows="10" spellcheck="false"' + disabled + '>' + esc(e.value) + '</textarea>';
+      } else {
+        var ph = { int: "a whole number", num: "a number (ex. 0.5)", time: "hh:mm:ss.fff", str: "a text", any: "a value" }[n.t] || "";
+        input = '<input type="text" data-cfval spellcheck="false" placeholder="' + esc(ph) + '" value="' + esc(e.value) + '"' + disabled + '>';
+      }
+      h += '<div class="cfedrow"><span class="cfedlbl">Value</span>' +
+        (n.nl ? '<label title="Write null (no value)"><input type="checkbox" data-cfnull' + (e.isNull ? " checked" : "") + '> null</label>' : '') + input + '</div>';
+    }
+    h += '<div class="cfedrow"><span class="cfedlbl">In</span><select data-cflevel>' + levels.map(function (l) {
+      return '<option value="' + esc(l.level) + '"' + (l.level === e.level ? " selected" : "") + '>' + esc(l.label) + '</option>';
+    }).join("") + '</select></div>';
+    // (a file read after the one chosen writes this value for this step: what is written there is not used)
+    if (!e.shared && n.lv && !n.d && cfgDepth(n.lv) > cfgDepth(e.level))
+      h += '<div class="finote">This value is written in ' + esc(n.lv) + ', a file read after ' + esc(e.level) + ': written in ' + esc(e.level) + ', it would not be used by this step.</div>';
+    // (Remove: when the value is written in the file chosen)
+    var writtenThere = n.lv === e.level || (n.h || []).some(function (x) { return x.lv === e.level; });
+    h += '<div class="cfedrow">' +
+      (n.u ? '' : '<button class="mini primary" data-cfsave' + (e.busy ? " disabled" : "") + '>Save</button>') +
+      (writtenThere || n.u ? '<button class="mini" data-cfremove' + (e.busy ? " disabled" : "") + ' title="Removes it from ' + esc(e.level) + ': the value of the files read before is used again">Remove from ' + esc(e.level) + '</button>' : '') +
+      '<button class="mini" data-cfcancel>Cancel</button>' +
+      (e.busy ? '<span class="fimeta">Saving...</span>' : '') + '</div>';
+    if (e.error) h += '<div class="finote cferr">' + esc(e.error) + '</div>';
+    return h + '</div>';
+  }
+  function cfgSave(remove) {
+    var e = flowConfig.edit, info = e && flowConfig.rows[e.path];
+    if (!info || e.busy) return;
+    e.busy = true; e.error = null;
+    renderInspector();
+    var sceneId = flowConfig.sceneId, key = flowConfig.key;
+    var req = { key: key, path: info.segs, level: e.level, value: e.value, isNull: !!e.isNull, remove: !!remove, shared: !!e.shared };
+    if (e.obj && !remove) {
+      // (an object: a shared object, a new one (with an id: a new shared object), or null)
+      if (e.obj === "#null") req.isNull = true;
+      else if (e.obj === "#new") { if (e.copyFrom) req.copyFrom = e.copyFrom; else req.newType = e.newType; if ((e.newId || "").trim()) req.newId = e.newId.trim(); }
+      else req.ref = e.obj.slice(4);
+    }
+    fetch("/api/flowconfig/" + sceneId, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    })
+      .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { return { error: t || ("HTTP " + r.status) }; }); })
+      .then(function (res) {
+        if (flowConfig.edit !== e) return;
+        e.busy = false;
+        if (res.error) { e.error = res.error; renderInspector(); return; }
+        // (saved: the configuration read again)
+        flowConfig.edit = null;
+        flowConfig.notice = { text: (e.revert ? "Reverted: removed from " : remove ? "Removed from " : "Saved in ") + e.level + " (" + res.file + ")." + (res.warning ? " " + res.warning : ""), warn: !!res.warning };
+        if (flowConfig.sceneId === sceneId && flowConfig.key === key && res.config) { flowConfig.data = res.config; flowConfig.dataId++; }
+        renderInspector();
+      })
+      .catch(function (ex) { if (flowConfig.edit === e) { e.busy = false; e.error = "Can't save: " + ex; renderInspector(); } });
+  }
+  function renderConfig(body) {
+    var target = cfgTarget();
+    var d = flowConfig.sceneId === target.sceneId && flowConfig.key === target.key ? flowConfig.data : null;
+    if (!isConfigKey(target.key)) { body.innerHTML = '<div class="empty">Only the steps (the workers) have a configuration: click on a step of the graph.</div>'; return; }
+    if (!d) { body.innerHTML = '<div class="empty">' + (flowConfig.loading ? "Reading the configuration files..." : "") + '</div>'; body._cfgSig = null; return; }
+    // (drawn again only when something shown changed: not while a value is typed, ex. when the scene refreshes the page)
+    var ed = flowConfig.edit;
+    var sig = [flowConfig.dataId, flowConfig.loading, flowConfig.show, flowConfig.defaults, flowConfig.search, Object.keys(flowConfig.open).sort().join("|"),
+      ed ? [ed.path, ed.level, ed.shared, ed.isNull, ed.busy, ed.error, ed.obj, ed.newType, ed.copyFrom].join("|") : "", flowConfig.notice ? flowConfig.notice.text : "", !!flowConfig.sourcesOpen].join("§");
+    if (body._cfgSig === sig && body.querySelector(".cftree")) return;
+    body._cfgSig = sig;
+    var html = "";
+    if (d.error) html += '<div class="finote">' + esc(d.error) + '</div>';
+    if (target.key === CFG_ALL) html += '<div class="finote cfok">No box selected: the whole configuration of the scene (all its steps, its shared objects...). A value changed here is written in the step or the shared object it\'s in, otherwise at the root.</div>';
+    if (flowConfig.notice) html += '<div class="finote ' + (flowConfig.notice.warn ? "" : "cfok") + '">' + esc(flowConfig.notice.text) + '</div>';
+    if (d.changed) html += '<div class="finote">The configuration files changed since this scene started: it still uses the values it read then (Retry: it reads them again). Shown: the files as they are now.</div>';
+    if (d.sources && d.sources.length) {
+      html += '<details class="cfsrc"' + (flowConfig.sourcesOpen ? " open" : "") + '><summary>Levels (the files read, from the main configuration to the folder of the scene)</summary>' +
+        d.sources.map(function (s) {
+          return '<div class="cfsrow' + (s.exists ? "" : " missing") + '">' + cfgBadge(s.level, false) + '<span>' + esc(s.file) + (s.exists ? "" : " (not created)") + '</span></div>';
+        }).join("") +
+        '<div class="cfsrow">' + cfgBadge(null, true) + '<span>written in no file: the default value of the code</span></div></details>';
+    }
+    if (d.tree) {
+      var filter = (flowConfig.search || "").trim().toLowerCase();
+      cfgMark(d.tree, filter, false);
+      var rows = [];
+      var expandAll = !!filter || cfgOnlySome();
+      flowConfig.rows = {};
+      // (the type of the step (its '$type'), with the level where the step is defined: always shown, not editable)
+      if (d.tree.ty)
+        rows.push('<div class="cfrow" title="' + esc("The type of this step ($type).\n" + cfgTitle(d.tree)) + '"><span class="cfind" style="width:0"></span><span class="cftog"></span>' +
+          cfgBadge(d.tree.lv, d.tree.d, "", cfgAdded(d.tree)) + '<span class="cfname">$type</span><span class="cfval vt-str">"' + esc(d.tree.ty) + '"</span></div>');
+      d.tree._kids.forEach(function (c) { cfgRows(c, (d.title || "") + "/" + c.n, 0, expandAll, rows, { segs: [c.n], ref: null, arrAny: false, arrSinceRef: false }); });
+      html += '<div class="cftree">' + rows.join("") + (rows.length > (d.tree.ty ? 1 : 0) ? "" : '<div class="empty">Nothing to show with these options.</div>') + '</div>';
+    }
+    var scroll = body.scrollTop;
+    body.innerHTML = html;
+    body.scrollTop = scroll;
+    var det = body.querySelector("details.cfsrc");
+    if (det) det.addEventListener("toggle", function () { flowConfig.sourcesOpen = det.open; });
+  }
   // The metadata hidden in the tables of the inspector (by name, remembered by the browser)
   var fiHidden = {};
   try { fiHidden = JSON.parse(localStorage.getItem("fstInspectHidden") || "{}") || {}; } catch (e) { }
@@ -1570,15 +2018,57 @@
       '</div>' +
       '<div id="flowHint" class="flowhint"></div>' +
       '<div class="finsp">' +
+        '<div class="fitabs">' +
+          '<button data-fitab="items" title="What the box receives and what it produced">Items</button>' +
+          '<button data-fitab="config" title="The configuration of the step (a worker), with the level where each value was written">Config</button>' +
+        '</div>' +
         '<div class="fihead"><span id="fiTitle" class="fititle">Inspector</span><span class="spacer"></span>' +
+          '<span id="fiItemsOpts" style="display:contents">' +
           '<label class="fiwrapopt" title="Hide the items that have none of the metadata shown (a metadata without value, ex. {GrabOnScreenText}, counts; the hidden columns are not counted)"><input type="checkbox" id="fiHideEmpty"> Hide empty</label>' +
           '<label class="fiwrapopt" title="The long values (ex. an analysis) on several lines, instead of cut"><input type="checkbox" id="fiWrap"> Full text</label>' +
           '<label class="fiwrapopt" id="fiShotsOpt" style="display:none" title="The selected item (click on a row, then ↓ / ↑): its screenshots, the ones sent to the AI, big, beside the inspector (taken with ffmpeg when they were not kept)"><input type="checkbox" id="fiShots"> Show screenshot</label>' +
           '<label class="fiwrapopt" id="fiPartTimesOpt" style="display:none" title="The times in the part of the scene (its file), with a Part column: A, B, C..."><input type="checkbox" id="fiPartTimes"> Part times</label>' +
-          '<input id="fiSearch" type="search" placeholder="Filter the items" spellcheck="false"></div>' +
+          '<input id="fiSearch" type="search" placeholder="Filter the items" spellcheck="false"></span>' +
+          '<span id="fiConfigOpts" style="display:none">' +
+          '<select id="cfShow" title="All: every value. Overrides only: the values that replaced the value of a file read before (written in an override file, or by a shortcut in a name), not the ones of the main configuration, nor the defaults, nor the ones first defined in an override file (+1-S). User overrides only: the values written in a .override.user.config (your own changes)." style="font:inherit;padding:1px 4px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)">' +
+            '<option value="all">All</option><option value="overrides">Overrides only</option><option value="user">User overrides only</option></select> ' +
+          '<label class="fiwrapopt" title="The values written in no file: the default values of the code (in grey)"><input type="checkbox" id="cfDefaults"> Defaults</label> ' +
+          '<button class="mini" id="cfReload" title="Read the configuration files again">Reload</button> ' +
+          '<input id="cfSearch" type="search" placeholder="Filter the settings" spellcheck="false" style="width:130px;font:inherit;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></span></div>' +
         '<div id="fiBody"><div class="empty">Click on a box of the graph: what it receives and what it produced are shown here.</div></div>' +
       '</div>';
     $("fiSearch").addEventListener("input", function () { flowInspect.search = $("fiSearch").value; renderInspector(); });
+    // The tabs of the inspector (the last one used: remembered by the browser)
+    try { flowInspect.tab = localStorage.getItem("fstInspectTab") === "config" ? "config" : "items"; } catch (e) { flowInspect.tab = "items"; }
+    panel.querySelector(".fitabs").addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-fitab]");
+      // (no box selected: 'Config' is the only tab, the tab chosen for the boxes stays as it is)
+      if (!b || b.disabled || !inspHasBox()) return;
+      flowInspect.tab = b.getAttribute("data-fitab");
+      try { localStorage.setItem("fstInspectTab", flowInspect.tab); } catch (ex) { }
+      if (flowInspect.tab === "config") { hideInspectorViewer(); loadFlowConfig(false); }
+      renderInspector();
+    });
+    // 'Config' tab: its options (remembered by the browser)
+    try {
+      flowConfig.defaults = localStorage.getItem("fstConfigDefaults") !== "0";
+      var savedShow = localStorage.getItem("fstConfigShow");
+      if (savedShow === "overrides" || savedShow === "user") flowConfig.show = savedShow;
+    } catch (e) { }
+    $("cfDefaults").checked = flowConfig.defaults;
+    $("cfShow").value = flowConfig.show;
+    $("cfDefaults").addEventListener("change", function () {
+      flowConfig.defaults = $("cfDefaults").checked;
+      try { localStorage.setItem("fstConfigDefaults", flowConfig.defaults ? "1" : "0"); } catch (e) { }
+      renderInspector();
+    });
+    $("cfShow").addEventListener("change", function () {
+      flowConfig.show = $("cfShow").value;
+      try { localStorage.setItem("fstConfigShow", flowConfig.show); } catch (e) { }
+      renderInspector();
+    });
+    $("cfSearch").addEventListener("input", function () { flowConfig.search = $("cfSearch").value; renderInspector(); });
+    $("cfReload").addEventListener("click", function () { loadFlowConfig(true); });
     // 'Full text': the long values on several lines (remembered by the browser)
     var wrapOn = false;
     try { wrapOn = localStorage.getItem("fstInspectWrap") === "1"; } catch (e) { }
@@ -1618,10 +2108,19 @@
 
   // The items of a box (read by the server when asked: the scene can be working on them)
   /// silent: read again because the scene changed them (the items shown stay until the new ones are there)
+  /// No box selected in the graph anymore (see inspTab / cfgTarget)
+  function clearInspectedBox() {
+    flowInspect.key = null; flowInspect.data = null; flowInspect.loading = false;
+    flowInspect.openRows = {}; flowInspect.selRk = null;
+    hideInspectorViewer();
+    loadFlowConfig(false);
+    renderInspector();
+  }
   function inspectFlowBox(sceneId, key, silent) {
     var isSameBox = flowInspect.sceneId === sceneId && flowInspect.key === key;
     if (!isSameBox) { flowInspect.openRows = {}; flowInspect.selRk = null; hideInspectorViewer(); }
     flowInspect.sceneId = sceneId; flowInspect.key = key;
+    if (inspTab() === "config") loadFlowConfig(false);
     loadInspectorParts(sceneId);
     updatePartTimesOption();
     flowInspect.countsSig = JSON.stringify(flowCounts || {});
@@ -1706,6 +2205,40 @@
   function renderInspector() {
     var d = flowInspect.sceneId === selectedId ? flowInspect.data : null, body = $("fiBody");
     if (!body) return;
+    // The tabs: 'Config' only for a step (a worker)
+    // (no box selected: 'Items' greyed, the whole configuration of the scene in 'Config')
+    var hasBox = inspHasBox(), shownTab = inspTab();
+    var isConfig = shownTab === "config";
+    var tabs = document.querySelectorAll("#flowPanel [data-fitab]");
+    for (var t = 0; t < tabs.length; t++) {
+      var name = tabs[t].getAttribute("data-fitab");
+      tabs[t].classList.toggle("on", name === shownTab);
+      if (name === "config") {
+        tabs[t].disabled = hasBox && !isConfigKey(flowInspect.key);
+        tabs[t].title = tabs[t].disabled ? "Only the steps (the workers) have a configuration"
+          : hasBox ? "The configuration of the step (a worker), with the level where each value was written"
+          : "No box selected: the whole configuration of the scene (all its steps), with the level where each value was written";
+      } else if (name === "items") {
+        tabs[t].disabled = !hasBox;
+        tabs[t].title = hasBox ? "What the box receives and what it produced" : "Click on a box of the graph: what it receives and what it produced";
+      }
+    }
+    $("fiItemsOpts").style.display = isConfig ? "none" : "contents";
+    $("fiConfigOpts").style.display = isConfig ? "contents" : "none";
+    body.classList.toggle("cfmode", isConfig);
+    if (isConfig) {
+      if (selectedId == null) {
+        $("fiTitle").textContent = "Config";
+        body.innerHTML = '<div class="empty">Click on a step of the graph: its configuration is shown here, with the level where each value was written.</div>';
+        return;
+      }
+      var target = cfgTarget();
+      var cd = flowConfig.sceneId === target.sceneId && flowConfig.key === target.key ? flowConfig.data : null;
+      $("fiTitle").textContent = (cd && cd.title ? cd.title : hasBox && d ? d.title : hasBox ? flowInspect.key : "The whole configuration of the scene") + (flowConfig.loading ? " (reading...)" : "");
+      if (!cd && !flowConfig.loading) loadFlowConfig(false);
+      renderConfig(body);
+      return;
+    }
     if (!d) {
       $("fiTitle").textContent = "Inspector";
       body.innerHTML = flowInspect.loading && flowInspect.sceneId === selectedId ? '<div class="empty">Reading...</div>' : '<div class="empty">Click on a box of the graph: what it receives and what it produced are shown here.</div>';
@@ -1958,10 +2491,12 @@
   function select(id, scroll) {
     reportView = null;
     // (a scene: its 'Flow' by default, with the step that is not complete selected; a step: its log)
+    // (a failed scene: its log, where the error is)
     var selectedNode = state.byId[id];
     var isSceneNode = selectedNode && selectedNode.parentId == null && selectedNode.kind !== "General";
-    selectedId = id; detail = null; activeTab = isSceneNode ? "Flow" : "Log"; stickToBottom = true;
-    if (isSceneNode) { flowAutoSelectPending = true; flowFocus = null; }
+    var opensFlow = isSceneNode && sceneState(selectedNode) !== "failed";
+    selectedId = id; detail = null; activeTab = opensFlow ? "Flow" : "Log"; stickToBottom = true;
+    if (isSceneNode) { flowAutoSelectPending = opensFlow; flowFocus = null; }
     var selectedRoot = rootOf(state.byId[id]);
     selectedRootName = selectedRoot ? selectedRoot.name : null;
     for (var n = state.byId[id]; n; n = n.parentId != null ? state.byId[n.parentId] : null) if (n.id !== id) expanded[n.id] = true;
@@ -2102,6 +2637,29 @@
   });
   // Flow panel: zoom, 'Show everything', refresh of the inspector, a row of the inspector (shown in full / cut), switches
   $("flowPanel").addEventListener("click", function (e) {
+    // 'Config' tab: a value changed (✎, then Save / Remove / Cancel)
+    var cfbtn = e.target.closest && e.target.closest("[data-cfedit], [data-cfrevert], [data-cfsave], [data-cfremove], [data-cfcancel]");
+    if (cfbtn) {
+      if (cfbtn.hasAttribute("data-cfrevert")) cfgRevert(cfbtn.getAttribute("data-cfrevert"));
+      else if (cfbtn.hasAttribute("data-cfedit")) {
+        var editPath = cfbtn.getAttribute("data-cfedit");
+        if (flowConfig.edit && flowConfig.edit.path === editPath) flowConfig.edit = null; else { flowConfig.notice = null; cfgOpenEditor(editPath); return; }
+        renderInspector();
+      }
+      else if (cfbtn.hasAttribute("data-cfsave")) cfgSave(false);
+      else if (cfbtn.hasAttribute("data-cfremove")) cfgSave(true);
+      else { flowConfig.edit = null; renderInspector(); }
+      return;
+    }
+    if (e.target.closest && e.target.closest(".cfeditor")) return;
+    // 'Config' tab: a container opened / closed, a long value shown in full / cut
+    var cfrow = e.target.closest && e.target.closest(".cfrow.cont, .cfrow.long");
+    if (cfrow) {
+      var cfpath = cfrow.getAttribute("data-cfpath");
+      if (flowConfig.open[cfpath]) delete flowConfig.open[cfpath]; else flowConfig.open[cfpath] = true;
+      renderInspector();
+      return;
+    }
     var zoom = e.target.closest && e.target.closest("[data-fzoom]");
     if (zoom) {
       var z = zoom.getAttribute("data-fzoom"), wrap = $("content").querySelector(".flowwrap");
@@ -2375,7 +2933,29 @@
     fiDragCol = null;
     $("flowPanel").querySelectorAll(".dropbefore, .dragging").forEach(function (x) { x.classList.remove("dropbefore"); x.classList.remove("dragging"); });
   });
+  // 'Config' tab: what is typed / chosen in the editor of a value (kept: the page can be drawn again meanwhile)
+  $("flowPanel").addEventListener("input", function (e) {
+    if (flowConfig.edit && e.target.hasAttribute && e.target.hasAttribute("data-cfval")) flowConfig.edit.value = e.target.value;
+    if (flowConfig.edit && e.target.hasAttribute && e.target.hasAttribute("data-cfnewid")) flowConfig.edit.newId = e.target.value;
+  });
+  $("flowPanel").addEventListener("keydown", function (e) {
+    if (!flowConfig.edit || !e.target.closest || !e.target.closest(".cfeditor")) return;
+    if (e.key === "Escape") { flowConfig.edit = null; renderInspector(); e.preventDefault(); }
+    else if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type === "text") { cfgSave(false); e.preventDefault(); }
+  });
   $("flowPanel").addEventListener("change", function (e) {
+    var ed = flowConfig.edit, t = e.target;
+    if (ed && t.closest && t.closest(".cfeditor")) {
+      if (t.hasAttribute("data-cfval")) ed.value = t.value;
+      else if (t.hasAttribute("data-cfnull")) { ed.isNull = t.checked; renderInspector(); }
+      else if (t.hasAttribute("data-cflevel")) { ed.level = t.value; renderInspector(); }
+      else if (t.hasAttribute("data-cfscope")) { ed.shared = t.getAttribute("data-cfscope") === "shared"; renderInspector(); }
+      else if (t.hasAttribute("data-cfobj")) { ed.obj = t.value; renderInspector(); }
+      else if (t.hasAttribute("data-cfnewtype")) { ed.newType = t.value; ed.copyFrom = ""; renderInspector(); }
+      else if (t.hasAttribute("data-cfcopy")) { ed.copyFrom = t.value; renderInspector(); }
+      else if (t.hasAttribute("data-cfnewid")) ed.newId = t.value;
+      return;
+    }
     var opt = e.target.getAttribute && e.target.getAttribute("data-fopt");
     if (!opt) return;
     flowOpts[opt] = !!e.target.checked;
@@ -2397,7 +2977,9 @@
     else flowFocus = null;
     flowHoverKey = null;   // (laid out again: the mouse is not over the same thing anymore)
     // (the clicked box is also shown in the inspector of the Flow panel: what it receives and what it produced)
-    if (k && selectedId != null) inspectFlowBox(selectedId, k);
+    if (k && flowFocus && selectedId != null) inspectFlowBox(selectedId, k);
+    // (nothing selected anymore: the inspector doesn't show the last box, its 'Config' tab shows the whole configuration of the scene)
+    else if (!flowFocus) clearInspectedBox();
     renderDetail();
   }
   // 'Flow': highlight on mouse over (a box: what it needs and what uses it; an arrow: it, its two boxes and its name; elsewhere: nothing)

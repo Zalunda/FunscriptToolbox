@@ -167,6 +167,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             return true;
         }
 
+        public bool IsSceneRemoved(int sceneNodeId)
+        {
+            lock (this.Gate)
+            {
+                return r_removedSceneIds.Contains(sceneNodeId);
+            }
+        }
+
         /// <summary>The scene (rootNodeId: the node of the scene) is paused by the user ('Pause scene').</summary>
         public bool IsScenePaused(int rootNodeId)
         {
@@ -190,6 +198,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 return reason;
             lock (this.Gate)
             {
+                if (r_removedSceneIds.Contains(sceneNodeId.Value))
+                    return "removed from the list: not on disk anymore at this place (moved or deleted)";
                 return m_nodesById.TryGetValue(sceneNodeId.Value, out var node) && r_pausedScenes.Contains(node.Name)
                     ? "on hold: 'Pause scene', saved in its .wipsubtitles (click on 'Resume scene' to continue)"
                     : null;
@@ -306,6 +316,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     m_roots.Add(node);
                 Touch();
                 return node;
+            }
+        }
+
+        /// <summary>The scenes removed from the list while their thread was paused at a safe point (by the id of their node): they stay paused.</summary>
+        private readonly HashSet<int> r_removedSceneIds = new HashSet<int>();
+
+        /// <summary>
+        /// Removes a first-level node (ex. a scene that is not on disk anymore: moved or deleted). The node and all its sub-tasks are forgotten.
+        /// If the thread of the scene is still alive (ex. on hold), it never continues: it stays paused at its next safe point.
+        /// </summary>
+        public void RemoveRootNode(ITaskNode oldNode)
+        {
+            lock (this.Gate)
+            {
+                if (!(oldNode is UiNode old))
+                    return;
+                r_removedSceneIds.Add(old.Id);
+                r_pausedScenes.Remove(old.Name);
+                foreach (var forgotten in old.GetSelfAndDescendants())
+                {
+                    m_nodesById.Remove(forgotten.Id);
+                }
+                m_roots.Remove(old);
+                Touch();
             }
         }
 
@@ -520,6 +554,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             lock (this.Gate)
             {
                 return m_nodesById.TryGetValue(sceneNodeId, out var node) ? node.TimingEditor : null;
+            }
+        }
+
+        /// <summary>The configuration of the steps of a scene (null: unknown scene, or not loaded). Its methods are called without the gate.</summary>
+        internal ISceneConfigView GetConfigView(int sceneNodeId)
+        {
+            lock (this.Gate)
+            {
+                return m_nodesById.TryGetValue(sceneNodeId, out var node) ? node.ConfigView : null;
             }
         }
 
@@ -948,6 +991,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 lock (r_owner.Gate)
                 {
                     TimingEditor = editor;
+                }
+            }
+
+            /// <summary>See <see cref="ITaskNode.SetConfigView"/>.</summary>
+            internal ISceneConfigView ConfigView { get; private set; }
+
+            public void SetConfigView(ISceneConfigView view)
+            {
+                lock (r_owner.Gate)
+                {
+                    ConfigView = view;
                 }
             }
 

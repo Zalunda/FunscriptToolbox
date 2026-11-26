@@ -76,25 +76,37 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
             catch (JsonException ex)
             {
-                var adjustedFileName = path + ".as.json";
-                File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + adjustedContent);
-                throw new Exception($"Error parsing configuration file '{path}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
+                // (the line numbers are the ones of the file, see PreprocessHybridJsonFile)
+                throw new Exception($"Error parsing configuration file '{path}': {ex.Message}", ex);
             }
         }
 
         /// <summary>
+        /// The override files of a folder, in the order they are merged: '.override.config' (from the installation, replaced
+        /// by a new version), then '.override.user.config' (the user's own changes: never created / replaced by the installation).
+        /// </summary>
+        private static readonly string[] rs_overrideConfigSuffixes = { ".override.config", ".override.user.config" };
+
+        private static IEnumerable<string> GetOverrideConfigFileNames(string baseConfigPath)
+        {
+            return rs_overrideConfigSuffixes.Select(suffix => Path.GetFileNameWithoutExtension(baseConfigPath) + suffix);
+        }
+
+        /// <summary>
         /// The settings shared by all the scenes processed at the same time ('GlobalShared' section): only read from the main
-        /// configuration file and the '.override.config' in the same folder (one value for the whole run).
+        /// configuration file and the override files in the same folder (one value for the whole run).
         /// </summary>
         public static SubtitleGeneratorGlobalSharedSettings LoadGlobalShared(string baseConfigPath)
         {
             var config = ReadHybridJsonFile(baseConfigPath);
-            var overrideConfigPath = Path.Combine(
-                Path.GetDirectoryName(Path.GetFullPath(baseConfigPath)),
-                Path.GetFileNameWithoutExtension(baseConfigPath) + ".override.config");
-            if (File.Exists(overrideConfigPath))
+            var baseConfigDir = Path.GetDirectoryName(Path.GetFullPath(baseConfigPath));
+            foreach (var overrideConfigFileName in GetOverrideConfigFileNames(baseConfigPath))
             {
-                MergeConfigs(config, ReadHybridJsonFile(overrideConfigPath));
+                var overrideConfigPath = Path.Combine(baseConfigDir, overrideConfigFileName);
+                if (File.Exists(overrideConfigPath))
+                {
+                    MergeConfigFile(config, ReadHybridJsonFile(overrideConfigPath), overrideConfigPath);
+                }
             }
 
             var section = config.Property(GlobalSharedSectionName, StringComparison.OrdinalIgnoreCase)?.Value;
@@ -104,7 +116,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             }
             catch (JsonException ex)
             {
-                throw new Exception($"Error in the '{GlobalSharedSectionName}' section of '{baseConfigPath}' (or its .override.config): {ex.Message}", ex);
+                throw new Exception($"Error in the '{GlobalSharedSectionName}' section of '{baseConfigPath}' (or its override files): {ex.Message}", ex);
             }
         }
 
@@ -116,12 +128,116 @@ namespace FunscriptToolbox.SubtitlesVerbs
             if (config.Property(GlobalSharedSectionName, StringComparison.OrdinalIgnoreCase) != null)
             {
                 throw new Exception(
-                    $"The '{GlobalSharedSectionName}' section is only read from the main configuration file (and the .override.config in the same folder), "
+                    $"The '{GlobalSharedSectionName}' section is only read from the main configuration file (and the override files in the same folder), "
                     + $"because it applies to all the scenes at the same time. Remove it from '{path}'.");
             }
         }
 
         public static SubtitleGeneratorConfig LoadHierarchically(string baseConfigPath, string targetFileFullPath)
+        {
+            return LoadHierarchically(baseConfigPath, targetFileFullPath, tracking: null);
+        }
+
+        /// <summary>
+        /// Same as LoadHierarchically, but each value of the merged configuration knows where it comes from (the 'Config' tab of the
+        /// inspector of the web UI): a ConfigSource annotation on its JToken (and a ConfigSourceHistory with the values it replaced).
+        /// Never throws, and writes nothing on disk: an error is returned in 'Error' (with the merged configuration when it could be merged).
+        /// </summary>
+        public static SubtitleGeneratorConfigWithSources LoadHierarchicallyWithSources(string baseConfigPath, string targetFileFullPath)
+        {
+            var result = new SubtitleGeneratorConfigWithSources();
+            try
+            {
+                result.Config = LoadHierarchically(baseConfigPath, targetFileFullPath, result);
+            }
+            catch (Exception ex)
+            {
+                result.Error = ex.Message;
+            }
+            return result;
+        }
+
+        /// <summary>A configuration file, read like the others (comments, long texts '=____ ... ____='): for the writer of the 'Config' tab of the web UI.</summary>
+        internal static JObject ReadConfigFile(string path) => ReadHybridJsonFile(path);
+
+        /// <summary>
+        /// The text of a configuration file (a '.override.user.config' written by the web UI): indented, the texts on several lines in the
+        /// long text format ('=____ ... ____='), after the 'header' (comment lines).
+        /// </summary>
+        internal static string ToHybridConfigText(JObject config, string header)
+        {
+            var copy = (JObject)config.DeepClone();
+            foreach (var value in copy.Descendants().OfType<JValue>().Where(v => v.Type == JTokenType.String && ((string)v).Contains('\n')).ToList())
+                value.Value = CreateLongString((string)value.Value);
+            var text = ReplaceLongStringFromJsonToHybrid(copy.ToString(Formatting.Indented));
+            return (header == null ? string.Empty : header + Environment.NewLine) + text.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+        }
+
+        /// <summary>A short hash of the merged configuration (to know if the files changed since a scene loaded its configuration).</summary>
+        private static string HashOfMergedConfig(string finalConfigText)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                return Convert.ToBase64String(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(finalConfigText)));
+            }
+        }
+
+        /// <summary>Each JToken of a file read gets its source (only when the sources are tracked).</summary>
+        private static void AddSource(SubtitleGeneratorConfigWithSources tracking, JObject fileConfig, ConfigSource source)
+        {
+            if (tracking == null)
+                return;
+            tracking.Sources.Add(source);
+            if (fileConfig == null)
+                return;
+            foreach (var token in fileConfig.DescendantsAndSelf())
+                token.AddAnnotation(source);
+        }
+
+        /// <summary>
+        /// A value of the configuration replaced (by a file, or by a shortcut): the new one keeps the old one (and the ones it had
+        /// replaced) in a ConfigSourceHistory. Only when the sources are tracked (the old one has a ConfigSource).
+        /// </summary>
+        private static void RecordOverridden(JToken oldToken, JToken newToken, JToken userToken)
+        {
+            var oldSource = oldToken?.Annotation<ConfigSource>();
+            if (oldSource == null || newToken == null)
+                return;
+            var overridden = new List<ConfigOverriddenValue>(oldToken.Annotation<ConfigSourceHistory>()?.Overridden ?? new List<ConfigOverriddenValue>())
+            {
+                new ConfigOverriddenValue(oldSource, ConfigOverriddenValue.ToText(oldToken))
+            };
+            // (a value that already replaced others: ex. a '$ref' with overrides, written in several files, then merged in the copy of
+            // the shared object: the values of the shared object, then the ones it replaced in the step)
+            overridden.AddRange(userToken?.Annotation<ConfigSourceHistory>()?.Overridden ?? Enumerable.Empty<ConfigOverriddenValue>());
+            if (ReferenceEquals(oldToken, newToken))
+            {
+                // (the same value written again: Newtonsoft.Json keeps the old token, it gets the source of the file that wrote it again)
+                var userSource = userToken?.Annotation<ConfigSource>();
+                if (userSource == null)
+                    return;
+                newToken.RemoveAnnotations<ConfigSource>();
+                newToken.AddAnnotation(userSource);
+            }
+            newToken.RemoveAnnotations<ConfigSourceHistory>();
+            newToken.AddAnnotation(new ConfigSourceHistory(overridden));
+        }
+
+        /// <summary>The language of a shortcut ('[ja]' in the name of a folder / of the video) replaces 'SourceLanguage'.</summary>
+        private static void SetSourceLanguageFromShortcut(JObject finalConfig, string langCode, SubtitleGeneratorConfigWithSources tracking, ConfigSource source)
+        {
+            var oldToken = finalConfig.Property("SourceLanguage", StringComparison.OrdinalIgnoreCase)?.Value;
+            var newValue = new JValue(langCode);
+            finalConfig["SourceLanguage"] = newValue;
+            if (tracking != null)
+            {
+                tracking.Sources.Add(source);
+                newValue.AddAnnotation(source);
+                RecordOverridden(oldToken, finalConfig["SourceLanguage"], newValue);
+            }
+        }
+
+        private static SubtitleGeneratorConfig LoadHierarchically(string baseConfigPath, string targetFileFullPath, SubtitleGeneratorConfigWithSources tracking)
         {
             // 1. Load the base configuration file.
             var finalConfig = ReadHybridJsonFile(baseConfigPath);
@@ -130,91 +246,125 @@ namespace FunscriptToolbox.SubtitlesVerbs
             // 2. Determine paths and the name for override files.
             var baseConfigDir = Path.GetFullPath(Path.GetDirectoryName(baseConfigPath));
             var targetFileDir = Path.GetFullPath(Path.GetDirectoryName(targetFileFullPath));
+            AddSource(tracking, finalConfig, new ConfigSource("0", 0, ConfigSource.KindMain, Path.GetFullPath(baseConfigPath), string.Empty));
 
             // The name of the file that acts as a new root/base for a subtree.
             var rootConfigFileName = Path.GetFileName(baseConfigPath);
-            var overrideConfigFileName = Path.GetFileNameWithoutExtension(baseConfigPath) + ".override.config";
+            var overrideConfigFileNames = GetOverrideConfigFileNames(baseConfigPath).ToArray();
 
             // 3. Ensure the target file is in a subdirectory of the base config.
-            if (!targetFileDir.StartsWith(baseConfigDir + @"\", StringComparison.OrdinalIgnoreCase))
+            // If not, no overrides can be applied: only the base config.
+            if (targetFileDir.StartsWith(baseConfigDir + @"\", StringComparison.OrdinalIgnoreCase))
             {
-                // If not, no overrides can be applied. Just return the base config.
-                ExpandReferencesWithOverrides(finalConfig);
-                return finalConfig.ToObject<SubtitleGeneratorConfig>(rs_serializer);
-            }
+                // 4. Create a list of all directories to scan, from the base down to the target.
+                var directoriesToScan = new List<string>();
+                var currentDir = new DirectoryInfo(targetFileDir);
 
-            // 4. Create a list of all directories to scan, from the base down to the target.
-            var directoriesToScan = new List<string>();
-            var currentDir = new DirectoryInfo(targetFileDir);
-
-            // Traverse upwards from the target and add to list
-            while (currentDir != null && currentDir.FullName.Length >= baseConfigDir.Length)
-            {
-                directoriesToScan.Add(currentDir.FullName);
-                if (string.Equals(currentDir.FullName, baseConfigDir, StringComparison.OrdinalIgnoreCase))
+                // Traverse upwards from the target and add to list
+                while (currentDir != null && currentDir.FullName.Length >= baseConfigDir.Length)
                 {
-                    break;
-                }
-                currentDir = currentDir.Parent;
-            }
-            // Reverse the list to process from top-down (base -> target)
-            directoriesToScan.Reverse();
-
-            // 5. Traverse the directories, applying folder-name shortcuts and merging override files.
-            foreach (var dirPath in directoriesToScan)
-            {
-                var dirInfo = new DirectoryInfo(dirPath);
-
-                // Check the directory name for a language code like "[ja]".
-                var languageMatch = s_languageInFolderNameRegex.Match(dirInfo.Name);
-                if (languageMatch.Success)
-                {
-                    string langCode = languageMatch.Groups["name"].Value;
-                    // Validate that it's a real language.
-                    if (Language.FromString(langCode) != null)
+                    directoriesToScan.Add(currentDir.FullName);
+                    if (string.Equals(currentDir.FullName, baseConfigDir, StringComparison.OrdinalIgnoreCase))
                     {
-                        // It's valid, so override the "SourceLanguage" property in our JObject.
-                        finalConfig["SourceLanguage"] = langCode;
+                        break;
+                    }
+                    currentDir = currentDir.Parent;
+                }
+                // Reverse the list to process from top-down (base -> target)
+                directoriesToScan.Reverse();
+
+                // 5. Traverse the directories, applying folder-name shortcuts and merging override files.
+                for (var depth = 0; depth < directoriesToScan.Count; depth++)
+                {
+                    var dirPath = directoriesToScan[depth];
+                    var dirInfo = new DirectoryInfo(dirPath);
+                    var relativeFolder = Path.GetRelativePath(baseConfigDir, dirPath);
+                    if (relativeFolder == ".") relativeFolder = string.Empty;
+
+                    // Check the directory name for a language code like "[ja]".
+                    var languageMatch = s_languageInFolderNameRegex.Match(dirInfo.Name);
+                    if (languageMatch.Success)
+                    {
+                        string langCode = languageMatch.Groups["name"].Value;
+                        // Validate that it's a real language.
+                        if (Language.FromString(langCode) != null)
+                        {
+                            // It's valid, so override the "SourceLanguage" property in our JObject.
+                            SetSourceLanguageFromShortcut(finalConfig, langCode, tracking,
+                                new ConfigSource($"{depth} (folder name)", depth, ConfigSource.KindFolderName, dirPath, relativeFolder));
+                        }
+                    }
+
+                    // (the 'GlobalShared' section is only allowed in the folder of the main configuration)
+                    var isMainFolder = string.Equals(Path.GetFullPath(dirPath).TrimEnd('\\'), baseConfigDir.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+
+                    var rootConfigPath = Path.Combine(dirPath, rootConfigFileName);
+                    if (File.Exists(rootConfigPath))
+                    {
+                        // Replace the config for the one we just found.
+                        finalConfig = ReadHybridJsonFile(rootConfigPath);
+                        lastFullPath = rootConfigPath;
+                        if (!isMainFolder) EnsureNoGlobalShared(finalConfig, rootConfigPath);
+                        // (the main configuration, read again: already in the sources)
+                        if (tracking != null)
+                        {
+                            if (isMainFolder)
+                                foreach (var token in finalConfig.DescendantsAndSelf())
+                                    token.AddAnnotation(tracking.Sources[0]);
+                            else
+                                AddSource(tracking, finalConfig, new ConfigSource($"{depth}-R", depth, ConfigSource.KindReplace, rootConfigPath, relativeFolder));
+                        }
+                    }
+
+                    // Now, check for the override files in the same directory ('.override.config', then '.override.user.config').
+                    // This allows the file to override the folder-name shortcut if needed.
+                    for (var index = 0; index < overrideConfigFileNames.Length; index++)
+                    {
+                        var overrideConfigPath = Path.Combine(dirPath, overrideConfigFileNames[index]);
+                        var isUserOverride = index == overrideConfigFileNames.Length - 1;
+                        var source = tracking == null
+                            ? null
+                            : new ConfigSource(
+                                $"{depth}-{(isUserOverride ? "U" : "S")}",
+                                depth,
+                                isUserOverride ? ConfigSource.KindUserOverride : ConfigSource.KindOverride,
+                                overrideConfigPath,
+                                relativeFolder);
+                        if (File.Exists(overrideConfigPath))
+                        {
+                            var overrideConfig = ReadHybridJsonFile(overrideConfigPath);
+                            if (!isMainFolder) EnsureNoGlobalShared(overrideConfig, overrideConfigPath);
+                            lastFullPath = overrideConfigPath;
+                            AddSource(tracking, overrideConfig, source);
+                            MergeConfigFile(finalConfig, overrideConfig, overrideConfigPath);
+                        }
+                        else if (tracking != null && isUserOverride)
+                        {
+                            // (a '.override.user.config' that could be created there)
+                            source.Exists = false;
+                            tracking.Sources.Add(source);
+                        }
                     }
                 }
 
-                // (the 'GlobalShared' section is only allowed in the folder of the main configuration)
-                var isMainFolder = string.Equals(Path.GetFullPath(dirPath).TrimEnd('\\'), baseConfigDir.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
-
-                var rootConfigPath = Path.Combine(dirPath, rootConfigFileName);
-                if (File.Exists(rootConfigPath))
+                // 6. Final Override from Filename (Highest Precedence) ---
+                string targetFileName = Path.GetFileName(targetFileFullPath);
+                Match fileNameMatch = s_languageInFolderNameRegex.Match(targetFileName);
+                if (fileNameMatch.Success)
                 {
-                    // Replace the config for the one we just found.
-                    finalConfig = ReadHybridJsonFile(rootConfigPath);
-                    lastFullPath = rootConfigPath;
-                    if (!isMainFolder) EnsureNoGlobalShared(finalConfig, rootConfigPath);
-                }
-
-                // Now, check for an override file in the same directory.
-                // This allows the file to override the folder-name shortcut if needed.
-                var overrideConfigPath = Path.Combine(dirPath, overrideConfigFileName);
-                if (File.Exists(overrideConfigPath))
-                {
-                    var overrideConfig = ReadHybridJsonFile(overrideConfigPath);
-                    if (!isMainFolder) EnsureNoGlobalShared(overrideConfig, overrideConfigPath);
-                    lastFullPath = overrideConfigPath;
-                    MergeConfigs(finalConfig, overrideConfig);
+                    string langCode = fileNameMatch.Groups["name"].Value;
+                    if (Language.FromString(langCode) != null)
+                    {
+                        // This will overwrite any language setting from the base config,
+                        // folder names, or override files.
+                        SetSourceLanguageFromShortcut(finalConfig, langCode, tracking,
+                            new ConfigSource("file name", directoriesToScan.Count - 1, ConfigSource.KindFileName, targetFileFullPath, Path.GetRelativePath(baseConfigDir, targetFileDir)));
+                    }
                 }
             }
 
-            // 6. Final Override from Filename (Highest Precedence) ---
-            string targetFileName = Path.GetFileName(targetFileFullPath);
-            Match fileNameMatch = s_languageInFolderNameRegex.Match(targetFileName);
-            if (fileNameMatch.Success)
-            {
-                string langCode = fileNameMatch.Groups["name"].Value;
-                if (Language.FromString(langCode) != null)
-                {
-                    // This will overwrite any language setting from the base config,
-                    // folder names, or override files.
-                    finalConfig["SourceLanguage"] = langCode;
-                }
-            }
+            if (tracking != null)
+                tracking.Merged = finalConfig;
 
             // 7. The '$ref' with other properties are replaced by a copy of their object, with these properties merged in it.
             try
@@ -230,15 +380,22 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var finalConfigText = finalConfig.ToString();
             try
             {
-                return rs_serializer.Deserialize<SubtitleGeneratorConfig>(
+                var config = rs_serializer.Deserialize<SubtitleGeneratorConfig>(
                     new JsonTextReader(
                         new StringReader(finalConfigText)));
+                config.MergedConfigHash = HashOfMergedConfig(finalConfigText);
+                return config;
             }
-            catch (JsonException ex)
+            catch (JsonException ex) when (tracking == null)
             {
                 var adjustedFileName = lastFullPath + ".as.json";
                 File.WriteAllText(adjustedFileName, "ERROR:\n" + ex.Message + "\n\n--- JSON CONTENT ---\n" + finalConfigText);
                 throw new Exception($"Error during final deserialization of merged config for '{lastFullPath}'. Details written to '{adjustedFileName}'.\n\nDetails: {ex.Message}", ex);
+            }
+            catch (JsonException ex)
+            {
+                // (the sources are tracked: nothing written on disk)
+                throw new Exception($"Error during final deserialization of merged config for '{lastFullPath}': {ex.Message}", ex);
             }
         }
 
@@ -300,6 +457,22 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// </summary>
         /// <param name="baseConfig">The base configuration JObject to merge into.</param>
         /// <param name="userConfig">The user override JObject.</param>
+        /// <summary>
+        /// Merges an override file, with the name of the file in the error (ex. an item that can't be merged).
+        /// (the line numbers are the ones of the file, see PreprocessHybridJsonFile)
+        /// </summary>
+        private static void MergeConfigFile(JObject baseConfig, JObject userConfig, string path)
+        {
+            try
+            {
+                MergeConfigs(baseConfig, userConfig);
+            }
+            catch (JsonException ex)
+            {
+                throw new Exception($"Error merging configuration file '{path}': {ex.Message}", ex);
+            }
+        }
+
         private static void MergeConfigs(JObject baseConfig, JObject userConfig)
         {
             // Start the recursive merge at the root of the JSON structure (with an empty path).
@@ -343,7 +516,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 $"'{string.Join(".", newPath)}' defines the object '$id': '{baseId.Value}' (it can be used elsewhere with a '$ref'): " +
                                 "it can't be replaced by another '$ref' or '$type'. Change its properties instead, or define it in 'SharedObjects'.");
                         }
+                        var oldValue = baseProp.Value;
                         baseProp.Value = userObject;
+                        RecordOverridden(oldValue, baseProp.Value, userObject);
                     }
                     else
                     {
@@ -359,7 +534,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // We can add or replace it directly.
                     if (baseProp != null)
                     {
+                        var oldValue = baseProp.Value;
                         baseProp.Value = userProp.Value;
+                        RecordOverridden(oldValue, baseProp.Value, userProp.Value);
                     }
                     else
                     {
@@ -448,6 +625,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     typeProp.Remove();
                     expanded.AddFirst(typeProp);
                 }
+
+                // (the sources are tracked: the copy knows which shared object it is, and where the '$ref' was written)
+                var referenceSource = referenceProp.Value.Annotation<ConfigSource>();
+                if (referenceSource != null)
+                    expanded.AddAnnotation(new ConfigExpandedReference(id, referenceSource));
 
                 obj.Replace(expanded);
                 expanding.Add(id);
@@ -602,11 +784,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     if (newItem[requiredProp] == null)
                     {
                         string errorContext = newItem.ToString(Formatting.None);
+                        // (the usual cause: the item was meant to change an existing one, but its key is missing, commented or misspelled)
+                        var keys = string.Join(" / ", rule.Keys.Concat(rule.FallbackIdentifierKey == null ? Array.Empty<string>() : new[] { rule.FallbackIdentifierKey }).Select(k => $"'{k}'"));
+                        var hint = $"An item of '{string.Join(".", rule.Path)}' without {keys} matching an existing item is a new item. "
+                            + $"If it's meant to change an existing item, its {keys} is missing, commented or misspelled.";
                         if (newItem is IJsonLineInfo lineInfo && lineInfo.HasLineInfo())
                         {
-                            throw new JsonException($"A new item is missing the required '{requiredProp}' property. The item starts on line {lineInfo.LineNumber}:\n{errorContext}");
+                            throw new JsonException($"A new item is missing the required '{requiredProp}' property. The item starts on line {lineInfo.LineNumber}:\n{errorContext}\n{hint}");
                         }
-                        throw new JsonException($"A new item is missing the required '{requiredProp}' property:\n{errorContext}");
+                        throw new JsonException($"A new item is missing the required '{requiredProp}' property:\n{errorContext}\n{hint}");
                     }
                 }
             }
@@ -703,9 +889,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return STARTLONGSTRING + text + ENDLONGSTRING;
         }
 
+        /// <summary>
+        /// The hybrid text as JSON. The lines are kept where they are (a comment line becomes an empty line, a long string is followed by
+        /// as many line breaks as it had), so the line numbers of an error are the ones of the file.
+        /// </summary>
         private static string PreprocessHybridJsonFile(string originalText)
         {
-            var textWithoutComment = Regex.Replace(originalText, @"^\s*\/\/.*$\n*", string.Empty, RegexOptions.Multiline);
+            var textWithoutComment = Regex.Replace(originalText, @"^[ \t]*\/\/[^\n]*?(?=\r?$)", string.Empty, RegexOptions.Multiline);
             return ReplaceLongStringFromHybridToJson(textWithoutComment);
         }
 
@@ -735,7 +925,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         {
             return Regex.Replace(
                 originalText,
-                @"\n*=_{3,}(?<text>.*?)_{3,}=\n*",
+                @"\n*=_{3,}(?<text>.*?)_{3,}=(?:\n*[ \t]*(?<quote>"")|\n*)",
                 match =>
                 {
                     string capturedText = match.Groups["text"].Value.Trim();
@@ -746,7 +936,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     // Remove the surrounding quotes added by the serializer
                     // to get just the escaped content.
-                    return jsonString.Substring(1, jsonString.Length - 2);
+                    // (after the closing quote of the string: the line breaks it had, so the next lines keep their number)
+                    var quote = match.Groups["quote"].Value;
+                    var lineBreaks = quote.Length == 0 ? string.Empty : new string('\n', match.Value.Count(c => c == '\n'));
+                    return jsonString.Substring(1, jsonString.Length - 2) + quote + lineBreaks;
                 },
                 RegexOptions.Singleline);
         }

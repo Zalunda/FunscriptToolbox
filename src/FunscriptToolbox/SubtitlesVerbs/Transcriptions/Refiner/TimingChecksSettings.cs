@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -63,12 +64,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         /// A subtitle made only of the words of these patterns (one or several, in any order) is flagged. Let each pattern take its own
         /// trailing spaces and punctuation, so they can follow each other. No default: null or empty = not done.
         /// A pattern can't use backreferences or lookarounds (the matching is done in linear time, so it can never hang).
+        /// A pattern with "IgnoredInCombination" (ex. the moans) doesn't count in the name of a combination: "ああ、きもちいい" is "Kimochii".
         /// </summary>
-        public TranscriberAudioFullAI.TranscriptioToIgnorePattern[] MaybePointlessPatterns { get; set; }
+        public MaybePointlessPattern[] MaybePointlessPatterns { get; set; }
+
+        /// <summary>A pattern of MaybePointlessPatterns.</summary>
+        public class MaybePointlessPattern : TranscriberAudioFullAI.TranscriptioToIgnorePattern
+        {
+            /// <summary>
+            /// Said with the words of other patterns, this one is ignored in the name of the flag (ex. moans with "Kimochii": "Kimochii",
+            /// not "Combination"). The subtitle is still flagged.
+            /// </summary>
+            public bool IgnoredInCombination { get; set; }
+
+            public MaybePointlessPattern(string name, string pattern, bool ignoredInCombination = false)
+                : base(name, pattern)
+            {
+                this.IgnoredInCombination = ignoredInCombination;
+            }
+        }
 
         /// <summary>The patterns that are usable (not null, not empty).</summary>
-        private TranscriberAudioFullAI.TranscriptioToIgnorePattern[] GetMaybePointlessPatterns()
-            => (MaybePointlessPatterns ?? Array.Empty<TranscriberAudioFullAI.TranscriptioToIgnorePattern>())
+        private MaybePointlessPattern[] GetMaybePointlessPatterns()
+            => (MaybePointlessPatterns ?? Array.Empty<MaybePointlessPattern>())
                 .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Pattern))
                 .ToArray();
 
@@ -104,14 +122,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             }
         }
 
-        /// <summary>The name of the pattern that matches the whole text by itself, said once or many times (null when the text mixes several).</summary>
+        /// <summary>
+        /// The name of the pattern that matches the whole text by itself, said once or many times; otherwise, the first pattern
+        /// (not IgnoredInCombination) that matches it with only the patterns IgnoredInCombination around it.
+        /// Null when the text mixes several patterns that are not ignored.
+        /// </summary>
         public string FindMaybePointlessPatternName(string text)
         {
-            return GetMaybePointlessPatterns()
-                .FirstOrDefault(p => new Regex(
-                    $"^(?:{p.Pattern})+$",
-                    RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).IsMatch(text))
+            var patterns = GetMaybePointlessPatterns();
+            var alone = patterns.FirstOrDefault(p => IsOnlyMadeOf(text, new[] { p }));
+            if (alone != null)
+                return alone.Name;
+
+            var ignored = patterns.Where(p => p.IgnoredInCombination).ToArray();
+            if (ignored.Length == 0)
+                return null;
+            return patterns
+                .Where(p => !p.IgnoredInCombination)
+                .FirstOrDefault(p => IsOnlyMadeOf(text, ignored.Prepend(p)))
                 ?.Name;
         }
+
+        private static bool IsOnlyMadeOf(string text, IEnumerable<MaybePointlessPattern> patterns)
+            => new Regex(
+                $"^(?:{string.Join("|", patterns.Select(p => $"(?:{p.Pattern})"))})+$",
+                RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).IsMatch(text);
     }
 }

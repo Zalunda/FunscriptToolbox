@@ -1,4 +1,7 @@
 {
+  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
+  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
+
   "SharedObjects": [
     {
       "$id": "TranscriberAudioFullSystemPromptForG4",
@@ -723,14 +726,16 @@ _______________________________________=",
           // A regex on the text as it is (not case sensitive; katakana and hiragana are different characters).
           // Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
           // Comment (//) the lines of the words that you want to keep. No list (or an empty one) = the check is not done.
+          // "IgnoredInCombination": true = said with other words, this pattern doesn't count in the name of the warning
+          // (ex. "ああ、きもちいい" is "MaybePointless:Kimochii...", not "MaybePointless:Combination").
           "MaybePointlessPatterns": [
             // Moans, grunt, etc
-            { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+" },
-            { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+" },
-            { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+" },
-            { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+" },
-            { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*" },
-            { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーは、。\\s…!！]+" },
+            { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+", "IgnoredInCombination": true },
+            { "Name": "N-Hums", "Pattern": "[んっー、。\\s…!！]+", "IgnoredInCombination": true },
+            { "Name": "U-Grunts", "Pattern": "[うぅーっ、。\\s…!！]+", "IgnoredInCombination": true },
+            { "Name": "Breathing", "Pattern": "[はぁーっ、。\\s…!！]+", "IgnoredInCombination": true },
+            { "Name": "Giggle", "Pattern": "ふふ[っ]*[。！？]*", "IgnoredInCombination": true },
+            { "Name": "CombinedFiller", "Pattern": "[あぁうぅんっーは、。\\s…!！]+", "IgnoredInCombination": true },
 
             // Words said over and over
             { "Name": "Sugoi (すごい = incredible)", "Pattern": "(すご|スゴ|凄)[いイーっッ]+[、。\\s…!！?？]*" },
@@ -858,10 +863,6 @@ _______________________________________=",
 
     // -----------------------------
     // Use timings, manual-input, voice-texts and AI generated metadatas to AI Translation & Arbitration
-    {
-      "Id": "metadatas-srt",
-      "Enabled": true
-    },
     {
       "Id": "finalized_maverick",
       "Enabled": true,

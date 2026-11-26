@@ -131,11 +131,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             var node = TaskScope.Current;
             node.SetState(TaskState.WaitingForLock, reason);
-            using (this.Output.EnterPauseForClose())
+            using (var pauseForClose = this.Output.EnterPauseForClose())
             {
                 string currentReason;
                 while ((currentReason = this.Output.GetPauseAtSafePointReason(this.SceneNodeId)) != null)
                 {
+                    // (removed from the list, ex. its folder was moved: it never continues, and it's not counted anymore
+                    // in the scenes paused for 'Close', since it's not in the list)
+                    if (this.SceneNodeId is int sceneNodeId && this.Output.IsSceneRemoved(sceneNodeId))
+                    {
+                        pauseForClose?.Dispose();
+                        Thread.Sleep(Timeout.Infinite);
+                    }
+
                     // (ex. 'Pause all', then 'Close': the reason shown changes)
                     if (currentReason != reason)
                     {

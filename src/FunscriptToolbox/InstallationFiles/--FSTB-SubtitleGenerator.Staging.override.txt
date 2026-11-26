@@ -1,4 +1,7 @@
 ﻿{
+  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
+  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
+
   "Workers": [
     {
       "Id": "used-config",

@@ -225,6 +225,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>
         /// The number of items of each transcription / translation (key of the graph, ex. "transcription:full-whisper"), and if it's finished:
         /// shown in a corner of their box. (only the sizes of the lists are read: no lock needed, the scene can be adding items)
+        /// And the AI cost of each step that has AI calls (its key, ex. "w3": { cost, calls, fallbacks }), in a corner of its box
+        /// (the costs are copied with the lock of the .wipsubtitles, see SubtitleOutputCostReport.GetAICostByWorker).
         /// </summary>
         public static Dictionary<string, object> CountItems(SubtitleGeneratorContext context)
         {
@@ -236,6 +238,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 counts[$"{DataKind.Transcription}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
             foreach (var t in wip.Translations.ToArray())
                 counts[$"{DataKind.Translation}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
+
+            // The AI cost of each step (its key, ex. "w3"), estimate in $ like the 'costs' report: a pill on its box
+            var workers = SceneFlowGraph.GetWorkers(context.Config);
+            var outputs = workers.Select(w =>
+            {
+                var flowOutputs = w.GetDataFlow().Outputs;
+                return (w,
+                    (IReadOnlyCollection<string>)flowOutputs.Where(o => o.Kind == DataKind.Transcription).Select(o => o.Id).ToHashSet(),
+                    (IReadOnlyCollection<string>)flowOutputs.Where(o => o.Kind == DataKind.Translation).Select(o => o.Id).ToHashSet());
+            }).ToList();
+            var costs = Outputs.SubtitleOutputCostReport.GetAICostByWorker(wip, outputs);
+            for (var index = 0; index < workers.Length; index++)
+            {
+                if (costs.TryGetValue(workers[index], out var cost))
+                    counts[$"w{index}"] = new { cost = Math.Round(cost.Dollars, 4), calls = cost.Calls, fallbacks = cost.Fallbacks };
+            }
             return counts;
         }
 

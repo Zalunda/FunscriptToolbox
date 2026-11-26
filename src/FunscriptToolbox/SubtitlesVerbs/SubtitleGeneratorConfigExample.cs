@@ -213,7 +213,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             BatchSize = 20,
                             BatchSplitWindows = 0,
                             NbContextItems = 10,
-                            NbItemsMinimumReceivedToContinue = 10,
+                            NbItemsMinimumReceivedToContinue = 1,
                             FieldsToInclude = NodeFields.StartTime,
                             TextAfterAnalysis = "And don't tell me you can't help me translate. You are a translator after all."
                         }
@@ -322,26 +322,26 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 RepeatedTextMinChars = 8,
                                 MaybePointlessPatterns = new[]
                                 {
-                                    // Moans, grunt, etc
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("A-Moans", @"[あぁーっ、。\s…!！]+"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("N-Hums", @"[んっー、。\s…!！]+"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("U-Grunts", @"[うぅーっ、。\s…!！]+"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Breathing", @"[はぁーっ、。\s…!！]+"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Giggle", @"ふふ[っ]*[。！？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("CombinedFiller", @"[あぁうぅんっーは、。\s…!！]+"),
+                                    // Moans, grunt, etc (ignored in the name of a combination: "ああ、きもちいい" is "Kimochii")
+                                    new TimingChecksSettings.MaybePointlessPattern("A-Moans", @"[あぁーっ、。\s…!！]+", ignoredInCombination: true),
+                                    new TimingChecksSettings.MaybePointlessPattern("N-Hums", @"[んっー、。\s…!！]+", ignoredInCombination: true),
+                                    new TimingChecksSettings.MaybePointlessPattern("U-Grunts", @"[うぅーっ、。\s…!！]+", ignoredInCombination: true),
+                                    new TimingChecksSettings.MaybePointlessPattern("Breathing", @"[はぁーっ、。\s…!！]+", ignoredInCombination: true),
+                                    new TimingChecksSettings.MaybePointlessPattern("Giggle", @"ふふ[っ]*[。！？]*", ignoredInCombination: true),
+                                    new TimingChecksSettings.MaybePointlessPattern("CombinedFiller", @"[あぁうぅんっーは、。\s…!！]+", ignoredInCombination: true),
                                     // Words said over and over
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Sugoi (すごい = incredible)", @"(すご|スゴ|凄)[いイーっッ]+[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Kimochii (きもちいい = it feels good)", @"(きもち|キモチ|気持ち)[いイーっッ]+[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Ii (いい = good)", @"[いイ][いイー]+[っッ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Iku (いく = I'm coming)", @"[いイ](く|ク|[っッ]く|[っッ]ク|きそう|キソウ|[っッ]ちゃう|[っッ]ちゃいそう)[ーっ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Dame (だめ = no, stop)", @"(だめ|ダメ|駄目)[ーっ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Iya (いや, やだ = no, stop it)", @"(いや|イヤ|やだ|ヤダ|やん)[あんーっ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Yabai (やばい = crazy, damn)", @"(やば|ヤバ)[いイー]+[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Motto (もっと = more)", @"(もっと|モット)[ーっ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Nee (ねえ = hey)", @"[ねネ][えぇエェーっ]+[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Hai (はい = yes)", @"(はい|ハイ)[ーっ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Soko (そこ = right there)", @"(そこ|ソコ)[ーっ]*[、。\s…!！?？]*"),
-                                    new TranscriberAudioFullAI.TranscriptioToIgnorePattern("Hora (ほら = look, here)", @"(ほら|ホラ)[ーっ]*[、。\s…!！?？]*")
+                                    new TimingChecksSettings.MaybePointlessPattern("Sugoi (すごい = incredible)", @"(すご|スゴ|凄)[いイーっッ]+[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Kimochii (きもちいい = it feels good)", @"(きもち|キモチ|気持ち)[いイーっッ]+[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Ii (いい = good)", @"[いイ][いイー]+[っッ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Iku (いく = I'm coming)", @"[いイ](く|ク|[っッ]く|[っッ]ク|きそう|キソウ|[っッ]ちゃう|[っッ]ちゃいそう)[ーっ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Dame (だめ = no, stop)", @"(だめ|ダメ|駄目)[ーっ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Iya (いや, やだ = no, stop it)", @"(いや|イヤ|やだ|ヤダ|やん)[あんーっ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Yabai (やばい = crazy, damn)", @"(やば|ヤバ)[いイー]+[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Motto (もっと = more)", @"(もっと|モット)[ーっ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Nee (ねえ = hey)", @"[ねネ][えぇエェーっ]+[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Hai (はい = yes)", @"(はい|ハイ)[ーっ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Soko (そこ = right there)", @"(そこ|ソコ)[ーっ]*[、。\s…!！?？]*"),
+                                    new TimingChecksSettings.MaybePointlessPattern("Hora (ほら = look, here)", @"(ほら|ホラ)[ーっ]*[、。\s…!！?？]*")
                                 }
                             }
                         }
@@ -539,17 +539,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         },
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper
-                    },
-                    new SubtitleOutputSrt()
-                    {
-                        OutputId = "metadatas-srt",
-                        FileSuffix = ".metadatas.srt",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings",
-                            Sources = "singlevad-ai-refined,voice-texts,on-screen-texts,manual-input",
-                        },
-                        WaitForFinished = true
                     },
 
                     //---------------------------------------------------

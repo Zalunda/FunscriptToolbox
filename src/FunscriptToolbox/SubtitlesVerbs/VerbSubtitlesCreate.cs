@@ -366,10 +366,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 // Web UI mode: all the videos at the same time, each one on its own thread with its own context.
                 // (dedicated threads because the AI/HTTP code blocks while waiting: no thread pool starvation)
                 var scenes = new List<WebUiScene>();
+                var lastOrdinal = 0;
                 void StartScene(VideoSequence videoSequence, SubtitleGeneratorConfig config, WebUiScene sceneToRestart)
                 {
                     var info = GetRootNodeInfo(videoSequence, config);
-                    var scene = sceneToRestart ?? new WebUiScene { Ordinal = scenes.Count + 1 };
+                    // (not the count of the list: a scene can be removed from it, see 'Rescan')
+                    var scene = sceneToRestart ?? new WebUiScene { Ordinal = ++lastOrdinal };
                     scene.Sequence = videoSequence;
                     scene.Context = CreateContext(output);
                     // (a scene started again keeps its place in the list: its old tasks are replaced)
@@ -427,16 +429,46 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 // 'Rescan' (button of the page): the new scenes on disk are started, and the blocked / inactive scenes are checked again
                 // (ex. their manual-input file is now there, workers are enabled in their configuration). The other scenes are not touched
                 // (running, finished, failed, stopped).
+                // A scene that is not on disk anymore at its place (moved to another folder, ex. from '01-Staging' to 'ManualHQWorkflow-G4',
+                // or deleted) is removed from the list, and at its new place, it's a new scene (loaded with the configuration of that folder).
+                // Except if it's running: it stays, and its new place is not started (two threads on the same scene); 'Rescan' again when it's done.
+                // A scene on hold ('Pause scene') is removed too: its thread stays paused forever, nothing more is done at its old place.
                 void Rescan()
                 {
                     var nbNew = 0;
                     var nbRetried = 0;
                     var nbActivated = 0;
+                    var nbRemoved = 0;
+                    var stillRunning = new List<WebUiScene>();
+                    foreach (var scene in scenes.ToArray())
+                    {
+                        if (File.Exists(scene.Sequence.ContainerFullPath))
+                            continue;
+                        if (scene.Thread?.IsAlive == true && webOutput.GetNodeId(scene.Node) is int nodeId && !webOutput.IsScenePaused(nodeId))
+                        {
+                            output.WriteInfo($"Rescan: '{GetDisplayName(scene.Sequence)}' is not on disk anymore, but it's still running: kept in the list.", null, false);
+                            stillRunning.Add(scene);
+                            continue;
+                        }
+                        output.WriteInfo($"Rescan: '{GetDisplayName(scene.Sequence)}' is not on disk anymore (moved or deleted): removed from the list.", null, false);
+                        webOutput.RemoveRootNode(scene.Node);
+                        scenes.Remove(scene);
+                        nbRemoved++;
+                    }
+
+                    var nbNotStarted = 0;
                     foreach (var (videoSequence, config) in ListVideoSequences())
                     {
                         var existing = scenes.FirstOrDefault(s => string.Equals(s.Sequence.ContainerFullPath, videoSequence.ContainerFullPath, StringComparison.OrdinalIgnoreCase));
                         if (existing == null)
                         {
+                            var running = stillRunning.FirstOrDefault(s => string.Equals(Path.GetFileName(s.Sequence.ContainerFullPath), Path.GetFileName(videoSequence.ContainerFullPath), StringComparison.OrdinalIgnoreCase));
+                            if (running != null)
+                            {
+                                output.WriteInfo($"Rescan: '{GetDisplayName(videoSequence)}' not started: the same scene is still running at its old place ('{GetDisplayName(running.Sequence)}'). 'Rescan' again when it's done.", null, false);
+                                nbNotStarted++;
+                                continue;
+                            }
                             StartScene(videoSequence, config, null);
                             nbNew++;
                         }
@@ -456,9 +488,22 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     }
                     var result = $"Rescan: {nbNew} new scene(s) found, {nbRetried} blocked scene(s) checked again"
+                        + (nbRemoved > 0 ? $", {nbRemoved} scene(s) not on disk anymore removed" : "")
+                        + (nbNotStarted > 0 ? $", {nbNotStarted} moved scene(s) not started (still running at their old place)" : "")
                         + (nbActivated > 0 ? $", {nbActivated} inactive scene(s) started (workers enabled in their configuration)." : ".");
                     output.WriteInfo(result, null, false);
                     webOutput.SetRescanState(isRescanning: false, result);
+                }
+
+                // Where a scene is now on disk, if it was moved to another folder (null: not found, or more than one with its file name).
+                (VideoSequence Sequence, SubtitleGeneratorConfig Config)? FindNewPlace(WebUiScene scene)
+                {
+                    var fileName = Path.GetFileName(scene.Sequence.ContainerFullPath);
+                    var found = ListVideoSequences()
+                        .Where(vs => string.Equals(Path.GetFileName(vs.Sequence.ContainerFullPath), fileName, StringComparison.OrdinalIgnoreCase)
+                            && !scenes.Any(s => string.Equals(s.Sequence.ContainerFullPath, vs.Sequence.ContainerFullPath, StringComparison.OrdinalIgnoreCase)))
+                        .ToArray();
+                    return found.Length == 1 ? found[0] : ((VideoSequence, SubtitleGeneratorConfig)?)null;
                 }
 
                 var isReported = false;
@@ -497,7 +542,20 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                         try
                         {
-                            StartScene(scene.Sequence, TryLoadConfig(scene.Sequence), scene);
+                            // (moved to another folder, ex. from '01-Staging' to 'ManualHQWorkflow-G4': started at its new place, with its configuration)
+                            if (!File.Exists(scene.Sequence.ContainerFullPath))
+                            {
+                                var newPlace = FindNewPlace(scene);
+                                if (newPlace == null)
+                                {
+                                    output.WriteError($"Retry: '{GetDisplayName(scene.Sequence)}' is not there anymore ({scene.Sequence.ContainerFullPath}), and it was not found in another folder (or more than once). Use 'Rescan' to list the scenes on disk.");
+                                    continue;
+                                }
+                                output.WriteInfo($"Retry: '{GetDisplayName(scene.Sequence)}' was moved to '{GetDisplayName(newPlace.Value.Sequence)}'.", null, false);
+                                StartScene(newPlace.Value.Sequence, newPlace.Value.Config, scene);
+                            }
+                            else
+                                StartScene(scene.Sequence, TryLoadConfig(scene.Sequence), scene);
                             output.WriteInfo(scene.Thread == null
                                 ? $"Retry: '{GetDisplayName(scene.Sequence)}' is still inactive (no enabled worker in its configuration)."
                                 : $"Retry: '{GetDisplayName(scene.Sequence)}' started again.", null, false);
@@ -880,6 +938,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TaskScope.Current.SetFlowImageProvider((key, field, start, end, onlyIfAvailable) => Infra.SceneFlowInspector.GetImage(context, key, field, start, end, onlyIfAvailable));
                         // (the 'Timing' editor: to revise the timings of the file imported by the scene, ex. '.manual-input.srt')
                         TaskScope.Current.SetTimingEditor(new Infra.SceneTimingEditor(context));
+                        // (the 'Config' tab of the inspector: the configuration of a step, read again from the files, with where each value comes from)
+                        TaskScope.Current.SetConfigView(new Infra.SceneConfigView(context, r_options.ConfigPath, videoSequence.ContainerFullPath));
                     }
                     catch (Exception ex)
                     {

@@ -1,4 +1,7 @@
 {
+  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
+  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
+
   "GlobalShared": {
     // Shared by all the scenes processed at the same time (--ui). Only read from the main configuration (this folder):
     // an error is reported if this section is in a configuration file of a sub-folder.
@@ -27,19 +30,19 @@
     //"BackupParentFolder": "C:\\...\\FSTB-LogsAndBackups",
 
     // Web UI (--ui): a shorter name for each scene, made from 'metadata' extracted from the path of the video / .vseq,
-    //    relative to the folder of this configuration (ex. '03-REDO\3DSVR-1072\3DSVR-1072- - ....vseq').
+    //    relative to the folder of this configuration (ex. 'ManualHQWorkflow-G4\3DSVR-1072\3DSVR-1072- - ....vseq').
     // SceneMetadata: regular expressions (with '\' doubled => '\\'), their named groups '(?<Name>...)' become metadata ('FileName' always exists).
     //    They are all tried, in order: for each metadata, the first pattern that finds it wins (the next ones are fallbacks).
     // SceneDisplayName: the metadata between braces, the optional parts between brackets (removed when a metadata inside is not found).
     //    If none of the patterns matches a scene, its file name is shown.
-    // Ex. for '03-REDO\3DSVR-1072\3DSVR-1072- - Mei Miyajima - Night Bus Sex [zalunda].vseq' => '3DSVR-1072 (03-REDO)':
+    // Ex. for 'ManualHQWorkflow-G4\3DSVR-1072\3DSVR-1072- - Mei Miyajima - Night Bus Sex [zalunda].vseq' => '3DSVR-1072 (ManualHQWorkflow-G4)':
     //   1. ShortName: '<digit?><letters>-<digits>' in the file name (ex. '3DSVR-1072', 'nhdtb-273'),
     //   2. else ShortName: '<digit?><letters><digits>' in the file name (ex. '3dsvr01866'),
     //   3. Type: the first folder of the path, when it's named '<digits>-<name>' (ex. '03-REDO', '01-Staging'), number included.
     "SceneMetadata": [
       "(?<![A-Za-z0-9.])(?<ShortName>\\d?[A-Za-z]{2,}-\\d+)[^\\\\]*$",
       "(?<![A-Za-z0-9.])(?<ShortName>\\d?[A-Za-z]{2,}\\d+)[^\\\\]*$",
-      "^(?<Type>\\d+-[^\\\\]+)\\\\"
+      "^(?<Type>[^\\\\]+)\\\\"
     ],
     "SceneDisplayName": "{ShortName}[ ({Type})]",
   },

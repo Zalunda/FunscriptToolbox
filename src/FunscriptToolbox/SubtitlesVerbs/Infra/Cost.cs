@@ -31,6 +31,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             CreationTime = creationTime ?? DateTime.Now;
         }
 
+        // --- Estimated cost (the same rules for the 'costs' report, the cost of a scene and the cost of a step in the web UI) ---
+
+        /// <summary>A response without token count: its tokens are estimated by modality, its cost is not known (not included in the totals).</summary>
+        public static bool IsFallback(Cost c) => c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK))
+            || c.Output.Sections.Keys.Any(k => k.HasFlag(AIResponseSection.FALLBACK));
+
+        /// <summary>An AI call (no token: not an AI, ex. the time of the user in the Review editor, or a local tool; except the AI responses without token count).</summary>
+        public static bool IsAI(Cost c) => c.Input.Tokens > 0 || c.Output.Tokens > 0 || IsFallback(c);
+
+        /// <summary>The estimated cost, in $ (see the bill of the vendor).</summary>
+        public static double Dollars(IEnumerable<Cost> costs) => costs.Sum(c => c.Input.EstimatedCost + c.Output.EstimatedCost);
+
         // --- Aggregation Logic ---
 
         public static Cost Sum(string newTaskName, IList<Cost> costs)

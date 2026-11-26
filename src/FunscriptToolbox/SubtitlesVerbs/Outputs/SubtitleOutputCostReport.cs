@@ -77,11 +77,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             }
         }
 
-        private static bool IsFallback(Cost c) => c.Input.Sections.Keys.Any(k => k.HasFlag(AIRequestSection.FALLBACK))
-            || c.Output.Sections.Keys.Any(k => k.HasFlag(AIResponseSection.FALLBACK));
-        // (no token: not an AI, ex. the time of the user in the Timing editor, or a local tool; except the AI responses without token count)
-        private static bool IsAI(Cost c) => c.Input.Tokens > 0 || c.Output.Tokens > 0 || IsFallback(c);
-        private static double Dollars(IEnumerable<Cost> list) => list.Sum(c => c.Input.EstimatedCost + c.Output.EstimatedCost);
+        // (the rules of the estimate: in Cost, shared with the web UI)
+        private static bool IsFallback(Cost c) => Cost.IsFallback(c);
+        private static bool IsAI(Cost c) => Cost.IsAI(c);
+        private static double Dollars(IEnumerable<Cost> list) => Cost.Dollars(list);
 
         /// <summary>
         /// The total cost of the AI of a scene, in $ (the same as the 'Total' of the report: an estimate), or null when there is no AI cost yet.
@@ -98,6 +97,39 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 .Where(c => c != null && IsAI(c))
                 .ToList());
             return costs.Count == 0 ? (double?)null : Dollars(costs);
+        }
+
+        /// <summary>
+        /// The AI cost of each worker of a scene, from the transcriptions / translations it produces (the costs of a worker are kept in
+        /// its own transcription / translation): the estimate in $, the number of AI calls, and how many of them have no token count
+        /// (not included in the $). Only the workers that have AI calls. (a copy, made like GetTotalAICost)
+        /// </summary>
+        public static Dictionary<SubtitleWorker, (double Dollars, int Calls, int Fallbacks)> GetAICostByWorker(
+            WorkInProgressSubtitles wip,
+            IEnumerable<(SubtitleWorker Worker, IReadOnlyCollection<string> TranscriptionIds, IReadOnlyCollection<string> TranslationIds)> workers)
+        {
+            var result = new Dictionary<SubtitleWorker, (double, int, int)>();
+            if (wip == null)
+                return result;
+            var list = workers.ToList();
+            var costsByWorker = new List<(SubtitleWorker Worker, Cost[] Costs)>();
+            wip.ExecuteLocked(() =>
+            {
+                var transcriptions = wip.Transcriptions?.ToArray() ?? Array.Empty<Transcription>();
+                var translations = wip.Translations?.ToArray() ?? Array.Empty<Translation>();
+                foreach (var (worker, transcriptionIds, translationIds) in list)
+                {
+                    var costs = transcriptions.Where(t => transcriptionIds.Contains(t.Id)).SelectMany(t => t.Costs.ToArray())
+                        .Concat(translations.Where(t => translationIds.Contains(t.Id)).SelectMany(t => t.Costs.ToArray()))
+                        .Where(c => c != null && IsAI(c))
+                        .ToArray();
+                    if (costs.Length > 0)
+                        costsByWorker.Add((worker, costs));
+                }
+            });
+            foreach (var (worker, costs) in costsByWorker)
+                result[worker] = (Dollars(costs), costs.Length, costs.Count(IsFallback));
+            return result;
         }
 
         /// <summary>

@@ -306,6 +306,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     }
                     WriteResponse(context, 404, "text/plain", "Unknown scene, or nothing to inspect.");
                 }
+                else if (method == "GET" && path.StartsWith("/api/flowconfig/"))
+                {
+                    // The configuration of a step of the 'Flow' graph, with where each value comes from: /api/flowconfig/<scene node id>?key=<key of the box>
+                    var key = context.Request.QueryString["key"];
+                    var view = int.TryParse(path.Substring("/api/flowconfig/".Length), out var sceneId) ? r_output.GetConfigView(sceneId) : null;
+                    if (view == null) { WriteResponse(context, 404, "text/plain", "Unknown scene, or its configuration is not loaded (yet)."); return; }
+                    try { WriteJson(context, view.GetWorkerConfig(key)); }
+                    catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't read the configuration: {ex.Message}"); }
+                }
+                else if (method == "POST" && path.StartsWith("/api/flowconfig/"))
+                {
+                    // A value of the configuration of a step, written in (or removed from) a '.override.user.config': /api/flowconfig/<scene node id>
+                    // (body: see ConfigChangeRequest; answer: { ok, file, warning, config } or { error })
+                    var view = int.TryParse(path.Substring("/api/flowconfig/".Length), out var sceneId) ? r_output.GetConfigView(sceneId) : null;
+                    if (view == null) { WriteResponse(context, 404, "text/plain", "Unknown scene, or its configuration is not loaded (yet)."); return; }
+                    try { WriteJson(context, view.ChangeValue(JObject.Parse(ReadBody(context)).ToObject<ConfigChangeRequest>())); }
+                    catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't change the configuration: {ex.Message}"); }
+                }
                 else if (method == "GET" && path.StartsWith("/api/flowimage/"))
                 {
                     // The screenshot of an item: /api/flowimage/<scene node id>?key=<worker>&field=<extractor>&s=<start>&e=<end> (times: hh:mm:ss.fff)

@@ -32,7 +32,7 @@ namespace FunscriptToolbox
         {
 #if DEBUG
             // (the copy started by --background keeps the arguments it received: otherwise it would start another copy, and so on)
-            int test = args.Contains("--backgroundchild") ? -1 : 50;
+            int test = args.Contains("--backgroundchild") ? -1 : 0;
 
             Environment.CurrentDirectory = @"P:\Adult\Videos VR\ZZZ---WorkInProgress\CreateSubtitles";
             switch (test)

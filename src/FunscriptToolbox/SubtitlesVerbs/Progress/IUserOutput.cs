@@ -80,6 +80,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The scene (sceneNodeId: the node of the scene) is paused by the user ('Pause scene').</summary>
         bool IsScenePaused(int sceneNodeId);
 
+        /// <summary>The scene was removed from the list (not on disk anymore at its place, see 'Rescan'): it never continues.</summary>
+        bool IsSceneRemoved(int sceneNodeId);
+
         /// <summary>'Pause scene' / 'Resume scene' (ex. a scene loaded on hold: paused again). False: unknown scene.</summary>
         bool SetScenePaused(int sceneNodeId, bool isPaused);
 

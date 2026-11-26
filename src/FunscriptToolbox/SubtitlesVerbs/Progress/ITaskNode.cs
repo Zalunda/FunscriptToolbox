@@ -150,6 +150,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The data of the 'Timing' editor of the web UI for this scene (only on a first-level node).</summary>
         void SetTimingEditor(ITimingEditor editor);
 
+        /// <summary>The configuration of the steps of this scene (the 'Config' tab of the inspector of the 'Flow' view; only on a first-level node).</summary>
+        void SetConfigView(ISceneConfigView view);
+
         /// <summary>
         /// The task waits for something the user does in the web UI (ex. "timing:&lt;review id&gt;": a review in the Timing editor):
         /// its scene is shown as 'needs you', with a button for it.
@@ -189,6 +192,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetCostProvider(Func<double?> provider) { }
         public void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider) { }
         public void SetTimingEditor(ITimingEditor editor) { }
+        public void SetConfigView(ISceneConfigView view) { }
         public void SetUserAction(string action) { }
         public void Dispose() { }
     }
