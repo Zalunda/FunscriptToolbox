@@ -171,6 +171,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
+        /// <summary>A wait inside <see cref="RunStoppable"/> (ex. before trying a request again): 'Stop now' ends it right away.</summary>
+        protected static void WaitStoppable(TimeSpan delay, Action<TimeSpan> onRemaining = null)
+        {
+            var end = DateTime.UtcNow + delay;
+            while (DateTime.UtcNow < end)
+            {
+                if (StopWatcher.Current?.Stopped == true)
+                {
+                    throw new UserStoppedWorkerException();
+                }
+                onRemaining?.Invoke(end - DateTime.UtcNow);
+                Thread.Sleep(TimeSpan.FromMilliseconds(Math.Min(1000, Math.Max(1, (end - DateTime.UtcNow).TotalMilliseconds))));
+            }
+        }
+
         /// <summary>Gives the response to abort if the user asks to stop (see <see cref="RunStoppable"/>).</summary>
         protected static void AttachToStopWatcher(HttpResponseMessage response)
         {

@@ -13,7 +13,8 @@ using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
-    public class AIEngineAPIGoogle : AIEngineAPI
+    /// <remarks>The transcription models (ex. 'gemini-3.5-transcribe', another API): see AIEngineAPIGoogle.Transcribe.cs.</remarks>
+    public partial class AIEngineAPIGoogle : AIEngineAPI
     {
         private const string PROHIBITED_CONTENT = "PROHIBITED_CONTENT";
         public override string ToolName { get; } = "Google-API";
@@ -209,21 +210,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 waitingTimer = new Timer(_ =>
                 {
                     var stateText = lastErrorCodeReceived != null
-                        ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\" for {DateTime.Now - firstTimeLastCodeReceived})"
+                        ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\")"
                         : string.Empty;
-                    var duration = DateTime.Now - startTime;
 
+                    // (the time of the task: shown by the page; here, only how long it waited in the queue of Google)
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")
                     {
                         requestNode.SetStopNowWarning(StopNowCostWarning);
                         pendingWatch.Stop();
                         var durationPending = pendingWatch.Elapsed;
-                        var durationRunning = duration - durationPending;
-                        context.AIRequestProgressUpdateHandler(ToolName, $"Queued: {(int)durationPending.TotalMinutes}:{durationPending:ss}, Running for {(int)durationRunning.TotalMinutes}:{durationRunning:ss}{stateText}... ");
+                        context.AIRequestProgressUpdateHandler(ToolName, $"Running (after {(int)durationPending.TotalMinutes}:{durationPending:ss} in the queue){stateText}...");
                     }
                     else
                     {
-                        context.AIRequestProgressUpdateHandler(ToolName, $"Queued for {(int)duration.TotalMinutes}:{duration:ss}{stateText}... ");
+                        context.AIRequestProgressUpdateHandler(ToolName, $"Queued{stateText}...");
                     }
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
@@ -568,7 +568,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.AIRequestProgressUpdateHandler(ToolName, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.AIRequestProgressUpdateHandler(ToolName, "Waiting for the 1st token...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 context.AIRequestProgressUpdateHandler(ToolName, $"Sending request...");

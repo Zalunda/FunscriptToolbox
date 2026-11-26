@@ -73,12 +73,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         void AddLogLine(string text, ConsoleColor? color = null, bool isError = false);
 
-        /// <summary>Replaces the content of a named detail (ex. the request sent to an AI).</summary>
-        void SetDetail(string name, string content);
-
-        /// <summary>Appends to a named detail (ex. the tokens of an AI response as they are received).</summary>
-        void AppendDetail(string name, string content);
-
         /// <summary>
         /// Tells the UI that the user can ask this node to stop right away ('Stop now': the code must call <see cref="ConsumeCancelRequest"/>).
         /// Null: not stoppable anymore.
@@ -153,6 +147,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The configuration of the steps of this scene (the 'Config' tab of the inspector of the 'Flow' view; only on a first-level node).</summary>
         void SetConfigView(ISceneConfigView view);
 
+        /// <summary>The files of this scene (the 'Files' tab of the web UI; only on a first-level node).</summary>
+        void SetFilesView(ISceneFilesView view);
+
         /// <summary>
         /// The task waits for something the user does in the web UI (ex. "timing:&lt;review id&gt;": a review in the Timing editor):
         /// its scene is shown as 'needs you', with a button for it.
@@ -173,8 +170,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetProgress(long done, long? total, string unit = null) { }
         public void IncrementProgress(long by = 1) { }
         public void AddLogLine(string text, ConsoleColor? color = null, bool isError = false) { }
-        public void SetDetail(string name, string content) { }
-        public void AppendDetail(string name, string content) { }
         public void SetCancellable(string hint) { }
         public void SetPauseAfterSupported() { }
         public bool IsStopAfterRequested => false;
@@ -193,6 +188,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public void SetFlowImageProvider(Func<string, string, TimeSpan, TimeSpan, bool, byte[]> provider) { }
         public void SetTimingEditor(ITimingEditor editor) { }
         public void SetConfigView(ISceneConfigView view) { }
+        public void SetFilesView(ISceneFilesView view) { }
         public void SetUserAction(string action) { }
         public void Dispose() { }
     }

@@ -209,11 +209,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 waitingTimer = new Timer(_ =>
                 {
                     var stateText = lastStatusCodeReceived != null
-                        ? $" (\"{lastStatusCodeReceived}\" received for {DateTime.Now - firstTimeLastCodeReceived})"
+                        ? $" (\"{lastStatusCodeReceived}\" received)"
                         : string.Empty;
-                    var duration = DateTime.Now - startTime;
                     context.AIRequestProgressUpdateHandler(ToolName,
-                        $"Queued/Running for {(int)duration.TotalMinutes}:{duration:ss}{stateText}...");
+                        $"Queued / running{stateText}...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 while (true)
@@ -399,7 +398,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    context.AIRequestProgressUpdateHandler(ToolName, $"Waiting for 1st token ({DateTime.Now - startTime})...");
+                    context.AIRequestProgressUpdateHandler(ToolName, "Waiting for the 1st token...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 context.AIRequestProgressUpdateHandler(ToolName, "Sending request...");

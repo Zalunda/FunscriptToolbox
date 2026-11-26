@@ -46,6 +46,11 @@
   .sd.untouched { background: transparent; border: 1.5px solid var(--ok); }
   .sd.inactive { background: transparent; border: 1.5px dashed var(--skip); }
   .sd.onhold { background: transparent; border: 1.5px solid var(--wait); }
+  .sd.config { background: transparent; border: 1.5px solid var(--warn); }
+  .cfgchg { color: var(--warn); flex: none; cursor: help; }
+  .ctxmenu { position: fixed; z-index: 90; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.3); padding: 4px 0; font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; min-width: 200px; }
+  .ctxmenu .mi { padding: 5px 14px; cursor: pointer; }
+  .ctxmenu .mi:hover { background: var(--row-hover, rgba(127,127,127,.15)); }
   .spacer { flex: 1; }
   .caps { display: flex; gap: 6px; flex-wrap: wrap; }
   .cap { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 6px; background: var(--chip-bg); font-size: 11px; color: var(--muted); white-space: nowrap; cursor: default; }
@@ -87,6 +92,8 @@
   #flowPanel .fititle { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   #flowPanel #fiSearch { width: 150px; font: inherit; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
   #flowPanel .fimeta { color: var(--muted); font-size: 11px; }
+  #flowPanel .fimeta button.redostep { margin-left: 8px; color: var(--accent); border-color: var(--accent); }
+  #flowPanel .fimeta button.redostep:disabled { color: var(--muted); border-color: var(--border); }
   #flowPanel .finote { color: var(--warn); font-size: 11px; margin: 3px 0; }
   #flowPanel .ficols { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   #flowPanel .fichip { padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--chip-bg); font-size: 11px; cursor: pointer; user-select: none; }
@@ -186,6 +193,34 @@
   #content .flowbar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
   #content .flowhint { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--muted); margin: 4px 0 6px; white-space: normal; }
   #content .flowwrap { overflow: auto; white-space: normal; position: relative; }
+  /* (the 'Files' tab of a scene: the list on top, the file opened under it) */
+  #content .fwrap { height: 100%; display: flex; flex-direction: column; gap: 6px; white-space: normal; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #content .fbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  #content .fbar input[type=text] { width: 180px; }
+  #content .fnote { color: var(--muted); font-size: 11px; }
+  #content .flist { flex: 1 1 45%; min-height: 80px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  #content .flist table { border-collapse: collapse; width: 100%; }
+  #content .flist th { position: sticky; top: 0; background: var(--panel); text-align: left; padding: 3px 8px; cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  #content .flist td { padding: 2px 8px; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  #content .flist td.fn { white-space: normal; word-break: break-all; }
+  #content .flist td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #content .flist tr.fr { cursor: pointer; }
+  #content .flist tr.fr:hover { background: var(--row-hover, rgba(127,127,127,.12)); }
+  #content .flist tr.fr.sel { background: var(--row-sel, rgba(80,140,255,.22)); }
+  #content .flist tr.fr.noview { color: var(--muted); cursor: default; }
+  #content .fview { flex: 1 1 55%; min-height: 80px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: 12px/1.45 Consolas, "Cascadia Mono", monospace; white-space: pre-wrap; word-break: break-word; }
+  #content .fview img { max-width: 100%; }
+  #content .fvhead { font: 600 12px system-ui, -apple-system, "Segoe UI", sans-serif; margin-bottom: 6px; white-space: normal; }
+  #content .fvhead a { font-weight: normal; margin-left: 8px; }
+  /* (a JSON file as a tree) */
+  #content .jtree .jtc { padding-left: 16px; border-left: 1px dotted var(--border); margin-left: 4px; }
+  #content .jtree .jtt { cursor: pointer; user-select: none; }
+  #content .jtree .jtt:hover { background: var(--row-hover, rgba(127,127,127,.12)); }
+  #content .jtree .jtk { color: var(--accent); }
+  #content .jtree .jts { color: var(--ok); }
+  #content .jtree .jtn { color: var(--wait); }
+  #content .jtree .jtb { color: var(--warn); }
+  #content .jtree .jtm, #content .jtree .jtp { color: var(--muted); }
   /* (an invisible wider line over each arrow, to point at it) */
   .flowwrap .fhit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: default; }
   .flowwrap .ftip { position: absolute; z-index: 2; pointer-events: none; max-width: 420px; padding: 3px 8px; border-radius: 6px;
@@ -680,13 +715,14 @@
   var heldBy = {}, waitBy = {};         // nodeId -> [lock]: the locks held / waited by each task
 
   // The states of a scene (in the order of the sections)
-  var STATES = ["needs", "running", "waiting", "onhold", "blocked", "stopped", "failed", "finished", "untouched", "inactive"];
-  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", onhold: "on hold", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched", inactive: "inactive" };
+  var STATES = ["needs", "running", "waiting", "onhold", "config", "blocked", "stopped", "failed", "finished", "untouched", "inactive"];
+  var LABELS = { needs: "needs you", running: "running", waiting: "waiting", onhold: "on hold", config: "config changed", blocked: "blocked", stopped: "stopped", failed: "failed", finished: "finished", untouched: "untouched", inactive: "inactive" };
   var TIPS = {
     needs: "A prompt, a dialog or a review (Review editor) is waiting for you",
     running: "Working right now",
     waiting: "Waiting for a shared resource (lock), or not started yet",
     onhold: "Paused by you ('Pause scene'): saved in its .wipsubtitles, still paused after a restart, until 'Resume scene'",
+    config: "Done, but its configuration files changed on disk since it was started (in the Config tab or by hand). Right click on the title of this section: Reload all (started again with the new configuration); or Retry one scene",
     blocked: "Done for now, but a worker can't run yet (something it needs is missing)",
     stopped: "Stopped by you",
     failed: "Ended with an error",
@@ -796,7 +832,13 @@
   // ---- State of a scene ----
   // 'Pause scene' (on hold: saved in its .wipsubtitles)
   function isHeld(r) { return (state.pausedScenes || []).indexOf(r.name) >= 0; }
+  // (done, and its configuration files changed since it was started: in the section 'config changed', to be started again with them)
+  var CONFIG_RELOADABLE = { blocked: 1, stopped: 1, failed: 1, finished: 1, untouched: 1, inactive: 1 };
   function sceneState(r) {
+    var st = baseSceneState(r);
+    return r.configChange && CONFIG_RELOADABLE[st] ? "config" : st;
+  }
+  function baseSceneState(r) {
     if (r.inactive) return "inactive";                                  // no enabled worker: not started
     // (on hold: when it's paused at its safe point, or not running anymore; until then, it's still working)
     if (isHeld(r) && (terminal[r.state] || r.state === "Pending" || fgLeaf(r).state === "WaitingForLock")) return "onhold";
@@ -973,12 +1015,45 @@
     if (board.children.length) return;
     STATES.forEach(function (s) {
       var sec = document.createElement("div"); sec.className = "sec"; sec.id = "sec-" + s;
-      sec.innerHTML = '<h2><span class="sd ' + s + '"></span><span class="h"></span></h2><div class="' + (s === "running" || s === "needs" ? "runs" : "tiles") + '"></div>';
+      sec.innerHTML = '<h2 title="' + esc(TIPS[s]) + '"><span class="sd ' + s + '"></span><span class="h"></span></h2><div class="' + (s === "running" || s === "needs" ? "runs" : "tiles") + '"></div>';
       board.appendChild(sec);
     });
   }
+  // Right click on the title of the section 'config changed': 'Reload all' (each scene started again, like Retry: its configuration is read again)
+  var boardMenu = document.createElement("div");
+  boardMenu.className = "ctxmenu"; boardMenu.style.display = "none";
+  document.body.appendChild(boardMenu);
+  function hideBoardMenu() { boardMenu.style.display = "none"; }
+  $("board").addEventListener("contextmenu", function (e) {
+    var h = e.target.closest ? e.target.closest("#sec-config h2") : null;
+    if (!h || state.closing) return;
+    e.preventDefault();
+    var list = computeScenes().filter(function (x) { return x.st === "config" && x.match; });
+    if (!list.length) return;
+    boardMenu.innerHTML = '<div class="mi" data-reloadall="1" title="Each scene is started again (like Retry), with its configuration read again">&#8635; Reload all (' + list.length + ')</div>';
+    boardMenu._ids = list.map(function (x) { return x.root.id; });
+    boardMenu.style.display = "";
+    boardMenu.style.left = Math.min(e.clientX, window.innerWidth - boardMenu.offsetWidth - 4) + "px";
+    boardMenu.style.top = Math.min(e.clientY, window.innerHeight - boardMenu.offsetHeight - 4) + "px";
+  });
+  boardMenu.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+  boardMenu.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest("[data-reloadall]")) return;
+    var ids = boardMenu._ids || [];
+    hideBoardMenu();
+    ids.forEach(function (id) { fetch("/api/retry/" + id, { method: "POST" }); });
+  });
+  window.addEventListener("mousedown", hideBoardMenu);
+  window.addEventListener("blur", hideBoardMenu);
+  /// The configuration files of the scene changed since it was started (see WebUiOutput.SetSceneConfigChange): the text of its tooltip
+  function configChangeText(r) {
+    return r.configChange === "changed"
+      ? "Its configuration files changed on disk since it was started: Retry (once it's done) to use the new configuration"
+      : r.configChange;
+  }
   function nameHtml(r) {
-    return '<span class="tn">' + esc(sceneName(r)) + '</span>' + (r.configError ? '<span class="cfgerr" title="' + esc(r.configError) + '">!</span>' : "");
+    return '<span class="tn">' + esc(sceneName(r)) + '</span>' + (r.configError ? '<span class="cfgerr" title="' + esc(r.configError) + '">!</span>' : "") +
+      (r.configChange ? '<span class="cfgchg" title="' + esc(configChangeText(r)) + '">&#9881;</span>' : "");
   }
   function sceneItem(x) {
     var r = x.root, sel = selectedId != null && rootOf(state.byId[selectedId]) === r ? " sel" : "";
@@ -1017,6 +1092,8 @@
     } else if (x.st === "failed") {
       var failed = kids(r).filter(function (k) { return k.state === "Failed"; })[0];
       if (failed) extra = '<span class="tx" title="' + esc(failed.name + (failed.reason ? ": " + failed.reason : "")) + '">' + esc(failed.name) + '</span>';
+    } else if (x.st === "config") {
+      extra = '<span class="tx" title="' + esc(configChangeText(r)) + '">' + (r.configChange === "changed" ? "was " + esc(LABELS[baseSceneState(r)]) : "can't be read") + '</span>';
     }
     return { key: r.id, tag: "span", cls: "tile" + sel, title: sceneTip(r), html: nameHtml(r) + extra + errors };
   }
@@ -1208,7 +1285,7 @@
     if ($("tabs")._html !== "") { $("tabs").innerHTML = ""; $("tabs")._html = ""; }
     var html = lines.length ? lines.join("") : '<div class="empty">Nothing.</div>';
     var box = $("content");
-    box._flowView = false;
+    box._flowView = false; box._filesView = false;
     if (box._html !== html) { box.innerHTML = html; box._html = html; }
   }
   function showReport(view) {
@@ -1546,6 +1623,205 @@
   /// The AI cost of a step, on its box (like the cost of the scene: "$1.23")
   function fmtStepCost(dollars) { return dollars > 0 && dollars < 0.005 ? "<$0.01" : "$" + dollars.toFixed(2); }
 
+  // ---- The 'Files' tab of a scene: the files of the scene (next to its video) and of its backup folder (with --verbose: the AI
+  // requests / responses, the audio clips, the screenshots; always: the old versions of the files), sortable, filtered by type / text;
+  // a click: shown under the list (a text, an image, a sound). Read when the tab is opened (↻: again), not at each refresh of the page. ----
+  var FILES_MAX_ROWS = 1000, FILES_HIDDEN_TYPES = { "Audio clip": true, "Screenshot": true };
+  var filesState = { sceneId: null, data: null, error: null, loading: false, open: null, listGen: 0, openGen: 0 };
+  var filesPrefs = { col: "date", dir: -1, type: "", text: "" };
+  try { var savedFilesPrefs = JSON.parse(localStorage.getItem("fstFilesPrefs") || "null"); if (savedFilesPrefs) filesPrefs = Object.assign(filesPrefs, savedFilesPrefs); } catch (ex) { }
+  function saveFilesPrefs() { try { localStorage.setItem("fstFilesPrefs", JSON.stringify(filesPrefs)); } catch (ex) { } }
+  function fmtSize(n) { return n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB"; }
+  function fmtFileDate(ms) {
+    var d = new Date(ms), p = function (x) { return (x < 10 ? "0" : "") + x; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+  function fileUrl(f) { return "/api/scenefiles/" + filesState.sceneId + "?folder=" + encodeURIComponent(f.folder) + "&name=" + encodeURIComponent(f.name); }
+  function loadFiles(sceneId) {
+    var gen = ++filesState.listGen;
+    filesState.sceneId = sceneId; filesState.loading = true; filesState.error = null;
+    if (filesState.data && filesState.data.sceneId !== sceneId) { filesState.data = null; filesState.open = null; }
+    renderFilesList();
+    fetch("/api/scenefiles/" + sceneId)
+      .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); }); })
+      .then(function (d) { if (gen !== filesState.listGen) return; d.sceneId = sceneId; filesState.data = d; filesState.loading = false; renderFilesList(); })
+      .catch(function (ex) { if (gen !== filesState.listGen) return; filesState.loading = false; filesState.error = ex.message; renderFilesList(); });
+  }
+  /// The tab: its frame once (the list / the file opened are drawn by renderFilesList / openFile, not at each refresh of the page)
+  function renderFiles(n) {
+    var box = $("content");
+    if (!box._filesView) {
+      box._filesView = true; box._flowView = false; box._html = null;
+      box.innerHTML = '<div class="fwrap"><div class="fbar" id="fBar"></div><div class="fnote" id="fNote"></div><div class="flist" id="fList"></div><div class="fview" id="fView"><span class="fnote">Click on a file to see it here.</span></div></div>';
+      // (the tab opened again: the list is read again)
+      filesState.sceneId = null; filesState.open = null;
+    }
+    if (filesState.sceneId !== n.id) loadFiles(n.id);
+  }
+  function filteredFiles() {
+    var d = filesState.data;
+    if (!d) return [];
+    var text = (filesPrefs.text || "").toLowerCase();
+    var list = d.files.filter(function (f) {
+      if (filesPrefs.type === "" ? FILES_HIDDEN_TYPES[f.type] : filesPrefs.type !== "*" && f.type !== filesPrefs.type) return false;
+      return !text || (f.name + " " + (f.group || "") + " " + f.type).toLowerCase().indexOf(text) >= 0;
+    });
+    var col = filesPrefs.col, dir = filesPrefs.dir;
+    list.sort(function (a, b) {
+      var x = a[col], y = b[col];
+      if (x == null) x = ""; if (y == null) y = "";
+      var c = typeof x === "number" ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: "base" });
+      return (c || a.name.localeCompare(b.name)) * dir;
+    });
+    return list;
+  }
+  function renderFilesList() {
+    var bar = $("fBar"), list = $("fList"), note = $("fNote");
+    if (!bar || !$("content")._filesView) return;
+    var d = filesState.data;
+    // (the types present, with their number)
+    var counts = {};
+    (d ? d.files : []).forEach(function (f) { counts[f.type] = (counts[f.type] || 0) + 1; });
+    var types = Object.keys(counts).sort();
+    var hiddenTypes = types.filter(function (t) { return FILES_HIDDEN_TYPES[t]; });
+    var opt = function (v, label) { return '<option value="' + esc(v) + '"' + (filesPrefs.type === v ? " selected" : "") + '>' + esc(label) + '</option>'; };
+    if (filesPrefs.type && filesPrefs.type !== "*" && !counts[filesPrefs.type] && d) filesPrefs.type = "";
+    var barHtml = '<button class="mini" data-fact="reload" title="Read the list again">↻</button>' +
+      '<select id="fType">' + opt("", hiddenTypes.length ? "All but " + hiddenTypes.join(" / ") : "All") + (hiddenTypes.length ? opt("*", "All") : "") +
+      types.map(function (t) { return opt(t, t + " (" + counts[t] + ")"); }).join("") + '</select>' +
+      '<input type="text" id="fText" placeholder="Filter (name, group, type)" value="' + esc(filesPrefs.text || "") + '">';
+    if (bar._html !== barHtml) {
+      var focused = document.activeElement && document.activeElement.id === "fText";
+      bar.innerHTML = barHtml; bar._html = barHtml;
+      if (focused) { var ti = $("fText"); ti.focus(); ti.setSelectionRange(ti.value.length, ti.value.length); }
+    }
+    if (filesState.loading && !d) { list.innerHTML = '<div class="empty">Reading the list…</div>'; note.textContent = ""; return; }
+    if (filesState.error) { list.innerHTML = '<div class="empty">' + esc(filesState.error) + '</div>'; note.textContent = ""; return; }
+    if (!d) return;
+    // (the folders; the requests / responses of the AI only with --verbose)
+    var folderText = d.folders.map(function (fo) {
+      return (fo.kind === "scene" ? "Scene: " : "Backup: ") + (fo.path ? fo.path + (fo.exists ? "" : " (not there)") : "(not known yet: the .wipsubtitles is not loaded)");
+    }).join(" · ");
+    var hasAi = d.files.some(function (f) { return /^AI /.test(f.type); });
+    note.textContent = folderText + (!hasAi && !d.verbose ? " · The AI requests / responses, the audio clips and the screenshots are written only with --verbose." : "");
+    var rows = filteredFiles(), shown = rows.slice(0, FILES_MAX_ROWS);
+    var th = function (col, label) {
+      return '<th data-fsort="' + col + '">' + esc(label) + (filesPrefs.col === col ? (filesPrefs.dir > 0 ? " ▲" : " ▼") : "") + '</th>';
+    };
+    var open = filesState.open;
+    list.innerHTML = '<table><thead><tr>' + th("folder", "Folder") + th("name", "Name") + th("type", "Type") + th("group", "Group") + th("date", "Date") + th("size", "Size") + '</tr></thead><tbody>' +
+      shown.map(function (f, k) {
+        var sel = open && open.folder === f.folder && open.name === f.name;
+        return '<tr class="fr' + (sel ? " sel" : "") + (f.viewer ? "" : " noview") + '" data-fi="' + k + '"' + (f.viewer ? "" : ' title="Can\'t be shown here"') + '>' +
+          '<td>' + esc(f.folder) + '</td><td class="fn">' + esc(f.name) + '</td><td>' + esc(f.type) + '</td><td>' + esc(f.group || "") + '</td>' +
+          '<td>' + fmtFileDate(f.date) + '</td><td class="num">' + fmtSize(f.size) + '</td></tr>';
+      }).join("") + '</tbody></table>' +
+      (rows.length > shown.length ? '<div class="empty">' + (rows.length - shown.length) + ' more: use the filters.</div>' : "") +
+      (!rows.length ? '<div class="empty">No file' + (d.files.length ? " for these filters" : "") + '.</div>' : "");
+    list._rows = shown;
+  }
+  function openFile(f) {
+    var view = $("fView");
+    if (!view) return;
+    filesState.open = { folder: f.folder, name: f.name };
+    filesState.json = null;
+    renderFilesList();
+    var gen = ++filesState.openGen, u = fileUrl(f);
+    var info = '<div class="fvhead">' + esc(f.name) + ' <span class="fnote">' + esc(f.type) + ' · ' + fmtSize(f.size) + ' · ' + fmtFileDate(f.date) + '</span>';
+    // (a file that can't be shown here, ex. a video: only what it is, not what was shown before)
+    if (!f.viewer) { view.innerHTML = info + '</div><span class="fnote">This file can\'t be shown here.</span>'; return; }
+    var head = info + '<a href="' + esc(u) + '" target="_blank" rel="noopener">open in a new tab</a></div>';
+    if (f.viewer === "image") { view.innerHTML = head + '<img src="' + esc(u) + '" alt="">'; return; }
+    if (f.viewer === "audio") { view.innerHTML = head + '<audio controls src="' + esc(u) + '"></audio>'; return; }
+    view.innerHTML = head + '<span class="fnote">Reading…</span>';
+    fetch(u)
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) throw new Error(t); return t; }); })
+      .then(function (t) {
+        if (gen !== filesState.openGen) return;
+        // (a JSON, whatever its extension (ex. .wipsubtitles): as a tree (the first level open, the rest opened by a click), or as
+        //  indented text; remembered by this browser. Not a JSON: as it is)
+        var parsed = null, trimmed = t.replace(/^﻿/, "").trim();
+        if (/^[\[{]/.test(trimmed)) { try { parsed = { v: JSON.parse(trimmed) }; t = JSON.stringify(parsed.v, null, 2); } catch (ex) { parsed = null; } }
+        if (parsed) {
+          filesState.json = { value: parsed.v, text: t, head: head };
+          renderJsonView();
+        } else {
+          filesState.json = null;
+          view.innerHTML = head + esc(t);
+        }
+        view.scrollTop = 0;
+      })
+      .catch(function (ex) { if (gen === filesState.openGen) view.innerHTML = head + '<span class="fnote">' + esc(ex.message) + '</span>'; });
+  }
+  // ---- A JSON file as a tree: an object / a list shows its size, its content is built when it's opened (a big file stays fast) ----
+  var jtValues = [];
+  function jtPrimitive(v) {
+    if (v === null) return '<span class="jtb">null</span>';
+    if (typeof v === "string") return '<span class="jts">"' + esc(v) + '"</span>';
+    if (typeof v === "number") return '<span class="jtn">' + v + '</span>';
+    return '<span class="jtb">' + esc(String(v)) + '</span>';
+  }
+  function jtNode(key, v, open) {
+    var label = key == null ? "" : '<span class="jtk">' + esc(key) + '</span>: ';
+    if (v === null || typeof v !== "object") return '<div class="jtl">' + label + jtPrimitive(v) + '</div>';
+    var isArray = Array.isArray(v), n = isArray ? v.length : Object.keys(v).length;
+    var size = isArray ? '[' + n + ']' : '{' + n + '}';
+    if (!n) return '<div class="jtl">' + label + '<span class="jtm">' + (isArray ? "[]" : "{}") + '</span></div>';
+    var id = jtValues.push(v) - 1;
+    // (a closed object: its first values, to recognize it without opening it)
+    var preview = isArray ? "" : Object.keys(v).filter(function (k) { return v[k] === null || typeof v[k] !== "object"; }).slice(0, 3)
+      .map(function (k) { var s = typeof v[k] === "string" ? '"' + v[k] + '"' : String(v[k]); return k + ": " + (s.length > 40 ? s.slice(0, 40) + "…" : s); }).join(", ");
+    return '<div class="jtl"><span class="jtt" data-jt="' + id + '">' + (open ? "▾" : "▸") + ' ' + label + '<span class="jtm">' + size + '</span>' +
+      (preview ? ' <span class="jtp">' + esc(preview) + '</span>' : '') + '</span>' +
+      '<div class="jtc"' + (open ? '' : ' style="display:none"') + '>' + (open ? jtChildren(v) : '') + '</div></div>';
+  }
+  function jtChildren(v) {
+    return Array.isArray(v) ? v.map(function (x, i) { return jtNode(String(i), x, false); }).join("")
+      : Object.keys(v).map(function (k) { return jtNode(k, v[k], false); }).join("");
+  }
+  function renderJsonView() {
+    var view = $("fView"), j = filesState.json;
+    if (!view || !j) return;
+    var asTree = filesPrefs.jsonView !== "text";
+    var buttons = '<div class="fbar" style="margin-bottom:6px"><button class="mini' + (asTree ? ' primary' : '') + '" data-fact="jsontree">Tree</button>' +
+      '<button class="mini' + (asTree ? '' : ' primary') + '" data-fact="jsontext">Text</button></div>';
+    jtValues = [];
+    view.innerHTML = j.head + buttons + (asTree ? '<div class="jtree">' + jtNode(null, j.value, true) + '</div>' : esc(j.text));
+  }
+  $("content").addEventListener("click", function (e) {
+    if (!$("content")._filesView || !e.target.closest) return;
+    // (the JSON tree: a node opened / closed; its content built the first time)
+    var jt = e.target.closest("[data-jt]");
+    if (jt) {
+      var children = jt.nextElementSibling, open = children.style.display === "none";
+      if (open && !children.firstChild) children.innerHTML = jtChildren(jtValues[parseInt(jt.getAttribute("data-jt"), 10)]);
+      children.style.display = open ? "" : "none";
+      jt.firstChild.nodeValue = (open ? "▾" : "▸") + " ";
+      return;
+    }
+    if (e.target.closest("[data-fact=jsontree]") || e.target.closest("[data-fact=jsontext]")) {
+      filesPrefs.jsonView = e.target.closest("[data-fact=jsontree]") ? "tree" : "text";
+      saveFilesPrefs(); renderJsonView(); return;
+    }
+    var srt = e.target.closest("[data-fsort]");
+    if (srt) {
+      var col = srt.getAttribute("data-fsort");
+      if (filesPrefs.col === col) filesPrefs.dir = -filesPrefs.dir; else { filesPrefs.col = col; filesPrefs.dir = col === "date" || col === "size" ? -1 : 1; }
+      saveFilesPrefs(); renderFilesList(); return;
+    }
+    if (e.target.closest("[data-fact=reload]")) { if (filesState.sceneId != null) loadFiles(filesState.sceneId); return; }
+    var row = e.target.closest("tr.fr");
+    if (row) { var rows = $("fList")._rows || []; var f = rows[parseInt(row.getAttribute("data-fi"), 10)]; if (f) openFile(f); }
+  });
+  $("content").addEventListener("change", function (e) {
+    if (!$("content")._filesView || e.target.id !== "fType") return;
+    filesPrefs.type = e.target.value; saveFilesPrefs(); renderFilesList();
+  });
+  $("content").addEventListener("input", function (e) {
+    if (!$("content")._filesView || e.target.id !== "fText") return;
+    filesPrefs.text = e.target.value; saveFilesPrefs(); renderFilesList();
+  });
+
   function renderFlow(n, flow, counts) {
     flowCounts = counts || {};
     if (flowAutoSelectPending && flow) autoSelectFlowBox(n, flow);
@@ -1553,7 +1829,7 @@
     // (the graph only: its switches, help and the inspector are in the Flow panel, on the right)
     var box = $("content");
     if (!box._flowView) {
-      box._flowView = true; box._html = null; flowLastKey = null;
+      box._flowView = true; box._filesView = false; box._html = null; flowLastKey = null;
       box.innerHTML = '<div class="flowwrap"></div>';
     }
     ensureFlowPanel();
@@ -2247,7 +2523,16 @@
     $("fiTitle").textContent = d.title + (flowInspect.loading ? " (reading...)" : "");
     var filter = (flowInspect.search || "").trim().toLowerCase();
     var html = "";
-    if (d.type) html += '<div class="fimeta">' + esc(d.type) + (d.enabled === false ? " (disabled)" : "") + '</div>';
+    // (a step that produced a transcription / translation: 'Redo this step', on the line of its type: done again (what it produced kept
+    //  as '<id>-OLD'), once the scene is done)
+    var redoButton = "";
+    if (d.redo && /^w\d+$/.test(flowInspect.key || "")) {
+      redoButton = ' <button class="mini redostep" data-redostep="1"' +
+        ' title="' + esc("What this step produced ('" + d.redo + "') is kept in the .wipsubtitles as '" + d.redo + "-OLD' (to compare), then the scene is started again: " +
+          "the step is done again. A scene that runs or is on hold first ends at its next safe point (what was received is saved).") +
+        '">&#8634; Redo this step</button>';
+    }
+    if (d.type) html += '<div class="fimeta">' + esc(d.type) + (d.enabled === false ? " (disabled)" : "") + redoButton + '</div>';
     if (d.inputs && d.inputs.length) html += '<div class="fimeta">Uses: ' + esc(d.inputs.join(", ")) + '</div>';
     if (d.outputs && d.outputs.length) html += '<div class="fimeta">Produces: ' + esc(d.outputs.join(", ")) + '</div>';
     if (d.note) html += '<div class="finote">' + esc(d.note) + '</div>';
@@ -2378,14 +2663,19 @@
     // (a scene: also its 'Flow', the graph of its workers and of the data between them)
     var isScene = n.parentId == null && n.kind !== "General";
     // (a scene: its 'Flow' first, the view by default)
-    var tabs = (isScene ? ["Flow"] : []).concat(["Log"]).concat(detail.details.map(function (d) { return d.name; }));
+    // (a scene: also its 'Files', the files of the scene and of its backup folder, see renderFiles)
+    var tabs = (isScene ? ["Flow"] : []).concat(["Log"]).concat(isScene ? ["Files"] : []);
     if (tabs.indexOf(activeTab) < 0) activeTab = "Log";
-    var tabsHtml = tabs.map(function (t) { return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</div>'; }).join("");
+    var tabsHtml = tabs.map(function (t) {
+      var tip = t === "Files" ? "The files of the scene and of its backup folder (with --verbose: the AI requests / responses, the audio clips, the screenshots)" : t;
+      return '<div class="tab ' + (t === activeTab ? "active" : "") + '" data-tab="' + esc(t) + '" title="' + esc(tip) + '">' + esc(t) + '</div>';
+    }).join("");
     if ($("tabs")._html !== tabsHtml) { $("tabs").innerHTML = tabsHtml; $("tabs")._html = tabsHtml; }
     var box = $("content");
     if (activeTab === "Flow") { renderFlow(n, detail.flow, detail.flowCounts); stickToBottom = false; return; }
-    box._flowView = false;
-    var html;
+    if (activeTab === "Files") { renderFiles(n); stickToBottom = false; return; }
+    box._flowView = false; box._filesView = false;
+    var html = "";
     if (activeTab === "Log") {
       // (a task with sub-tasks: the log of all its sub-tasks, with the start / end of the important ones; the sub-task is shown before the text)
       // (the lines of another task than the line before, ex. another worker: half a line of space before them)
@@ -2402,9 +2692,6 @@
         }
         return '<span class="' + cls + '"><span class="t">' + fmtClock(l.t) + '</span>' + task + esc(l.text) + '</span>';
       }).join("") : '<div class="empty">No log line for this task (select a child task or another tab).</div>';
-    } else {
-      var d = detail.details.filter(function (x) { return x.name === activeTab; })[0];
-      html = esc(d ? d.content : "");
     }
     if (box._html === html && !stickToBottom) return;   // (unchanged: the selection of text and the scroll are kept)
     var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
@@ -2637,6 +2924,18 @@
   });
   // Flow panel: zoom, 'Show everything', refresh of the inspector, a row of the inspector (shown in full / cut), switches
   $("flowPanel").addEventListener("click", function (e) {
+    // 'Redo this step' (the inspector of a step)
+    if (e.target.closest && e.target.closest("[data-redostep]")) {
+      var rd = flowInspect.data, rs = state.byId[flowInspect.sceneId];
+      if (!rd || !rd.redo || !rs) return;
+      var rsRunning = !terminal[rs.state];
+      if (!window.confirm("Do '" + rd.title + "' again for '" + sceneName(rs) + "'?\n\n" +
+        (rsRunning ? "The scene is running or on hold: it first ends at its next safe point (the request being sent finishes, what was received is saved).\n\n" : "") +
+        "What it produced ('" + rd.redo + "') is kept in the .wipsubtitles as '" + rd.redo +
+        "-OLD' (to compare), then the scene is started again (not on hold anymore). If the step uses an AI, its requests are sent again (a new cost).\n\nThe steps after it keep what they already did.")) return;
+      fetch("/api/redostep/" + flowInspect.sceneId + "?key=" + encodeURIComponent(flowInspect.key), { method: "POST" });
+      return;
+    }
     // 'Config' tab: a value changed (✎, then Save / Remove / Cancel)
     var cfbtn = e.target.closest && e.target.closest("[data-cfedit], [data-cfrevert], [data-cfsave], [data-cfremove], [data-cfcancel]");
     if (cfbtn) {
@@ -4033,6 +4332,8 @@
         status(d && d.restarted
           ? "Review done: the scene is started again, it writes the file and continues (if it was still running: Retry it when it's finished)."
           : "Review done. Retry the scene (or Rescan) to write the file and continue.");
+        // (done: the editor is closed (everything is saved, see above); the scene goes on in the list)
+        close();
       }).catch(function (ex) { if (S === my) status("Can't mark the review as done: " + ex.message, true); });
     });
   }

@@ -7,9 +7,9 @@
     // an error is reported if this section is in a configuration file of a sub-folder.
     // MaxConcurrent: how many of each kind of work can run at the same time (the short names shown in the web UI).
     //    GPU = local machine (Purfview whisper, local AI), VID = ffmpeg reading the videos, AUD = ffmpeg on a whole audio,
-    //    CLIP = small audio clips for the AIs, PREP = AI request preparation, ENC = ffmpeg creating a whole video (ex. '.FAST.mp4').
+    //    PREP = AI request preparation, ENC = ffmpeg creating a whole video (ex. '.FAST.mp4').
     //    Not listed: the default value (shown below).
-    "MaxConcurrent": { "GPU": 1, "VID": 1, "AUD": 3, "CLIP": 8, "PREP": 1, "ENC": 1 },
+    "MaxConcurrent": { "GPU": 1, "VID": 1, "AUD": 3, "PREP": 1, "ENC": 1 },
 
     // ScenePriorities: which scenes get the shared resources first (ffmpeg, GPU, preparation of the AI requests...), from their metadata
     //    (see 'SceneMetadata' in 'Global' below): the first rule that matches a scene gives its priority (the first rule = the highest).
@@ -361,6 +361,26 @@
       "EstimatedCostPerOutputMillionTokens": 15,
       "PauseBeforeSendingRequest": false,
       "PauseBeforeSavingResponse": false,
+    },
+    // The transcription model of Google (the step 'full-transcribe', disabled for now): another API than the models above, no batch mode
+    // (UseBatchMode must stay false).
+    {
+      "$type": "AIEngineAPIGoogle",
+      "$id": "AIEngineGeminiTranscribeOnGoogle",
+      "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
+      "Model": "gemini-3.5-transcribe",
+      "APIKeyName": "APIKeyGemini",
+      "UseBatchMode": false,
+      "SupportAudio": true,
+      "EstimatedCostPerInputMillionTokens": 2,
+      "EstimatedCostPerOutputMillionTokens": 12,
+      // The rate limit of the transcription model is low (3 requests in less than a minute: 'Too many requests').
+      // [OPTION] At least this time between two requests (all the scenes together).
+      "TranscribeMinTimeBetweenRequests": "00:00:30",
+      // 'Too many requests' anyway: sent again after a wait (30 s, then twice as long each time, at most 10 minutes), at most this number of times.
+      "TranscribeMaxRetriesOnTooManyRequests": 5,
+      "PauseBeforeSendingRequest": false,
+      "PauseBeforeSavingResponse": false
     },
     {
       "$type": "AIEngineAPIPoe",

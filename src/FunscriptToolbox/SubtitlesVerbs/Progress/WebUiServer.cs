@@ -324,6 +324,24 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     try { WriteJson(context, view.ChangeValue(JObject.Parse(ReadBody(context)).ToObject<ConfigChangeRequest>())); }
                     catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't change the configuration: {ex.Message}"); }
                 }
+                else if (method == "GET" && path.StartsWith("/api/scenefiles/"))
+                {
+                    // The files of a scene (the 'Files' tab): /api/scenefiles/<scene node id>; one of them: ?folder=<scene|backup>&name=<its name, as listed>
+                    var q = context.Request.QueryString;
+                    var view = int.TryParse(path.Substring("/api/scenefiles/".Length), out var sceneId) ? r_output.GetFilesView(sceneId) : null;
+                    if (view == null) { WriteResponse(context, 404, "text/plain", "Unknown scene (started again? select it again), or its files are not known yet."); return; }
+                    if (q["name"] == null)
+                    {
+                        try { WriteJson(context, view.List()); }
+                        catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't list the files: {ex.Message}"); }
+                        return;
+                    }
+                    SceneFileContent file;
+                    try { file = view.Read(q["folder"], q["name"]); }
+                    catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't read the file: {ex.Message}"); return; }
+                    if (file == null) { WriteResponse(context, 404, "text/plain", "Not a file of the list of this scene (or it can't be shown here)."); return; }
+                    WriteBytes(context, 200, file.ContentType, file.Bytes);
+                }
                 else if (method == "GET" && path.StartsWith("/api/flowimage/"))
                 {
                     // The screenshot of an item: /api/flowimage/<scene node id>?key=<worker>&field=<extractor>&s=<start>&e=<end> (times: hh:mm:ss.fff)
@@ -415,6 +433,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 {
                     r_output.RequestRescan();
                     WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && path.StartsWith("/api/redostep/"))
+                {
+                    // 'Redo this step': /api/redostep/<scene node id>?key=<key of the worker, ex. w3> (done by the main loop)
+                    var ok = int.TryParse(path.Substring("/api/redostep/".Length), out var nodeId) && r_output.RequestRedoStep(nodeId, context.Request.QueryString["key"]);
+                    WriteResponse(context, ok ? 200 : 404, "text/plain", ok ? "OK" : "Unknown scene (or the application is closing).");
                 }
                 else if (method == "POST" && path.StartsWith("/api/retry/"))
                 {

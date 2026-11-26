@@ -125,6 +125,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         internal void PauseIfClosing()
         {
+            // ('Redo this step' while the scene runs or is on hold: it ends here, at a safe point, to be started again)
+            ThrowIfRestartRequested();
             var reason = this.Output.GetPauseAtSafePointReason(this.SceneNodeId);
             if (reason == null)
                 return;
@@ -136,6 +138,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 string currentReason;
                 while ((currentReason = this.Output.GetPauseAtSafePointReason(this.SceneNodeId)) != null)
                 {
+                    ThrowIfRestartRequested();
                     // (removed from the list, ex. its folder was moved: it never continues, and it's not counted anymore
                     // in the scenes paused for 'Close', since it's not in the list)
                     if (this.SceneNodeId is int sceneNodeId && this.Output.IsSceneRemoved(sceneNodeId))
@@ -154,6 +157,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 }
             }
             node.SetState(TaskState.Running);
+        }
+
+        internal void ThrowIfRestartRequested()
+        {
+            if (this.SceneNodeId is int sceneNodeId && this.Output.IsSceneRestartRequested(sceneNodeId))
+            {
+                throw new SceneRestartException();
+            }
         }
 
         /// <summary>The workers that could not run yet (prerequisites not met). A blocked scene can be checked again ('Rescan' in the web UI).</summary>
@@ -287,11 +298,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         processStartTime.Value.ToString("yyyyMMddHHmmss") + "_" + suffixe);
         }
 
+        /// <remarks>Only with --verbose. The web UI shows them in the 'Files' tab of the scene (see Infra.SceneFilesView).</remarks>
         internal void CreateVerboseTextFile(string suffixe, string content, DateTime? processStartTime = null)
         {
-            // What was sent/received can be inspected in the UI, even when not in verbose mode.
-            TaskScope.Current.SetDetail(suffixe, content);
-
             if (IsVerbose)
             {
                 File.WriteAllText(

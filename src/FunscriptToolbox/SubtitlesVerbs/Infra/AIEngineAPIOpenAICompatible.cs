@@ -253,8 +253,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var startTime = DateTime.Now;
                 waitingTimer = new Timer(_ =>
                 {
-                    var duration = DateTime.Now - startTime;
-                    context.AIRequestProgressUpdateHandler(ToolName, $"Waited {(int)duration.TotalMinutes}:{duration:ss} for 1st token...");
+                    context.AIRequestProgressUpdateHandler(ToolName, "Waiting for the 1st token...");
                 }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 context.AIRequestProgressUpdateHandler(ToolName, $"Sending request...");
@@ -275,7 +274,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 int? completionTokens = null;
                 dynamic chunkError = null;
                 string finish_reason = null;
-                var currentLineBuffer = new StringBuilder();                
+                var currentLineBuffer = new StringBuilder();
 
                 try
                 {
@@ -316,7 +315,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                     if (chunk?.choices.Count > 0)
                                     {
                                         var delta = chunk.choices[0].delta;
-                                        
                                         if (delta?.reasoning_content != null)
                                         {
                                             string reasoningContentChunk = delta.reasoning_content;

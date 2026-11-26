@@ -137,7 +137,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
     /// <summary>
     /// Allows only a limited number of holders at a time (one by default: ex. only one prompt shown to the user; several for
-    /// something that can safely run a few at a time, ex. ffmpeg cutting audio clips).
+    /// something that can safely run a few at a time, ex. ffmpeg converting a whole audio).
     /// Re-entrant for the same logical flow of execution, so nested helpers can all ask for the lock.
     /// While waiting, the current node is shown as "waiting for lock".
     /// When a slot is free, it is given to the waiter with the best priority (see <see cref="LockPriority"/>), then the first arrived.
@@ -402,9 +402,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>ffmpeg working on an audio that is already extracted (converting or filtering a whole audio): a lot less demanding.</summary>
         public const int DefaultAudioConcurrency = 3;
 
-        /// <summary>Cutting an audio clip from the PCM in memory and writing it in the temp folder (which should be on an SSD): small and many.</summary>
-        public const int DefaultClipConcurrency = 8;
-
         /// <summary>One sequence at a time prepares its AI request(s).</summary>
         public const int DefaultRequestPreparationConcurrency = 1;
 
@@ -412,12 +409,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         public const int DefaultVideoEncodingConcurrency = 1;
 
         /// <param name="maxConcurrent">
-        /// How many at the same time, by short name of lock (GPU, VID, AUD, CLIP, PREP, ENC). A lock not listed keeps its default value.
+        /// How many at the same time, by short name of lock (GPU, VID, AUD, PREP, ENC). A lock not listed keeps its default value.
         /// An unknown name, 'USER', or a value lower than 1 is an error.
         /// </param>
         public SharedLocks(IReadOnlyDictionary<string, int> maxConcurrent = null)
         {
-            var configurable = new[] { "GPU", "VID", "AUD", "CLIP", "PREP", "ENC" };
+            var configurable = new[] { "GPU", "VID", "AUD", "PREP", "ENC" };
             var limits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in maxConcurrent ?? new Dictionary<string, int>())
             {
@@ -452,12 +449,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 $"ffmpeg on a whole audio already extracted (conversion, filters). {AtATime(aud)}",
                 maxConcurrent: aud);
 
-            var clip = Get("CLIP", DefaultClipConcurrency);
-            this.Clips = new ResourceLock(
-                "audio clips (temp folder)", "CLIP",
-                $"ffmpeg writing the small audio clips sent to the AIs (temp folder). {AtATime(clip)}",
-                maxConcurrent: clip);
-
             this.UserInteraction = new ResourceLock(
                 "user interaction", "USER",
                 "A prompt or a dialog shown to you (JSON correction, pause, speaker correction). One at a time.",
@@ -485,9 +476,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>ffmpeg on a whole audio.</summary>
         public ResourceLock Audio { get; }
 
-        /// <summary>Audio clips cut from the PCM in memory.</summary>
-        public ResourceLock Clips { get; }
-
         /// <summary>Only one prompt/dialog shown to the user at a time.</summary>
         public ResourceLock UserInteraction { get; }
 
@@ -500,6 +488,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>ffmpeg creating a whole video (long, uses all the processor).</summary>
         public ResourceLock VideoEncoding { get; }
 
-        public IEnumerable<ResourceLock> All => new[] { LocalResource, VideoSource, Audio, Clips, UserInteraction, RequestPreparation, VideoEncoding };
+        public IEnumerable<ResourceLock> All => new[] { LocalResource, VideoSource, Audio, UserInteraction, RequestPreparation, VideoEncoding };
     }
 }

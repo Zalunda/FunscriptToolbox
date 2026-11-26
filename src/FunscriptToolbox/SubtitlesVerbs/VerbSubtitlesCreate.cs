@@ -374,6 +374,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     var scene = sceneToRestart ?? new WebUiScene { Ordinal = ++lastOrdinal };
                     scene.Sequence = videoSequence;
                     scene.Context = CreateContext(output);
+                    scene.ConfigHash = config?.MergedConfigHash;
                     // (a scene started again keeps its place in the list: its old tasks are replaced)
                     scene.Node = sceneToRestart == null
                         ? output.CreateRootNode("Sequence", GetDisplayName(videoSequence), info)
@@ -506,9 +507,139 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     return found.Length == 1 ? found[0] : ((VideoSequence, SubtitleGeneratorConfig)?)null;
                 }
 
+                // The configuration files (the main one, the '.override.config' / '.override.user.config' of the folders under it), changed on
+                // disk (by the web UI or by hand): the scenes under the folder of the file are checked again, a moment after the last change
+                // (an editor can save a file in several steps). A scene whose configuration would not be the same anymore is flagged (see
+                // WebUiOutput.SetSceneConfigChange): once done, it's in the section 'config changed' of the page (Retry / 'Reload all').
+                // (what is read only once, at the start of the application: 'GlobalShared' (ex. MaxConcurrent) and the '.private.config')
+                var configRootFolder = Path.GetDirectoryName(Path.GetFullPath(r_options.ConfigPath));
+                var configFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    Path.GetFileName(r_options.ConfigPath),
+                    Path.GetFileNameWithoutExtension(r_options.ConfigPath) + ".override.config",
+                    Path.GetFileNameWithoutExtension(r_options.ConfigPath) + ".override.user.config"
+                };
+                var changedConfigFolders = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+                long lastConfigChangeTicks = 0;
+                void OnConfigFileEvent(string fullPath)
+                {
+                    if (fullPath == null || !configFileNames.Contains(Path.GetFileName(fullPath)))
+                        return;
+                    changedConfigFolders[Path.GetDirectoryName(fullPath)] = 0;
+                    Interlocked.Exchange(ref lastConfigChangeTicks, Environment.TickCount64);
+                    webOutput.RequestWakeUp();
+                }
+                using var configWatcher = new FileSystemWatcher(configRootFolder)
+                {
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size
+                };
+                configWatcher.Filters.Add(Path.GetFileNameWithoutExtension(r_options.ConfigPath) + "*.config");
+                configWatcher.Changed += (_, e) => OnConfigFileEvent(e.FullPath);
+                configWatcher.Created += (_, e) => OnConfigFileEvent(e.FullPath);
+                configWatcher.Deleted += (_, e) => OnConfigFileEvent(e.FullPath);
+                configWatcher.Renamed += (_, e) => { OnConfigFileEvent(e.OldFullPath); OnConfigFileEvent(e.FullPath); };
+                // (too many changes at once, the events were lost: everything is checked again)
+                configWatcher.Error += (_, e) =>
+                {
+                    changedConfigFolders[configRootFolder] = 0;
+                    Interlocked.Exchange(ref lastConfigChangeTicks, Environment.TickCount64);
+                    webOutput.RequestWakeUp();
+                };
+                configWatcher.EnableRaisingEvents = true;
+
+                void CheckConfigChanges(string[] folders)
+                {
+                    // (the scenes of a folder: the same configuration files, read once)
+                    var byFolder = new Dictionary<string, (string Hash, string Error)>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var scene in scenes)
+                    {
+                        var container = Path.GetFullPath(scene.Sequence.ContainerFullPath);
+                        if (!folders.Any(f => container.StartsWith(f.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        var folder = Path.GetDirectoryName(container);
+                        if (!byFolder.TryGetValue(folder, out var loaded))
+                        {
+                            try
+                            {
+                                loaded = (SubtitleGeneratorConfigLoader.LoadHierarchically(r_options.ConfigPath, scene.Sequence.ContainerFullPath).MergedConfigHash, null);
+                            }
+                            catch (Exception ex)
+                            {
+                                loaded = (null, ex.Message);
+                            }
+                            byFolder[folder] = loaded;
+                        }
+                        // (back as it was, ex. a change undone: not flagged anymore)
+                        webOutput.SetSceneConfigChange(scene.Node,
+                            loaded.Error != null ? $"Its configuration can't be read: {loaded.Error}"
+                            : loaded.Hash != scene.ConfigHash ? "changed"
+                            : null);
+                    }
+                }
+
+                // 'Redo this step', on a scene whose thread has ended (see the main loop)
+                var pendingRedos = new List<(int SceneId, string WorkerKey)>();
+                void RedoStep(WebUiScene scene, int sceneId, string workerKey)
+                {
+                    try
+                    {
+                        var config = scene.Context.Config;
+                        var wip = scene.Context.WIP;
+                        var workers = config == null ? null : Infra.SceneFlowGraph.GetWorkers(config);
+                        var worker = workers != null && workerKey.StartsWith("w") && int.TryParse(workerKey.Substring(1), out var workerIndex) && workerIndex >= 0 && workerIndex < workers.Length
+                            ? workers[workerIndex]
+                            : null;
+                        if (worker == null || wip == null)
+                        {
+                            output.WriteError($"Redo: step '{workerKey}' of '{GetDisplayName(scene.Sequence)}' not found (its configuration or its .wipsubtitles is not loaded).");
+                            return;
+                        }
+                        var dataId = (worker as Transcriptions.Transcriber)?.TranscriptionId ?? (worker as Translations.Translator)?.TranslationId;
+                        var container = (Infra.TimedItemWithMetadataCollection)wip.Transcriptions.FirstOrDefault(t => t.Id == dataId)
+                            ?? wip.Translations.FirstOrDefault(t => t.Id == dataId);
+                        if (container == null)
+                        {
+                            output.WriteError($"Redo: '{worker.DisplayName}' of '{GetDisplayName(scene.Sequence)}' has nothing to do again (no transcription / translation '{dataId}').");
+                            return;
+                        }
+                        var allIds = new HashSet<string>(wip.Transcriptions.Select(t => t.Id).Concat(wip.Translations.Select(t => t.Id)));
+                        var newId = $"{dataId}-OLD";
+                        for (var n = 2; allIds.Contains(newId); n++)
+                            newId = $"{dataId}-OLD{n}";
+                        container.ChangeId(newId);
+                        // (asked to be done again: not on hold anymore)
+                        wip.IsOnHold = false;
+                        wip.Save();
+                        webOutput.SetScenePaused(sceneId, false);
+                        output.WriteInfo($"Redo: '{worker.DisplayName}' of '{GetDisplayName(scene.Sequence)}': what it produced is kept as '{newId}' in the .wipsubtitles; the scene is started again.", null, false);
+                        webOutput.RequestRetry(sceneId);
+                    }
+                    catch (Exception ex)
+                    {
+                        output.WriteError($"Redo: can't do '{workerKey}' of '{GetDisplayName(scene.Sequence)}' again: {ex.Message}");
+                    }
+                }
+
                 var isReported = false;
                 while (true)
                 {
+                    // (the configuration files changed: checked once nothing changed for a second)
+                    if (!changedConfigFolders.IsEmpty && Environment.TickCount64 - Interlocked.Read(ref lastConfigChangeTicks) >= 1000)
+                    {
+                        var folders = changedConfigFolders.Keys.ToArray();
+                        foreach (var folder in folders)
+                            changedConfigFolders.TryRemove(folder, out _);
+                        try
+                        {
+                            CheckConfigChanges(folders);
+                        }
+                        catch (Exception ex)
+                        {
+                            rs_log.Error("Can't check the scenes after a change of the configuration files.", ex);
+                        }
+                    }
+
                     // (closing: nothing new is started, even what was asked just before)
                     if (webOutput.ConsumeRescanRequest() && !webOutput.IsClosing)
                     {
@@ -526,6 +657,40 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         // (asked just before 'Close': not done)
                         webOutput.SetRescanState(isRescanning: false, "Rescan not done: the application is closing.");
+                    }
+
+                    // 'Redo this step' (the Flow inspector, on a step): what the step produced (its transcription / translation) is kept in the
+                    // .wipsubtitles under another id ('<id>-OLD', '<id>-OLD2'...: to compare), then the scene is started again (like Retry):
+                    // the step is done again. A scene that runs or is on hold first ends at its next safe point (SceneRestartException, see
+                    // SubtitleGeneratorContext.PauseIfClosing: what was received is saved), then it's done; it's not on hold anymore after.
+                    for (var redo = webOutput.ConsumeRedoStepRequest(); redo != null; redo = webOutput.ConsumeRedoStepRequest())
+                    {
+                        var (redoSceneId, workerKey) = redo.Value;
+                        var scene = scenes.FirstOrDefault(s => webOutput.GetNodeId(s.Node) == redoSceneId);
+                        if (scene == null || webOutput.IsClosing)
+                            continue;
+                        if (scene.Thread?.IsAlive == true)
+                        {
+                            output.WriteInfo($"Redo: '{GetDisplayName(scene.Sequence)}' ends at its next safe point (what was received is saved), then the step is done again.", null, false);
+                            webOutput.SetSceneRestartRequested(redoSceneId, true);
+                            pendingRedos.RemoveAll(r => r.SceneId == redoSceneId);
+                            pendingRedos.Add((redoSceneId, workerKey));
+                        }
+                        else
+                        {
+                            RedoStep(scene, redoSceneId, workerKey);
+                        }
+                    }
+                    // (the scenes asked to end for a redo: done once their thread has ended)
+                    foreach (var pending in pendingRedos.ToArray())
+                    {
+                        var scene = scenes.FirstOrDefault(s => webOutput.GetNodeId(s.Node) == pending.SceneId);
+                        if (scene != null && scene.Thread?.IsAlive == true && !webOutput.IsClosing)
+                            continue;
+                        pendingRedos.Remove(pending);
+                        webOutput.SetSceneRestartRequested(pending.SceneId, false);
+                        if (scene != null && !webOutput.IsClosing)
+                            RedoStep(scene, pending.SceneId, pending.WorkerKey);
                     }
 
                     // 'Retry' (button of a scene in the page): the scene is started again, whatever its state (except if it's still running).
@@ -690,6 +855,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
             public ITaskNode Node;
             /// <summary>null: inactive (no enabled worker in its configuration, not started).</summary>
             public Thread Thread;
+            /// <summary>The configuration it was started with (null: it could not be read then), see the configuration files watcher.</summary>
+            public string ConfigHash;
         }
 
         /// <summary>
@@ -871,6 +1038,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 var watchGlobal = Stopwatch.StartNew();
                 // (web UI: the node of this scene, the current task of its thread: for 'Pause scene')
                 context.SceneNodeId = TaskScope.Current.Id;
+                // (the 'Files' tab of the scene: right away, also for a scene that fails while loading; its backup folder once the
+                //  .wipsubtitles is loaded)
+                TaskScope.Current.SetFilesView(new Infra.SceneFilesView(context, videoSequence.ContainerFullPath, videoSequence.VideoFullPaths));
 
                 var wipsubFullpath = Path.ChangeExtension(
                     videoSequence.ContainerFullPath,
@@ -952,12 +1122,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         // (safe point between two workers: when the application is closing, the next worker is not started)
                         if (worker.Enabled && worker.IsTask)
                             context.PauseIfClosing();
+                        // (to be started again ('Redo this step'): no other worker, not even the ones that are not a task)
+                        context.ThrowIfRestartRequested();
                         worker.Execute(context);
                     }
                 }
 
                 context.WriteInfo($"Finished in {watchGlobal.Elapsed}.");
                 context.WriteInfo();
+            }
+            catch (Infra.SceneRestartException)
+            {
+                // ('Redo this step' while it was running or on hold: ended at a safe point, the main loop starts it again)
+                context.WriteInfo("Ended at a safe point: the scene is started again.");
             }
             catch (Exception ex)
             {

@@ -368,7 +368,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 images = GetImageExtractors(worker).Select(e => e.OutputFieldName).ToArray(),
                 contextImages = GetContextImageTimes(context, worker),
                 note = sections.Count == 0 ? "This worker has no items to show (it works on audio or files)." : null,
-                sections
+                sections,
+                // (what it produced, kept under another id ('<id>-OLD') by 'Redo this step', then the scene is started again: see the main loop)
+                redo = produced.Where(p => p.container != null).Select(p => p.container.Id).FirstOrDefault()
             };
         }
 

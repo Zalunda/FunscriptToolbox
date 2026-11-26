@@ -42,6 +42,20 @@ namespace FunscriptToolbox.SubtitlesVerbs
             // All engine should be overriden in --FSTB-SubtitleGenerator.override.txt
             var defaultEngine = AddSharedObject("ChatBotAIEngineWillBeOverriden", new AIEngineChatBot());
 
+            // The transcription model of Google (another API than the other Gemini models, no batch mode): see TranscriberAudioFullAIGoogleTranscribe.
+            var googleTranscribeEngine = AddSharedObject("AIEngineGeminiTranscribeOnGoogle", new AIEngineAPIGoogle
+            {
+                BaseAddress = "https://generativelanguage.googleapis.com/v1beta",
+                Model = "gemini-3.5-transcribe",
+                APIKeyName = "APIKeyGemini",
+                UseBatchMode = false,
+                SupportAudio = true,
+                EstimatedCostPerInputMillionTokens = 2,
+                EstimatedCostPerOutputMillionTokens = 12,
+                TranscribeMinTimeBetweenRequests = TimeSpan.FromSeconds(30),
+                TranscribeMaxRetriesOnTooManyRequests = 5
+            });
+
             var transcriberAudioFullSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullSystemPrompt), Resources.TranscriberAudioFullSystemPrompt);
             var transcriberAudioFullUserPrompt = AddPromptToSharedObjects(nameof(Resources.TranscriberAudioFullUserPrompt), Resources.TranscriberAudioFullUserPrompt);
 
@@ -233,6 +247,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         UserPrompt = transcriberAudioFullUserPrompt,
                         MetadataProduced = "VoiceText",
                         MaxChunkDuration = TimeSpan.FromMinutes(5)
+                    },
+                    // Full transcription by the transcription model of Google: verbatim, with the start / end of each word (good timings);
+                    // the subtitles are built from the words. Not used for now (disabled; being tested): a workflow can enable it.
+                    new TranscriberAudioFullAIGoogleTranscribe()
+                    {
+                        TranscriptionId = "full-transcribe",
+                        SourceAudioId = "audio",
+                        Engine = googleTranscribeEngine,
+                        MetadataProduced = "VoiceText",
+                        MaxChunkDuration = TimeSpan.FromMinutes(25),
+                        Diarization = false,
+                        SpeakerMetadata = null,
+                        MultipleSpeakersMetadata = "Speaker",
+                        MultipleSpeakersValue = "Multiple",
+                        SameLineMaxStartDifference = TimeSpan.FromSeconds(1.5),
+                        MaxGap = TimeSpan.FromMilliseconds(600),
+                        MaxDuration = TimeSpan.FromSeconds(6),
+                        MaxChars = 28,
+                        EndPadding = TimeSpan.FromMilliseconds(250)
                     },
                     new TranslatorGoogleV1API()
                     {

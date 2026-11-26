@@ -83,6 +83,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The scene was removed from the list (not on disk anymore at its place, see 'Rescan'): it never continues.</summary>
         bool IsSceneRemoved(int sceneNodeId);
 
+        /// <summary>The scene must end at its next safe point, to be started again ('Redo this step' while it runs or is on hold).</summary>
+        bool IsSceneRestartRequested(int sceneNodeId);
+
         /// <summary>'Pause scene' / 'Resume scene' (ex. a scene loaded on hold: paused again). False: unknown scene.</summary>
         bool SetScenePaused(int sceneNodeId, bool isPaused);
 

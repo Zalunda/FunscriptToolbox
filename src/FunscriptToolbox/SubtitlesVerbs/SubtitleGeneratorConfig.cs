@@ -41,7 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
     {
         /// <summary>
         /// How many of each kind of work can run at the same time, when several scenes are processed in parallel (--ui).
-        /// The key is the short name of the lock shown in the web UI: GPU, VID, AUD, CLIP, PREP (ex. { "CLIP": 16 }).
+        /// The key is the short name of the lock shown in the web UI: GPU, VID, AUD, PREP, ENC (ex. { "AUD": 4 }).
         /// A lock not listed here keeps its default value. ('USER' is always 1: one prompt / dialog at a time.)
         /// </summary>
         [JsonProperty(Order = 1)]

@@ -14,8 +14,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
     public class WebUiOutput : IUserOutput
     {
         private const int MaxLogLinesPerNode = 5000;
-        private const int MaxDetailChars = 1_500_000;
-        private static readonly Regex rs_base64Regex = new Regex(@"[A-Za-z0-9+/=]{400,}", RegexOptions.Compiled);
 
         internal readonly object Gate = new object();
         private readonly List<UiNode> m_roots = new List<UiNode>();
@@ -175,6 +173,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             }
         }
 
+        /// <summary>The scenes asked to end at their next safe point, to be started again (see IsSceneRestartRequested).</summary>
+        private readonly HashSet<int> r_restartSceneIds = new HashSet<int>();
+
+        public bool IsSceneRestartRequested(int sceneNodeId)
+        {
+            lock (this.Gate)
+            {
+                return r_restartSceneIds.Contains(sceneNodeId);
+            }
+        }
+
+        internal void SetSceneRestartRequested(int sceneNodeId, bool requested)
+        {
+            lock (this.Gate)
+            {
+                if (requested) r_restartSceneIds.Add(sceneNodeId); else r_restartSceneIds.Remove(sceneNodeId);
+                Touch();
+            }
+        }
+
         /// <summary>The scene (rootNodeId: the node of the scene) is paused by the user ('Pause scene').</summary>
         public bool IsScenePaused(int rootNodeId)
         {
@@ -278,6 +296,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
 
         /// <summary>The id of the first-level node (scene) that the user asked to start again, or null.</summary>
         public int? ConsumeRetryRequest() => r_retryRequests.TryDequeue(out var id) ? id : (int?)null;
+
+        // ---- 'Redo this step' (the Flow inspector, on a step): what it produced is kept under another id, then the scene is started again ----
+
+        private readonly System.Collections.Concurrent.ConcurrentQueue<(int SceneId, string WorkerKey)> r_redoStepRequests = new System.Collections.Concurrent.ConcurrentQueue<(int, string)>();
+
+        internal bool RequestRedoStep(int rootNodeId, string workerKey)
+        {
+            lock (this.Gate)
+            {
+                if (IsClosing || string.IsNullOrEmpty(workerKey))
+                    return false;
+                if (!m_nodesById.TryGetValue(rootNodeId, out var node) || node.Parent != null || !m_roots.Contains(node))
+                    return false;
+            }
+            r_redoStepRequests.Enqueue((rootNodeId, workerKey));
+            r_requestReceived.Set();
+            return true;
+        }
+
+        /// <summary>A step that the user asked to do again (the scene node, the key of the worker in its graph, ex. "w3"), or null.</summary>
+        public (int SceneId, string WorkerKey)? ConsumeRedoStepRequest() => r_redoStepRequests.TryDequeue(out var request) ? request : ((int, string)?)null;
 
         /// <summary>The id of a node in the page (null: not a node of the web UI).</summary>
         public int? GetNodeId(ITaskNode node) => (node as UiNode)?.Id;
@@ -566,6 +605,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             }
         }
 
+        /// <summary>
+        /// The configuration files of a scene changed on disk since it was started (null: no; "changed": the configuration it would use now
+        /// is not the one it uses; otherwise: why it can't be read anymore). A scene that is done is shown in the section 'config changed'
+        /// (Retry / 'Reload all': started again with the new configuration).
+        /// </summary>
+        internal void SetSceneConfigChange(ITaskNode sceneNode, string change)
+        {
+            lock (this.Gate)
+            {
+                if (sceneNode is UiNode node && node.ConfigChange != change)
+                {
+                    node.ConfigChange = change;
+                    Touch();
+                }
+            }
+        }
+
+        /// <summary>The files of a scene (null: unknown scene, or not known yet). Its methods are called without the gate.</summary>
+        internal ISceneFilesView GetFilesView(int sceneNodeId)
+        {
+            lock (this.Gate)
+            {
+                return m_nodesById.TryGetValue(sceneNodeId, out var node) ? node.FilesView : null;
+            }
+        }
+
         internal object CreateNodeDetail(int nodeId)
         {
             // A scene: the number of items of the boxes of its graph (read without the gate: it reads the .wipsubtitles of the scene)
@@ -624,18 +689,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         /// <summary>The kinds of tasks whose start / end are shown in the combined log of a parent task (the 'high level' view).</summary>
         private static readonly HashSet<string> rs_kindsWithEvents = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Worker", "AI request", "Background" };
 
-        private class DetailContent
-        {
-            public StringBuilder Content = new StringBuilder();
-            public bool Truncated;
-        }
-
         private sealed class UiNode : ITaskNode
         {
             private readonly WebUiOutput r_owner;
             private readonly List<UiNode> r_children = new List<UiNode>();
             private readonly List<LogLine> r_log = new List<LogLine>();
-            private readonly Dictionary<string, DetailContent> r_details = new Dictionary<string, DetailContent>();
             private ITaskNode m_previousCurrent;
             private bool m_isCurrent;
 
@@ -666,6 +724,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             public bool IsBackground { get; }
             /// <summary>Only for the first-level nodes (videos): short name, metadata.</summary>
             public RootNodeInfo Info { get; set; }
+            /// <summary>Only for the first-level nodes: see <see cref="SetSceneConfigChange"/>.</summary>
+            public string ConfigChange { get; set; }
             private long m_progressDone;
             private long? m_progressTotal;
             private string m_progressUnit;
@@ -816,47 +876,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
             }
 
-            public void SetDetail(string name, string content)
-            {
-                var elided = rs_base64Regex.Replace(content ?? string.Empty, m => $"<{m.Length} chars of binary data (base64) not shown>");
-                lock (r_owner.Gate)
-                {
-                    var detail = new DetailContent();
-                    Append(detail, elided);
-                    r_details[name] = detail;
-                    r_owner.Touch();
-                }
-            }
-
-            public void AppendDetail(string name, string content)
-            {
-                lock (r_owner.Gate)
-                {
-                    if (!r_details.TryGetValue(name, out var detail))
-                    {
-                        detail = new DetailContent();
-                        r_details[name] = detail;
-                    }
-                    Append(detail, content);
-                    r_owner.Touch();
-                }
-            }
-
-            private static void Append(DetailContent detail, string text)
-            {
-                if (detail.Truncated || string.IsNullOrEmpty(text)) return;
-                var room = MaxDetailChars - detail.Content.Length;
-                if (text.Length > room)
-                {
-                    detail.Content.Append(text, 0, Math.Max(0, room));
-                    detail.Content.Append("\n[... truncated ...]");
-                    detail.Truncated = true;
-                }
-                else
-                {
-                    detail.Content.Append(text);
-                }
-            }
 
             public void SetCancellable(string hint)
             {
@@ -1005,6 +1024,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 }
             }
 
+            /// <summary>See <see cref="ITaskNode.SetFilesView"/>.</summary>
+            internal ISceneFilesView FilesView { get; private set; }
+
+            public void SetFilesView(ISceneFilesView view)
+            {
+                lock (r_owner.Gate)
+                {
+                    FilesView = view;
+                }
+            }
+
             /// <summary>See <see cref="ITaskNode.SetFlowCounter"/>.</summary>
             internal Func<object> FlowCounter { get; private set; }
 
@@ -1132,7 +1162,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     meta = Info?.Metadata,
                     priority = Info?.PriorityText,
                     inactive = Info?.IsInactive == true,
-                    configError = Info?.ConfigError
+                    configError = Info?.ConfigError,
+                    configChange = ConfigChange
                 };
             }
 
@@ -1177,8 +1208,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     flow = m_flowGraph,
                     flowCounts,
                     sceneCost,
-                    log =lines.OrderBy(x => x.t).ThenBy(x => x.order).Select(x => x.line).TakeLast(MaxCombinedLogLines).ToArray(),
-                    details = r_details.Select(d => new { name = d.Key, content = d.Value.Content.ToString(), truncated = d.Value.Truncated }).ToArray()
+                    log =lines.OrderBy(x => x.t).ThenBy(x => x.order).Select(x => x.line).TakeLast(MaxCombinedLogLines).ToArray()
                 };
             }
 

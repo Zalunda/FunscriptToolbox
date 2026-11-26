@@ -10,16 +10,6 @@ using Xabe.FFmpeg;
 
 namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 {
-    /// <summary>What an ffmpeg audio conversion is for: it decides how many can run at the same time (see <see cref="SharedLocks"/>).</summary>
-    public enum FfmpegWorkload
-    {
-        /// <summary>A whole audio (saving an extraction, the input of a local tool, ...).</summary>
-        Audio,
-
-        /// <summary>A piece of audio cut from the PCM in memory and written in the temp folder (many, small).</summary>
-        Clip,
-    }
-
     public class FfmpegHelper
     {
         protected const int SamplingRate = 16000;
@@ -28,7 +18,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
 
         /// <param name="locks">
         /// When several videos are processed in parallel, the ffmpeg processes are limited, by kind of work (see <see cref="SharedLocks"/>):
-        /// reading the original video, working on a whole audio, cutting audio clips.
+        /// reading the original video, working on a whole audio. (The audio clips sent to the AIs are made in memory: no ffmpeg.)
         /// </param>
         public FfmpegHelper(SharedLocks locks)
         {
@@ -97,17 +87,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
             }
         }
 
-        /// <param name="workload">Clip: a piece of audio cut from the PCM in memory (many, small). Audio: a whole audio.</param>
         /// <param name="showProgress">Shows the progress of ffmpeg (%) on the current task (false when the task already counts something else, ex. files).</param>
         public void ConvertPcmAudioToOtherFormat(
             PcmAudio pcmAudio,
             string outputFilepath,
             string ffmpegParameters = null,
-            FfmpegWorkload workload = FfmpegWorkload.Audio,
             bool showProgress = true)
         {
-            using var localLock = (workload == FfmpegWorkload.Clip ? r_locks.Clips : r_locks.Audio)
-                .Acquire(workload == FfmpegWorkload.Clip ? "ffmpeg: writing an audio clip" : "ffmpeg: converting audio");
+            using var localLock = r_locks.Audio.Acquire("ffmpeg: converting audio");
             var tempPcmFile = PathExtension.GetTempFileName(".pcm");
             try
             {
@@ -119,9 +106,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
                     .SetOverwriteOutput(true)
                     .AddParameter($"-f s16le -ar {pcmAudio.SamplingRate} -ac 1 -i \"{tempPcmFile}\" -acodec pcm_s16le -vn -ar 16000 {ffmpegParameters}")
                     .SetOutput(outputFilepath);
-                if (workload == FfmpegWorkload.Audio && showProgress)
+                if (showProgress)
                 {
-                    // (a clip is too short to show a progress)
                     ShowProgressOnCurrentTask(conversion, pcmAudio.Duration);
                 }
                 conversion
