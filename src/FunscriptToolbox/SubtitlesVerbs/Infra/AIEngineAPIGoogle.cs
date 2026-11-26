@@ -213,7 +213,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         ? $" (in ErrorState \"{lastErrorCodeReceived}, {lastErrorMessageReceived}\")"
                         : string.Empty;
 
-                    // (the time of the task: shown by the page; here, only how long it waited in the queue of Google)
                     if (operation?.GetState() == "BATCH_STATE_RUNNING")
                     {
                         requestNode.SetStopNowWarning(StopNowCostWarning);

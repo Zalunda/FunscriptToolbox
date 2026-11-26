@@ -19,31 +19,40 @@ namespace FunscriptToolbox.SubtitlesVerbs
 {
     public class SubtitleGeneratorConfigLoader
     {
-        public static readonly JsonSerializer rs_serializer = JsonSerializer
-                .Create(new JsonSerializerSettings
-                {
-                    Formatting = Formatting.Indented,
-                    SerializationBinder = new SimpleTypeNameSerializationBinder(
-                        new[] {
-                            typeof(AIEngine),
-                            typeof(AIOptions),
-                            typeof(AIPrompt),
-                            typeof(BinaryDataExtractor),
-                            typeof(AudioExtractor),
-                            typeof(SubtitleOutput),
-                            typeof(TranscriberToolAudio),
-                            typeof(TimingRefineEngine),
-                            typeof(Transcriber),
-                            typeof(Translator)
-                        }),
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    PreserveReferencesHandling = PreserveReferencesHandling.Objects
-                });
-        static SubtitleGeneratorConfigLoader()
+        /// <summary>
+        /// The serializer of the configurations, one by thread: a JsonSerializer that preserves the references is NOT thread safe (its
+        /// reference resolver numbers the objects with a counter: two threads at the same time => the same number twice, "Error writing /
+        /// reading object reference"). The configurations are read by the threads of the scenes, of the main loop and of the web server.
+        /// </summary>
+        public static JsonSerializer rs_serializer => rs_serializerByThread.Value;
+
+        private static readonly SimpleTypeNameSerializationBinder rs_binder = new SimpleTypeNameSerializationBinder(
+            new[] {
+                typeof(AIEngine),
+                typeof(AIOptions),
+                typeof(AIPrompt),
+                typeof(BinaryDataExtractor),
+                typeof(AudioExtractor),
+                typeof(SubtitleOutput),
+                typeof(TranscriberToolAudio),
+                typeof(TimingRefineEngine),
+                typeof(Transcriber),
+                typeof(Translator)
+            });
+
+        private static readonly System.Threading.ThreadLocal<JsonSerializer> rs_serializerByThread = new System.Threading.ThreadLocal<JsonSerializer>(() =>
         {
-            rs_serializer.Converters.Add(new StringEnumConverter());
-            rs_serializer.ReferenceResolver = new ValidatingReferenceResolver(rs_serializer.ReferenceResolver);
-        }
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                SerializationBinder = rs_binder,
+                TypeNameHandling = TypeNameHandling.Auto,
+                PreserveReferencesHandling = PreserveReferencesHandling.Objects
+            });
+            serializer.Converters.Add(new StringEnumConverter());
+            serializer.ReferenceResolver = new ValidatingReferenceResolver(serializer.ReferenceResolver);
+            return serializer;
+        });
         // This pattern looks for two letters inside square brackets, e.g., "[ja]".
         private static readonly Regex s_languageInFolderNameRegex = new Regex(@"\[(?<name>[a-zA-Z]{2})\]", RegexOptions.Compiled);
 

@@ -20,17 +20,24 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public const string CURRENT_FORMAT_VERSION = "2.0";
         public const string BACKUP_FOLDER_SUFFIX = "_Backup";
 
-        private readonly static JsonSerializer rs_serializer = JsonSerializer
-            .Create(new JsonSerializerSettings
+        /// <summary>
+        /// The serializer of the .wipsubtitles, one by thread: a JsonSerializer that preserves the references is NOT thread safe (its
+        /// reference resolver numbers the objects with a counter shared by all its calls: two scenes saving at the same time => the same
+        /// number twice, "Error writing object reference for '...TranscribedItem'", the file not saved).
+        /// </summary>
+        private static JsonSerializer rs_serializer => rs_serializerByThread.Value;
+
+        private static readonly System.Threading.ThreadLocal<JsonSerializer> rs_serializerByThread = new System.Threading.ThreadLocal<JsonSerializer>(() =>
+        {
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
                 PreserveReferencesHandling = PreserveReferencesHandling.Objects
             });
+            serializer.Converters.Add(new StringEnumConverter());
+            return serializer;
+        });
         public const string Extension = ".wipsubtitles";
-        static WorkInProgressSubtitles()
-        {
-            rs_serializer.Converters.Add(new StringEnumConverter());
-        }
 
         public static WorkInProgressSubtitles FromFile(string fullpath)
         {
