@@ -3524,8 +3524,6 @@
     sesRollStart: false, sesRollStartMs: 300, sesRollEnd: false, sesRollEndMs: 300, sesEdgeMs: 1500, sesOutsideVol: 30, sesNudgeMs: 100,
     // (a session, playing over the subtitles: from sesLeadMs before a subtitle; played to sesTailMs after its end without a pause: finalized)
     sesLeadMs: 2000, sesTailMs: 1000,
-    // (the view moved by itself while playing (paused while it moves): still paused for followResumeMs once it's there, then it plays on)
-    followResumeMs: 500,
     // (the gaps to validate: the parts without subtitle of at least gapMinMs, see computeGaps)
     // (short: the gaps right next to the subtitles are listened to too, a way to check their timing from the outside)
     gapMinMs: 300,
@@ -6800,8 +6798,8 @@
   // - not while a subtitle plays, nor until FOLLOW_HOLD_MS after the end of the last one played (it may still be fixed with a click),
   // - then, when the next subtitle (from FOLLOW_MARGIN_MS before it) is not seen whole, or the cursor gets to FOLLOW_PAGE_AT of the view: a hop;
   // - the cursor about to leave the view (FOLLOW_EDGE_AT): a hop, whatever the rest.
-  // A hop: the cursor put at FOLLOW_AT of the view (on the left: the next hop as late as possible); paused while the view moves, then still
-  // for settings.followResumeMs (Settings tab), then it plays on (S.viewHop). A gap session: no pause (it's played without looking), the view moves while playing.
+  // A hop: the cursor put at FOLLOW_AT of the view (on the left: the next hop as late as possible); paused while the view moves, then it
+  // plays on right away (S.viewHop). A gap session: no pause (it's played without looking), the view moves while playing.
   // Going fast in a gap: no hops, the view scrolls with the playback, the cursor at FOLLOW_FAST_AT of the view.
   // - held (ex. subtitles close to each other), the cursor near the right side (FOLLOW_NEAR_RIGHT_AT) between 2 subtitles: a hop then, not
   //   in the middle of the next one.
@@ -6820,14 +6818,10 @@
       // (played again meanwhile (ex. Play), or something else took over: the hop is over)
       if ((playing && hop.paused) || S.drag || S.edgeDrag || audition) S.viewHop = null;
       else {
-        if (!hop.still) {
-          if (moveViewToward(hop.target, dt, now)) {
-            if (!hop.paused) { S.viewHop = null; return; }
-            hop.still = now + settings.followResumeMs;
-          }
-        } else if (now >= hop.still) {
-          // (a subtitle played to its end (playSub): it still stops there)
-          S.viewHop = null; play(); S.stopAt = hop.stopAt;
+        // (the view there: it plays on right away; a subtitle played to its end (playSub): it still stops there)
+        if (moveViewToward(hop.target, dt, now)) {
+          S.viewHop = null;
+          if (hop.paused) { play(); S.stopAt = hop.stopAt; }
         }
         return;
       }
@@ -6876,7 +6870,7 @@
     // (the speaker review: its popup is over the waveform)
     var paused = !S.gapSession && !S.spkReview, stopAt = S.stopAt;
     if (paused) pause();
-    S.viewHop = { target: target, paused: paused, still: null, stopAt: stopAt };
+    S.viewHop = { target: target, paused: paused, stopAt: stopAt };
     moveViewToward(target, dt, now);
   }
   /// One frame of a move of the view to target (smooth: gets there in about a third of a second); returns true when it's there
@@ -8857,8 +8851,6 @@
       '<span class="hint">(instead of its start / end again and again; and Play during a start / end loop: from the start of the subtitle, otherwise from the edge being played)</span></div>' +
       '<div class="te-set"><b>Original video</b><label><input type="checkbox" id="teLeftHalf"' + (settings.originalLeftHalf ? " checked" : "") + '> only its left half</label>' +
       '<span class="hint">(a VR video side by side: the left eye; also for the images of the speakers, 📷). The FAST video is shown whole.</span></div>' +
-      '<div class="te-set"><b>The view moved by itself</b> (while playing) then plays on after ' + numSetting("teFollowResume", settings.followResumeMs, 0, 5000, 100, 56) + ' ms' +
-      '<span class="hint">(paused while the view moves, then still for that long; 0: right away)</span></div>' +
       '<div class="te-set"><b>Small moves</b> of' + numSetting("teSesNudge", settings.sesNudgeMs, 5, 1000, 5, 48) + ' ms<span class="hint">(the buttons ◀ / ▶ of the panel, their keys)</span></div>' +
       '<div class="te-set"><b>Saved automatically</b> every ' + numSetting("teAutoSave", settings.autoSaveMin, 0, 60, 1, 48) + ' minutes while there are changes<span class="hint">(0: never). It saves the review (in the .wipsubtitles), not the file: the file is written when the review is done.</span></div>';
   }
@@ -8901,7 +8893,6 @@
       case "teSesRollEndMs": settings.sesRollEndMs = clamp(v, 0, 3000); if (S && S.session) renderSession(); break;
       case "teSesVol": settings.sesOutsideVol = clamp(v, 0, 100); break;
       case "teSesEdgeMs": settings.sesEdgeMs = clamp(v, 300, 10000); break;
-      case "teFollowResume": settings.followResumeMs = clamp(v, 0, 5000); break;
       case "teSesNudge": settings.sesNudgeMs = clamp(v, 5, 1000); if (S && S.session) renderSession(); break;
       case "teSesLead": settings.sesLeadMs = clamp(v, 0, 10000); if (S && S.session) renderSession(); break;
       case "teSesTail": settings.sesTailMs = clamp(v, 0, 10000); if (S && S.session) renderSession(); break;
@@ -9132,7 +9123,7 @@
       '<b>Playing over the subtitles</b>: from ' + (settings.sesLeadMs / 1000) + ' s before the one to do; played without a pause to ' + (settings.sesTailMs / 1000) + ' s after its end: finalized (what the session is for), then the next one to do: ' +
       'the gaps played, faster ("Validate the gaps", a checkbox of the dialog of the session; also in the panel, during the session), otherwise a jump to ' + (settings.sesLeadMs / 1000) + ' s before it (Settings tab: how long before / after). ' +
       '<b>Middle click on the waveform</b> = plays from there; the subtitles finalized by the session from there on (and the one closest to it) are to do again, the closest one to do is the selected one. ' +
-      'The view doesn\'t move while a subtitle plays, nor until ' + (FOLLOW_HOLD_MS / 1000) + ' s after its end (unless the cursor is about to leave it, or is past ' + Math.round(FOLLOW_NEAR_RIGHT_AT * 100) + ' % of the width between 2 subtitles: it moves then, the start of the subtitle just played kept in view when possible); then it moves in one go (the cursor to the left), the playback paused while it moves and ' + settings.followResumeMs + ' ms more (Settings tab); going fast in a gap: it scrolls with the playback, the cursor at ' + Math.round(FOLLOW_FAST_AT * 100) + ' %, without a pause. ' +
+      'The view doesn\'t move while a subtitle plays, nor until ' + (FOLLOW_HOLD_MS / 1000) + ' s after its end (unless the cursor is about to leave it, or is past ' + Math.round(FOLLOW_NEAR_RIGHT_AT * 100) + ' % of the width between 2 subtitles: it moves then, the start of the subtitle just played kept in view when possible); then it moves in one go (the cursor to the left), the playback paused while it moves, then it plays on right away; going fast in a gap: it scrolls with the playback, the cursor at ' + Math.round(FOLLOW_FAST_AT * 100) + ' %, without a pause. ' +
       'A click right after the view moved by itself (' + VIEW_MOVE_GUARD_MS + ' ms) is not done: paused, the view put back where it was. ' +
       'The next subtitle to do is selected only when the playback gets to ' + (settings.sesLeadMs / 1000) + ' s before it. ' +
       esc(keyName("playPause")) + ' = only a pause (it plays on from there: the same run, a pause doesn\'t count). ' +
