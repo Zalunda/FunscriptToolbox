@@ -3225,6 +3225,8 @@
     sesRollStart: false, sesRollStartMs: 300, sesRollEnd: false, sesRollEndMs: 300, sesEdgeMs: 1500, sesOutsideVol: 30, sesNudgeMs: 100,
     // (a session, playing over the subtitles: from sesLeadMs before a subtitle; played to sesTailMs after its end without a pause: finalized)
     sesLeadMs: 2000, sesTailMs: 1000,
+    // (the view moved by itself while playing (paused while it moves): still paused for followResumeMs once it's there, then it plays on)
+    followResumeMs: 500,
     // (the gaps to validate: the parts without subtitle of at least gapMinMs, see computeGaps)
     // (short: the gaps right next to the subtitles are listened to too, a way to check their timing from the outside)
     gapMinMs: 300,
@@ -3376,6 +3378,8 @@
   /// <returns>false: the user wants to keep the editor open (changes not saved)</returns>
   function close() {
     if (!S) return true;
+    // (shift the timings: not applied, cancelled)
+    if (shift) closeShiftDialog(false);
     if (S.unsaved && !window.confirm("The changes are not saved. Close anyway (they are lost)?")) return false;
     saveValidation();
     saveGaps(true);
@@ -4044,6 +4048,8 @@
   }
   /// returns false (and says why) when the review can't be changed
   function canEdit() {
+    // (shift the timings: the subtitles are moved by its popup until it's closed)
+    if (S && shift) { status("Shift the timings: ✓ Apply or Cancel first.", true); return false; }
     if (!S || !S.readOnly) return true;
     status("The review is done: it can't be changed here anymore (the file can still be edited by hand: its metadata are always used, its timings only until they are frozen by the next steps).", true);
     return false;
@@ -4120,6 +4126,8 @@
     // (the speaker review: for the other review; its regions too)
     // (the last region of each speaker: remembered for this scene)
     closeSpeakerReview(); S.spkRegions = loadSceneRegions(S.sceneName);
+    // (shift the timings: it was for the other review)
+    if (shift) { shift = null; shiftDlg.style.display = "none"; shiftDlg.innerHTML = ""; }
     S.gapRanges = []; S.gapsChanged = false; S.gapSel = null; S.gapSession = false;
     S.session = null; renderSession();
     renderList(); renderCur(); renderPass();
@@ -6492,9 +6500,14 @@
   // - then, when the next subtitle (from FOLLOW_MARGIN_MS before it) is not seen whole, or the cursor gets to FOLLOW_PAGE_AT of the view: a hop;
   // - the cursor about to leave the view (FOLLOW_EDGE_AT): a hop, whatever the rest.
   // A hop: the cursor put at FOLLOW_AT of the view (on the left: the next hop as late as possible); paused while the view moves, then still
-  // for FOLLOW_RESUME_MS, then it plays on (S.viewHop). A gap session: no pause (it's played without looking), the view moves while playing.
+  // for settings.followResumeMs (Settings tab), then it plays on (S.viewHop). A gap session: no pause (it's played without looking), the view moves while playing.
   // Going fast in a gap: no hops, the view scrolls with the playback, the cursor at FOLLOW_FAST_AT of the view.
-  var FOLLOW_MARGIN_MS = 1000, FOLLOW_HOLD_MS = 4000, FOLLOW_AT = 0.1, FOLLOW_PAGE_AT = 0.9, FOLLOW_EDGE_AT = 0.97, FOLLOW_RESUME_MS = 500, FOLLOW_FAST_AT = 0.3, lastFollowFrame = 0;
+  // - held (ex. subtitles close to each other), the cursor near the right side (FOLLOW_NEAR_RIGHT_AT) between 2 subtitles: a hop then, not
+  //   in the middle of the next one.
+  // A hop keeps the start of the subtitle playing / just played seen (FOLLOW_KEEP_LEFT of the view before it), when the cursor can still
+  // be at most at FOLLOW_KEEP_MAX_AT.
+  var FOLLOW_MARGIN_MS = 1000, FOLLOW_HOLD_MS = 4000, FOLLOW_AT = 0.1, FOLLOW_PAGE_AT = 0.9, FOLLOW_EDGE_AT = 0.97, FOLLOW_FAST_AT = 0.3, lastFollowFrame = 0;
+  var FOLLOW_NEAR_RIGHT_AT = 0.75, FOLLOW_KEEP_LEFT = 0.05, FOLLOW_KEEP_MAX_AT = 0.5, FOLLOW_MIN_GAIN = 0.2;
   // A click on the waveform at most VIEW_MOVE_GUARD_MS after the view moved by itself (a move bigger than VIEW_MOVE_BIG of its width):
   // probably meant for what was there before: not done, the playback paused, the view put back where it was
   var VIEW_MOVE_GUARD_MS = 200, VIEW_MOVE_BIG = 0.02;
@@ -6509,7 +6522,7 @@
         if (!hop.still) {
           if (moveViewToward(hop.target, dt, now)) {
             if (!hop.paused) { S.viewHop = null; return; }
-            hop.still = now + FOLLOW_RESUME_MS;
+            hop.still = now + settings.followResumeMs;
           }
         } else if (now >= hop.still) {
           // (a subtitle played to its end (playSub): it still stops there)
@@ -6521,13 +6534,19 @@
     // (not while the user drags: the view or an edge, under the mouse)
     if (!playing || S.drag || S.edgeDrag || audition) return;
     var vd = S.viewDur, vs = S.viewStart, target = null;
-    var lastEnd = -Infinity, inside = false, next = null;
+    var lastEnd = -Infinity, inside = false, next = null, insideSub = null, lastSub = null;
     for (var i = 0; i < S.subs.length; i++) {
       var sub = S.subs[i];
-      if (sub.s <= t && sub.e > t) inside = true;
-      if (sub.e <= t && sub.e > lastEnd) lastEnd = sub.e;
+      if (sub.s <= t && sub.e > t) { inside = true; if (!insideSub) insideSub = sub; }
+      if (sub.e <= t && sub.e > lastEnd) { lastEnd = sub.e; lastSub = sub; }
       if (sub.s > t) { next = sub; break; }
     }
+    // (a hop: the start of the subtitle playing / just played stays seen, with FOLLOW_KEEP_LEFT of the view before it (to fix it), when
+    //  the cursor is then at most at FOLLOW_KEEP_MAX_AT of the view; a longer subtitle: the cursor at FOLLOW_KEEP_MAX_AT, its start not seen)
+    var keepLeft = function (to, sub) {
+      if (!sub || sub.e < vs) return to;
+      return Math.max(t - vd * FOLLOW_KEEP_MAX_AT, Math.min(to, sub.s - vd * FOLLOW_KEEP_LEFT));
+    };
     var hold = inside || t < lastEnd + FOLLOW_HOLD_MS, leaving = t < vs || t > vs + vd * FOLLOW_EDGE_AT;
     // (going fast in a gap (see updateSpeed): the view scrolls with the playback, the cursor at FOLLOW_FAST_AT, without a pause; still not
     //  until FOLLOW_HOLD_MS after the last subtitle, unless the cursor is about to leave the view. Close: it sticks to the playback, no lag)
@@ -6539,12 +6558,18 @@
       return;
     }
     // (the cursor about to leave the view)
-    if (leaving) target = t - vd * FOLLOW_AT;
+    if (leaving) target = t < vs ? t - vd * FOLLOW_AT : keepLeft(t - vd * FOLLOW_AT, insideSub || lastSub);
     else if (!hold) {
       // (the next subtitle coming, not seen whole (with a little room on each side); the cursor far to the right)
       var coming = next && next.s - FOLLOW_MARGIN_MS <= t && next.e - next.s < vd * (FOLLOW_EDGE_AT - FOLLOW_AT);
       if (coming && (next.s < vs + vd * 0.05 || next.e > vs + vd * 0.95)) target = Math.min(t, next.s) - vd * FOLLOW_AT;
-      else if (t > vs + vd * FOLLOW_PAGE_AT) target = t - vd * FOLLOW_AT;
+      else if (t > vs + vd * FOLLOW_PAGE_AT) target = keepLeft(t - vd * FOLLOW_AT, lastSub);
+    }
+    // (subtitles close to each other (always held): the cursor near the right side (FOLLOW_NEAR_RIGHT_AT), between 2 subtitles: a hop
+    //  now, not later in the middle of one; only when it gives some room (at least FOLLOW_MIN_GAIN of the view))
+    else if (!inside && t > vs + vd * FOLLOW_NEAR_RIGHT_AT) {
+      var early = keepLeft(t - vd * FOLLOW_AT, lastSub);
+      if (early - vs >= vd * FOLLOW_MIN_GAIN) target = early;
     }
     if (target == null) return;
     // (the speaker review: its popup is over the waveform)
@@ -6740,27 +6765,62 @@
 
     // Subtitles (behind the waveform)
     ctx.font = "11px system-ui, sans-serif";
+    // (the speakers present: computed from the first subtitle drawn, then carried like speakerStates does; again after a subtitle not drawn)
+    var spkPresent = null, spkLastIdx = -2;
     S.subs.forEach(function (sub, idx) {
       if (sub.e < v0 || sub.s > v1) return;
       var x1 = X(sub.s), x2 = X(sub.e), sel = idx === S.sel;
+      if (S.spk) {
+        if (idx !== spkLastIdx + 1) spkPresent = presentAt(idx);
+        else { var ongoing = getMeta(sub, S.spk.ongoing); if (ongoing != null) spkPresent = splitNames(ongoing); }
+        spkLastIdx = idx;
+      }
+      // (shift the timings, its popup open: a subtitle that will move is only in the top half, the bottom half shows where it will be)
+      var shifted = !!(shift && shift.offset && shift.moved.get(sub)), zh = shifted ? WH / 2 : WH;
       ctx.fillStyle = colors.accent;
-      ctx.globalAlpha = sel ? 0.26 : 0.12; ctx.fillRect(x1, WAVE_Y, x2 - x1, WH);
+      ctx.globalAlpha = sel ? 0.26 : 0.12; ctx.fillRect(x1, WAVE_Y, x2 - x1, zh);
       ctx.globalAlpha = 1;
-      ctx.fillRect(x1, WAVE_Y, sel ? 2 : 1, WH); ctx.fillRect(x2 - (sel ? 2 : 1), WAVE_Y, sel ? 2 : 1, WH);
+      ctx.fillRect(x1, WAVE_Y, sel ? 2 : 1, zh); ctx.fillRect(x2 - (sel ? 2 : 1), WAVE_Y, sel ? 2 : 1, zh);
       // (validated: a green bar at the bottom)
       ctx.fillStyle = colors.ok;
-      if (isValidated(sub)) ctx.fillRect(x1, WAVE_Y + WH - 4, x2 - x1, 4);
+      if (isValidated(sub) && !shifted) ctx.fillRect(x1, WAVE_Y + WH - 4, x2 - x1, 4);
       // (review warnings not checked: a small square of the color of each kind, at the bottom)
       var codes = {};
-      openIssues(sub, true).forEach(function (x) { codes[x.code] = true; });
+      if (!shifted) openIssues(sub, true).forEach(function (x) { codes[x.code] = true; });
       Object.keys(codes).forEach(function (code, k) { ctx.fillStyle = issueColor(code); ctx.fillRect(x1 + 2 + k * 8, WAVE_Y + WH - 12, 6, 6); });
       if (x2 - x1 > 24) {
         ctx.save(); ctx.beginPath(); ctx.rect(x1 + 3, WAVE_Y, x2 - x1 - 6, WH); ctx.clip();
         ctx.fillStyle = colors.text; ctx.globalAlpha = sel ? 1 : 0.75;
         ctx.fillText((isValidated(sub) ? "✓" : "") + "#" + (idx + 1) + " " + firstLine(sub), x1 + 4, WAVE_Y + 12);
+        // (its speaker, at the bottom, after the review warnings: its {Speaker} (to confirm: '?'), otherwise the only one present
+        // (in italic); nothing when several / nobody are present)
+        if (S.spk && !shifted) {
+          var spkOwn = getMeta(sub, S.spk.speaker) || null;
+          var spkName = spkOwn || (!isOnScreenText(sub) && spkPresent.length === 1 ? spkPresent[0] : null);
+          if (spkName) {
+            var spkUnconfirmed = spkOwn && toConfirm(spkOwn) && !sub.sc;
+            ctx.font = (spkOwn ? "" : "italic ") + "11px system-ui, sans-serif";
+            ctx.fillStyle = spkUnconfirmed ? colors.warn : colors.text;
+            ctx.fillText("👤 " + spkName + (spkUnconfirmed ? " ?" : ""), x1 + 4 + Object.keys(codes).length * 8, WAVE_Y + WH - 6);
+            ctx.font = "11px system-ui, sans-serif";
+          }
+        }
         ctx.restore();
       }
     });
+    // (shift the timings, its popup open: where the subtitles will be, in the bottom half (another color); see the arrows after the waveform)
+    if (shift && shift.offset) {
+      shift.moved.forEach(function (d, ssub) {
+        if (!d) return;
+        var ns = ssub.s + d, ne = ssub.e + d;
+        if (ne < v0 || ns > v1) return;
+        var xns = X(ns), xne = X(ne);
+        ctx.fillStyle = colors.warn;
+        ctx.globalAlpha = 0.16; ctx.fillRect(xns, MID, xne - xns, WH / 2);
+        ctx.globalAlpha = 1;
+        ctx.fillRect(xns, MID, 2, WH / 2); ctx.fillRect(xne - 2, MID, 2, WH / 2);
+      });
+    }
     // (2 subtitles that overlap: an error, in red)
     ctx.fillStyle = colors.err;
     for (var oi = 1; oi < S.subs.length; oi++) {
@@ -6791,6 +6851,28 @@
       ctx.globalAlpha = 1;
     } else if (!S.audioId) {
       ctx.fillStyle = colors.muted; ctx.fillText("Choose the audio (top) to see the waveform.", 10, MID);
+    }
+
+    // Shift the timings (its popup open): the subtitles don't move until applied (top half: where they are, bottom half: where they
+    // will be, see above); an arrow from each start (top) to its new start (bottom)
+    if (shift && shift.offset) {
+      ctx.save();
+      ctx.strokeStyle = colors.warn; ctx.fillStyle = colors.warn; ctx.lineWidth = 2;
+      var ay0 = WAVE_Y + Math.min(14, WH / 4), ay1 = MID + WH / 4;
+      shift.moved.forEach(function (d, ssub) {
+        if (!d) return;
+        var ns = ssub.s + d;
+        if (Math.max(ssub.s, ns) < v0 || Math.min(ssub.s, ns) > v1) return;
+        var xa = X(ssub.s), xb = X(ns), len = Math.hypot(xb - xa, ay1 - ay0);
+        if (len < 4) return;
+        var ux = (xb - xa) / len, uy = (ay1 - ay0) / len, ah = Math.min(10, len / 2);
+        ctx.beginPath(); ctx.moveTo(xa, ay0); ctx.lineTo(xb - ux * ah * 0.6, ay1 - uy * ah * 0.6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(xb, ay1);
+        ctx.lineTo(xb - ux * ah - uy * ah * 0.5, ay1 - uy * ah + ux * ah * 0.5);
+        ctx.lineTo(xb - ux * ah + uy * ah * 0.5, ay1 - uy * ah - ux * ah * 0.5);
+        ctx.closePath(); ctx.fill();
+      });
+      ctx.restore();
     }
 
     // The speech found with 'next speech without subtitle'
@@ -7004,6 +7086,8 @@
     if (inFlow() && !e.ctrlKey && canEdit()) {
       var qf = flowEdgeNear(ms), qs = qf && S.subs[qf.i];
       if (qf) {
+        // (the ones before it, passed: finalized, see flowFinalizePassedBefore)
+        flowFinalizePassedBefore(qf.i);
         // (paused while the edge is moved: the view doesn't move under the mouse; it plays on at the release, the same run, see sessionFlowTick)
         var wasPlaying = isPlaying() || hopPlaying;
         if (wasPlaying) pause();
@@ -7024,6 +7108,8 @@
     // Otherwise: goes there / selects the subtitle there (dragging: moves the view)
     var target = e.ctrlKey && canEdit() ? edgeForClick(ms) : null;
     if (target) {
+      // (playing over the subtitles: the ones before it, passed, are finalized first (before the playback moves), see flowFinalizePassedBefore)
+      if (inFlow()) flowFinalizePassedBefore(target.i);
       if (target.i !== S.sel) select(target.i, true, true);
       S.edgeDrag = { i: target.i, edge: target.edge, x: e.clientX, undoPushed: false };
       // (a click right on the edge: only plays it, the timing doesn't change by a few ms)
@@ -7092,6 +7178,12 @@
       if (dragReplayTimer) { clearTimeout(dragReplayTimer); dragReplayTimer = null; }
       dragReplayGen++;   // (a sound still being fetched for the drag: not played, what follows decides)
       var resume = S.edgeDrag.quickFix && S.edgeDrag.wasPlaying;
+      // (a quick fix: that subtitle is finalized when the playback passes its end, even without its sesTailMs after it (ex. the edge of
+      //  the next one fixed too, the playback paused / moved), see sessionFlowTick)
+      if (S.edgeDrag.quickFix && changed && S.session && dragged) {
+        if (!S.session.touched) S.session.touched = new Map();
+        S.session.touched.set(dragged, curMs());
+      }
       S.edgeDrag = null;
       updateUnsaved();
       // (a quick fix while playing over the subtitles: paused while the edge was moved, it plays on from where it was, the same run)
@@ -7146,7 +7238,8 @@
       savePref("fstTimingSettings", JSON.stringify(settings));
       S.dirty = true;
     }
-    else { S.viewStart += (e.deltaY + e.deltaX) / 100 * S.viewDur * 0.15; clampView(); }
+    // (wheel down: back in time; a horizontal scroll (touchpad): its own direction)
+    else { S.viewStart += (e.deltaX - e.deltaY) / 100 * S.viewDur * 0.15; clampView(); }
   }, { passive: false });
   var ov = $("teOverview");
   /// The bar of the whole scene: the view there (centered); seekToo: the cursor (and the video) there too
@@ -7384,7 +7477,7 @@
     if (ses.added) S.subs.forEach(function (x, i) { if (ses.added.get(x) && (x.e > ms || i === closest)) undone.push({ i: i }); });
     if (undone.length) {
       pushUndo();
-      undone.forEach(function (u) { setFinalized(u.i, false); ses.added.delete(S.subs[u.i]); });
+      undone.forEach(function (u) { setFinalized(u.i, false); ses.added.delete(S.subs[u.i]); if (ses.touched) ses.touched.delete(S.subs[u.i]); });
       renderList(); restoreSel(); renderPass();
     }
     ensureOrder();
@@ -7464,13 +7557,18 @@
     for (var i = 0; i < S.subs.length; i++) {
       var sub = S.subs[i];
       if (sub.s > t) break;
-      if (sub.s >= ses.runStart && Math.min(sub.e + tail, S.durMs - 200) <= t && S.posOf[i] != null && sessionTodo(i) && !(ses.noAuto && ses.noAuto.has(sub))) done.push(i);
+      if (S.posOf[i] == null || !sessionTodo(i)) continue;
+      // (a quick fix on it (see the mouseup of a drag): finalized when the playback passed its end, played on after the fix, whatever the run)
+      var touchedAt = ses.touched ? ses.touched.get(sub) : undefined;
+      if (touchedAt != null && t > touchedAt && sub.e <= t) { done.push(i); continue; }
+      if (sub.s >= ses.runStart && Math.min(sub.e + tail, S.durMs - 200) <= t && !(ses.noAuto && ses.noAuto.has(sub))) done.push(i);
     }
     var cur = S.sel;
     if (done.length) {
       // (not a change of the user: no undo for it; an undo doesn't take it out either, see restore)
       if (!S.autoFin) S.autoFin = new Map();
       done.forEach(function (k) {
+        if (ses.touched) ses.touched.delete(S.subs[k]);
         S.autoFin.set(S.subs[k], true);
         sessionFinalizeSub(k);
       });
@@ -7504,6 +7602,27 @@
     var next = sessionNextTodo(cur);
     if (next < 0) { sessionDone(cur); return; }
     flowGoTo(next, t, ses.runStart);
+  }
+  /// Flow: the user starts fixing an edge of the subtitle j (a quick fix, a Ctrl+click): the subtitles before it, to do, heard in this run
+  /// (from before their start) to their end, are finalized now, without their sesTailMs after it (the user moved on to the next one)
+  function flowFinalizePassedBefore(j) {
+    var ses = S.session;
+    if (!ses || !ses.flow || S.readOnly || ses.runStart == null || !S.subs[j]) return;
+    var t = curMs(), done = [];
+    ensureOrder();
+    for (var i = 0; i < j; i++) {
+      var sub = S.subs[i];
+      if (S.posOf[i] != null && sessionTodo(i) && sub.s >= ses.runStart && sub.e <= t && !(ses.noAuto && ses.noAuto.has(sub))) done.push(i);
+    }
+    if (!done.length) return;
+    if (!S.autoFin) S.autoFin = new Map();
+    done.forEach(function (k) {
+      if (ses.touched) ses.touched.delete(S.subs[k]);
+      S.autoFin.set(S.subs[k], true);
+      sessionFinalizeSub(k);
+    });
+    renderList(); restoreSel(); renderPass(); renderSession();
+    status(done.map(function (k) { return "#" + (k + 1); }).join(", ") + ": finalized (passed, the next one being fixed).");
   }
   /// Flow: a pause is only a pause (no review): it plays on from there, the same run (see sessionFlowTick)
   function flowPause() {
@@ -7754,10 +7873,10 @@
             '<span class="hint">(selected when the playback gets to ' + (settings.sesLeadMs / 1000) + ' s before it)</span></div>'
           : '<div class="te-sesrow"><b>#' + (S.sel + 1) + ' · playing over it</b></div>') +
         '<div class="hint">Played from before its start to ' + (settings.sesTailMs / 1000) + ' s after its end (a pause doesn\'t count, a jump does): finalized. ' +
-        'Click near a start / an end: fixed there. Middle click: plays again from there (what the session finalized from there on: to do again). ' +
+        'Click near a start / an end: fixed there (that subtitle: finalized when the playback passes its end). Middle click: plays again from there (what the session finalized from there on: to do again). ' +
         'The gaps: ' + (ses.gaps ? 'played, faster' : 'skipped (from ' + (settings.sesLeadMs / 1000) + ' s before the next one)') + '.</div>' +
         '<div class="te-sesrow">' + sesButton("playPause", "⏯ Pause / play", "Pause (it plays on from there); paused: play") +
-        sesButton("sesFinalize", "✓ Finalize now", "Finalized now, then on to the next one to do") + '</div>';
+        sesButton("sesFinalize", "✓ Finalize now", "Finalized now, then on to the next one to do") + sesGapsCheckbox(ses) + '</div>';
       return;
     }
     // (the settings of the session: in the Settings tab)
@@ -7775,7 +7894,13 @@
       sesButton("sesReplayFlow", "↺ Play over it", "Not finalized: played over it again, from " + (settings.sesLeadMs / 1000) + " s before it (played to " + (settings.sesTailMs / 1000) + " s after its end without a pause: finalized)") +
       '<label title="' + (isStart ? "The loop of the start begins " + settings.sesRollStartMs + " ms before it" : "The loop of the end goes " + settings.sesRollEndMs + " ms after it") +
       ' (an option of its own for the start and for the end; Settings tab: how much)"><input type="checkbox" data-sesroll="' + edge + '"' + ((isStart ? settings.sesRollStart : settings.sesRollEnd) ? " checked" : "") + '> ' +
-      'add ' + (isStart ? settings.sesRollStartMs + ' ms before the start' : settings.sesRollEndMs + ' ms after the end') + '</label>' + videoCheckbox() + '</div>';
+      'add ' + (isStart ? settings.sesRollStartMs + ' ms before the start' : settings.sesRollEndMs + ' ms after the end') + '</label>' + videoCheckbox() + sesGapsCheckbox(ses) + '</div>';
+  }
+  /// The gaps validated in the session (played, faster) or not (a jump to sesLeadMs before the next one): changed during the session,
+  /// remembered for the next one (the choice of the dialog of the session)
+  function sesGapsCheckbox(ses) {
+    return '<label title="Checked: the playback goes on between the subtitles (faster: see \'Faster between subtitles\' in the Settings tab), to hear the missed ones. Not checked: it jumps to ' +
+      (settings.sesLeadMs / 1000) + ' s before the next one"><input type="checkbox" data-sesgaps="1"' + (ses.gaps ? " checked" : "") + '> validate the gaps</label>';
   }
   // (the big indicator: green while the subtitle itself is played, yellow outside it: before its start / after its end)
   var lastSesInd = null;
@@ -7870,6 +7995,16 @@
       savePref("fstTimingSettings", JSON.stringify(settings));
       e.target.blur();
       if (sessionPlaying()) startAudition("session");
+    }
+    else if (e.target.hasAttribute && e.target.hasAttribute("data-sesgaps") && S.session) {
+      S.session.gaps = e.target.checked;
+      var choice = {};
+      try { choice = JSON.parse(loadPref("fstTimingSessionChoice") || "{}") || {}; } catch (ex) { }
+      choice.gaps = S.session.gaps;
+      savePref("fstTimingSessionChoice", JSON.stringify(choice));
+      e.target.blur();
+      S.dirty = true;
+      renderSession();
     }
   });
   sesPanel.addEventListener("mousedown", function (e) {
@@ -7988,14 +8123,20 @@
     // (a session: on, playing over the subtitles, from sesLeadMs before the next one to do)
     // (already playing over them (ex. fast in a gap): it goes on from where it is, no jump: the run (and the gap being listened to) is kept;
     //  the next one to do ahead in the playback is the one coming, see flowGoTo; none ahead: as when paused)
+    // (paused while playing over them, the gaps validated: no jump, still paused; it plays on from there (the same run), the next one to do
+    //  ahead being the one coming (selected now if near, see flowGoTo); none ahead: as below)
     if (S.session && S.subs.length) {
-      var ses = S.session, ahead = -1;
-      if (ses.flow && isPlaying()) {
-        var t = curMs(), tail = settings.sesTailMs;
+      var ses = S.session, ahead = -1, playing = isPlaying(), t = curMs();
+      if (ses.flow && (playing || ses.gaps)) {
+        var tail = settings.sesTailMs;
         ensureOrder();
         for (var a = 0; a < S.subs.length && ahead < 0; a++) if (S.subs[a].e + tail > t && S.posOf[a] != null && sessionTodo(a)) ahead = a;
       }
-      if (ahead >= 0) flowGoTo(ahead, t, ses.runStart != null ? ses.runStart : t);
+      if (ahead >= 0 && playing) flowGoTo(ahead, t, ses.runStart != null ? ses.runStart : t);
+      else if (ahead >= 0) {
+        if (t >= S.subs[ahead].s - settings.sesLeadMs) flowSelect(ahead);
+        else { ses.pendingNext = ahead; renderList(); restoreSel(); renderPass(); renderSession(); }
+      }
       else sessionContinueAt(Math.min(i, S.subs.length - 1));
     }
     S.dirty = true;
@@ -8021,6 +8162,176 @@
     play();
     renderSession();
   }
+
+  // ---- Shift the timings: the subtitles from #a to #b moved by an offset (ex. a part of a transcription off by 2 s). A popup: the range,
+  // the offset; while it changes, the subtitles stay where they are, where they will be is drawn on the timeline (see draw: arrows from
+  // their start / end, dotted lines there); moved only by ✓ Apply. Nothing else can be changed while it's open (see canEdit). Each
+  // subtitle stays in its part (a .vseq); their finalized state is kept. ----
+  var shift = null;   // { from, to (subtitles), offset (ms), focus: "from" / "to", moved: Map(subtitle -> its offset, less near the end of its part) }
+  var shiftDlg = document.createElement("div");
+  shiftDlg.className = "te-spkpop te-sesdlg";
+  shiftDlg.style.display = "none";
+  $("te").appendChild(shiftDlg);
+  function openShiftDialog(i) {
+    if (!canEdit() || !S.subs[i]) return;
+    if (S.session || S.gapSession) { status("Shift the timings: not in a session (end it first).", true); return; }
+    stopAudition(); pause();
+    shift = { from: S.subs[i], to: S.subs[S.subs.length - 1], offset: 0, focus: "from", moved: new Map() };
+    var btn = function (act, label, title) { return '<button class="mini" data-sh="' + act + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>' + esc(label) + '</button>'; };
+    var num = 'style="width:64px;flex:none"';
+    shiftDlg.innerHTML = '<b data-shmove="1" style="cursor:move;user-select:none" title="Drag: move the popup">⇆ Shift the timings</b>' +
+      '<div class="hint">The subtitles from #… to #… (included) are moved by the offset: where they will be is drawn on the timeline (arrows, dotted lines). ✓ Apply (Ctrl+Enter) moves them, Cancel (Escape): nothing changes. ' +
+      'A click in the list / on the timeline selects a subtitle (then "= selected"). Enter: the value typed is used.</div>' +
+      '<div class="te-sesrow">From #<input type="text" id="teShFrom" ' + num + '>' + btn("fromSel", "= selected") + btn("playFrom", "▶", "Play it (shifted)") + '<span class="hint" id="teShFromT"></span></div>' +
+      '<div class="te-sesrow">To #<input type="text" id="teShTo" ' + num + '>' + btn("toSel", "= selected") + btn("toLast", "the last one") + btn("playTo", "▶", "Play it (shifted)") + '<span class="hint" id="teShToT"></span></div>' +
+      '<div class="te-sesrow">Offset (s) <input type="text" id="teShOff" ' + num + ' title="Seconds, ex. -2.15 (earlier) or 1.5 (later). Arrows up / down: ±0.1 s (Shift: ±1 s)">' +
+      btn("-1000", "−1 s") + btn("-100", "−0.1") + btn("-10", "−0.01") + btn("10", "+0.01") + btn("100", "+0.1") + btn("1000", "+1 s") + '</div>' +
+      '<div class="hint" id="teShInfo"></div>' +
+      '<div style="display:flex;gap:6px;justify-content:flex-end">' + btn("cancel", "Cancel") +
+      '<button class="mini primary" data-sh="apply">✓ Apply</button></div>';
+    shiftDlg.style.display = "";
+    // (above the timeline, in the middle, inside the window: the timeline stays seen; its title: drag = move it)
+    var r = cv.getBoundingClientRect();
+    var above = r.top - shiftDlg.offsetHeight - 8;
+    placeShiftDialog((r.left + r.right) / 2 - shiftDlg.offsetWidth / 2, above >= 4 ? above : r.bottom + 8);
+    renderShiftInputs();
+    applyShiftPreview();
+    $("teShOff").focus(); $("teShOff").select();
+  }
+  function renderShiftInputs() {
+    $("teShFrom").value = S.subs.indexOf(shift.from) + 1;
+    $("teShTo").value = S.subs.indexOf(shift.to) + 1;
+    $("teShOff").value = (shift.offset / 1000).toFixed(3);
+  }
+  /// The range: [a, b] (indexes), a <= b
+  function shiftRange() {
+    var a = S.subs.indexOf(shift.from), b = S.subs.indexOf(shift.to);
+    return a <= b ? [a, b] : [b, a];
+  }
+  /// Where the subtitles of the range will be (each one: not out of its part, see shift.moved); shown (the subtitles don't move)
+  function applyShiftPreview() {
+    var ab = shiftRange(), a = ab[0], b = ab[1], nClamped = 0;
+    shift.moved = new Map();
+    for (var k = a; k <= b; k++) {
+      var x = S.subs[k], bounds = partBounds(x);
+      var d = clamp(shift.offset, bounds[0] - Math.min(x.s, x.rs), bounds[1] - Math.max(x.e, x.re));
+      if (d !== shift.offset) nClamped++;
+      shift.moved.set(x, d);
+    }
+    var fs = S.subs[a], ts = S.subs[b], fd = shift.moved.get(fs), td = shift.moved.get(ts);
+    $("teShFromT").textContent = fmt(fs.s) + " → " + fmt(fs.s + fd);
+    $("teShToT").textContent = fmt(ts.s) + " → " + fmt(ts.s + td);
+    // (what it does with the subtitles around the range)
+    var notes = [(b - a + 1) + " subtitle(s) moved by " + (shift.offset > 0 ? "+" : "") + (shift.offset / 1000).toFixed(3) + " s."];
+    if (a > 0 && S.subs[a - 1].e > fs.s + fd) notes.push("#" + a + " (before it) will overlap #" + (a + 1) + (S.subs[a - 1].s > fs.s + fd ? ", passed over (the order changes)" : "") + ": to fix after.");
+    if (b + 1 < S.subs.length && ts.e + td > S.subs[b + 1].s) notes.push("#" + (b + 1) + " will overlap #" + (b + 2) + " (after it)" + (ts.s + td > S.subs[b + 1].s ? ", passed over (the order changes)" : "") + ": to fix after.");
+    if (nClamped) notes.push(nClamped + " subtitle(s) moved less: they would leave their part of the video.");
+    $("teShInfo").textContent = notes.join(" ");
+    // (the subtitle seen: its place now and where it will be)
+    var f = shift.focus === "to" ? ts : fs, d0 = shift.moved.get(f);
+    ensureVisible(Math.min(f.s, f.s + d0), Math.max(f.e, f.e + d0));
+    S.dirty = true;
+  }
+  function shiftSetEnd(which, i) {
+    if (!S.subs[i]) { status("No subtitle #" + (i + 1) + ".", true); renderShiftInputs(); return; }
+    shift[which] = S.subs[i]; shift.focus = which;
+    renderShiftInputs();
+    applyShiftPreview();
+  }
+  function shiftSetOffset(ms) {
+    shift.offset = Math.round(ms);
+    applyShiftPreview();
+  }
+  /// apply: the subtitles moved (the order of the subtitles fixed if it changed); otherwise: nothing changes
+  function closeShiftDialog(apply) {
+    if (!shift) return;
+    var sh = shift, ab = shiftRange();
+    shift = null;
+    shiftDlg.style.display = "none"; shiftDlg.innerHTML = "";
+    stopAudition();
+    S.dirty = true;
+    if (!apply || sh.offset === 0) {
+      status(apply ? "Shift the timings: the offset is 0, nothing changed." : "Shift the timings: cancelled.");
+      return;
+    }
+    pushUndo();
+    sh.moved.forEach(function (d, x) { x.s += d; x.e += d; x.rs += d; x.re += d; });
+    var sel = S.subs[S.sel];
+    S.subs.sort(function (x, y) { return x.s - y.s; });
+    renderList();
+    S.sel = -1;
+    var si = S.subs.indexOf(sel);
+    if (si >= 0) select(si, true, true); else restoreSel();
+    updateUnsaved();
+    S.dirty = true;
+    status("#" + (ab[0] + 1) + " to #" + (ab[1] + 1) + ": moved by " + (sh.offset > 0 ? "+" : "") + (sh.offset / 1000).toFixed(3) + " s. Undo: " + (keys.undo || "-") + ".");
+  }
+  /// The popup at (x, y), always all of it inside the window
+  function placeShiftDialog(x, y) {
+    shiftDlg.style.left = Math.round(clamp(x, 4, Math.max(4, window.innerWidth - shiftDlg.offsetWidth - 4))) + "px";
+    shiftDlg.style.top = Math.round(clamp(y, 4, Math.max(4, window.innerHeight - shiftDlg.offsetHeight - 4))) + "px";
+  }
+  shiftDlg.addEventListener("mousedown", function (e) {
+    e.stopPropagation();
+    // (its title: drag = move it)
+    if (e.button !== 0 || !e.target.closest || !e.target.closest("[data-shmove]")) return;
+    e.preventDefault();
+    var x0 = e.clientX - shiftDlg.offsetLeft, y0 = e.clientY - shiftDlg.offsetTop;
+    var move = function (ev) { placeShiftDialog(ev.clientX - x0, ev.clientY - y0); };
+    var up = function () { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  });
+  window.addEventListener("resize", function () { if (shift) placeShiftDialog(shiftDlg.offsetLeft, shiftDlg.offsetTop); });
+  shiftDlg.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-sh]") : null;
+    if (!b || !shift) return;
+    var act = b.getAttribute("data-sh");
+    if (/^-?\d+$/.test(act)) shiftSetOffset(shift.offset + parseInt(act, 10));
+    else if (act === "fromSel") shiftSetEnd("from", S.sel);
+    else if (act === "toSel") shiftSetEnd("to", S.sel);
+    else if (act === "toLast") shiftSetEnd("to", S.subs.length - 1);
+    else if (act === "playFrom" || act === "playTo") {
+      var k = S.subs.indexOf(act === "playFrom" ? shift.from : shift.to);
+      shift.focus = act === "playFrom" ? "from" : "to";
+      if (k !== S.sel) select(k, true, true);
+      // (where it will be: from its shifted start to its shifted end)
+      var ps = S.subs[k], pd = shift.moved.get(ps) || 0;
+      ensureVisible(Math.min(ps.s, ps.s + pd), Math.max(ps.e, ps.e + pd));
+      stopAudition();
+      seek(ps.s + pd); S.stopAt = ps.e + pd; play(); S.stopAt = ps.e + pd;
+    }
+    else if (act === "cancel") closeShiftDialog(false);
+    else if (act === "apply") closeShiftDialog(true);
+  });
+  shiftDlg.addEventListener("change", function (e) {
+    if (!shift) return;
+    if (e.target.id === "teShFrom" || e.target.id === "teShTo") {
+      var n = parseInt(e.target.value, 10);
+      shiftSetEnd(e.target.id === "teShFrom" ? "from" : "to", isNaN(n) ? -1 : n - 1);
+    } else if (e.target.id === "teShOff") {
+      var v = parseFloat(String(e.target.value).replace(",", "."));
+      if (isNaN(v)) { status("The offset: a number of seconds, ex. -2.15.", true); renderShiftInputs(); return; }
+      shiftSetOffset(v * 1000);
+      renderShiftInputs();
+    }
+  });
+  shiftDlg.addEventListener("keydown", function (e) {
+    if (!shift) return;
+    if (e.target.id === "teShOff" && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      shiftSetOffset(shift.offset + (e.key === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 1000 : 100));
+      renderShiftInputs();
+      return;
+    }
+    // (Enter: the value typed is used (seen on the timeline); Ctrl+Enter: applied)
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.target.tagName === "INPUT") e.target.dispatchEvent(new Event("change", { bubbles: true }));
+      if (e.ctrlKey && shift) closeShiftDialog(true);
+    }
+    else if (e.key === "Escape") closeShiftDialog(false);
+  });
 
   /// Splits the subtitle i in 2 at 'ms': both keep all its lines (to remove what doesn't belong in each); nothing finalized anymore
   /// in both (2 new subtitles, to do again).
@@ -8126,6 +8437,7 @@
         '<div class="sep"></div>' +
         item("splitHere", "✂ Split " + (splitMs != null ? "here" : "at the cursor") + " (" + fmt(splitAt) + ")", splitAt < sub.s + MIN_DURATION_MS || splitAt > sub.e - MIN_DURATION_MS) +
         item("mergePrev", "⤒ Merge with the previous one", i === 0) + item("mergeNext", "⤓ Merge with the next one", i === S.subs.length - 1) +
+        item("shiftTimings", "⇆ Shift the timings from this one…", !!S.session || !!S.gapSession) +
         '<div class="sep"></div>' +
         item("toggleValidated", isValidated(sub) ? "✓ Not validated" : "✓ Validated") + item("validateUpTo", "✓ Validate up to this one") +
         (issuesOf(sub).length ? item("checkIssue", "⚑ Its review warnings checked / not checked") : "") +
@@ -8244,7 +8556,9 @@
       '<span class="hint">(instead of its start / end again and again; and Play during a start / end loop: from the start of the subtitle, otherwise from the edge being played)</span></div>' +
       '<div class="te-set"><b>Original video</b><label><input type="checkbox" id="teLeftHalf"' + (settings.originalLeftHalf ? " checked" : "") + '> only its left half</label>' +
       '<span class="hint">(a VR video side by side: the left eye; also for the images of the speakers, 📷). The FAST video is shown whole.</span></div>' +
-      '<div class="te-set"><b>Small moves</b> of ' + numSetting("teSesNudge", settings.sesNudgeMs, 5, 1000, 5, 48) + ' ms<span class="hint">(the buttons ◀ / ▶ of the panel, their keys)</span></div>' +
+      '<div class="te-set"><b>The view moved by itself</b> (while playing) then plays on after ' + numSetting("teFollowResume", settings.followResumeMs, 0, 5000, 100, 56) + ' ms' +
+      '<span class="hint">(paused while the view moves, then still for that long; 0: right away)</span></div>' +
+      '<div class="te-set"><b>Small moves</b> of' + numSetting("teSesNudge", settings.sesNudgeMs, 5, 1000, 5, 48) + ' ms<span class="hint">(the buttons ◀ / ▶ of the panel, their keys)</span></div>' +
       '<div class="te-set"><b>Saved automatically</b> every ' + numSetting("teAutoSave", settings.autoSaveMin, 0, 60, 1, 48) + ' minutes while there are changes<span class="hint">(0: never). It saves the review (in the .wipsubtitles), not the file: the file is written when the review is done.</span></div>';
   }
   $("teSettingsPane").addEventListener("change", function (e) {
@@ -8286,6 +8600,7 @@
       case "teSesRollEndMs": settings.sesRollEndMs = clamp(v, 0, 3000); if (S && S.session) renderSession(); break;
       case "teSesVol": settings.sesOutsideVol = clamp(v, 0, 100); break;
       case "teSesEdgeMs": settings.sesEdgeMs = clamp(v, 300, 10000); break;
+      case "teFollowResume": settings.followResumeMs = clamp(v, 0, 5000); break;
       case "teSesNudge": settings.sesNudgeMs = clamp(v, 5, 1000); if (S && S.session) renderSession(); break;
       case "teSesLead": settings.sesLeadMs = clamp(v, 0, 10000); if (S && S.session) renderSession(); break;
       case "teSesTail": settings.sesTailMs = clamp(v, 0, 10000); if (S && S.session) renderSession(); break;
@@ -8380,6 +8695,7 @@
         status("Validated up to #" + (S.sel + 1) + ".");
         break;
       case "playSub": playSub(); break;
+      case "shiftTimings": openShiftDialog(S.sel); break;
       case "loopStart": startAudition("start"); break;
       case "loopEnd": startAudition("end"); break;
       case "stop":
@@ -8513,9 +8829,9 @@
       'A speaker whose name has a \',\' (⚠) can\'t be present ({...} lists are separated by \',\'): right click on it to rename it.</div>' +
       '<div class="note"><b>Session</b> (' + esc(keys.session || "-") + ', button above the list): finalize the timings of the subtitles of the list (only the ones of the kind chosen in the Warnings tree, if one is chosen), in its order, only the ones still to do. ' +
       '<b>Playing over the subtitles</b>: from ' + (settings.sesLeadMs / 1000) + ' s before the one to do; played without a pause to ' + (settings.sesTailMs / 1000) + ' s after its end: finalized (what the session is for), then the next one to do: ' +
-      'the gaps played, faster ("Validate the gaps", a checkbox of the dialog of the session), otherwise a jump to ' + (settings.sesLeadMs / 1000) + ' s before it (Settings tab: how long before / after). ' +
+      'the gaps played, faster ("Validate the gaps", a checkbox of the dialog of the session; also in the panel, during the session), otherwise a jump to ' + (settings.sesLeadMs / 1000) + ' s before it (Settings tab: how long before / after). ' +
       '<b>Middle click on the waveform</b> = plays from there; the subtitles finalized by the session from there on (and the one closest to it) are to do again, the closest one to do is the selected one. ' +
-      'The view doesn\'t move while a subtitle plays, nor until ' + (FOLLOW_HOLD_MS / 1000) + ' s after its end (unless the cursor is about to leave it); then it moves in one go (the cursor to the left), the playback paused while it moves and ' + FOLLOW_RESUME_MS + ' ms more; going fast in a gap: it scrolls with the playback, the cursor at ' + Math.round(FOLLOW_FAST_AT * 100) + ' %, without a pause. ' +
+      'The view doesn\'t move while a subtitle plays, nor until ' + (FOLLOW_HOLD_MS / 1000) + ' s after its end (unless the cursor is about to leave it, or is past ' + Math.round(FOLLOW_NEAR_RIGHT_AT * 100) + ' % of the width between 2 subtitles: it moves then, the start of the subtitle just played kept in view when possible); then it moves in one go (the cursor to the left), the playback paused while it moves and ' + settings.followResumeMs + ' ms more (Settings tab); going fast in a gap: it scrolls with the playback, the cursor at ' + Math.round(FOLLOW_FAST_AT * 100) + ' %, without a pause. ' +
       'A click right after the view moved by itself (' + VIEW_MOVE_GUARD_MS + ' ms) is not done: paused, the view put back where it was. ' +
       'The next subtitle to do is selected only when the playback gets to ' + (settings.sesLeadMs / 1000) + ' s before it. ' +
       esc(keyName("playPause")) + ' = only a pause (it plays on from there: the same run, a pause doesn\'t count). ' +
