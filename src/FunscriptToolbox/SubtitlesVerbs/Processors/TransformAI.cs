@@ -17,10 +17,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             Advice = "Choose another engine with ✎ (the shared engines are listed). For the steps that send audio, an engine that receives the audio as is (Google API).")]
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngine Engine { get; set; }
-        [ConfigDoc("Changes merged into the body of the requests of this step only, in \"RequestBodyExtension\" (ex. { \"RequestBodyExtension\": { \"generationConfig\": { \"maxOutputTokens\": 16384 } } }): " +
-            "the engine stays shared. Any other property here is an error.")]
-        [JsonProperty(Order = 31)]
-        public AIEngineConfigOverride EngineConfigOverride { get; set; }
         [ConfigDoc("Which subtitles are sent (TimingsSource) and which metadata of the other steps are attached to them (Sources).")]
         [JsonProperty(Order = 32, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
@@ -136,7 +132,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             var runner = new AIEngineRunner<TimedItemWithMetadata>(
                 context,
                 this.Engine,
-                this.EngineConfigOverride,
                 transcription,
                 this.PromptUserOnError);
 

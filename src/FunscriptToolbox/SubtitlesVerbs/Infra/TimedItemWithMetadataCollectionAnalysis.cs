@@ -2,19 +2,32 @@
 using System.Linq;
 using System;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Processors;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {
     public class TimedItemWithMetadataCollectionAnalysis
     {
+        /// <summary>A part of the text of an item, with its share of the item's duration (see SplitEvenly).</summary>
+        public class TextBlock : ITiming
+        {
+            public TimeSpan StartTime { get; }
+            public TimeSpan EndTime { get; }
+            public TimeSpan Duration => EndTime - StartTime;
+            public string Text { get; }
+
+            public TextBlock(TimeSpan startTime, TimeSpan endTime, string text)
+            {
+                StartTime = startTime;
+                EndTime = endTime;
+                Text = text;
+            }
+        }
+
         public class TimingMatch
         {
             public TimedItemWithMetadata Item { get; }
             public ITiming Timing { get; }
-            public List<TranscribedWord> Words { get; } = new List<TranscribedWord>();
-
-            public string WordsText => string.Join(string.Empty, this.Words.Select(f => f.Text));
+            public List<TextBlock> Blocks { get; } = new List<TextBlock>();
 
             public TimingMatch(TimedItemWithMetadata item, ITiming timing)
             {
@@ -32,44 +45,44 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
             foreach (var item in container.GetItems())
             {
-                bool lastWordWasException = false;
+                bool lastBlockWasException = false;
 
                 // (the text of the item spread evenly over its duration: the items don't keep the times of their words)
-                foreach (var word in SplitEvenly(item, (container.MetadataAlwaysProduced == null ? null : item.Metadata.Get(container.MetadataAlwaysProduced)) ?? new string('.', 15)))
+                foreach (var block in SplitEvenly(item, (container.MetadataAlwaysProduced == null ? null : item.Metadata.Get(container.MetadataAlwaysProduced)) ?? new string('.', 15)))
                 {
-                    // Check if this is a special case that should follow previous word
-                    bool isSpecialCase = word.Text.EndsWith("...") ||
-                                        word.Text.EndsWith(",") || word.Text.EndsWith("\u3001") || /* , */
-                                        word.Text.EndsWith(".") || word.Text.EndsWith("\u3002") || /* . */
-                                        word.Text.EndsWith("?") ||
-                                        word.Text.EndsWith("!");
+                    // Check if this is a special case that should follow previous block
+                    bool isSpecialCase = block.Text.EndsWith("...") ||
+                                        block.Text.EndsWith(",") || block.Text.EndsWith("\u3001") || /* , */
+                                        block.Text.EndsWith(".") || block.Text.EndsWith("\u3002") || /* . */
+                                        block.Text.EndsWith("?") ||
+                                        block.Text.EndsWith("!");
 
                     if (isSpecialCase && lastAssignedMatch.ContainsKey(item))
                     {
-                        // Add to the same timing as the previous word
-                        lastAssignedMatch[item].Words.Add(word);
-                        lastWordWasException = true;
+                        // Add to the same timing as the previous block
+                        lastAssignedMatch[item].Blocks.Add(block);
+                        lastBlockWasException = true;
                         continue;
                     }
 
-                    // Find all overlapping timings for this word
-                    var overlappingTimings = new List<(ITiming Timing, TimingOverlap<TranscribedWord, ITiming> Overlap)>();
-                    var wordMidpoint = word.StartTime.Ticks + (word.EndTime.Ticks - word.StartTime.Ticks) / 2;
+                    // Find all overlapping timings for this block
+                    var overlappingTimings = new List<(ITiming Timing, TimingOverlap<TextBlock, ITiming> Overlap)>();
+                    var blockMidpoint = block.StartTime.Ticks + (block.EndTime.Ticks - block.StartTime.Ticks) / 2;
                     var closestTiming = (Timing: (ITiming) null, Distance: Int64.MaxValue);
 
                     foreach (var timing in timings)
                     {
-                        var overlap = TimingOverlap<TranscribedWord, ITiming>.CalculateOverlap(word, timing);
+                        var overlap = TimingOverlap<TextBlock, ITiming>.CalculateOverlap(block, timing);
                         if (overlap != null)
                         {
                             overlappingTimings.Add((timing, overlap));
                         }
 
                         var timingMidpoint = timing.StartTime.Ticks + (timing.EndTime.Ticks - timing.StartTime.Ticks) / 2;
-                        var distance = Math.Abs(timingMidpoint - wordMidpoint);
+                        var distance = Math.Abs(timingMidpoint - blockMidpoint);
                         if (distance < closestTiming.Distance)
                         {
-                            if (!lastWordWasException || timingMidpoint > wordMidpoint)
+                            if (!lastBlockWasException || timingMidpoint > blockMidpoint)
                             {
                                 closestTiming = (timing, distance);
                             }
@@ -77,7 +90,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     }
                     if (closestTiming.Timing == null)
                     {
-                        // Fix for when the last subtitle of a file is a "LastWordException"
+                        // Fix for when the last subtitle of a file is a "LastBlockException"
                         closestTiming = (timings.Last(), 0);
                     }
 
@@ -93,11 +106,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             match = new TimingMatch(item, closestTiming.Timing);
                             matchAccumulator.Add(match);
                         }
-                        match.Words.Add(word);
+                        match.Blocks.Add(block);
                     }
                     else if (overlappingTimings.Count == 1)
                     {
-                        // Word fits completely in one timing
+                        // Block fits completely in one timing
                         match = matchAccumulator.FirstOrDefault(m =>
                             m.Item == item &&
                             m.Timing == overlappingTimings[0].Timing);
@@ -107,16 +120,16 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             matchAccumulator.Add(match);
                         }
 
-                        match.Words.Add(word);
+                        match.Blocks.Add(block);
                     }
                     else
                     {
-                        // Word overlaps multiple timings - decision logic
-                        var bestMatch = lastWordWasException
+                        // Block overlaps multiple timings - decision logic
+                        var bestMatch = lastBlockWasException
                             ? overlappingTimings.Last()
                             : overlappingTimings
                             .OrderByDescending(x => x.Overlap.OverlapB) // Order by how much of the timing is covered
-                            .ThenByDescending(x => x.Overlap.OverlapA) // Then by how much of the word is covered
+                            .ThenByDescending(x => x.Overlap.OverlapA) // Then by how much of the block is covered
                             .First();
 
                         match = matchAccumulator.FirstOrDefault(m =>
@@ -128,12 +141,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             matchAccumulator.Add(match);
                         }
 
-                        match.Words.Add(word);
+                        match.Blocks.Add(block);
                     }
 
-                    // Remember this match for the next word
+                    // Remember this match for the next block
                     lastAssignedMatch[item] = match;
-                    lastWordWasException = false;
+                    lastBlockWasException = false;
                 }
             }
 
@@ -153,7 +166,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         g => g.ToArray()));
         }
 
-        private static IEnumerable<TranscribedWord> SplitEvenly(ITiming timing, string text)
+        private static IEnumerable<TextBlock> SplitEvenly(ITiming timing, string text)
         {
             text = text.Length == 0
                 ? " "
@@ -183,8 +196,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 // Get the substring for the current block.
                 string blockText = text.Substring(currentIndex, blockSize);
 
-                // Create the new TranscribedWord.
-                yield return new TranscribedWord(currentStartTime, currentStartTime + timePerBlock, blockText);
+                // Create the new TextBlock.
+                yield return new TextBlock(currentStartTime, currentStartTime + timePerBlock, blockText);
 
                 // Move the start time and index forward for the next iteration.
                 currentStartTime += timePerBlock;
@@ -209,7 +222,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 .Where(item => !itemWithOverlapTimings.ContainsKey(item))
                 .OrderBy(item => item.StartTime)
                 .ToList();
-            NbTimingsWithTranscription = timings.Length - TimingsWithoutItem.Length;
+            NbTimingsWithItem = timings.Length - TimingsWithoutItem.Length;
         }
 
         public TimedItemWithMetadataCollection Container { get; }
@@ -218,6 +231,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public Dictionary<ITiming, TimingMatch[]> TimingsWithOverlapItems { get; }
         public Dictionary<TimedItemWithMetadata, TimingMatch[]> ItemsWithOverlapTimings { get; }
         public List<TimedItemWithMetadata> ExtraItems { get; }
-        public int NbTimingsWithTranscription { get; }
+        public int NbTimingsWithItem { get; }
     }
 }

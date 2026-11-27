@@ -154,11 +154,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 var analysis = track.GetAnalysis(timings);
                 yield return $"ForcedTimings Analysis:";
-                yield return $"   Number with transcription:    {analysis.NbTimingsWithTranscription}{suffixeEmptyItems}";
-                yield return $"   Number without transcription: {analysis.TimingsWithoutItem.Length}";
+                yield return $"   Number with an item:    {analysis.NbTimingsWithItem}{suffixeEmptyItems}";
+                yield return $"   Number without item:    {analysis.TimingsWithoutItem.Length}";
                 if (analysis.ExtraItems.Count > 0)
                 {
-                    yield return $"   Extra transcriptions:         {analysis.ExtraItems.Count}";
+                    yield return $"   Extra items:            {analysis.ExtraItems.Count}";
                 }
             }
         }

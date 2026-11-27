@@ -10,9 +10,9 @@ using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    internal class SubtitleOutputCostReport : SubtitleOutput
+    internal class OutputCostReport : SubtitleOutput
     {
-        public SubtitleOutputCostReport()
+        public OutputCostReport()
         {
         }
 

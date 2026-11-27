@@ -577,18 +577,21 @@ _______________________________________=",
       "ExportMetadataSrt": true,
       "PromptUserOnError": true,
 
-      "Engine": {
-        "$ref": "AIEngineGemini4"
-      },
+      // (a copy of AIEngineGemini4 for this step only: a '$ref' with other properties; the other steps keep the shared engines)
       // (Google API: "temperature" must be inside "generationConfig": at the top level, the request is rejected, HTTP 400)
       // [OPTION] With TimingRefineEngineSpokenMarkers (50 answers per request): "maxOutputTokens": 16384.
-      "EngineConfigOverride": {
-        "RequestBodyExtension": {
-          "generationConfig": {
-            "temperature": 0.0,
-            "maxOutputTokens": 2048
+      "Engine": {
+        "$ref": "AIEngineGemini4",
+        "Engines": [
+          {
+            "$ref": "AIEngineGemini4OnGoogle",
+            "RequestBodyExtension": { "generationConfig": { "temperature": 0.0, "maxOutputTokens": 2048 } }
+          },
+          {
+            "$ref": "AIEngineGemini4OnPoe",
+            "RequestBodyExtension": { "generationConfig": { "temperature": 0.0, "maxOutputTokens": 2048 } }
           }
-        }
+        ]
       },
 
       "IncludeTraceInVoiceTextForManualReviewAlways": false,
@@ -935,7 +938,7 @@ _______________________________________=",
       ]
     },
     {
-      "$type": "SubtitleOutputSrt",
+      "$type": "OutputSrt",
       "Id": "final-ai-srt_french",
       "Enabled": false,
       "FileSuffix": ".fr.srt",

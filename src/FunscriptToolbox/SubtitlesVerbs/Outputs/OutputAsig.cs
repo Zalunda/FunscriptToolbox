@@ -8,9 +8,9 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    internal class SubtitleOutputAsig : SubtitleOutput
+    internal class OutputAsig : SubtitleOutput
     {
-        public SubtitleOutputAsig()
+        public OutputAsig()
         {
 
         }

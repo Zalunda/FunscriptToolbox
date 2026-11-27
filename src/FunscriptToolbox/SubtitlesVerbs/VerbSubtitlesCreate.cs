@@ -1101,7 +1101,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         // (the number of items of each transcription / translation: in a corner of their box)
                         TaskScope.Current.SetFlowCounter(() => Infra.SceneFlowInspector.CountItems(context));
                         // (the total cost of the AI of the scene, in $: a pill beside its name)
-                        TaskScope.Current.SetCostProvider(() => Outputs.SubtitleOutputCostReport.GetTotalAICost(context.WIP));
+                        TaskScope.Current.SetCostProvider(() => Outputs.OutputCostReport.GetTotalAICost(context.WIP));
                         // (the screenshot sent to the AI for an item: shown when asked, in the tables of the inspector)
                         TaskScope.Current.SetFlowImageProvider((key, field, start, end, onlyIfAvailable) => Infra.SceneFlowInspector.GetImage(context, key, field, start, end, onlyIfAvailable));
                         // (the 'Timing' editor: to revise the timings of the file imported by the scene, ex. '.manual-input.srt')

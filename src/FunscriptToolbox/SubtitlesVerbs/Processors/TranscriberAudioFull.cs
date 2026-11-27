@@ -25,18 +25,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             }
         }
 
-        protected override bool IsPrerequisitesMet(
-            SubtitleGeneratorContext context,
-            out string reason)
-        {
-            if (!base.IsPrerequisitesForAudioMet(context, out reason))
-            {
-                return false;
-            }
-            reason = null;
-            return true;
-        }
-
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         { 
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(

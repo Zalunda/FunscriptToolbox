@@ -13,8 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest[] requests,
-            AIEngineConfigOverride configOverride = null)
+            AIRequest[] requests)
         {
             throw new InvalidOperationException(
                 "This step has no AI engine: its 'Engine' is still the placeholder of the main configuration (AIEngineNeedToBeOverriden). " +

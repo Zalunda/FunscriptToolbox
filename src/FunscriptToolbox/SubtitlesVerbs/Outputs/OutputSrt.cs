@@ -9,9 +9,9 @@ using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    internal class SubtitleOutputSrt : SubtitleOutput
+    internal class OutputSrt : SubtitleOutput
     {
-        public SubtitleOutputSrt()
+        public OutputSrt()
         {
 
         }

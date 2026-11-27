@@ -12,11 +12,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
     /// The review of the file the user revises (ex. '.manual-input.srt'), in the 'Timing' editor of the web UI, instead of editing the file by hand.
-    /// It replaces the output that creates that file (ex. SubtitleOutputSrt 'generated-manual-input-srt'); the file is still imported by the next worker
+    /// It replaces the output that creates that file (ex. OutputSrt 'generated-manual-input-srt'); the file is still imported by the next worker
     /// (ex. InputImportMetadatas 'manual-input'), so the file can still be edited by hand once the review is done
     /// (its metadata, ex. {Note:...}, are always used; its timings only until the next steps use them, then they are frozen).
     /// - First run: the subtitles to review are created in the .wipsubtitles (job state): from the file when it already exists (imported once,
-    ///   with what was validated in the editor: ex. a review started with the file), otherwise from Metadatas / TextSources, like SubtitleOutputSrt.
+    ///   with what was validated in the editor: ex. a review started with the file), otherwise from Metadatas / TextSources, like OutputSrt.
     /// - Then the worker is blocked until the user clicks 'Review done' in the editor (what the user does is saved in the job state).
     /// - Then the file is written (without the line that blocks its import, ex. '[USER-REVISION-NEEDED]'), and the transcription is finished.
     /// </summary>
@@ -308,7 +308,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 };
             }
 
-            // Like SubtitleOutputSrt (with UseBySourceMetadatas = false): the text of TextSources, then the metadata of the timing
+            // Like OutputSrt (with UseBySourceMetadatas = false): the text of TextSources, then the metadata of the timing
             var aggregation = this.Metadatas.Aggregate(context);
             var timings = aggregation.ReferenceTimingsWithMetadata;
             var textSourceIds = this.TextSources?.Split(',').Select(f => f.Trim()).Where(f => f.Length > 0).ToArray() ?? Array.Empty<string>();

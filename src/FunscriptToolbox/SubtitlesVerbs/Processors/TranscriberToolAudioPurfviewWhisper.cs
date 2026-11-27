@@ -275,5 +275,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 }
             }
         }
+
+        /// <summary>A word of the .json written by Whisper (its times, its text).</summary>
+        private class TranscribedWord : ITiming
+        {
+            public TimeSpan StartTime { get; private set; }
+            public TimeSpan EndTime { get; private set; }
+            public TimeSpan Duration => EndTime - StartTime;
+            public string Text { get; }
+            public double Probability { get; }
+
+            public TranscribedWord(
+                TimeSpan startTime,
+                TimeSpan endTime,
+                string text,
+                double probability = 0.0)
+            {
+                StartTime = startTime;
+                EndTime = endTime;
+                Text = text;
+                Probability = probability;
+            }
+
+            public override string ToString()
+            {
+                return $"{this.StartTime},{this.EndTime},{this.Text}";
+            }
+        }
     }
 }

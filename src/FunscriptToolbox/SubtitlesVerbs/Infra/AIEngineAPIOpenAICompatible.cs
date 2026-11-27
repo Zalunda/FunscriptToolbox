@@ -22,8 +22,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest[] requests,
-            AIEngineConfigOverride configOverride)
+            AIRequest[] requests)
         {
             if (requests.Length > 1)
             {
@@ -45,7 +44,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     client.DefaultRequestHeaders.Add("Authorization", "Bearer " + context.GetValidatedPrivateConfig(this.APIKeyName));
                 }
 
-                dynamic requestBody = CreateRequestBody(request, configOverride);
+                dynamic requestBody = CreateRequestBody(request);
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
 
                 var verbosePrefix = request.GetVerbosePrefix();
@@ -72,9 +71,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
-        private dynamic CreateRequestBody(AIRequest request, AIEngineConfigOverride configOverride)
+        private dynamic CreateRequestBody(AIRequest request)
         {
-            dynamic requestBody = base.CreateRequestBodyWithExtension(configOverride);
+            dynamic requestBody = base.CreateRequestBodyWithExtension();
             if (this.Model != null)
             {
                 requestBody.model = this.Model;

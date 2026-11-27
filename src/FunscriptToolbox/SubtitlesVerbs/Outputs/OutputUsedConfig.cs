@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
-    public class SubtitleOutputUsedConfig : SubtitleOutput
+    public class OutputUsedConfig : SubtitleOutput
     {
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string FileSuffix { get; set; } = ".used.config";

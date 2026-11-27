@@ -44,8 +44,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public override AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest[] requests,
-            AIEngineConfigOverride configOverride = null)
+            AIRequest[] requests)
         {
             if (requests == null || requests.Length == 0)
             {
@@ -76,8 +75,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
 
                 return this.UseBatchMode
-                    ? ProcessBatchResponses(context, client, requests, configOverride: configOverride)
-                    : RunStoppable(context, client, () => new[] { ProcessStreamingResponse(context, client, requests[0], requests[0].GetVerbosePrefix(), configOverride: configOverride) });
+                    ? ProcessBatchResponses(context, client, requests)
+                    : RunStoppable(context, client, () => new[] { ProcessStreamingResponse(context, client, requests[0], requests[0].GetVerbosePrefix()) });
             }
             catch (AggregateException ex)
             {
@@ -91,9 +90,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
-        private dynamic CreateRequestBody(AIRequest request, AIEngineConfigOverride configOverride)
+        private dynamic CreateRequestBody(AIRequest request)
         {
-            dynamic requestBody = base.CreateRequestBodyWithExtension(configOverride);
+            dynamic requestBody = base.CreateRequestBodyWithExtension();
 
             if (request.SystemParts.Any())
             {
@@ -155,8 +154,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             HttpClient client,
             AIRequest[] requests,
             string jsonSuffix = "",
-            bool isFirstCall = true,
-            AIEngineConfigOverride configOverride = null)
+            bool isFirstCall = true)
         {
             Timer waitingTimer = null;
 
@@ -176,7 +174,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         {
                             requests = requests.Select((req, idx) => (dynamic)new
                             {
-                                request = CreateRequestBody(req, configOverride),
+                                request = CreateRequestBody(req),
                                 metadata = new
                                 {
                                     key = $"request-{DateTime.Now:yyyyMMdd-HHmmss}-{idx + 1}"
@@ -527,7 +525,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         if (nbImagesRemoved > 0)
                         {
                             context.WriteInfo($"Processing filtered request #{req.Number}...");
-                            var filteredResponse = ProcessBatchResponses(context, client, new[] { filteredRequest }, "-filtered", isFirstCall: false, configOverride)[0];
+                            var filteredResponse = ProcessBatchResponses(context, client, new[] { filteredRequest }, "-filtered", isFirstCall: false)[0];
                             filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
                             filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
                             results.Add(filteredResponse);
@@ -553,8 +551,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             HttpClient client,
             AIRequest request,
             string verbosePrefix,
-            bool isFirstCall = true,
-            AIEngineConfigOverride configOverride = null)
+            bool isFirstCall = true)
         {
             Timer waitingTimer = null;
 
@@ -562,7 +559,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 var watch = Stopwatch.StartNew();
 
-                dynamic requestBody = CreateRequestBody(request, configOverride);
+                dynamic requestBody = CreateRequestBody(request);
                 var requestBodyAsJson = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
                 context.CreateVerboseTextFile($"{verbosePrefix}-Req.json", requestBodyAsJson, request.ProcessStartTime);
 
@@ -737,7 +734,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (nbImagesRemoved > 0)
                     {
                         context.WriteInfo($"Processing filtered request...");
-                        var filteredResponse = ProcessStreamingResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false, configOverride: configOverride);
+                        var filteredResponse = ProcessStreamingResponse(context, client, filteredRequest, verbosePrefix + "-filtered", isFirstCall: false);
                         filteredResponse.AdditionalCosts.Add(unfilteredResponseCost);
                         filteredResponse.AdditionalCosts.AddRange(additionalCostsForImageValidation);
                         return filteredResponse;

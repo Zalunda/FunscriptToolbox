@@ -222,7 +222,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// The number of items of each transcription / translation (key of the graph, ex. "transcription:full-whisper"), and if it's finished:
         /// shown in a corner of their box. (only the sizes of the lists are read: no lock needed, the scene can be adding items)
         /// And the AI cost of each step that has AI calls (its key, ex. "w3": { cost, calls, fallbacks }), in a corner of its box
-        /// (the costs are copied with the lock of the .wipsubtitles, see SubtitleOutputCostReport.GetAICostByWorker).
+        /// (the costs are copied with the lock of the .wipsubtitles, see OutputCostReport.GetAICostByWorker).
         /// </summary>
         public static Dictionary<string, object> CountItems(SubtitleGeneratorContext context)
         {
@@ -240,7 +240,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var flowOutputs = w.GetDataFlow().Outputs;
                 return (w, (IReadOnlyCollection<string>)flowOutputs.Where(o => o.Kind == DataKind.Track).Select(o => o.Id).ToHashSet());
             }).ToList();
-            var costs = Outputs.SubtitleOutputCostReport.GetAICostByWorker(wip, outputs);
+            var costs = Outputs.OutputCostReport.GetAICostByWorker(wip, outputs);
             for (var index = 0; index < workers.Length; index++)
             {
                 if (costs.TryGetValue(workers[index], out var cost))

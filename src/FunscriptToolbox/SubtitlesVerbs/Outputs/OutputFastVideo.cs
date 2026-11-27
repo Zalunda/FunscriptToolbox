@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
     [ConfigDoc("A light video of each part ('<video>.FAST.mp4', next to it): small and quick to seek, for the Review editor of the web UI and the speaker correction. " +
         "One video at a time (lock 'ENC'). Already there (ex. made by a script): not made again.",
         Advice = "Enable it to make the playback in the Review editor faster (mostly for VR videos).")]
-    internal class SubtitleOutputFastVideo : SubtitleOutput
+    internal class OutputFastVideo : SubtitleOutput
     {
         [ConfigDoc("Replaces the extension of the video (ex. \".FAST.mp4\"). The Review editor only looks for '.FAST.mp4'.")]
         [JsonProperty(Order = 5, Required = Required.Always)]

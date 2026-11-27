@@ -156,7 +156,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 SharedObjects = sharedObjects.ToArray(),
                 Workers = new SubtitleWorker[]
                 {
-                    new SubtitleOutputUsedConfig()
+                    new OutputUsedConfig()
                     {
                         Id = "used-config",
                         CanBeUpdated = true,
@@ -174,7 +174,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SaveAsFileSuffixe = ".wav",
                         FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>
                     },
-                    new SubtitleOutputAsig()
+                    new OutputAsig()
                     {
                         Id = "asig",
                         SourceAudioId = "audio",
@@ -183,7 +183,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     // The light video of each part ("<video>.FAST.mp4"), for the Review editor of the web UI and the speaker correction.
                     // 'crop=iw/2:ih:0:0': the left eye of a VR video (side by side).
-                    new SubtitleOutputFastVideo()
+                    new OutputFastVideo()
                     {
                         Id = "fast-video",
                         FileSuffix = ".FAST.mp4",
@@ -233,7 +233,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             TextAfterAnalysis = "And don't tell me you can't help me translate. You are a translator after all."
                         }
                     },
-                    new SubtitleOutputSrt()
+                    new OutputSrt()
                     {
                         Id = "preliminary-srt",
                         FileSuffix = ".srt",
@@ -265,7 +265,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SameLineMaxStartDifference = TimeSpan.FromSeconds(1.5),
                         MaxGap = TimeSpan.FromMilliseconds(600),
                         MaxDuration = TimeSpan.FromSeconds(6),
-                        MaxChars = 28,
                         EndPadding = TimeSpan.FromMilliseconds(250)
                     },
                     new TransformGoogleTranslate()
@@ -390,7 +389,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     //---------------------------------------------------
                     // finalizing timings, manual-input and voice-texts clone
-                    new SubtitleOutputSrt()
+                    new OutputSrt()
                     {
                         Id = "generated-manual-input-srt",
                         FileSuffix = ".manual-input.srt",
@@ -622,7 +621,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         Id = "final-ai-texts",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick
                     },
-                    new SubtitleOutputSrt()
+                    new OutputSrt()
                     {
                         Id = "final-ai-srt",
                         TextSources = "final-ai-texts",
@@ -631,7 +630,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         SaveFullFileToo = true
                     },
-                    new SubtitleOutputSrt()
+                    new OutputSrt()
                     {
                         Id = "final-ai-debug-srt",
                         FileSuffix = ".final-ai-debug.srt",
@@ -643,7 +642,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         TextSources = "",
                         WaitForFinished = true
                     },
-                    new SubtitleOutputCostReport()
+                    new OutputCostReport()
                     {
                         Id = "costs",
                         FileSuffix = ".cost.txt",
@@ -659,7 +658,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         FileSuffix = ".final-user.srt",
                         MetadataProduced = "FinalText"
                     },
-                    new SubtitleOutputSrt()
+                    new OutputSrt()
                     {
                         Id = "learning-srt",
                         FileSuffix = ".learning.srt",

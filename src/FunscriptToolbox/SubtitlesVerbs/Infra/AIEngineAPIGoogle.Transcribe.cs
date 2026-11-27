@@ -45,6 +45,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //   - The audio is uploaded with the Files API (then deleted); the inline base64 audio was not tried (size limit?).
     //
     // Possible improvements
+    //   - TO DO NEXT (user, 2026-11-27): a smarter retrier for the 'blackouts' (the model stops transcribing for 20+ s, often at the start
+    //     of a chunk), instead of a bigger BufferZone (20 s, ex. 10 s before: not the real fix). The case seen:
+    //       1. chunk 00:00-05:00: no blackout, but its last subtitle is cut by the end of the chunk (the real line is ~04:57-05:02).
+    //       2. chunk 04:50-09:50: a blackout in its first ~30 s.
+    //       3. RecoverMissedChunkOverlap (TranscriberAudioFullAIGoogleTranscribe.RebuildItems): the subtitles of chunk 1 in the overlap
+    //          are taken as they are, because chunk 2 has nothing there, including the cut one (wrong end, text cut).
+    //     What should happen: the blackout is detected and kept as such (a 'hole': its start / end, in the job state), the subtitles
+    //     recovered from the previous chunk in it are suspicious (at least the first one, cut by the end of the chunk) and are not
+    //     trusted as is: retry the blackout (a request centered on it, not starting at its start) and/or flag them (ex. a metadata
+    //     for the review). The hole retry (RetryGapMinDuration) only sees the gaps between the subtitles after the recovery: a
+    //     blackout filled by suspicious recovered subtitles is not seen as a hole.
     //   - A chunk with far fewer words / minute than the others (ex. < 20 % of the average of the scene): asked again once automatically,
     //     then flagged in the log if it's still so.
     //   - 'Forget the answer of one chunk' (redo only that part), instead of 'Redo this step' on the whole transcription.
@@ -56,7 +67,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //     the next): it's only useful to cut the subtitles when the speaker changes and to detect Multiple.
     //   - The broken word times (seen at the start of some chunks: end before start, 16-minute words, starts far in the future): removed by
     //     TranscriberAudioFullAIGoogleTranscribe.RemoveBrokenWords (thresholds: 5 s, 30 s later than the next 20 words): to keep an eye on.
-    //   - The subtitles built from the words (MaxGap 0.6 s, 。？！, MaxDuration 6 s, MaxChars 28): to tune on reviewed scenes (CanBeUpdated:
+    //   - The subtitles built from the words (MaxGap 0.6 s, 。？！, MaxDuration 6 s): to tune on reviewed scenes (CanBeUpdated:
     //     rebuilt from the answers kept, without a new request).
     //   - If it becomes the source of the manual-input file: compare the Review editor work needed vs 'full-ai'; much of the timing refiner
     //     (RefineTiming engines, their prompts) may become useless.
@@ -122,8 +133,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public TranscribeResult Transcribe(
             SubtitleGeneratorContext context,
             AIRequest request,
-            TranscribeOptions options,
-            AIEngineConfigOverride configOverride = null)
+            TranscribeOptions options)
         {
             if (this.UseBatchMode)
             {
@@ -151,7 +161,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         WaitForTranscribeSlot(context);
                         try
                         {
-                            return TranscribeInternal(context, client, baseUri, request, audio[0], options, configOverride, verbosePrefix);
+                            return TranscribeInternal(context, client, baseUri, request, audio[0], options, verbosePrefix);
                         }
                         catch (AIEngineAPIException ex) when (ex.ErrorType == AIEngineErrorType.QuotasUsed && attempt <= this.TranscribeMaxRetriesOnTooManyRequests)
                         {
@@ -183,7 +193,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             AIRequest request,
             AIRequestPartAudio audio,
             TranscribeOptions options,
-            AIEngineConfigOverride configOverride,
             string verbosePrefix)
         {
             var watch = Stopwatch.StartNew();
@@ -224,7 +233,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
 
                 // 2. The transcription (verbatim, the times of the words; the speakers with diarization)
-                dynamic requestBody = base.CreateRequestBodyWithExtension(configOverride);
+                dynamic requestBody = base.CreateRequestBodyWithExtension();
                 requestBody.model = $"models/{this.Model}";
                 requestBody.input = new object[] { new { type = "audio", uri = (string)file["uri"], mime_type = "audio/wav" } };
                 dynamic mode = new ExpandoObject();
@@ -292,10 +301,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         {
                             if ((string)annotation["type"] != "word_info")
                                 continue;
+                            var startOffset = (string)annotation["start_offset"];
+                            var endOffset = (string)annotation["end_offset"];
+                            if (string.IsNullOrEmpty(startOffset) || string.IsNullOrEmpty(endOffset))
+                                continue;
                             words.Add(new TranscribedWordInfo
                             {
-                                StartTime = ParseOffset((string)annotation["start_offset"]),
-                                EndTime = ParseOffset((string)annotation["end_offset"]),
+                                StartTime = ParseOffset(startOffset),
+                                EndTime = ParseOffset(endOffset),
                                 Text = (string)annotation["text"],
                                 Speaker = (string)annotation["speaker"],
                                 StartIndex = annotation["start_index"] == null ? (int?)null : textOffset + (int)annotation["start_index"],

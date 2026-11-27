@@ -86,16 +86,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public virtual string EngineIdentifier => $"{EngineIdentifierWithoutModel}|{Model}";
 
-        protected dynamic CreateRequestBodyWithExtension(AIEngineConfigOverride configOverride)
+        protected dynamic CreateRequestBodyWithExtension()
         {
             dynamic requestBody = new ExpandoObject();
             requestBody = Merge(requestBody, this.RequestBodyExtension);
-
-            if (configOverride?.RequestBodyExtension != null)
-            {
-                requestBody = Merge(requestBody, configOverride.RequestBodyExtension);
-            }
-
             return requestBody;
         }
 

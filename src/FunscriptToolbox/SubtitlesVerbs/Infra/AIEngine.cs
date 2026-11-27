@@ -19,16 +19,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public AIResponse Execute(
             SubtitleGeneratorContext context,
-            AIRequest request,
-            AIEngineConfigOverride configOverride)
+            AIRequest request)
         {
-            return Execute(context, new[] { request }, configOverride).First();
+            return Execute(context, new[] { request }).First();
         }
 
         public abstract AIResponse[] Execute(
             SubtitleGeneratorContext context,
-            AIRequest[] requests,
-            AIEngineConfigOverride configOverride);
+            AIRequest[] requests);
 
         protected bool IsSupported(AIRequestPart part)
         {

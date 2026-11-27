@@ -15,7 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             flow.Input(Infra.DataKind.Audio, this.SourceAudioId, "audio");
         }
 
-        internal bool IsPrerequisitesForAudioMet(SubtitleGeneratorContext context, out string reason)
+        protected override bool IsPrerequisitesMet(SubtitleGeneratorContext context, out string reason)
         {
             if (GetPcmAudio(context) == null)
             {

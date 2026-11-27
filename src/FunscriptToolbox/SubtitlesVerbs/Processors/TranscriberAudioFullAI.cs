@@ -38,10 +38,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngine Engine { get; set; }
 
-        [ConfigDoc("Changes merged into the body of the requests of this step only, in \"RequestBodyExtension\": the engine stays shared. Any other property here is an error.")]
-        [JsonProperty(Order = 31)]
-        public AIEngineConfigOverride EngineConfigOverride { get; set; }
-
         [ConfigDoc("The system prompt: the instructions to the AI.")]
         [JsonProperty(Order = 32)]
         public AIPrompt SystemPrompt { get; set; }
@@ -59,19 +55,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         public bool PromptUserOnError { get; set; } = true;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
-
-        protected override bool IsPrerequisitesMet(
-            SubtitleGeneratorContext context,
-            out string reason)
-        {
-            if (!base.IsPrerequisitesForAudioMet(context, out reason))
-            {
-                return false;
-            }
-
-            reason = null;
-            return true;
-        }
 
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
@@ -157,7 +140,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                     requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
                     try
                     {
-                        response = this.Engine.Execute(context, request, this.EngineConfigOverride);
+                        response = this.Engine.Execute(context, request);
                         isStopAfterRequested = requestNode.IsStopAfterRequested;
                     }
                     catch (UserStoppedWorkerException)
