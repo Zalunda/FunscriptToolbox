@@ -1,5 +1,5 @@
 ﻿using FunscriptToolbox.SubtitlesVerbs.Progress;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
+using FunscriptToolbox.SubtitlesVerbs.Inputs;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using log4net;
 using System;
@@ -262,7 +262,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         internal bool PollStopRequest() => this.Output.PollStopRequest();
 
         /// <summary>The id that an id really is: the source of an alias (see <see cref="Transcriptions.TrackAlias"/>), or the id itself.</summary>
-        internal string ResolveSourceId(string id) => Transcriptions.TrackAlias.Resolve(this.Config, id);
+        internal string ResolveSourceId(string id) => Processors.TrackAlias.Resolve(this.Config, id);
 
         /// <summary>The transcription / translation with this id (an alias: its source), finished or not; null when there is none (yet).</summary>
         internal TimedItemWithMetadataCollection FindSource(string id)

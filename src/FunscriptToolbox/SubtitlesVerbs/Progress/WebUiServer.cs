@@ -571,7 +571,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 else if (method == "GET" && what == "audio.wav")
                 {
                     var (samplingRate, pcm) = editor.GetAudio(q["audio"]);
-                    var header = AudioExtractions.PcmAudio.CreateWavHeader(samplingRate, pcm.Length);
+                    var header = Inputs.PcmAudio.CreateWavHeader(samplingRate, pcm.Length);
                     WriteRanged(context, "audio/wav", header.Length + pcm.LongLength, (position, buffer, count) =>
                     {
                         // (the header, then the samples)
@@ -590,7 +590,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                     var start = Math.Min(pcm.LongLength, 2 * (long)(Seconds("s").TotalSeconds * samplingRate));
                     var end = Math.Min(pcm.LongLength, 2 * (long)(Seconds("e").TotalSeconds * samplingRate));
                     var length = (int)Math.Max(0, Math.Min(end - start, 2L * samplingRate * 60));   // (at most a minute)
-                    var header = AudioExtractions.PcmAudio.CreateWavHeader(samplingRate, length);
+                    var header = Inputs.PcmAudio.CreateWavHeader(samplingRate, length);
                     var bytes = new byte[header.Length + length];
                     Array.Copy(header, bytes, header.Length);
                     Array.Copy(pcm, start, bytes, header.Length, length);

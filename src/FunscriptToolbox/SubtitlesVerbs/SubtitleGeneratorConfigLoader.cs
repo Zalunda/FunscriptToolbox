@@ -1,10 +1,9 @@
 ﻿using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
+using FunscriptToolbox.SubtitlesVerbs.Inputs;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Outputs;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
+using FunscriptToolbox.SubtitlesVerbs.Processors;
+using FunscriptToolbox.SubtitlesVerbs.Processors.Refiner;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;

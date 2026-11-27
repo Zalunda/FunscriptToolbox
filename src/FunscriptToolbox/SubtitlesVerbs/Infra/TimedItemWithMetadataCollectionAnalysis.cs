@@ -2,7 +2,7 @@
 using System.Linq;
 using System;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Processors;
 
 namespace FunscriptToolbox.SubtitlesVerbs
 {

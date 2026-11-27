@@ -1,5 +1,5 @@
 using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Inputs;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;

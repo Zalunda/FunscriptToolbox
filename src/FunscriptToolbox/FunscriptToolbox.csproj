@@ -45,7 +45,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="SubtitlesVerbs\Progress\ui.html" LogicalName="FunscriptToolbox.SubtitlesVerbs.Progress.ui.html" />
     <!-- The spoken markers of TimingRefineEngineSpokenMarkers (16 kHz mono 16 bits, see SpokenMarkers.cs) -->
-    <EmbeddedResource Include="SubtitlesVerbs\Transcriptions\Refiner\Markers\*.wav" LogicalName="FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner.Markers.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="SubtitlesVerbs\Processors\Refiner\Markers\*.wav" LogicalName="FunscriptToolbox.SubtitlesVerbs.Processors.Refiner.Markers.%(Filename)%(Extension)" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-PrepareScriptForRelease.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-GenericCmd.bat" />
     <EmbeddedResource Include="InstallationFiles\--FSTB-CreateSubtitles.bat" />

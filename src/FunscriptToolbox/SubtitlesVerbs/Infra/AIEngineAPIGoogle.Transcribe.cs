@@ -1,4 +1,4 @@
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
+using FunscriptToolbox.SubtitlesVerbs.Processors;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;

@@ -1,7 +1,7 @@
 ﻿using AudioSynchronization;
 using FunscriptToolbox.Core;
 using FunscriptToolbox.Core.Infra;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
+using FunscriptToolbox.SubtitlesVerbs.Inputs;
 using Newtonsoft.Json;
 using System.IO;
 using System.Linq;

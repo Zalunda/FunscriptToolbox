@@ -1,7 +1,6 @@
 ﻿using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Infra;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
+using FunscriptToolbox.SubtitlesVerbs.Processors;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;

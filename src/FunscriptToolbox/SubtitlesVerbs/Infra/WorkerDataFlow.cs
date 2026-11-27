@@ -1,6 +1,5 @@
 using FunscriptToolbox.SubtitlesVerbs.Progress;
-using FunscriptToolbox.SubtitlesVerbs.Transcriptions;
-using FunscriptToolbox.SubtitlesVerbs.Translations;
+using FunscriptToolbox.SubtitlesVerbs.Processors;
 using System;
 using System.Collections.Generic;
 using System.Linq;

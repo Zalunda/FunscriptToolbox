@@ -1,7 +1,7 @@
 ﻿using CommandLine;
 using FunscriptToolbox.Core.Infra;
 using FunscriptToolbox.SubtitlesVerbs.Progress;
-using FunscriptToolbox.SubtitlesVerbs.AudioExtractions;
+using FunscriptToolbox.SubtitlesVerbs.Inputs;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -1060,7 +1060,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     wipsub.SetBackupParentFolder(config.Global?.BackupParentFolder);
 
                     // The data saved under the name of an alias (ex. 'full', when it was a clone): not used anymore (removed at the next save)
-                    var aliasIds = new HashSet<string>(Transcriptions.TrackAlias.GetAliases(config).Select(a => a.Id));
+                    var aliasIds = new HashSet<string>(Processors.TrackAlias.GetAliases(config).Select(a => a.Id));
                     var nbRemoved = wipsub.Tracks.RemoveAll(t => aliasIds.Contains(t.Id));
                     if (nbRemoved > 0)
                         context.WriteInfo($"{nbRemoved} old copy(ies) of an alias ({string.Join(", ", aliasIds)}) removed from the .wipsubtitles.");
