@@ -33,11 +33,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
             foreach (var item in container.GetItems())
             {
                 bool lastWordWasException = false;
-                var transcribedItem = item as TranscribedItem;
 
-                foreach (var word in (transcribedItem?.Words.Length > 0)
-                    ? (IEnumerable<TranscribedWord>)transcribedItem.Words
-                    : SplitEvenly(item, (container.MetadataAlwaysProduced == null ? null : item.Metadata.Get(container.MetadataAlwaysProduced)) ?? new string('.', 15)))
+                // (the text of the item spread evenly over its duration: the items don't keep the times of their words)
+                foreach (var word in SplitEvenly(item, (container.MetadataAlwaysProduced == null ? null : item.Metadata.Get(container.MetadataAlwaysProduced)) ?? new string('.', 15)))
                 {
                     // Check if this is a special case that should follow previous word
                     bool isSpecialCase = word.Text.EndsWith("...") ||

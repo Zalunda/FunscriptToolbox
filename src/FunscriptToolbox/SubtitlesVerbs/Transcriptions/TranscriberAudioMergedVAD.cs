@@ -128,14 +128,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     new TranscribedItem(
                         newStartTime.Value,
                         newEndTime.Value,
-                        original.Metadata,
-                        noSpeechProbability: original.NoSpeechProbability,
-                        words: original
-                            .Words
-                            .Select(word => new TranscribedWord(
-                                offsetCollection.TransformPosition(word.StartTime).Value,
-                                offsetCollection.TransformPosition(word.EndTime).Value, 
-                                word.Text, word.Probability))));
+                        original.Metadata));
 
             }
 

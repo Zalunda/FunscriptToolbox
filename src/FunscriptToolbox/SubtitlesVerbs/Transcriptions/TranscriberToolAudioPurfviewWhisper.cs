@@ -234,9 +234,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                             new TranscribedItem(
                                                 currentStartTime.Value,
                                                 word.EndTime,
-                                                MetadataCollection.CreateSimple(metadataProduced, currentText),
-                                                noSpeechProbability: (double)segment.no_speech_prob,
-                                                words: currentWords));
+                                                MetadataCollection.CreateSimple(metadataProduced, currentText)));
                                         currentStartTime = null;
                                         currentText = null;
                                         currentWords.Clear();

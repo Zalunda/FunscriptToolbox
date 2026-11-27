@@ -17,8 +17,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// what starts in the last 10 s of a chunk is done again by the next one). The subtitles are built from the words: a new one
     /// after a pause (MaxGap), after the end of a sentence (。？！?!), when it would be too long (MaxDuration / MaxChars), or when
     /// the speaker changes (Diarization). Their end is moved EndPadding later (the word ends of the model are too early), but not
-    /// after the start of the next one. Each subtitle keeps its words (TranscribedItem.Words).
-    /// The answers of the model (the text and the words of each chunk) are kept in the job state: the subtitles are built again
+    /// after the start of the next one.
+    /// The answers of the model (the text and the words of each chunk) are kept in the job state (the only place with the words): the subtitles are built again
     /// from them at each run, so, with 'CanBeUpdated', a change of these rules is applied without any new request.
     /// The language: the one of the transcription (SourceLanguage).
     /// </summary>
@@ -364,7 +364,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var metadata = new MetadataCollection(item.Metadata);
                     if (isMultiple && !string.IsNullOrWhiteSpace(this.MultipleSpeakersMetadata))
                         metadata[this.MultipleSpeakersMetadata] = this.MultipleSpeakersValue;
-                    item = new TranscribedItem(start, end, metadata, item.NoSpeechProbability, item.Words);
+                    item = new TranscribedItem(start, end, metadata);
                 }
                 merged.Add(item);
             }
@@ -382,7 +382,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (end - item.StartTime < TimeSpan.FromMilliseconds(100))
                     end = item.StartTime + TimeSpan.FromMilliseconds(100);
                 if (end != item.EndTime)
-                    items[i] = new TranscribedItem(item.StartTime, end, item.Metadata, item.NoSpeechProbability, item.Words);
+                    items[i] = new TranscribedItem(item.StartTime, end, item.Metadata);
             }
 
             transcription.Items.Clear();
@@ -473,8 +473,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 items.Add(new TranscribedItem(
                     startTime,
                     chunk.StartTime + last.EndTime,
-                    metadata,
-                    words: group.Select(w => new TranscribedWord(chunk.StartTime + w.StartTime, chunk.StartTime + w.EndTime, w.Text))));
+                    metadata));
             }
             return items;
         }

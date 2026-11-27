@@ -1176,9 +1176,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 newItems.Add(new TranscribedItem(
                     candidate.Start.Current,
                     candidate.End.Current,
-                    meta,
-                    (candidate.OriginalItem as TranscribedItem)?.NoSpeechProbability ?? 0.0,
-                    (candidate.OriginalItem as TranscribedItem)?.Words));
+                    meta));
             }
 
             transcription.Items.Clear();
