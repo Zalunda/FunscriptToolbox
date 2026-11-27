@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         [JsonProperty(Order = 1)]
         public bool Enabled { get; set; } = true;
 
-        [ConfigDoc("The audio used to map the terrain (where the speech is): an AudioExtractionId (ex. \"audio\"). Required when Enabled.")]
+        [ConfigDoc("The audio used to map the terrain (where the speech is): the Id of an audio extraction (ex. \"audio\"). Required when Enabled.")]
         [JsonProperty(Order = 2)]
         public string SourceAudioIdForTerrain { get; set; }
 

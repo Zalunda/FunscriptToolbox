@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -60,12 +61,45 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var assemblyName = comma < 0 ? null : typeName.Substring(comma + 1).Trim();
             try
             {
-                return serializer.SerializationBinder.BindToType(assemblyName, name);
+                return serializer.SerializationBinder.BindToType(assemblyName, name) ?? ResolveByClassName(name);
             }
             catch (JsonSerializationException)
             {
-                return null;
+                return ResolveByClassName(name);
             }
+        }
+
+        /// <summary>
+        /// The steps renamed since their job state was saved (old class name => new class name): their job state is still read.
+        /// (3.3: the transcribers / translators that work on tracks became transforms)
+        /// </summary>
+        private static readonly System.Collections.Generic.Dictionary<string, string> rs_renamedClasses = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "TranscriberAIManualInputPreparer", "TransformManualInputPreparer" },
+            { "TranscriberInteractifReview", "TransformReview" },
+            { "TranscriberClone", "TransformClone" },
+            { "TranscriberAI", "TransformAI" },
+        };
+
+        /// <summary>
+        /// The class of a job state when its full name doesn't exist anymore: found by its class name only ("Class+JobState"), in any
+        /// namespace (the classes can be moved), after the renames of rs_renamedClasses. Null: not found (or more than one).
+        /// </summary>
+        private static Type ResolveByClassName(string fullName)
+        {
+            var plus = fullName.IndexOf('+');
+            var outerFull = plus < 0 ? fullName : fullName.Substring(0, plus);
+            var nested = plus < 0 ? null : fullName.Substring(plus + 1);
+            var outer = outerFull.Substring(outerFull.LastIndexOf('.') + 1);
+            if (rs_renamedClasses.TryGetValue(outer, out var renamed))
+                outer = renamed;
+
+            var candidates = typeof(TolerantJobStateConverter).Assembly.GetTypes()
+                .Where(t => nested == null
+                    ? t.Name == outer && t.DeclaringType == null
+                    : t.Name == nested && t.DeclaringType?.Name == outer)
+                .ToArray();
+            return candidates.Length == 1 ? candidates[0] : null;
         }
     }
 }

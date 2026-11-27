@@ -595,15 +595,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             output.WriteError($"Redo: step '{workerKey}' of '{GetDisplayName(scene.Sequence)}' not found (its configuration or its .wipsubtitles is not loaded).");
                             return;
                         }
-                        var dataId = (worker as Transcriptions.Transcriber)?.TranscriptionId ?? (worker as Translations.Translator)?.TranslationId;
-                        var container = (Infra.TimedItemWithMetadataCollection)wip.Transcriptions.FirstOrDefault(t => t.Id == dataId)
-                            ?? wip.Translations.FirstOrDefault(t => t.Id == dataId);
+                        var dataId = (worker as Infra.TrackProducer)?.Id;
+                        var container = wip.Tracks.FirstOrDefault(t => t.Id == dataId);
                         if (container == null)
                         {
                             output.WriteError($"Redo: '{worker.DisplayName}' of '{GetDisplayName(scene.Sequence)}' has nothing to do again (no transcription / translation '{dataId}').");
                             return;
                         }
-                        var allIds = new HashSet<string>(wip.Transcriptions.Select(t => t.Id).Concat(wip.Translations.Select(t => t.Id)));
+                        var allIds = new HashSet<string>(wip.Tracks.Select(t => t.Id));
                         var newId = $"{dataId}-OLD";
                         for (var n = 2; allIds.Contains(newId); n++)
                             newId = $"{dataId}-OLD{n}";
@@ -1061,9 +1060,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     wipsub.SetBackupParentFolder(config.Global?.BackupParentFolder);
 
                     // The data saved under the name of an alias (ex. 'full', when it was a clone): not used anymore (removed at the next save)
-                    var aliasIds = new HashSet<string>(Transcriptions.TranscriberAlias.GetAliases(config).Select(a => a.TranscriptionId));
-                    var nbRemoved = wipsub.Transcriptions.RemoveAll(t => aliasIds.Contains(t.Id))
-                        + wipsub.Translations.RemoveAll(t => aliasIds.Contains(t.Id));
+                    var aliasIds = new HashSet<string>(Transcriptions.TrackAlias.GetAliases(config).Select(a => a.Id));
+                    var nbRemoved = wipsub.Tracks.RemoveAll(t => aliasIds.Contains(t.Id));
                     if (nbRemoved > 0)
                         context.WriteInfo($"{nbRemoved} old copy(ies) of an alias ({string.Join(", ", aliasIds)}) removed from the .wipsubtitles.");
                     context.ChangeCurrentFile(config, wipsub);

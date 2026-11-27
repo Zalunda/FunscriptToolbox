@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberImportText : Transcriber
+    public class InputImportText : Infra.TrackProducer
     {
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string FileSuffix { get; set; }
@@ -13,7 +13,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public string MetadataProduced { get; set; }
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
-        protected override string GetExecutionVerb() => "Importing";
+        protected override Infra.Language GetTrackLanguage(SubtitleGeneratorContext context) => context.Config.SourceLanguage;
+        protected override string GetDefaultProduces() => "Import";
+        protected override string GetDefaultVerb() => "Importing";
 
         protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
         {
@@ -37,7 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var subtitleFile = context.WIP.LoadVirtualSubtitleFile(this.FileSuffix);
 
@@ -46,7 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 transcription.Items.AddRange(
                     subtitleFile.Subtitles
-                    .Select(subtitle => new TranscribedItem(subtitle.StartTime, subtitle.EndTime, MetadataCollection.CreateSimple(this.MetadataProduced, subtitle.Text))));
+                    .Select(subtitle => new TimedItemWithMetadata(subtitle.StartTime, subtitle.EndTime, MetadataCollection.CreateSimple(this.MetadataProduced, subtitle.Text))));
             }
             transcription.MarkAsFinished();
             context.WIP.Save();

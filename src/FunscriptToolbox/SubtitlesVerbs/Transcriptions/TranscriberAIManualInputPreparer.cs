@@ -27,7 +27,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// </summary>
     [ConfigDoc("Prepares the subtitles of a transcription (ex. 'full-ai') for the manual-input file: refines their timings (RefineTiming), adds the title cards (TitleCardDetection), " +
         "and flags what needs a look (Validation: '[REVIEW:Code:Detail] reason' lines, checked one by one in the Review editor). All three disabled: a clone of the source.")]
-    public class TranscriberAIManualInputPreparer : TranscriberAI
+    public class TransformManualInputPreparer : TransformAI
     {
         // ---------------------------------------------------------------------
         // Cache
@@ -248,6 +248,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // Prerequisites
         // ---------------------------------------------------------------------
 
+        protected override string GetDefaultProduces() => "Preparation";
+        protected override string GetDefaultVerb() => "Preparing";
+
         protected override void DescribeDataFlow(WorkerDataFlow flow)
         {
             base.DescribeDataFlow(flow);
@@ -299,7 +302,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         {
             /// <summary>The pass that asks (its options, its engine: the cache key, what is kept from the answers).</summary>
             public TimingRefinePass Pass;
-            public Transcription Transcription;
+            public Track Track;
             public List<TimedItemWithMetadata> ItemsToProcess = new List<TimedItemWithMetadata>();
             public Dictionary<TimeSpan, List<TimingClipOption>> ClipsByStartTime = new Dictionary<TimeSpan, List<TimingClipOption>>();
 
@@ -331,7 +334,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public TimeSpan? FixedEnd;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             ValidateConfiguration();
 
@@ -695,7 +698,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private void RefineAndExport(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             JobState jobState,
             TitleCardRun titleCardRun)
         {
@@ -793,7 +796,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <returns>false when the requests were interrupted (the caller must stop).</returns>
         private bool RunPhases(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             TimingRefiner refiner,
             JobState jobState,
             List<PhaseReport> reports,
@@ -824,7 +827,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <returns>false when the requests were interrupted (the caller must stop).</returns>
         private bool RunPass(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             TimingRefiner refiner,
             JobState jobState,
             TimingRefinePass pass,
@@ -870,7 +873,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         return false; // Interrupted
                     }
 
-                    pass.ProcessResults(batch.Transcription.Items);
+                    pass.ProcessResults(batch.Track.Items);
                     if (exportProgress && !pass.IsTailCheck)
                     {
                         UpdateTranscription(transcription, refiner.Candidates);
@@ -895,7 +898,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        private static JobState GetOrCreateJobState(Transcription transcription)
+        private static JobState GetOrCreateJobState(Track transcription)
         {
             var jobState = transcription.CurrentJobState as JobState;
             if (jobState == null)
@@ -907,7 +910,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         /// <param name="sharedTerrain">The terrain of the previous pass (null on the first pass: it is computed and exported).</param>
-        private TimingRefiner CreateRefiner(SubtitleGeneratorContext context, Transcription transcription, AudioTerrainMapping sharedTerrain)
+        private TimingRefiner CreateRefiner(SubtitleGeneratorContext context, Track transcription, AudioTerrainMapping sharedTerrain)
         {
             // Without refining there is no terrain (and no audio needed): the refiner is only the list of candidates
             var fullPcmAudioForRefiner = this.RefineTiming.Enabled
@@ -1029,7 +1032,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <summary><see cref="BuildBatch"/>, as a step: what is asked, and what comes from the cache of the previous runs.</summary>
         private RefineBatch BuildBatchStep(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             TimingRefinePass pass,
             int iteration,
             List<TimingCandidate> candidatesToTest,
@@ -1046,7 +1049,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         private RefineBatch BuildBatch(
-            Transcription transcription,
+            Track transcription,
             TimingRefinePass pass,
             int iteration,
             List<TimingCandidate> candidatesToTest,
@@ -1062,7 +1065,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var batch = new RefineBatch
             {
                 Pass = pass,
-                Transcription = new Transcription(
+                Track = new Track(
                     id: transcription.Id,
                     metadataAlwaysProduced: metadataProduced,
                     privateMetadataNames: null,
@@ -1076,7 +1079,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 report.ClipDuration += round.Clips.Aggregate(TimeSpan.Zero, (sum, c) => sum + c.TotalDuration);
                 if (jobState.CachedResults.TryGetValue(pass.Engine.BuildCacheKey(candidate, round), out var cached))
                 {
-                    batch.Transcription.AddNewItem(candidate.OriginalStartTime, candidate.OriginalEndTime, cached.ToMetadata());
+                    batch.Track.AddNewItem(candidate.OriginalStartTime, candidate.OriginalEndTime, cached.ToMetadata());
                     report.FromCache++;
                 }
                 else
@@ -1112,7 +1115,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <returns>false when the requests were interrupted (the caller must stop).</returns>
         private bool ExecuteBatch(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             JobState jobState,
             RefineBatch batch)
         {
@@ -1123,7 +1126,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 if (batch.ItemsToProcess.Count > 0)
                 {
-                    var requestGenerator = ExecuteRequests(context, batch.Transcription, options, batch.ItemsToProcess.ToArray());
+                    var requestGenerator = ExecuteRequests(context, batch.Track, options, batch.ItemsToProcess.ToArray());
                     if (!requestGenerator.IsFinished())
                         return false;
                 }
@@ -1133,7 +1136,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 m_activeClipsByStartTime = null;
                 m_activeContext = null;
-                transcription.Costs.AddRange(batch.Transcription.Costs);
+                transcription.Costs.AddRange(batch.Track.Costs);
                 CacheNewResults(jobState, batch);
                 context.WIP.Save();
             }
@@ -1142,7 +1145,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <summary>Caches only answers that really came from the AI (never re-caches cache hits, never caches empty answers).</summary>
         private static void CacheNewResults(JobState jobState, RefineBatch batch)
         {
-            foreach (var item in batch.Transcription.Items)
+            foreach (var item in batch.Track.Items)
             {
                 if (!batch.NewlyRequested.TryGetValue(item.StartTime, out var candidate) || candidate.CurrentRound == null)
                     continue;
@@ -1158,10 +1161,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // ---------------------------------------------------------------------
 
         private void UpdateTranscription(
-            Transcription transcription,
+            Track transcription,
             List<TimingCandidate> candidates)
         {
-            var newItems = new List<TranscribedItem>();
+            var newItems = new List<TimedItemWithMetadata>();
             foreach (var candidate in candidates)
             {
                 var meta = new MetadataCollection();
@@ -1173,7 +1176,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 meta[this.Options.MetadataAlwaysProduced] = BuildOutputText(candidate);
                 meta[TimingMeta.TimingTrace] = string.Join("\n", candidate.Traces);
 
-                newItems.Add(new TranscribedItem(
+                newItems.Add(new TimedItemWithMetadata(
                     candidate.Start.Current,
                     candidate.End.Current,
                     meta));
@@ -1293,7 +1296,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private void PrintSummary(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             TimingRefiner refiner,
             List<PhaseReport> reports,
             List<PhaseReport> splitReports,
@@ -1384,7 +1387,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// </summary>
         public string GroundTruthExtension { get; set; }
 
-        private void RunGroundTruthAnalysis(SubtitleGeneratorContext context, Transcription transcription, TimingRefiner refiner)
+        private void RunGroundTruthAnalysis(SubtitleGeneratorContext context, Track transcription, TimingRefiner refiner)
         {
             if (string.IsNullOrWhiteSpace(this.GroundTruthExtension))
                 return;
@@ -1393,7 +1396,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .Run(refiner.Candidates, refiner.TerrainMapping, this.GroundTruthExtension);
         }
 
-        private void RunSimulations(SubtitleGeneratorContext context, Transcription transcription, TimingRefiner refiner)
+        private void RunSimulations(SubtitleGeneratorContext context, Track transcription, TimingRefiner refiner)
         {
             // (the simulations replay the engine: only the ones that support it, ex. StartEndJudge)
             if (this.Simulations == null || this.Simulations.Length == 0 || !this.RefineTiming.Enabled || !this.RefineTiming.Engine.SupportsSimulations)

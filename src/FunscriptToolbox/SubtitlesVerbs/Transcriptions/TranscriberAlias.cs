@@ -10,21 +10,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// Another name for a transcription / translation (ex. 'full' for 'full-ai', 'full-whisper' or 'manual-input-preparer'), so that the
     /// steps after it always use the same name, whatever the workflow. Nothing is copied, nothing is saved in the .wipsubtitles:
     /// the name is resolved each time it's used (see <see cref="Resolve"/>), so it always gives the current state of its source.
-    /// (Unlike <see cref="TranscriberClone"/>: a copy, frozen once done, ex. 'timings', so that the next steps keep the same timings
+    /// (Unlike <see cref="TransformClone"/>: a copy, frozen once done, ex. 'timings', so that the next steps keep the same timings
     /// even if its source changes.)
     /// It's not a task: it's not run, it's not in the task tree, it has no box in the 'Flow' view (the steps that use it are linked to its source).
     /// An alias can be the source of another alias. A disabled alias doesn't exist.
     /// </summary>
-    public class TranscriberAlias : Transcriber
+    public class TrackAlias : SubtitleWorker
     {
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string SourceId { get; set; }
 
         internal override bool IsTask => false;
 
-        protected override string GetMetadataProduced() => null;
-        protected override string GetWorkerTypeName() => "Alias";
-        protected override string GetExecutionVerb() => "Resolving";
+        protected override string GetDefaultProduces() => "Alias";
+        protected override string GetDefaultVerb() => "Resolving";
 
         // (nothing is produced: the steps that use the alias are linked to its source, see SceneFlowGraph)
         protected override void DescribeDataFlow(WorkerDataFlow flow)
@@ -40,11 +39,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         protected override bool IsFinished(SubtitleGeneratorContext context) => true;
         protected override void EnsureDataObjectExists(SubtitleGeneratorContext context) { }
         protected override void DoWork(SubtitleGeneratorContext context) { }
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription) { }
 
         /// <summary>The enabled aliases of a configuration.</summary>
-        internal static TranscriberAlias[] GetAliases(SubtitleGeneratorConfig config)
-            => (config?.Workers ?? Array.Empty<SubtitleWorker>()).OfType<TranscriberAlias>().Where(a => a.Enabled).ToArray();
+        internal static TrackAlias[] GetAliases(SubtitleGeneratorConfig config)
+            => (config?.Workers ?? Array.Empty<SubtitleWorker>()).OfType<TrackAlias>().Where(a => a.Enabled).ToArray();
 
         /// <summary>
         /// The id of the transcription / translation that an id really is: the source of the alias with this id (following the aliases
@@ -58,11 +56,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             var current = id;
             while (true)
             {
-                var alias = aliases.FirstOrDefault(a => a.TranscriptionId == current);
+                var alias = aliases.FirstOrDefault(a => a.Id == current);
                 if (alias == null)
                     return current;
                 if (seen.Contains(current))
-                    throw new InvalidOperationException($"The aliases (TranscriberAlias) make a loop: {string.Join(" => ", seen)} => {current}.");
+                    throw new InvalidOperationException($"The aliases (TrackAlias) make a loop: {string.Join(" => ", seen)} => {current}.");
                 seen.Add(current);
                 current = alias.SourceId;
             }

@@ -43,7 +43,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         protected override void DoWork(
             SubtitleGeneratorContext context)
         {
-            var audioExtraction = context.WIP.AudioExtractions.First(t => t.Id == this.AudioExtractionId);
+            var audioExtraction = context.WIP.AudioExtractions.First(t => t.Id == this.Id);
 
             context.WriteInfo($"   Transforming PCM audio from '{this.SourceAudioId}'...");
 

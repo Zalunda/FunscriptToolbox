@@ -183,7 +183,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 }
             }
 
-            public override void ProcessResults(IEnumerable<TranscribedItem> responseItems)
+            public override void ProcessResults(IEnumerable<TimedItemWithMetadata> responseItems)
             {
                 var side = this.Side;
                 foreach (var item in responseItems)
@@ -795,7 +795,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 return new TailState { Option = option, OfferedOptions = last.Options.Values.ToList() };
             }
 
-            public override void ProcessResults(IEnumerable<TranscribedItem> responseItems)
+            public override void ProcessResults(IEnumerable<TimedItemWithMetadata> responseItems)
             {
                 foreach (var item in responseItems)
                 {
@@ -805,7 +805,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 }
             }
 
-            private void ApplyTailCheck(TimingCandidate cand, TranscribedItem item)
+            private void ApplyTailCheck(TimingCandidate cand, TimedItemWithMetadata item)
             {
                 var round = cand.CurrentRound;
                 var state = r_tailStates[cand];

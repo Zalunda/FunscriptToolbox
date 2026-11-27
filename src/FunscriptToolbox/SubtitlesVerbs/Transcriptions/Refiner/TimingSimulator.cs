@@ -51,7 +51,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 
         private readonly PcmAudio r_audio;
         private readonly TimingValidatorSettings r_validator;
-        private readonly Transcription r_template;
+        private readonly Track r_template;
         private readonly List<Truth> r_truths;
         private readonly Dictionary<float, AudioTerrainMapping> r_terrains = new Dictionary<float, AudioTerrainMapping>();
 
@@ -61,7 +61,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
             AudioTerrainMapping terrain,
             float terrainValleyReach,
             TimingValidatorSettings validator,
-            Transcription template,
+            Track template,
             IEnumerable<Truth> truths)
         {
             r_audio = audio;
@@ -103,7 +103,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                         break;
 
                     report.Iterations++;
-                    var response = new Transcription(
+                    var response = new Track(
                         id: r_template.Id,
                         metadataAlwaysProduced: side == BoundarySide.Start ? TimingMeta.BestStart : TimingMeta.BestEnd,
                         privateMetadataNames: null,

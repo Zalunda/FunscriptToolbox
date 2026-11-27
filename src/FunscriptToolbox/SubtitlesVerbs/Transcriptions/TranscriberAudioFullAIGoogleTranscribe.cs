@@ -124,11 +124,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             if (this.MaxChunkDuration > TimeSpan.FromMinutes(30))
             {
-                throw new Exception($"'{this.TranscriptionId}': 'MaxChunkDuration' is {this.MaxChunkDuration}: at most 30 minutes (with the times of the words, the model ignores the rest).");
+                throw new Exception($"'{this.Id}': 'MaxChunkDuration' is {this.MaxChunkDuration}: at most 30 minutes (with the times of the words, the model ignores the rest).");
             }
 
             var processStartTime = DateTime.Now;
@@ -159,7 +159,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             }
             var previousTypeItems = jobState.PreviousTypeEndTime is TimeSpan previousEnd
                 ? transcription.Items.Where(i => i.StartTime < previousEnd).ToList()
-                : new List<TranscribedItem>();
+                : new List<TimedItemWithMetadata>();
 
             // Done before (ex. 'CanBeUpdated'): the subtitles are built again from the answers kept, with the rules of now
             if (jobState.NextStartTime >= fullPcmAudio.EndTime)
@@ -195,7 +195,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     return new AIRequest(
                         processStartTime,
                         number,
-                        this.TranscriptionId,
+                        this.Id,
                         null,
                         new AIRequestPartCollection(),
                         userParts,
@@ -317,9 +317,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// The subtitles of the transcription, built again from all the chunks kept (with the rules of now): the ones of each chunk that
         /// start before the next chunk (the rest is in the next one), after the subtitles of the previous type of the step, if any.
         /// </summary>
-        private void RebuildItems(SubtitleGeneratorContext context, Transcription transcription, JobState jobState, List<TranscribedItem> previousTypeItems)
+        private void RebuildItems(SubtitleGeneratorContext context, Track transcription, JobState jobState, List<TimedItemWithMetadata> previousTypeItems)
         {
-            var built = new List<(TranscribedItem Item, string Speaker)>();
+            var built = new List<(TimedItemWithMetadata Item, string Speaker)>();
             for (var index = 0; index < jobState.Chunks.Count; index++)
             {
                 var chunk = jobState.Chunks[index];
@@ -339,7 +339,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             built = built.OrderBy(b => b.Item.StartTime).ToList();
 
             // The same line twice (the same text, starts close): one subtitle; from 2 speakers: MultipleSpeakersMetadata
-            var merged = new List<TranscribedItem>();
+            var merged = new List<TimedItemWithMetadata>();
             var used = new bool[built.Count];
             static string Normalize(string text) => new string((text ?? "").Where(char.IsLetterOrDigit).ToArray());
             for (var i = 0; i < built.Count; i++)
@@ -364,12 +364,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                     var metadata = new MetadataCollection(item.Metadata);
                     if (isMultiple && !string.IsNullOrWhiteSpace(this.MultipleSpeakersMetadata))
                         metadata[this.MultipleSpeakersMetadata] = this.MultipleSpeakersValue;
-                    item = new TranscribedItem(start, end, metadata);
+                    item = new TimedItemWithMetadata(start, end, metadata);
                 }
                 merged.Add(item);
             }
 
-            var items = new List<TranscribedItem>(previousTypeItems);
+            var items = new List<TimedItemWithMetadata>(previousTypeItems);
             items.AddRange(merged);
 
             // The end: EndPadding later (not after the start of the next one; a subtitle of at least 100 ms). Not the subtitles of the previous type.
@@ -382,7 +382,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (end - item.StartTime < TimeSpan.FromMilliseconds(100))
                     end = item.StartTime + TimeSpan.FromMilliseconds(100);
                 if (end != item.EndTime)
-                    items[i] = new TranscribedItem(item.StartTime, end, item.Metadata);
+                    items[i] = new TimedItemWithMetadata(item.StartTime, end, item.Metadata);
             }
 
             transcription.Items.Clear();
@@ -414,7 +414,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         /// <summary>The subtitles of a chunk, from its words (times: in the chunk => in the scene), without the end padding.</summary>
-        private List<TranscribedItem> BuildItems(SubtitleGeneratorContext context, CachedChunk chunk, bool logIgnored, out List<string> speakers)
+        private List<TimedItemWithMetadata> BuildItems(SubtitleGeneratorContext context, CachedChunk chunk, bool logIgnored, out List<string> speakers)
         {
             var textBytes = Encoding.UTF8.GetBytes(chunk.Text ?? string.Empty);
             var groups = new List<List<AIEngineAPIGoogle.TranscribedWordInfo>>();
@@ -443,7 +443,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 current.Add(word);
             }
 
-            var items = new List<TranscribedItem>();
+            var items = new List<TimedItemWithMetadata>();
             speakers = new List<string>();
             foreach (var group in groups)
             {
@@ -470,7 +470,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 if (this.Diarization && first.Speaker != null && !string.IsNullOrWhiteSpace(this.SpeakerMetadata))
                     metadata[this.SpeakerMetadata] = first.Speaker;
                 speakers.Add(first.Speaker);
-                items.Add(new TranscribedItem(
+                items.Add(new TimedItemWithMetadata(
                     startTime,
                     chunk.StartTime + last.EndTime,
                     metadata));

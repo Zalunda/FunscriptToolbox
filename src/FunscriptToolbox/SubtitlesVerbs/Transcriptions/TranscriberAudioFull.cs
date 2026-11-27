@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using Newtonsoft.Json;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
@@ -19,8 +20,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             if (this.TranscriberTool is TranscriberToolAudioExternal external)
             {
                 // The external tool: a .wav is written, a .srt is read
-                flow.Output(Infra.DataKind.File, $".TODO-{this.TranscriptionId}_*.wav", "for the external tool");
-                flow.Input(Infra.DataKind.File, external.OverrideFileSuffixe ?? $".TODO-{this.TranscriptionId}_*.srt", "from the external tool");
+                flow.Output(Infra.DataKind.File, $".TODO-{this.Id}_*.wav", "for the external tool");
+                flow.Input(Infra.DataKind.File, external.OverrideFileSuffixe ?? $".TODO-{this.Id}_*.srt", "from the external tool");
             }
         }
 
@@ -36,7 +37,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         { 
             var transcribedTexts = this.TranscriberTool.TranscribeAudio(
                      context,

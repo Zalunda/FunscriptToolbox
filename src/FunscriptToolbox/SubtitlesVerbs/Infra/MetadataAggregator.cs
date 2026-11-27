@@ -85,9 +85,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (source.Contains("*"))
                 throw new InvalidOperationException(
                     $"'Sources': '{source}': the wildcard '*' is not supported anymore. List the ids of the steps, separated by ','.");
-            var known = context.Config.Workers.Any(w =>
-                (w is Transcriber transcriber && IsSourceMatch(source, transcriber.TranscriptionId))
-                || (w is Translator translator && IsSourceMatch(source, translator.TranslationId)));
+            var known = context.Config.Workers.Any(w => (w is TrackProducer || w is TrackAlias) && IsSourceMatch(source, w.Id));
             if (!known)
                 throw new InvalidOperationException(
                     $"'Sources': no step has the id '{source}' (a typo, or a step that was removed / renamed?).");
@@ -104,7 +102,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         /// <summary>
         /// The sources, and the aliases used to reach them (alias id, id of its source): a rule can match an alias
-        /// (see <see cref="TranscriberAlias"/>), the source of the alias is then used (once, even if it's also matched by its own id).
+        /// (see <see cref="TrackAlias"/>), the source of the alias is then used (once, even if it's also matched by its own id).
         /// The data saved in the .wipsubtitles under the name of an alias (ex. from when it was a clone) is ignored.
         /// </summary>
         private static (TimedItemWithMetadataCollection[], string[], List<(string alias, string target)>) GetRawSourcesAndAliases(
@@ -118,8 +116,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (additionalSource != null)
                 metadataProviders.Add(additionalSource);
 
-            var aliases = TranscriberAlias.GetAliases(context.Config);
-            var aliasIds = new HashSet<string>(aliases.Select(a => a.TranscriptionId));
+            var aliases = TrackAlias.GetAliases(context.Config);
+            var aliasIds = new HashSet<string>(aliases.Select(a => a.Id));
 
             foreach (var rule in sources ?? Array.Empty<string>())
             {
@@ -127,44 +125,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     continue;
                 ValidateSource(context, rule);
 
-                foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
-                        .Where(t => !(t is TranscriberAlias) && IsSourceMatch(rule, t.TranscriptionId)))
+                foreach (var producer in context.Config.Workers.OfType<TrackProducer>()
+                        .Where(t => IsSourceMatch(rule, t.Id)))
                 {
-                    var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
-                    if (transcriber.Enabled && transcription?.IsFinished != true)
+                    var track = context.WIP.Tracks.FirstOrDefault(t => t.Id == producer.Id);
+                    if (producer.Enabled && track?.IsFinished != true)
                     {
-                        reasons.Add($"Transcription '{transcriber.TranscriptionId}' is not done yet.");
+                        reasons.Add($"'{producer.Id}' is not done yet.");
                     }
                 }
 
-                metadataProviders.AddRange(context.WIP.Transcriptions.Where(t => IsSourceMatch(rule, t.Id) && !aliasIds.Contains(t.Id)));
-
-                foreach (var translator in context.Config.Workers.OfType<Translator>()
-                        .Where(t => IsSourceMatch(rule, t.TranslationId)))
-                {
-                    var translation = context.WIP.Translations
-                        .FirstOrDefault(t => IsSourceMatch(rule, t.Id));
-                    if (translator.Enabled && translation?.IsFinished != true)
-                    {
-                        reasons.Add($"Translation '{translator.TranslationId}' is not done yet.");
-                    }
-                }
-
-                metadataProviders.AddRange(context.WIP.Translations.Where(t => IsSourceMatch(rule, t.Id) && !aliasIds.Contains(t.Id)));
+                metadataProviders.AddRange(context.WIP.Tracks.Where(t => IsSourceMatch(rule, t.Id) && !aliasIds.Contains(t.Id)));
 
                 // The aliases: their source
-                foreach (var alias in aliases.Where(a => IsSourceMatch(rule, a.TranscriptionId)))
+                foreach (var alias in aliases.Where(a => IsSourceMatch(rule, a.Id)))
                 {
-                    var targetId = context.ResolveSourceId(alias.TranscriptionId);
-                    var target = context.FindSource(alias.TranscriptionId);
+                    var targetId = context.ResolveSourceId(alias.Id);
+                    var target = context.FindSource(alias.Id);
                     if (target?.IsFinished != true)
                     {
-                        reasons.Add($"'{alias.TranscriptionId}' (alias of '{targetId}') is not done yet.");
+                        reasons.Add($"'{alias.Id}' (alias of '{targetId}') is not done yet.");
                     }
                     if (target != null)
                     {
                         metadataProviders.Add(target);
-                        aliasesUsed.Add((alias.TranscriptionId, targetId));
+                        aliasesUsed.Add((alias.Id, targetId));
                     }
                 }
             }

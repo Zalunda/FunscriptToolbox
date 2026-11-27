@@ -9,7 +9,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
     [ConfigDoc("Shapes the translated lines into subtitles, without AI: merges short close lines (same speaker: 2 lines; two speakers: a dialogue '- ... / - ...'), " +
         "and breaks the long lines in two at the best place (SplitPatterns).")]
-    public class TranslatorSubtitleConformer : Translator
+    public class TransformSubtitleConformer : Transform
     {
         [ConfigDoc("The subtitles (TimingsSource) and the sources of their text and speaker (Sources).")]
         [JsonProperty(Order = 20, Required = Required.Always)]
@@ -62,6 +62,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         private const string FLAG_REVIEW = "[!REVIEW]";
         
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
+        protected override string GetDefaultProduces() => "Subtitles";
+        protected override string GetDefaultVerb() => "Conforming";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)
         {
@@ -83,11 +85,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Translation translation)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track translation)
         {
             var requestGenerator = this.Metadatas
                 .Aggregate(context, translation)
-                .CreateRequestGenerator(translation, this.Options, translationLanguage: this.TargetLanguage);
+                .CreateRequestGenerator(translation, this.Options, translationLanguage: this.Language);
 
             var (_, itemsToDo, _, _) = requestGenerator.AnalyzeItemsState();
 
@@ -99,15 +101,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             context.WIP.Save();
         }
 
-        public TranslatedItem[] Conform(SubtitleGeneratorContext context, IList<TimedItemWithMetadata> nodes)
+        public TimedItemWithMetadata[] Conform(SubtitleGeneratorContext context, IList<TimedItemWithMetadata> nodes)
         {
-            if (nodes == null || nodes.Count == 0) return Array.Empty<TranslatedItem>();
+            if (nodes == null || nodes.Count == 0) return Array.Empty<TimedItemWithMetadata>();
 
             var newNodes = nodes
                 .Select(node =>
                 {
                     var original = node.Metadata.Get(this.Options.MetadataNeeded);
-                    return new TranslatedItem(
+                    return new TimedItemWithMetadata(
                             node.StartTime,
                             node.EndTime,
                             MetadataCollection.CreateSimple(

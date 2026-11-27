@@ -12,7 +12,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// <summary>
     /// The review of the file the user revises (ex. '.manual-input.srt'), in the 'Timing' editor of the web UI, instead of editing the file by hand.
     /// It replaces the output that creates that file (ex. SubtitleOutputSrt 'generated-manual-input-srt'); the file is still imported by the next worker
-    /// (ex. TranscriberImportMetadatas 'manual-input'), so the file can still be edited by hand once the review is done
+    /// (ex. InputImportMetadatas 'manual-input'), so the file can still be edited by hand once the review is done
     /// (its metadata, ex. {Note:...}, are always used; its timings only until the next steps use them, then they are frozen).
     /// - First run: the subtitles to review are created in the .wipsubtitles (job state): from the file when it already exists (imported once,
     ///   with what was validated in the editor: ex. a review started with the file), otherwise from Metadatas / TextSources, like SubtitleOutputSrt.
@@ -21,7 +21,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// </summary>
     [ConfigDoc("The review of the file you revise (ex. '.manual-input.srt') in the Review editor of the web UI, instead of editing the file by hand: passes 'Timing', 'Review warnings' and 'Speakers'. " +
         "When you click 'Review done', the file is written (then imported by the next step).")]
-    public class TranscriberInteractifReview : Transcriber
+    public class TransformReview : Translations.Transform
     {
         /// <summary>
         /// A subtitle of the review: its timing, its lines as in the file (text, {Name:Value} metadata, '[REVIEW:...]' / '[CHECKED:...]' review lines),
@@ -163,7 +163,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         protected override string GetMetadataProduced() => null;
-        protected override string GetExecutionVerb() => "Reviewing";
+        protected override string GetDefaultProduces() => "Review";
+        protected override string GetDefaultVerb() => "Reviewing";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)
         {
@@ -174,7 +175,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         internal JobState GetJobState(WorkInProgressSubtitles wip)
-            => wip.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId)?.CurrentJobState as JobState;
+            => wip.Tracks.FirstOrDefault(t => t.Id == this.Id)?.CurrentJobState as JobState;
 
         protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)
         {
@@ -187,7 +188,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             TimeSpan? activeTime = null;
             context.WIP.ExecuteLocked(() =>
             {
-                var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+                var transcription = context.WIP.Tracks.FirstOrDefault(t => t.Id == this.Id);
                 activeTime = (transcription?.CurrentJobState as JobState)?.ActiveTime
                     ?? transcription?.Costs.FirstOrDefault(c => c.EngineIdentifier == ToolName)?.TimeTaken;
             });
@@ -198,7 +199,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
 
         /// <summary>What the web UI offers to the user while the review is not done (see ITaskNode.SetUserAction).</summary>
-        private string UserAction => $"timing:{this.TranscriptionId}";
+        private string UserAction => $"timing:{this.Id}";
 
         private string WaitingReason => $"waiting for the review of '{this.FileSuffix}' in the Review editor of the web UI (button 'Review' of the scene), then 'Review done'";
 
@@ -244,7 +245,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return base.IsFinished(context) && context.WIP.LoadVirtualSubtitleFile(this.FileSuffix) != null;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var jobState = transcription.CurrentJobState as JobState;
             if (jobState == null)
@@ -279,9 +280,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             {
                 // Already reviewed the old way (the line that blocks its import was removed, or it was already imported): nothing to review
                 var markers = GetImportMarkers(context);
-                var importerIds = GetImporters(context).Select(w => w.TranscriptionId).ToArray();
+                var importerIds = GetImporters(context).Select(w => w.Id).ToArray();
                 var alreadyReviewed = (markers.Length > 0 && !existingFile.Subtitles.Any(s => s.Lines.Any(l => markers.Any(m => l.Contains(m)))))
-                    || context.WIP.Transcriptions.Any(t => importerIds.Contains(t.Id) && t.IsFinished);
+                    || context.WIP.Tracks.Any(t => importerIds.Contains(t.Id) && t.IsFinished);
 
                 // (what was validated in the editor when it was editing the file directly)
                 var validated = ReadValidatedFromOldEditor(context.WIP);
@@ -383,7 +384,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         /// <summary>
         /// The subtitles without {Speaker} where only one speaker is present ({OngoingSpeakers}, carried from the subtitles before):
         /// their speaker is known (like in the Timing editor), and it's written in the file, otherwise the next steps see no speaker
-        /// (ex. TranslatorSubtitleConformer would take 2 subtitles of the same speaker, one with {Speaker} and one without, for a dialogue).
+        /// (ex. TransformSubtitleConformer would take 2 subtitles of the same speaker, one with {Speaker} and one without, for a dialogue).
         /// Only when there are several speakers in the scene (with only one, nothing is added: there is no doubt).
         /// </summary>
         private Dictionary<ReviewItem, string> GetImplicitSpeakers(ReviewItem[] items)
@@ -436,10 +437,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         // ---- Review done ----
 
-        /// <summary>The workers that import the file (ex. TranscriberImportMetadatas 'manual-input').</summary>
-        private TranscriberImportMetadatas[] GetImporters(SubtitleGeneratorContext context)
+        /// <summary>The workers that import the file (ex. InputImportMetadatas 'manual-input').</summary>
+        private InputImportMetadatas[] GetImporters(SubtitleGeneratorContext context)
             => context.Config.Workers
-                .OfType<TranscriberImportMetadatas>()
+                .OfType<InputImportMetadatas>()
                 .Where(w => w.Enabled && string.Equals(w.FileSuffix, this.FileSuffix, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
@@ -450,7 +451,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 .Select(w => w.ProcessOnlyWhenStringIsRemoved)
                 .ToArray();
 
-        private void WriteFileAndFinish(SubtitleGeneratorContext context, Transcription transcription, JobState jobState)
+        private void WriteFileAndFinish(SubtitleGeneratorContext context, Track transcription, JobState jobState)
         {
             // (the review is done: without the line that blocks the import of the file)
             var markers = GetImportMarkers(context);
@@ -499,7 +500,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 transcription.Items.Clear();
                 transcription.Items.AddRange(
                     ReadMetadataSubtitles(file.Subtitles)
-                    .Select(f => new TranscribedItem(f.StartTime, f.EndTime, f.Metadata)));
+                    .Select(f => new TimedItemWithMetadata(f.StartTime, f.EndTime, f.Metadata)));
                 // (the time of the user, in the costs: like the other interactive workers)
                 if (activeTime > TimeSpan.Zero && !transcription.Costs.Any(c => c.EngineIdentifier == ToolName))
                     transcription.Costs.Add(new Cost(transcription.Id, ToolName, activeTime, items.Length));

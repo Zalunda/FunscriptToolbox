@@ -77,7 +77,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
                 return round;
             }
 
-            public override void ProcessResults(IEnumerable<TranscribedItem> responseItems)
+            public override void ProcessResults(IEnumerable<TimedItemWithMetadata> responseItems)
             {
                 foreach (var item in responseItems)
                 {

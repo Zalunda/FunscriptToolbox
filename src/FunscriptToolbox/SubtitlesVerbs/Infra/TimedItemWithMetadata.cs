@@ -1,4 +1,5 @@
 ﻿using FunscriptToolbox.Core.Infra;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
@@ -14,6 +15,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public TimeSpan Duration => EndTime - StartTime;
         public MetadataCollection Metadata { get; }
         public DateTime? CreationTime { get; }
+
+        /// <summary>(read from a .wipsubtitles: the items of a Track)</summary>
+        [JsonConstructor]
+        private TimedItemWithMetadata(
+            TimeSpan startTime,
+            TimeSpan endTime,
+            MetadataCollection metadata,
+            DateTime? creationTime)
+            : this(startTime, endTime, (IEnumerable<KeyValuePair<string, string>>)metadata, creationTime)
+        {
+        }
+
         public TimedItemWithMetadata(
             TimeSpan startTime,
             TimeSpan endTime,

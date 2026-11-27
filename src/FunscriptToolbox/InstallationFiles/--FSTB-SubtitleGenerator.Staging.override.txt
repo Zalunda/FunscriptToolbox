@@ -11,11 +11,11 @@
     // -----------------------------
     // Audio extraction
     {
-      "AudioExtractionId": "audio",
+      "Id": "audio",
       "Enabled": true
     },
     {
-      "AudioExtractionId": "audio-clean-waveform",
+      "Id": "audio-clean-waveform",
       "Enabled": true,
     },
     {
@@ -25,28 +25,28 @@
     // -----------------------------
     // Transcription with Whisper with a basic google translation
     {
-      "TranscriptionId": "full-whisper",
+      "Id": "full-whisper",
       "Enabled": true,
       "ExportMetadataSrt": false
     },
     {
-      "TranslationId": "full-whisper_google",
+      "Id": "full-whisper_google",
       "Enabled": true,
       "ExportMetadataSrt": false
     },
     {
-      "TranslationId": "full-whisper_local-api",
+      "Id": "full-whisper_local-api",
       "Enabled": false,
       "ExportMetadataSrt": false
     },
     {
-      "OutputId": "preliminary-srt",
+      "Id": "preliminary-srt",
       "Enabled": true,
       "FileSuffix": ".srt",
       "WorkerId": "full-whisper_google"
     },
     {
-      "TranscriptionId": "full",
+      "Id": "full",
       "Enabled": true,
       "SourceId": "full-whisper"
     }

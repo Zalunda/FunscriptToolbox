@@ -292,7 +292,7 @@
       ]
     },
     {
-      "TranscriptionId": "final-ai-texts",
+      "Id": "final-ai-texts",
       "Enabled": true,
       // [OPTION] Set to "arbitrer-final-choice" if you want to go with multiples translation and an arbiter.
       "SourceId": "finalized_maverick"
@@ -312,12 +312,12 @@
       "Enabled": true
     },
     {
-      "TranscriptionId": "final-user-texts",
+      "Id": "final-user-texts",
       // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit).
       "Enabled": false
     },
     {
-      "OutputId": "learning-srt",
+      "Id": "learning-srt",
       // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit) and output a subtitle that, maybe, could be used to help an AI learn your preference.
       "Enabled": false
     },

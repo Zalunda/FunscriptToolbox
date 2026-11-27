@@ -17,7 +17,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
     [JsonObject(IsReference = false)]
     public class WorkInProgressSubtitles
     {
-        public const string CURRENT_FORMAT_VERSION = "2.0";
+        /// <remarks>
+        /// 3.0: one list of tracks ('Tracks') instead of 'Transcriptions' and 'Translations' (a 2.x file is read into 'Tracks', and
+        /// saved in 3.0: a version before 3.3 can't open it anymore).
+        /// </remarks>
+        public const string CURRENT_FORMAT_VERSION = "3.0";
         public const string BACKUP_FOLDER_SUFFIX = "_Backup";
 
         /// <summary>
@@ -52,6 +56,18 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 using var jsonReader = new JsonTextReader(new StringReader(fileContent));
                 var content = rs_serializer.Deserialize<WorkInProgressSubtitles>(jsonReader);
                 content.SetPaths(fullpath);
+
+                // (one list now: an id can't be used twice, ex. a transcription and a translation with the same id in a 2.x file)
+                var duplicates = content.Tracks.GroupBy(t => t.Id).Where(g => g.Count() > 1).Select(g => g.Key).ToArray();
+                if (duplicates.Length > 0)
+                {
+                    throw new Exception(
+                        $"File '{Path.GetFileName(fullpath)}': these ids are used by more than one track: {string.Join(", ", duplicates.Select(d => $"'{d}'"))} " +
+                        "(ex. a transcription and a translation with the same id, before 3.3). Rename one of them in the file (ex. '<id>-OLD').");
+                }
+
+                // (read in the current format, ex. the 2 lists of a 2.x file merged in 'Tracks': saved in the current format)
+                content.UpdateFormatVersion();
                 return content;
             }
             catch (JsonException ex)
@@ -65,8 +81,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public WorkInProgressSubtitles()
         {
             this.AudioExtractions = new List<AudioExtraction>();
-            this.Transcriptions = new List<Transcription>();
-            this.Translations = new List<Translation>();
+            this.Tracks = new List<Track>();
         }
 
         public WorkInProgressSubtitles(string fullpath, string[] videoPaths)
@@ -128,8 +143,17 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         public TimelineMap TimelineMap { get; set; }
         public List<AudioExtraction> AudioExtractions { get; set; }
-        public List<Transcription> Transcriptions { get; set; }
-        public List<Translation> Translations { get; set; }
+
+        /// <summary>What the steps produced (transcriptions, translations...), each under the id of its step.</summary>
+        public List<Track> Tracks { get; set; }
+
+        /// <summary>(read only: the 2 lists of the format 2.x, added to Tracks; the transcriptions first, like before)</summary>
+        [JsonProperty("Transcriptions")]
+        private List<Track> LegacyTranscriptions { set => this.Tracks.AddRange(value ?? new List<Track>()); }
+
+        /// <summary>(read only, see LegacyTranscriptions)</summary>
+        [JsonProperty("Translations")]
+        private List<Track> LegacyTranslations { set => this.Tracks.AddRange(value ?? new List<Track>()); }
 
         public VirtualSubtitleFile CreateVirtualSubtitleFile()
         {
@@ -143,8 +167,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
 
         [JsonIgnore]
-        public IEnumerable<TimedItemWithMetadataCollection> WorkersResult => ((IEnumerable<TimedItemWithMetadataCollection>)this.Transcriptions ?? Array.Empty<TimedItemWithMetadataCollection>())
-            .Union((IEnumerable<TimedItemWithMetadataCollection>)this.Translations ?? Array.Empty<TimedItemWithMetadataCollection>());
+        public IEnumerable<TimedItemWithMetadataCollection> WorkersResult => (IEnumerable<TimedItemWithMetadataCollection>)this.Tracks ?? Array.Empty<TimedItemWithMetadataCollection>();
 
         public TimeSpan GetVideoDuration()
         {

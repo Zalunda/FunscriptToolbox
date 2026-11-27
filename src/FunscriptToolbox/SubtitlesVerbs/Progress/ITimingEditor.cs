@@ -3,7 +3,7 @@ using System;
 namespace FunscriptToolbox.SubtitlesVerbs.Progress
 {
     /// <summary>
-    /// The data of the 'Timing' editor of the web UI, for a scene: the subtitles of a review (ex. of '.manual-input.srt', see TranscriberInteractifReview),
+    /// The data of the 'Timing' editor of the web UI, for a scene: the subtitles of a review (ex. of '.manual-input.srt', see TransformReview),
     /// the audio (waveform, terrain, sound) and the light videos ('.FAST.mp4') of its parts.
     /// The times are always in the time of the whole scene (all its parts, one after the other).
     /// Called from the threads of the web server (never with the gate of the output held).
@@ -32,12 +32,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
         void SaveFinalized(string reviewId, TimingEditorFinalized[] items);
 
         /// <summary>
-        /// The parts of the scene listened to by the user to validate the gaps (see TranscriberInteractifReview.JobState.ValidatedGaps):
+        /// The parts of the scene listened to by the user to validate the gaps (see TransformReview.JobState.ValidatedGaps):
         /// they replace the ones saved before.
         /// </summary>
         void SaveValidatedGaps(string reviewId, TimingEditorRange[] ranges);
 
-        /// <summary>Time of active work of the user in the editor, to add to the review (see TranscriberInteractifReview.JobState.ActiveTime).</summary>
+        /// <summary>Time of active work of the user in the editor, to add to the review (see TransformReview.JobState.ActiveTime).</summary>
         void AddActiveTime(string reviewId, long ms);
 
         /// <summary>The user is done with the review: the worker writes the file at its next run (the scene is rescanned).</summary>

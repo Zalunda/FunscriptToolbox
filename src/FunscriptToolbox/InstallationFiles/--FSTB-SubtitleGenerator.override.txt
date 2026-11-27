@@ -492,13 +492,13 @@ _______________________________________="
   ],
   "Workers": [
     {
-      "TranslationId": "full-whisper_local-api",
+      "Id": "full-whisper_local-api",
       "Engine": {
         "$ref": "AIEngineLocalAPI"
       }
     },
     {
-      "TranscriptionId": "full-ai",
+      "Id": "full-ai",
       "Engine": {
         // As of 2026/12, it seem like only gemini-2.5-pro and gemini-3-flash on Google API return good timings.
         // When using Poe or Gemini3.0 (on google or poe), the audio in 'shortened' (removing silence) before
@@ -507,13 +507,13 @@ _______________________________________="
       }
     },
     {
-      "TranscriptionId": "singlevad-ai",
+      "Id": "singlevad-ai",
       "Engine": {
         "$ref": "AIEngineGemini3Pro"
       }
     },
     {
-      "TranscriptionId": "singlevad-ai-refined",
+      "Id": "singlevad-ai-refined",
       "Engine": {
         // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images.
         "$ref": "AIEngineGemini3Pro"

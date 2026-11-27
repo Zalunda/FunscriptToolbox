@@ -807,7 +807,7 @@ _______________________________________=",
       ]
     },
     {
-      "TranscriptionId": "final-ai-texts",
+      "Id": "final-ai-texts",
       "Enabled": true,
       // [OPTION] Set to "arbitrer-final-choice" if you want to go with multiples translation and an arbiter.
       "SourceId": "finalized_maverick"
@@ -827,12 +827,12 @@ _______________________________________=",
       "Enabled": true
     },
     {
-      "TranscriptionId": "final-user-texts",
+      "Id": "final-user-texts",
       // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit).
       "Enabled": false
     },
     {
-      "OutputId": "learning-srt",
+      "Id": "learning-srt",
       // [OPTION] Set to true if you want to go import ".final-user.srt" file (final version after manual edit) and output a subtitle that, maybe, could be used to help an AI learn your preference.
       "Enabled": false
     },
@@ -841,7 +841,7 @@ _______________________________________=",
     // EXAMPLE MULTI-LANGUAGE TRANSLATION PIPELINE (Target: French)
     // To adapt for another language (Spanish, German, etc.):
     // 1. Search for "translated-texts_french" replace with "translated-texts_spanish"
-    // 2. Search for "TargetLanguage": "French", replace "French" with "Spanish".
+    // 2. Search for "Language": "French", replace "French" with "Spanish".
     // 3. Search for "finalized_french", replace with "finalized_spanish".
     // 4. Search for "final-ai-srt_french", replace with "final-ai-srt_spanish".
     // 5. Search for ".fr.srt", replace with suffix ".es.srt".
@@ -849,10 +849,10 @@ _______________________________________=",
     // 5. Change Enabled to true for the 3 tasks.
     // =====================================================================
     {
-      "$type": "TranslatorAI",
-      "TranslationId": "translated-texts_french",
+      "$type": "TransformAI",
+      "Id": "translated-texts_french",
       "Enabled": false,
-      "TargetLanguage": "French",
+      "Language": "French",
       "CanBeUpdated": false,
       "ExportMetadataSrt": false,
       "StopOnFirstExecution": false,
@@ -893,10 +893,10 @@ _______________________________________=",
       "PromptUserOnError": true
     },
     {
-      "$type": "TranslatorSubtitleConformer",
-      "TranslationId": "finalized_french",
+      "$type": "TransformSubtitleConformer",
+      "Id": "finalized_french",
       "Enabled": false,
-      "TargetLanguage": "French",
+      "Language": "French",
       "CanBeUpdated": false,
       "PrivateMetadataNames": null,
       "StopOnFirstExecution": false,
@@ -936,7 +936,7 @@ _______________________________________=",
     },
     {
       "$type": "SubtitleOutputSrt",
-      "OutputId": "final-ai-srt_french",
+      "Id": "final-ai-srt_french",
       "Enabled": false,
       "FileSuffix": ".fr.srt",
       "CanBeUpdated": false,

@@ -5,13 +5,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
     public abstract class SubtitleOutput : SubtitleWorker
     {
-        [ConfigDoc("The id of the output (ex. \"final-ai-srt\"): an override file uses it to change this step.")]
-        [JsonProperty(Order = 2, Required = Required.Always)]
-        public string OutputId { get; set; }
-
-        protected override string GetId() => this.OutputId;
-        protected override string GetWorkerTypeName() => "Output";
-        protected override string GetExecutionVerb() => "Creating";
+        protected override string GetDefaultProduces() => "Output";
+        protected override string GetDefaultVerb() => "Creating";
 
         protected override void EnsureDataObjectExists(SubtitleGeneratorContext context)
         {

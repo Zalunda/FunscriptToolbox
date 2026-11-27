@@ -261,8 +261,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
         /// <summary>True once each time the user asks to stop what is currently done ('Stop' button of the task in the web UI).</summary>
         internal bool PollStopRequest() => this.Output.PollStopRequest();
 
-        /// <summary>The id that an id really is: the source of an alias (see <see cref="Transcriptions.TranscriberAlias"/>), or the id itself.</summary>
-        internal string ResolveSourceId(string id) => Transcriptions.TranscriberAlias.Resolve(this.Config, id);
+        /// <summary>The id that an id really is: the source of an alias (see <see cref="Transcriptions.TrackAlias"/>), or the id itself.</summary>
+        internal string ResolveSourceId(string id) => Transcriptions.TrackAlias.Resolve(this.Config, id);
 
         /// <summary>The transcription / translation with this id (an alias: its source), finished or not; null when there is none (yet).</summary>
         internal TimedItemWithMetadataCollection FindSource(string id)
@@ -270,8 +270,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             if (this.WIP == null || id == null)
                 return null;
             var resolvedId = ResolveSourceId(id);
-            return (TimedItemWithMetadataCollection)this.WIP.Transcriptions.FirstOrDefault(t => t.Id == resolvedId)
-                ?? this.WIP.Translations.FirstOrDefault(t => t.Id == resolvedId);
+            return this.WIP.Tracks.FirstOrDefault(t => t.Id == resolvedId);
         }
 
         /// <summary>Only one prompt/dialog at a time (the others wait, and show as 'waiting for user'). The wait can be cancelled in --ui mode.</summary>

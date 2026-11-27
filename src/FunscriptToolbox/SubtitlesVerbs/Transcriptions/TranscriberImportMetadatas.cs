@@ -1,10 +1,11 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using Newtonsoft.Json;
 using System;
 using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberImportMetadatas : Transcriber
+    public class InputImportMetadatas : Infra.TrackProducer
     {
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string FileSuffix { get; set; }
@@ -12,7 +13,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         public string ProcessOnlyWhenStringIsRemoved { get; internal set; }
 
         protected override string GetMetadataProduced() => null;
-        protected override string GetExecutionVerb() => "Importing";
+        protected override Language GetTrackLanguage(SubtitleGeneratorContext context) => context.Config.SourceLanguage;
+        protected override string GetDefaultProduces() => "Import";
+        protected override string GetDefaultVerb() => "Importing";
 
         protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
         {
@@ -44,7 +47,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var subtitleFile = context.WIP.LoadVirtualSubtitleFile(this.FileSuffix);
 
@@ -72,7 +75,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                             nbCut++;
                         }
                     }
-                    transcription.Items.Add(new TranscribedItem(item.StartTime, endTime, item.Metadata));
+                    transcription.Items.Add(new TimedItemWithMetadata(item.StartTime, endTime, item.Metadata));
                 }
 
                 if (nbRemoved > 0 || nbCut > 0)

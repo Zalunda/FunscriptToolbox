@@ -11,16 +11,16 @@ using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
-    internal class TranslatorGoogleV1API : Translator
+    internal class TransformGoogleTranslate : Transform
     {
         private const string ToolName = "GoogleV1-API";
 
-        public TranslatorGoogleV1API()
+        public TransformGoogleTranslate()
         {
         }
 
         [JsonProperty(Order = 20, Required = Required.Always)]
-        public string TranscriptionId { get; set; }
+        public string SourceId { get; set; }
         [JsonProperty(Order = 21, Required = Required.Always)]
         public string MetadataNeeded { get; set; }
         [JsonProperty(Order = 22, Required = Required.Always)]
@@ -29,21 +29,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
         public int MaxConcurrency { get; set; } = 2;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
+        protected override string GetDefaultProduces() => "Translation";
+        protected override string GetDefaultVerb() => "Translating";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)
         {
             base.DescribeDataFlow(flow);
-            flow.InputSources(this.TranscriptionId, "translated");
+            flow.InputSources(this.SourceId, "translated");
         }
 
         protected override bool IsPrerequisitesMet(
             SubtitleGeneratorContext context,
             out string reason)
         {
-            var transcriptionId = context.ResolveSourceId(TranscriptionId);   // (an alias: its source)
-            if (context.WIP.Transcriptions.FirstOrDefault(f => f.Id == transcriptionId && f.IsFinished) == null)
+            var transcriptionId = context.ResolveSourceId(SourceId);   // (an alias: its source)
+            if (context.WIP.Tracks.FirstOrDefault(f => f.Id == transcriptionId && f.IsFinished) == null)
             {
-                reason = $"Transcription '{this.TranscriptionId}' is not done yet.";
+                reason = $"'{this.SourceId}' is not done yet.";
                 return false;
             }
 
@@ -51,10 +53,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Translation translation)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track translation)
         {
-            var transcriptionId = context.ResolveSourceId(TranscriptionId);
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(f => f.Id == transcriptionId && f.IsFinished);
+            var transcriptionId = context.ResolveSourceId(SourceId);
+            var transcription = context.WIP.Tracks.FirstOrDefault(f => f.Id == transcriptionId && f.IsFinished);
 
             var missingTranscriptions = transcription.Items
                 .Where(transcribedItem => !translation.Items.Any(x => x.StartTime == transcribedItem.StartTime))
@@ -74,7 +76,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 var sourceLanguage = transcription.Language?.ShortName ?? "auto";
 
                 // Local helper method to start a background HTTP request task
-                Task<(bool IsSuccess, string Text, string Error)> StartTask(TranscribedItem transcribedItem)
+                Task<(bool IsSuccess, string Text, string Error)> StartTask(TimedItemWithMetadata transcribedItem)
                 {
                     return Task.Run(() =>
                     {
@@ -107,7 +109,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 }
 
                 // A queue to hold our running tasks in exact chronological order
-                var runningTasks = new Queue<(TranscribedItem Item, Task<(bool IsSuccess, string Text, string Error)> Task)>();
+                var runningTasks = new Queue<(TimedItemWithMetadata Item, Task<(bool IsSuccess, string Text, string Error)> Task)>();
 
                 int missingIndex = 0;
 
@@ -137,7 +139,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
                     // Write the successful translation to our list
                     translation.Items.Add(
-                        new TranslatedItem(
+                        new TimedItemWithMetadata(
                             transcribedItem.StartTime,
                             transcribedItem.EndTime,
                             MetadataCollection.CreateSimple(this.MetadataProduced, result.Text)));
@@ -163,7 +165,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
                 context.WIP.Save();
             }
         }
-        public static Language DetectLanguage(IEnumerable<TranscribedItem> items, string metadataNeeded)
+        public static Language DetectLanguage(IEnumerable<TimedItemWithMetadata> items, string metadataNeeded)
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
@@ -172,7 +174,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 
             var guesses = new Dictionary<string, int>();
             var nbOccurencesToBeSure = 5;
-            foreach (var transcribedItem in items ?? Array.Empty<TranscribedItem>())
+            foreach (var transcribedItem in items ?? Array.Empty<TimedItemWithMetadata>())
             {
                 string apiUrl = $"https://translate.googleapis.com/translate_a/single" +
                     "?client=gtx" +

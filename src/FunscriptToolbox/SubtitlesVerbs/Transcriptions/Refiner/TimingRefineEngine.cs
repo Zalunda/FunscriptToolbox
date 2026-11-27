@@ -415,7 +415,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         // Building blocks: the answers
         // ---------------------------------------------------------------------
 
-        protected static string GetTrimmedMeta(TranscribedItem item, string key)
+        protected static string GetTrimmedMeta(TimedItemWithMetadata item, string key)
         {
             item.Metadata.TryGetValue(key, out var value);
             return value?.Trim();
@@ -452,7 +452,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         protected static void ApplyAnswer(
             TimingRefiner refiner,
             TimingCandidate cand,
-            TranscribedItem item,
+            TimedItemWithMetadata item,
             BoundarySide side,
             string choiceMetadata,
             Action<TimingCandidate, TimingRound> applyChoice,
@@ -596,7 +596,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
         public abstract void PrepareNextRound();
 
         /// <summary>The answers of the AI (one item per candidate asked, at its original start time).</summary>
-        public abstract void ProcessResults(IEnumerable<TranscribedItem> responseItems);
+        public abstract void ProcessResults(IEnumerable<TimedItemWithMetadata> responseItems);
 
         public virtual void End()
         {

@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberClone : Transcriber
+    public class TransformClone : Translations.Transform
     {
         public class JobState
         {
@@ -49,7 +49,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         }
         protected override bool HasChangedSinceLastRun(SubtitleGeneratorContext context, out string reason)
         {
-            var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == this.TranscriptionId);
+            var transcription = context.WIP.Tracks.FirstOrDefault(t => t.Id == this.Id);
             var jobState = transcription.CurrentJobState as JobState;
             if (jobState == null || jobState.SourceIdUsed != this.SourceId)
             {
@@ -59,7 +59,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return base.HasChangedSinceLastRun(context, out reason);
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var source = context.FindSource(this.SourceId);
             _metadataProduced = source.MetadataAlwaysProduced;
@@ -79,7 +79,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 {
                     var filteredMetadata = new MetadataCollection();
                     filteredMetadata.Merge(item.Metadata, sourcePrivateMetadataNames: transcription.PrivateMetadataNames);
-                    return new TranscribedItem(
+                    return new TimedItemWithMetadata(
                         item.StartTime,
                         item.EndTime,
                         filteredMetadata);
@@ -89,8 +89,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
-        protected override string GetWorkerTypeName() => "Clone";
-        protected override string GetExecutionVerb() => "Cloning";
+        protected override string GetDefaultProduces() => "Clone";
+        protected override string GetDefaultVerb() => "Cloning";
 
         protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)
         {

@@ -32,12 +32,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 typeof(AIOptions),
                 typeof(AIPrompt),
                 typeof(BinaryDataExtractor),
-                typeof(AudioExtractor),
-                typeof(SubtitleOutput),
+                typeof(SubtitleWorker),
                 typeof(TranscriberToolAudio),
-                typeof(TimingRefineEngine),
-                typeof(Transcriber),
-                typeof(Translator)
+                typeof(TimingRefineEngine)
             });
 
         private static readonly System.Threading.ThreadLocal<JsonSerializer> rs_serializerByThread = new System.Threading.ThreadLocal<JsonSerializer>(() =>
@@ -393,6 +390,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new JsonTextReader(
                         new StringReader(finalConfigText)));
                 config.MergedConfigHash = HashOfMergedConfig(finalConfigText);
+                ValidateTrackIds(config, lastFullPath);
                 return config;
             }
             catch (JsonException ex) when (tracking == null)
@@ -449,8 +447,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             ),
             new ArrayMergeRule(
                 path: new [] { "Workers" },
-                keys: new [] { "AudioExtractionId", "TranslationId", "TranscriptionId", "OutputId" }, // TranslationId must be before TranscriptionId because of TranslatorGoogleV1API
-                fallbackIdentifierKey: "Id",
+                keys: new [] { "Id" },
                 newItemHandler: HandleNewItemInsertions,
                 requiredPropertiesForNewItems: new[] { "$type" }
             ),
@@ -745,7 +742,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 // Check each key defined in the rule to see if we have a match.
                 foreach (var key in rule.Keys)
                 {
-                    // Use the fallback ID if the specific key (e.g., "AudioExtractionId") is missing from the user item.
+                    // Use the fallback ID if the specific key is missing from the user item.
                     var userValue = userItem[key]?.ToString() ?? fallbackIdValue;
                     if (userValue != null && string.Equals(userValue, baseItemId, StringComparison.OrdinalIgnoreCase))
                     {
@@ -777,6 +774,22 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 return item[rule.FallbackIdentifierKey]?.ToString();
             }
             return null;
+        }
+
+        /// <summary>
+        /// Every step is found by its 'Id' (the merge of the files, the sources, the tracks of the .wipsubtitles): two steps can't have
+        /// the same id, whatever their kind (ex. defined twice in the same file; an override file changes the step with the same 'Id' instead).
+        /// </summary>
+        private static void ValidateTrackIds(SubtitleGeneratorConfig config, string lastFullPath)
+        {
+            var duplicates = (config.Workers ?? Array.Empty<SubtitleWorker>())
+                .GroupBy(w => w.Id)
+                .Where(g => g.Key != null && g.Count() > 1)
+                .Select(g => $"'{g.Key}' ({string.Join(", ", g.Select(w => w.GetType().Name))})")
+                .ToArray();
+            if (duplicates.Length > 0)
+                throw new Exception($"Error in the merged configuration for '{lastFullPath}': more than one step has the same id: {string.Join("; ", duplicates)}. " +
+                    "Each step needs its own id.");
         }
 
         /// <summary>
@@ -1136,10 +1149,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
             {
                 // Strongly typed keys resilient to refactoring
                 string[] idKeys = {
-                    nameof(Translator.TranslationId),
-                    nameof(Transcriber.TranscriptionId),
-                    nameof(AudioExtractor.AudioExtractionId),
-                    nameof(SubtitleOutput.OutputId),
+                    nameof(Transform.Id),
+                    nameof(Transcriber.Id),
+                    nameof(AudioExtractor.Id),
+                    nameof(SubtitleOutput.Id),
                     "Id" // Kept as string literal since it's an abstract fallback concept in your array merge rule
                 };
 

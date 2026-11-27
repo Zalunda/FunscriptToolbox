@@ -21,12 +21,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         public string FileSuffix { get; set; }
         [JsonProperty(Order = 10)]
         public bool OutputToConsole { get; set; } = true;
-        [JsonProperty(Order = 11)]
-        public bool IsGlobalTranscriptionReport { get; set; } = false;
-        [JsonProperty(Order = 12)]
-        public bool IsGlobalTranslationReport { get; set; } = false;
 
-        // (a report on all the transcriptions / translations: no arrow from each of them, only its file)
+        // (a report on all the tracks: no arrow from each of them, only its file)
         protected override void DescribeDataFlow(WorkerDataFlow flow)
         {
             base.DescribeDataFlow(flow);
@@ -64,7 +60,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 
             try
             {
-                foreach (var line in GenerateConsolidatedReport(context.WIP.Transcriptions, context.WIP.Translations))
+                foreach (var line in GenerateConsolidatedReport(context.WIP.Tracks ?? new List<Track>()))
                 {
                     fileWriter.WriteLine(line);
                     if (OutputToConsole)
@@ -92,21 +88,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             if (wip == null)
                 return null;
             List<Cost> costs = null;
-            wip.ExecuteLocked(() => costs = (wip.Transcriptions?.ToArray().SelectMany(t => t.Costs.ToArray()) ?? Enumerable.Empty<Cost>())
-                .Concat(wip.Translations?.ToArray().SelectMany(t => t.Costs.ToArray()) ?? Enumerable.Empty<Cost>())
+            wip.ExecuteLocked(() => costs = (wip.Tracks?.ToArray().SelectMany(t => t.Costs.ToArray()) ?? Enumerable.Empty<Cost>())
                 .Where(c => c != null && IsAI(c))
                 .ToList());
             return costs.Count == 0 ? (double?)null : Dollars(costs);
         }
 
         /// <summary>
-        /// The AI cost of each worker of a scene, from the transcriptions / translations it produces (the costs of a worker are kept in
-        /// its own transcription / translation): the estimate in $, the number of AI calls, and how many of them have no token count
-        /// (not included in the $). Only the workers that have AI calls. (a copy, made like GetTotalAICost)
+        /// The AI cost of each worker of a scene, from the tracks it produces (the costs of a worker are kept in its own track): the
+        /// estimate in $, the number of AI calls, and how many of them have no token count (not included in the $). Only the workers
+        /// that have AI calls. (a copy, made like GetTotalAICost)
         /// </summary>
         public static Dictionary<SubtitleWorker, (double Dollars, int Calls, int Fallbacks)> GetAICostByWorker(
             WorkInProgressSubtitles wip,
-            IEnumerable<(SubtitleWorker Worker, IReadOnlyCollection<string> TranscriptionIds, IReadOnlyCollection<string> TranslationIds)> workers)
+            IEnumerable<(SubtitleWorker Worker, IReadOnlyCollection<string> TrackIds)> workers)
         {
             var result = new Dictionary<SubtitleWorker, (double, int, int)>();
             if (wip == null)
@@ -115,12 +110,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             var costsByWorker = new List<(SubtitleWorker Worker, Cost[] Costs)>();
             wip.ExecuteLocked(() =>
             {
-                var transcriptions = wip.Transcriptions?.ToArray() ?? Array.Empty<Transcription>();
-                var translations = wip.Translations?.ToArray() ?? Array.Empty<Translation>();
-                foreach (var (worker, transcriptionIds, translationIds) in list)
+                var tracks = wip.Tracks?.ToArray() ?? Array.Empty<Track>();
+                foreach (var (worker, trackIds) in list)
                 {
-                    var costs = transcriptions.Where(t => transcriptionIds.Contains(t.Id)).SelectMany(t => t.Costs.ToArray())
-                        .Concat(translations.Where(t => translationIds.Contains(t.Id)).SelectMany(t => t.Costs.ToArray()))
+                    var costs = tracks.Where(t => trackIds.Contains(t.Id)).SelectMany(t => t.Costs.ToArray())
                         .Where(c => c != null && IsAI(c))
                         .ToArray();
                     if (costs.Length > 0)
@@ -138,8 +131,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         /// </summary>
         protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)
         {
-            var costs = (context.WIP.Transcriptions?.SelectMany(t => t.Costs) ?? Enumerable.Empty<Cost>())
-                .Concat(context.WIP.Translations?.SelectMany(t => t.Costs) ?? Enumerable.Empty<Cost>())
+            var costs = (context.WIP.Tracks?.SelectMany(t => t.Costs) ?? Enumerable.Empty<Cost>())
                 .ToList();
             if (costs.Count == 0)
             {
@@ -171,36 +163,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
                 yield return $"Details: '{Path.GetFileName(context.WIP.BaseFilePath + this.FileSuffix)}'.";
         }
 
-        private IEnumerable<string> GenerateConsolidatedReport(
-            IEnumerable<Transcription> transcriptions,
-            IEnumerable<Translation> translations)
+        private IEnumerable<string> GenerateConsolidatedReport(IEnumerable<Track> tracks)
         {
-            // 1. Flatten all costs into a manipulatable list with their target Group Name
-            var allCosts = new List<(string GroupName, Cost Cost)>();
-
-            if (transcriptions != null)
-            {
-                foreach (var t in transcriptions)
-                {
-                    foreach (var cost in t.Costs)
-                    {
-                        string name = IsGlobalTranscriptionReport ? "Global" : cost.TaskName;
-                        allCosts.Add((name, cost));
-                    }
-                }
-            }
-
-            if (translations != null)
-            {
-                foreach (var t in translations)
-                {
-                    foreach (var cost in t.Costs)
-                    {
-                        string name = IsGlobalTranslationReport ? "Global" : cost.TaskName;
-                        allCosts.Add((name, cost));
-                    }
-                }
-            }
+            // 1. Flatten all costs into a manipulatable list, grouped by step (the name of their task)
+            var allCosts = tracks
+                .SelectMany(t => t.Costs)
+                .Select(cost => (GroupName: cost.TaskName, Cost: cost))
+                .ToList();
 
             // Helper to calculate total dollars for a list of costs
             double CalculateTotalDollars(IEnumerable<Cost> costsToSum)

@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
-    public class TranscriberAI : Transcriber
+    public class TransformAI : Translations.Transform
     {
         [ConfigDoc("The AI engine of the step (usually a shared engine, ex. { \"$ref\": \"AIEngineGemini3Pro\" }: an AIEngineCollection with its fallbacks).",
             Advice = "Choose another engine with ✎ (the shared engines are listed). For the steps that send audio, an engine that receives the audio as is (Google API).")]
@@ -27,6 +27,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [ConfigDoc("The requests: the prompts, which subtitles are sent (MetadataNeeded), the batching, the audio clips / screenshots added (BinaryDataExtractors).")]
         [JsonProperty(Order = 33, Required = Required.Always)]
         public AIOptions Options { get; set; } = new AIOptions();
+        [ConfigDoc("When the answer of a subtitle contains this text, the subtitle is merged with the one before it (the AI says that it goes with the previous line). null: not done.")]
+        [JsonProperty(Order = 35)]
+        public string AutoMergeOn { get; set; }
+        [ConfigDoc("With AutoMergeOn: when the answer of a subtitle contains this text, the subtitle is removed.")]
+        [JsonProperty(Order = 36)]
+        public string AutoDeleteOn { get; set; }
         [ConfigDoc("When the answer of the AI can't be read (ex. broken JSON), the web UI asks you to fix the text (false: an error right away).")]
         [JsonProperty(Order = 34)]
         public bool PromptUserOnError { get; set; } = true;
@@ -62,15 +68,49 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var metadataAggregation = this.Metadatas.Aggregate(context);
             var requestGenerator = ExecuteRequests(context, transcription, this.Options, metadataAggregation.ReferenceTimingsWithMetadata);
             if (requestGenerator.IsFinished())
             {
+                ApplyAutoMerge(transcription);
                 transcription.MarkAsFinished();
                 context.WIP.Save();
             }
+        }
+
+        /// <summary>AutoMergeOn / AutoDeleteOn: the subtitles the AI said go with the previous one are merged with it (or removed).</summary>
+        private void ApplyAutoMerge(Track track)
+        {
+            if (this.AutoMergeOn == null)
+                return;
+
+            var metadataProduced = this.GetMetadataProduced();
+            var newItems = new System.Collections.Generic.List<TimedItemWithMetadata>();
+            TimedItemWithMetadata currentItem = null;
+            foreach (var item in track.Items)
+            {
+                var text = item.Metadata.Get(metadataProduced) ?? string.Empty;
+                if (currentItem != null && text.Contains(this.AutoMergeOn))
+                {
+                    currentItem = new TimedItemWithMetadata(currentItem.StartTime, item.EndTime, currentItem.Metadata);
+                }
+                else if (currentItem != null && this.AutoDeleteOn != null && text.Contains(this.AutoDeleteOn))
+                {
+                    // (removed)
+                }
+                else
+                {
+                    if (currentItem != null)
+                        newItems.Add(currentItem);
+                    currentItem = item;
+                }
+            }
+            if (currentItem != null)
+                newItems.Add(currentItem);
+            track.Items.Clear();
+            track.Items.AddRange(newItems);
         }
 
         protected virtual BinaryDataExtractorCachedCollection CreateBinaryDataExtractorCollection(
@@ -81,18 +121,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         protected AIRequestGenerator ExecuteRequests(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             AIOptions options,
             TimedItemWithMetadata[] itemsToBeProcessed)
         {
+            // ([TranscriptionLanguage] in the prompts: the language of the video; [TranslationLanguage]: the language of the track produced)
             var requestGenerator = new AIRequestGenerator(
                 itemsToBeProcessed,
                 transcription,
-                transcription.Language,
+                context.Config.SourceLanguage,
                 transcription.Language,
                 options);
 
-            var runner = new AIEngineRunner<TranscribedItem>(
+            var runner = new AIEngineRunner<TimedItemWithMetadata>(
                 context,
                 this.Engine,
                 this.EngineConfigOverride,

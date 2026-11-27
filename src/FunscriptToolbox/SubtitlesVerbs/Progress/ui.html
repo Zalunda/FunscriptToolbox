@@ -670,7 +670,7 @@
 <div id="te" style="display:none">
   <div class="te-top">
     <b id="teTitle"></b>
-    <label id="teFileL" title="The review (TranscriberInteractifReview): its subtitles are kept in the .wipsubtitles; its file is written when the review is done (shown only when the configuration has several)">Review <select id="teFile"></select></label>
+    <label id="teFileL" title="The review (TransformReview): its subtitles are kept in the .wipsubtitles; its file is written when the review is done (shown only when the configuration has several)">Review <select id="teFile"></select></label>
     <label>Audio <select id="teAudio"></select></label>
     <label id="teVideoSelL" title="The video played: FAST (its light video, '.FAST.mp4': smooth) or the original (sharper, can be choppy); audio only: no video, only the audio (exactly where the cursor is), with a small popup (a gap session: by itself)">Video <select id="teVideoSel"><option value="fast">FAST</option><option value="original">original</option><option value="audio">audio only</option></select></label>
     <span id="teVideoWarn" class="te-vwarn" style="display:none">&#9888; choppy</span>
@@ -1305,9 +1305,9 @@
   var flowOpts = { files: false, disabled: false };
   try { var savedFlow = JSON.parse(localStorage.getItem("fstFlowOpts2") || "null"); if (savedFlow) for (var fk in flowOpts) if (typeof savedFlow[fk] === "boolean") flowOpts[fk] = savedFlow[fk]; } catch (e) { }
   var flowFocus = null, flowFocusDir = "up", flowZoom = 1, flowLastKey = null;
-  var flowCounts = {};   // (the number of items of each transcription / translation: "transcription:x" -> { n, done })   // (focus: "up" = what it needs, "down" = what uses it)
+  var flowCounts = {};   // (the number of items of each track: "track:x" -> { n, done })   // (focus: "up" = what it needs, "down" = what uses it)
   // (transcriptions and translations: the same icon, timed items with text; the tooltip of the box says which one)
-  var FLOW_ICONS = { video: "🎬", audio: "♪", transcription: "💬", translation: "💬", file: "📄", sources: "?" };
+  var FLOW_ICONS = { video: "🎬", audio: "♪", track: "💬", file: "📄", sources: "?" };
 
   // The state of a worker of the graph (from its task in the tree)
   function flowWorkerStatus(w) {
@@ -1564,7 +1564,7 @@
         var dd = n.d;
         var dtip = dd.kind + ": " + dd.name + (n.avail === "input" ? "\n(an input of the scene: produced by no worker)" : n.avail === "yes" ? "\n(available)" : "\n(not produced yet)") +
           (dd.kind === "sources" ? "\n(nothing in this configuration matches this rule)" : "");
-        // Internal (in the .wipsubtitles: audio, transcription, translation): a rounded pill.
+        // Internal (in the .wipsubtitles: audio, track): a rounded pill.
         // External (on disk: the video, the files): a 'document', square with a folded corner.
         var external = dd.kind === "file" || dd.kind === "video";
         var shape = external
@@ -1620,7 +1620,7 @@
     });
     if (!bestKey) return;
     // (a step: its result instead, the transcription / translation it produces, when it has one)
-    var result = (flow.edges || []).filter(function (e) { return e.from === bestKey && /^(transcription|translation):/.test(e.to); })[0];
+    var result = (flow.edges || []).filter(function (e) { return e.from === bestKey && /^track:/.test(e.to); })[0];
     if (result) bestKey = result.to;
     flowFocus = bestKey; flowFocusDir = "up";
     inspectFlowBox(n.id, bestKey);
@@ -2562,7 +2562,7 @@
     $("fiTitle").textContent = d.title + (flowInspect.loading ? " (reading...)" : "");
     var filter = (flowInspect.search || "").trim().toLowerCase();
     var html = "";
-    // (a step that produced a transcription / translation: 'Redo this step', on the line of its type: done again (what it produced kept
+    // (a step that produced a track (transcription / translation): 'Redo this step', on the line of its type: done again (what it produced kept
     //  as '<id>-OLD'), once the scene is done)
     var redoButton = "";
     if (d.redo && /^w\d+$/.test(flowInspect.key || "")) {
@@ -4396,7 +4396,7 @@
   function setupReviews() {
     var reviews = S.info.reviews;
     if (!reviews.length) {
-      status("The configuration of this scene has no enabled 'TranscriberInteractifReview': there is nothing to review.", true);
+      status("The configuration of this scene has no enabled 'TransformReview': there is nothing to review.", true);
       return false;
     }
     var wanted = S.wantedReview || loadPref("fstTimingReview");
@@ -5247,7 +5247,7 @@
   }
   function checkSpeakersPass() {
     if (S.spk) return true;
-    status("No 'Speakers' pass: 'SpeakerMetadata' and 'OngoingSpeakersMetadata' are not set in the review (TranscriberInteractifReview).", true);
+    status("No 'Speakers' pass: 'SpeakerMetadata' and 'OngoingSpeakersMetadata' are not set in the review (TransformReview).", true);
     return false;
   }
   function toggleSpeaker(name) {

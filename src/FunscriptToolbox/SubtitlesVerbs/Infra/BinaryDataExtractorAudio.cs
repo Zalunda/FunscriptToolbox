@@ -7,7 +7,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     {
         public override BinaryDataType DataType => BinaryDataType.Audio;
 
-        [ConfigDoc("The id of the audio the clips are cut from (an AudioExtractionId, usually \"audio\").")]
+        [ConfigDoc("The id of the audio the clips are cut from (the Id of an audio extraction, usually \"audio\").")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string SourceAudioId { get; internal set; }
 

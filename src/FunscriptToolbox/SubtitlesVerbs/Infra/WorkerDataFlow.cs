@@ -14,13 +14,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public const string Video = "video";
         /// <summary>An audio extraction (PCM in the .wipsubtitles), by its id.</summary>
         public const string Audio = "audio";
-        /// <summary>A transcription, by its id.</summary>
-        public const string Transcription = "transcription";
-        /// <summary>A translation, by its id.</summary>
-        public const string Translation = "translation";
+        /// <summary>A track (what a transcriber / translator produced), by its id.</summary>
+        public const string Track = "track";
         /// <summary>A file next to the video, by its suffix (ex. ".manual-input.srt").</summary>
         public const string File = "file";
-        /// <summary>(input only) Transcription(s) / translation(s) given by a rule, ex. "singlevad-*" (resolved by the graph).</summary>
+        /// <summary>(input only) Track(s) given by their ids, ex. "full-ai,manual-input" (resolved by the graph).</summary>
         public const string Sources = "sources";
     }
 
@@ -95,7 +93,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// (not the aliases: the steps that use one are linked to its source, see Build)
         /// </summary>
         internal static SubtitleWorker[] GetWorkers(SubtitleGeneratorConfig config) =>
-            (config?.Workers ?? Array.Empty<SubtitleWorker>()).Where(w => w != null && !(w is TranscriberAlias)).ToArray();
+            (config?.Workers ?? Array.Empty<SubtitleWorker>()).Where(w => w != null && !(w is TrackAlias)).ToArray();
 
         public static object Build(SubtitleGeneratorConfig config, Func<SubtitleWorker, ITaskNode> getWorkerNode)
         {
@@ -106,18 +104,18 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var dataItems = new Dictionary<string, object>();
             var edges = new List<object>();
 
-            // The transcriptions / translations produced by the workers (for the source rules, ex. "singlevad-*")
+            // The tracks produced by the workers (for the sources, ex. "full-ai,manual-input")
             var producedIds = new List<(string kind, string id)>();
             foreach (var flow in flows)
-                foreach (var output in flow.Outputs.Where(o => o.Kind == DataKind.Transcription || o.Kind == DataKind.Translation))
+                foreach (var output in flow.Outputs.Where(o => o.Kind == DataKind.Track))
                     producedIds.Add((output.Kind, output.Id));
 
             // The enabled aliases: their source (null: they loop)
             var aliasTargets = new Dictionary<string, string>();
-            foreach (var alias in TranscriberAlias.GetAliases(config))
+            foreach (var alias in TrackAlias.GetAliases(config))
             {
-                try { aliasTargets[alias.TranscriptionId] = TranscriberAlias.Resolve(config, alias.TranscriptionId); }
-                catch (InvalidOperationException) { aliasTargets[alias.TranscriptionId] = null; }
+                try { aliasTargets[alias.Id] = TrackAlias.Resolve(config, alias.Id); }
+                catch (InvalidOperationException) { aliasTargets[alias.Id] = null; }
             }
 
             string DataKey(string kind, string id) => $"{kind}:{id}";
@@ -233,19 +231,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var wip = context.WIP;
             if (wip == null)
                 return counts;
-            foreach (var t in wip.Transcriptions.ToArray())
-                counts[$"{DataKind.Transcription}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
-            foreach (var t in wip.Translations.ToArray())
-                counts[$"{DataKind.Translation}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
+            foreach (var t in wip.Tracks.ToArray())
+                counts[$"{DataKind.Track}:{t.Id}"] = new { n = t.Items.Count, done = t.IsFinished };
 
             // The AI cost of each step (its key, ex. "w3"), estimate in $ like the 'costs' report: a pill on its box
             var workers = SceneFlowGraph.GetWorkers(context.Config);
             var outputs = workers.Select(w =>
             {
                 var flowOutputs = w.GetDataFlow().Outputs;
-                return (w,
-                    (IReadOnlyCollection<string>)flowOutputs.Where(o => o.Kind == DataKind.Transcription).Select(o => o.Id).ToHashSet(),
-                    (IReadOnlyCollection<string>)flowOutputs.Where(o => o.Kind == DataKind.Translation).Select(o => o.Id).ToHashSet());
+                return (w, (IReadOnlyCollection<string>)flowOutputs.Where(o => o.Kind == DataKind.Track).Select(o => o.Id).ToHashSet());
             }).ToList();
             var costs = Outputs.SubtitleOutputCostReport.GetAICostByWorker(wip, outputs);
             for (var index = 0; index < workers.Length; index++)
@@ -272,15 +266,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 return InspectWorker(context, workers[index]);
             }
 
-            // A data ("transcription:full-whisper", "translation:...", "audio:...", "file:...")
+            // A data ("track:full-whisper", "audio:...", "file:...")
             var colon = key.IndexOf(':');
             var kind = colon > 0 ? key.Substring(0, colon) : key;
             var id = colon > 0 ? key.Substring(colon + 1) : string.Empty;
             switch (kind)
             {
-                case DataKind.Transcription:
-                case DataKind.Translation:
-                    var container = FindContainer(wip, kind, id);
+                case DataKind.Track:
+                    var container = FindContainer(wip, id);
                     // (the worker that produces it: its screenshots, sent to the AI, can be shown for each item too)
                     var allWorkers = SceneFlowGraph.GetWorkers(config);
                     var producerIndex = Array.FindIndex(allWorkers, w => w.Enabled
@@ -313,10 +306,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var flow = worker.GetDataFlow();
             var sections = new List<object>();
 
-            // Produced: its transcription / translation (the items, with their metadata)
+            // Produced: its track (the items, with their metadata)
             var produced = flow.Outputs
-                .Where(o => o.Kind == DataKind.Transcription || o.Kind == DataKind.Translation)
-                .Select(o => (o, container: FindContainer(wip, o.Kind, o.Id)))
+                .Where(o => o.Kind == DataKind.Track)
+                .Select(o => (o, container: FindContainer(wip, o.Id)))
                 .ToArray();
             var producedItems = produced.Where(p => p.container != null).SelectMany(p => ReadItems(wip, p.container)).ToArray();
 
@@ -456,7 +449,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (rs_images.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // 1. The temporary file of the run (same name as in TranscriberAI)
+            // 1. The temporary file of the run (same name as in TransformAI)
             var backupFilePath = context.GetPotentialVerboseFilePath($"{System.IO.Path.GetFileNameWithoutExtension(filename)}_{extractor.OutputFieldName}_{middleTimeInRightFile:hh\\-mm\\-ss\\-fff}.jpg");
             if (onlyIfAvailable && !System.IO.File.Exists(backupFilePath))
                 return null;
@@ -473,11 +466,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return image;
         }
 
-        private static TimedItemWithMetadataCollection FindContainer(WorkInProgressSubtitles wip, string kind, string id)
+        private static TimedItemWithMetadataCollection FindContainer(WorkInProgressSubtitles wip, string id)
         {
-            return kind == DataKind.Transcription
-                ? (TimedItemWithMetadataCollection)wip.Transcriptions.FirstOrDefault(t => t.Id == id)
-                : wip.Translations.FirstOrDefault(t => t.Id == id);
+            return wip.Tracks.FirstOrDefault(t => t.Id == id);
         }
 
         private static object Section(string name, object[] items, string note) => new { name, items, note };

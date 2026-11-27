@@ -159,25 +159,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 {
                     new SubtitleOutputUsedConfig()
                     {
-                        OutputId = "used-config",
+                        Id = "used-config",
                         CanBeUpdated = true,
                     },
                     //---------------------------------------------------
                     // Audio extraction
                     new AudioExtractorFromVideo()
                     {
-                        AudioExtractionId = "audio"
+                        Id = "audio"
                     },
                     new AudioExtractorFromPcm()
                     {
-                        AudioExtractionId = "audio-clean-waveform",
+                        Id = "audio-clean-waveform",
                         SourceAudioId = "audio",
                         SaveAsFileSuffixe = ".wav",
                         FfmpegParameters = "-af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\"" // <lowpass>,anlmdn,agate=threshold=0.04,<loudnorm>
                     },
                     new SubtitleOutputAsig()
                     {
-                        OutputId = "asig",
+                        Id = "asig",
                         SourceAudioId = "audio",
                         FileSuffix = ".asig",
                         SaveFullFileToo = true
@@ -186,7 +186,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // 'crop=iw/2:ih:0:0': the left eye of a VR video (side by side).
                     new SubtitleOutputFastVideo()
                     {
-                        OutputId = "fast-video",
+                        Id = "fast-video",
                         FileSuffix = ".FAST.mp4",
                         FfmpegParameters = "-vf \"crop=iw/2:ih:0:0,scale=-2:512\" -af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\" -ar 48000 -c:v libx264 -g 1 -c:a aac -b:a 128k -movflags +faststart"
                     },
@@ -195,23 +195,25 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // Full transcription (whisper or AI)
                     new TranscriberAudioFull()
                     {
-                        TranscriptionId = "full-whisper",
+                        Id = "full-whisper",
                         SourceAudioId = "audio",
                         MetadataProduced = "VoiceText",
                         TranscriberTool = transcriberToolPurfviewWhisper,
                     },
-                    new TranslatorGoogleV1API()
+                    new TransformGoogleTranslate()
                     {
-                        TranslationId = "full-whisper_google",
-                        TranscriptionId = "full-whisper",
-                        TargetLanguage = Language.FromString("en"),
+                        Id = "full-whisper_google",
+                        SourceId = "full-whisper",
+                        Produces = "Translation",
+                        Language = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
                     },
-                    new TranslatorAI()
+                    new TransformAI()
                     {
-                        TranslationId = "full-whisper_local-api",
-                        TargetLanguage = Language.FromString("en"),
+                        Id = "full-whisper_local-api",
+                        Produces = "Translation",
+                        Language = Language.FromString("en"),
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator
                         {
@@ -234,13 +236,13 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new SubtitleOutputSrt()
                     {
-                        OutputId = "preliminary-srt",
+                        Id = "preliminary-srt",
                         FileSuffix = ".srt",
                         TextSources = "full-whisper_google"
                     },
                     new TranscriberAudioFullAI()
                     {
-                        TranscriptionId = "full-ai",
+                        Id = "full-ai",
                         SourceAudioId = "audio",
                         Engine = defaultEngine,
                         SystemPrompt = transcriberAudioFullSystemPrompt,
@@ -252,7 +254,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // the subtitles are built from the words. Not used for now (disabled; being tested): a workflow can enable it.
                     new TranscriberAudioFullAIGoogleTranscribe()
                     {
-                        TranscriptionId = "full-transcribe",
+                        Id = "full-transcribe",
                         SourceAudioId = "audio",
                         Engine = googleTranscribeEngine,
                         MetadataProduced = "VoiceText",
@@ -267,20 +269,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         MaxChars = 28,
                         EndPadding = TimeSpan.FromMilliseconds(250)
                     },
-                    new TranslatorGoogleV1API()
+                    new TransformGoogleTranslate()
                     {
-                        TranslationId = "full-ai_google",
-                        TranscriptionId = "full-ai",
-                        TargetLanguage = Language.FromString("en"),
+                        Id = "full-ai_google",
+                        SourceId = "full-ai",
+                        Produces = "Translation",
+                        Language = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
                     },
                     // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings (terrain of the audio, + AI depending
                     // on RefineTiming.Engine), adds the title cards, and flags what needs a look ('[REVIEW:Code:Detail] reason' lines).
                     // Enabled by the workflows (with 'full' using it as its source).
-                    new TranscriberAIManualInputPreparer()
+                    new TransformManualInputPreparer()
                     {
-                        TranscriptionId = "manual-input-preparer",
+                        Id = "manual-input-preparer",
                         Engine = defaultEngine,
                         PrivateMetadataNames = "TimingTrace",
                         Metadatas = new MetadataAggregator()
@@ -380,9 +383,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         }
                     },
                     // (an alias: another name for its source, so that the next steps always use the same name; nothing is copied)
-                    new TranscriberAlias()
+                    new TrackAlias()
                     {
-                        TranscriptionId = "full",
+                        Id = "full",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-whisper, full-ai or manual-input-preparer
                     },
 
@@ -390,7 +393,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // finalizing timings, manual-input and voice-texts clone
                     new SubtitleOutputSrt()
                     {
-                        OutputId = "generated-manual-input-srt",
+                        Id = "generated-manual-input-srt",
                         FileSuffix = ".manual-input.srt",
                         TextSources = "full",
                         AddToFirstSubtitle = "[USER-REVISION-NEEDED] <= remove this line when revision is done\n{OngoingContext:The scene take place in...}\n{OngoingSpeakers:Woman}\nOther metadatas to use in the file:\n- GrabOnScreenText\n- VisualTraining (for visual-analyst)"
@@ -398,9 +401,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     // The review of the manual-input file in the Review editor of the web UI (button 'Review' of the scene), instead of editing
                     // the file by hand (replaces 'generated-manual-input-srt'). Kept in the .wipsubtitles; when the user clicks 'Review done',
                     // the file is written (then imported by 'manual-input'). ReviewNeeded = false: the file is written right away (no review).
-                    new TranscriberInteractifReview()
+                    new TransformReview()
                     {
-                        TranscriptionId = "manual-input-review",
+                        Id = "manual-input-review",
                         FileSuffix = ".manual-input.srt",
                         // (the text of each source: its own metadata, ex. VoiceTextForManualReview for the preparer, with its review warnings.
                         // Several sources, ex. "manual-input-preparer,full-ai_google": each one is under a line with its name)
@@ -422,21 +425,21 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         SpeakerMetadata = "Speaker",
                         OngoingSpeakersMetadata = "OngoingSpeakers"
                     },
-                    new TranscriberImportMetadatas()
+                    new InputImportMetadatas()
                     {
-                        TranscriptionId = "manual-input",
+                        Id = "manual-input",
                         FileSuffix = ".manual-input.srt",
                         CanBeUpdated = true,
                         ProcessOnlyWhenStringIsRemoved = "[USER-REVISION-NEEDED]",
                     },
-                    new TranscriberClone()
+                    new TransformClone()
                     {
-                        TranscriptionId = "timings",
+                        Id = "timings",
                         SourceId = "manual-input"
                     },
-                    new TranscriberAI()
+                    new TransformAI()
                     {
-                        TranscriptionId = "on-screen-texts",
+                        Id = "on-screen-texts",
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
@@ -462,9 +465,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             FieldsToInclude = NodeFields.StartTime
                         }
                     },
-                    new TranscriberAI()
+                    new TransformAI()
                     {
-                        TranscriptionId = "singlevad-ai",
+                        Id = "singlevad-ai",
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
@@ -495,9 +498,9 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
-                    new TranscriberAI()
+                    new TransformAI()
                     {
-                        TranscriptionId = "singlevad-ai-refined",
+                        Id = "singlevad-ai-refined",
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
@@ -553,33 +556,19 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             }
                         }
                     },
-                    new TranscriberAlias()
+                    new TrackAlias()
                     {
-                        TranscriptionId = "voice-texts",
+                        Id = "voice-texts",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be full-ai or singlevad-ai or singlevad-ai-refined
                     },
 
                     //---------------------------------------------------
-                    // Use timings, manual-input and voice-texts to do all the rest of the tasks
-                    new TranscriberAudioMergedVAD()
-                    {
-                        TranscriptionId = "mergedvad",
-                        SourceAudioId = "audio",
-                        Metadatas = new MetadataAggregator()
-                        {
-                            TimingsSource = "timings",
-                            Sources = "manual-input"
-                        },
-                        MetadataProduced = "VoiceText",
-                        TranscriberTool = transcriberToolPurfviewWhisper
-                    },
-
-                    //---------------------------------------------------
                     // Use timings, manual-input, voice-texts and AI-generated metadatas to the translations and final arbitration
-                    new TranslatorAI()
+                    new TransformAI()
                     {
-                        TranslationId = "translated-texts_maverick",
-                        TargetLanguage = Language.FromString("en"),
+                        Id = "translated-texts_maverick",
+                        Produces = "Translation",
+                        Language = Language.FromString("en"),
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator()
                         {
@@ -608,10 +597,11 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             FieldsToInclude = NodeFields.StartTime | NodeFields.EndTime
                         }
                     },
-                    new TranslatorSubtitleConformer()
+                    new TransformSubtitleConformer()
                     {
-                        TranslationId = "finalized_maverick",
-                        TargetLanguage = Language.FromString("en"),
+                        Id = "finalized_maverick",
+                        Produces = "Translation",
+                        Language = Language.FromString("en"),
                         MetadataSpeaker = "Speaker",
                         Metadatas = new MetadataAggregator()
                         {
@@ -628,14 +618,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MetadataAlwaysProduced = "TranslatedText",
                         }
                     },
-                    new TranscriberAlias()
+                    new TrackAlias()
                     {
-                        TranscriptionId = "final-ai-texts",
+                        Id = "final-ai-texts",
                         SourceId = "NEED-TO-BE-OVERRIDED" // Should be finalized_maverick
                     },
                     new SubtitleOutputSrt()
                     {
-                        OutputId = "final-ai-srt",
+                        Id = "final-ai-srt",
                         TextSources = "final-ai-texts",
                         FileSuffix = ".final-ai.srt",
                         ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
@@ -644,7 +634,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new SubtitleOutputSrt()
                     {
-                        OutputId = "final-ai-debug-srt",
+                        Id = "final-ai-debug-srt",
                         FileSuffix = ".final-ai-debug.srt",
                         Metadatas = new MetadataAggregator()
                         {
@@ -656,7 +646,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     },
                     new SubtitleOutputCostReport()
                     {
-                        OutputId = "costs",
+                        Id = "costs",
                         FileSuffix = ".cost.txt",
                         OutputToConsole = false,
                         CanBeUpdated = true
@@ -664,15 +654,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     //---------------------------------------------------
                     // Potential 'Learning' workflow
-                    new TranscriberImportText
+                    new InputImportText
                     {
-                        TranscriptionId = "final-user-texts",
+                        Id = "final-user-texts",
                         FileSuffix = ".final-user.srt",
                         MetadataProduced = "FinalText"
                     },
                     new SubtitleOutputSrt()
                     {
-                        OutputId = "learning-srt",
+                        Id = "learning-srt",
                         FileSuffix = ".learning.srt",
                         Metadatas = new MetadataAggregator()
                         {

@@ -76,7 +76,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             public SubtitleGeneratorConfigWithSources Loaded { get; set; }
             public object[] Sources { get; set; }
             public Node Tree { get; set; }
-            /// <summary>The id of the worker in the files (its 'TranscriptionId', 'OutputId'...: the key of its entry in 'Workers').</summary>
+            /// <summary>The id of the worker in the files (its 'Id': the key of its entry in 'Workers').</summary>
             public string WorkerId { get; set; }
             public string Error { get; set; }
             /// <summary>The objects that can be chosen for the properties of the tree (see Node.ObjectChoices).</summary>
@@ -152,7 +152,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var loadedWorkers = loaded.Config?.Workers;
             if (loadedWorkers != null && mergedWorkers != null && loadedWorkers.Length == mergedWorkers.Count)
             {
-                var found = Array.FindIndex(loadedWorkers, w => w != null && w.GetType() == runningWorker.GetType() && w.DisplayName == runningWorker.DisplayName);
+                // (by its Id: its name in the web UI can change with the files, ex. 'Produces')
+                var found = Array.FindIndex(loadedWorkers, w => w != null && w.GetType() == runningWorker.GetType() && w.Id == runningWorker.Id);
                 if (found >= 0)
                 {
                     workerObject = loadedWorkers[found];
@@ -161,8 +162,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             else if (mergedWorkers != null)
             {
-                // (the configuration can't be read: the worker is found in the merged files by its name)
-                workerJson = mergedWorkers.OfType<JObject>().FirstOrDefault(w => runningWorker.DisplayName.EndsWith($" '{GetItemLabel(w)}'"));
+                // (the configuration can't be read: the worker is found in the merged files by its Id)
+                workerJson = mergedWorkers.OfType<JObject>().FirstOrDefault(w => GetItemLabel(w) == runningWorker.Id);
             }
             if (workerJson == null)
             {
@@ -218,7 +219,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>Writes a change in a '.override.user.config' (see ChangeValue).</summary>
         private static class SceneConfigWriter
         {
-            private static readonly string[] rs_workerIdKeys = { "Id", "TranscriptionId", "TranslationId", "AudioExtractionId", "OutputId" };
+            private static readonly string[] rs_workerIdKeys = { "Id" };
 
             /// <param name="load">Reads the tree again (the one of the step, or the whole configuration).</param>
             /// <param name="isWhole">The whole configuration of the scene: the path starts at its root.</param>
@@ -598,7 +599,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>The name of an item of an array (a worker, an extractor...), from its id.</summary>
         private static string GetItemLabel(JObject item)
         {
-            foreach (var key in new[] { "TranslationId", "TranscriptionId", "AudioExtractionId", "OutputId", "Id", "OutputFieldName", "$id", "$ref" })
+            foreach (var key in new[] { "Id", "OutputFieldName", "$id", "$ref" })
             {
                 var value = item.Property(key, StringComparison.OrdinalIgnoreCase)?.Value;
                 if (value != null && value.Type == JTokenType.String && !string.IsNullOrEmpty((string)value))

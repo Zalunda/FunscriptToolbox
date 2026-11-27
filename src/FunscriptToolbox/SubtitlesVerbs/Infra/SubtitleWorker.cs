@@ -12,24 +12,44 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class SubtitleWorker
     {
+        [ConfigDoc("The id of the step: the other steps use what it produces with this id (ex. in Metadatas.Sources), and an override file uses it to change this step.\n" +
+            "What it produces is kept in the .wipsubtitles under this id: a new id = done again from the start.")]
+        [JsonProperty(Order = 1, Required = Required.Always)]
+        public string Id { get; set; }
+
         [ConfigDoc("false: the step is skipped (and the steps that need what it produces wait). The main configuration defines the steps disabled; each workflow override enables the ones it uses.")]
-        [JsonProperty(Order = 2)] // Order = 1 is the Id
+        [JsonProperty(Order = 2)]
         public bool Enabled { get; set; } = false;
+
+        [ConfigDoc("What the step produces, as shown in the web UI and the logs: '<Produces> '<Id>'' (ex. \"Translation\", \"Analysis & Translation\"). null: the name of its kind of step (ex. \"Transcription\").")]
+        [JsonProperty(Order = 3)]
+        public string Produces { get; set; }
+
+        [ConfigDoc("What the step does, in the logs: '<Verb> '<Id>'...' (ex. \"Translating\"). null: the verb of its kind of step (ex. \"Transcribing\").")]
+        [JsonProperty(Order = 4)]
+        public string Verb { get; set; }
 
         [ConfigDoc("true: the step runs again each time the scene is processed, even when it's already done (ex. an output file written again with the latest data).",
             Advice = "Leave false. Set it to true temporarily to see the effect of a change on a step that is already done (or use 'Redo this step' in the Flow view).")]
         [JsonProperty(Order = 5)]
         public bool CanBeUpdated { get; set; } = false;
 
-        protected abstract string GetId();
-        protected abstract string GetWorkerTypeName();
-        protected abstract string GetExecutionVerb();
+        protected string GetId() => this.Id;
+
+        /// <summary>The name of the kind of step (when Produces is not set), ex. "Transcription".</summary>
+        protected abstract string GetDefaultProduces();
+
+        /// <summary>The verb of the kind of step (when Verb is not set), ex. "Transcribing".</summary>
+        protected abstract string GetDefaultVerb();
+
+        private string GetProducesLabel() => string.IsNullOrWhiteSpace(this.Produces) ? GetDefaultProduces() : this.Produces;
+        private string GetVerbLabel() => string.IsNullOrWhiteSpace(this.Verb) ? GetDefaultVerb() : this.Verb;
 
         /// <summary>False: the worker is not run and has no task (ex. an alias, only a name resolved when it's used).</summary>
         internal virtual bool IsTask => true;
 
         /// <summary>How the worker is shown in the task tree of the web UI.</summary>
-        internal string DisplayName => $"{GetWorkerTypeName()} '{GetId()}'";
+        internal string DisplayName => $"{GetProducesLabel()} '{GetId()}'";
 
         /// <summary>What the worker uses and produces (the 'Flow' view of the web UI).</summary>
         internal WorkerDataFlow GetDataFlow()
@@ -61,7 +81,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             //  "Skipped: ...: already done", "Blocked: ...: reason". The same messages here only go in the log file)
             if (!IsPrerequisitesMet(context, out var reasonPrerequisites))
             {
-                context.WriteLog($"{GetWorkerTypeName()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
+                context.WriteLog($"{GetProducesLabel()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
                 node.SetState(TaskState.Blocked, reasonPrerequisites);
                 context.AddBlockedWorker(DisplayName);
                 return;
@@ -90,7 +110,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             if (needsToRun)
             {
                 var added = reasonNeedsToRun != null ? $" ({reasonNeedsToRun})" : string.Empty;
-                context.WriteLog($"{GetExecutionVerb()} '{GetId()}'...{added}");
+                context.WriteLog($"{GetVerbLabel()} '{GetId()}'...{added}");
                 if (reasonNeedsToRun != null)
                     context.WriteInfo($"Done again: {reasonNeedsToRun}.");
                 var watch = Stopwatch.StartNew();
@@ -113,13 +133,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     // (not an error: the user asked for it, like a pause of the scene)
                     node.SetState(TaskState.Cancelled, "stopped by the user");
-                    context.WriteInfo($"{GetWorkerTypeName()} '{GetId()}' stopped by the user: what was already received is kept, it continues at the next run (Retry or Rescan).", ConsoleColor.Yellow);
+                    context.WriteInfo($"{GetProducesLabel()} '{GetId()}' stopped by the user: what was already received is kept, it continues at the next run (Retry or Rescan).", ConsoleColor.Yellow);
                     context.WriteLog(ex.ToString());
                 }
                 catch (Exception ex)
                 {
                     node.Fail(null);
-                    context.WriteError($"An error occured while {GetExecutionVerb().ToLower()} '{GetId()}':\n{ex.Message}");
+                    context.WriteError($"An error occured while {GetVerbLabel().ToLower()} '{GetId()}':\n{ex.Message}");
                     context.WriteLog(ex.ToString());
                 }
                 finally
@@ -129,7 +149,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             else
             {
-                context.WriteLog($"{GetWorkerTypeName()} '{GetId()}' has already been done.");
+                context.WriteLog($"{GetProducesLabel()} '{GetId()}' has already been done.");
                 foreach (var line in GetAdditionalStatusLines(context))
                 {
                     context.WriteInfoAlreadyDone(line);

@@ -40,9 +40,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 5)]
         public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
 
-        public override TranscribedItem[] TranscribeAudio(
+        public override TimedItemWithMetadata[] TranscribeAudio(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             PcmAudio[] items,
             string metadataProduced)
         {
@@ -53,9 +53,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 metadataProduced);
         }
 
-        private TranscribedItem[] TranscribeAudioInternal(
+        private TimedItemWithMetadata[] TranscribeAudioInternal(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             PcmAudio[] audios,
             string metadataProduced)
         {
@@ -73,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                 var tempFiles = new List<string>();
                 var processStartTime = DateTime.Now;
                 var fullSrtTempFile = context.GetPotentialVerboseFilePath($"{transcription.Id}_all.srt", processStartTime);
-                var transcribedItems = new List<TranscribedItem>();
+                var transcribedItems = new List<TimedItemWithMetadata>();
 
                 try
                 {
@@ -231,7 +231,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                                         currentText.EndsWith("!"))
                                     {
                                         transcribedItems.Add(
-                                            new TranscribedItem(
+                                            new TimedItemWithMetadata(
                                                 currentStartTime.Value,
                                                 word.EndTime,
                                                 MetadataCollection.CreateSimple(metadataProduced, currentText)));

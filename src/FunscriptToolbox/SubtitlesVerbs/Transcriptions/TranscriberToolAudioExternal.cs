@@ -21,9 +21,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         [JsonProperty(Order = 21)]
         public string OverrideFileSuffixe { get; set; } = null;
 
-        public override TranscribedItem[] TranscribeAudio(
+        public override TimedItemWithMetadata[] TranscribeAudio(
             SubtitleGeneratorContext context,
-            Transcription transcription,
+            Track transcription,
             PcmAudio[] audios,
             string metadataProduced)
         {
@@ -56,14 +56,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             else
             {
                 var costsList = new List<Cost>();
-                var transcribedItems = new List<TranscribedItem>();
+                var transcribedItems = new List<TimedItemWithMetadata>();
                 foreach (var (wavFilename, srtFilename, audio) in namedItems)
                 {
                     var watch = Stopwatch.StartNew();
                     var subtitlesFile = SubtitleFile.FromSrtFile(srtFilename);
                     transcribedItems.AddRange(subtitlesFile
                         .Subtitles
-                        .Select(subtitle => new TranscribedItem(
+                        .Select(subtitle => new TimedItemWithMetadata(
                             audio.Offset + subtitle.StartTime,
                             audio.Offset + subtitle.EndTime,
                             MetadataCollection.CreateSimple(metadataProduced, subtitle.Text))));

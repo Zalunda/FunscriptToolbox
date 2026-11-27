@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     /// <summary>
     /// The data of the 'Timing' editor of the web UI, for a scene (see <see cref="ITimingEditor"/>).
     /// What can be edited comes from the configuration of the scene:
-    /// - the reviews: the ones of the enabled 'TranscriberInteractifReview' (their subtitles are in the job state of their transcription,
+    /// - the reviews: the ones of the enabled 'TransformReview' (their subtitles are in the job state of their transcription,
     ///   in the .wipsubtitles; the file, ex. '.manual-input.srt', is written by the worker when the review is done),
     /// - the terrain settings: the ones of the enabled 'TranscriberAIManualInputPreparer' that refine the timings (for their audio).
     /// The context of the scene is read each time (the scene can be loaded again, ex. 'Retry').
@@ -43,14 +43,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         // ---- What can be edited / played ----
 
-        private IEnumerable<TranscriberInteractifReview> GetReviewWorkers()
+        private IEnumerable<TransformReview> GetReviewWorkers()
             => (Config.Workers ?? Array.Empty<SubtitleWorker>())
-                .OfType<TranscriberInteractifReview>()
+                .OfType<TransformReview>()
                 .Where(w => w.Enabled);
 
-        private IEnumerable<TranscriberAIManualInputPreparer> GetTerrainWorkers()
+        private IEnumerable<TransformManualInputPreparer> GetTerrainWorkers()
             => (Config.Workers ?? Array.Empty<SubtitleWorker>())
-                .OfType<TranscriberAIManualInputPreparer>()
+                .OfType<TransformManualInputPreparer>()
                 .Where(w => w.Enabled && w.RefineTiming?.Enabled == true && !string.IsNullOrEmpty(w.RefineTiming.SourceAudioIdForTerrain));
 
         /// <summary>The parts of the scene, with known durations (otherwise the subtitles can't be placed in the time of the scene).</summary>
@@ -64,9 +64,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             return map.Segments;
         }
 
-        private TranscriberInteractifReview GetReviewWorker(string reviewId)
-            => GetReviewWorkers().FirstOrDefault(w => w.TranscriptionId == reviewId)
-                ?? throw new TimingEditorException($"'{reviewId}' is not a review of this scene (TranscriberInteractifReview).");
+        private TransformReview GetReviewWorker(string reviewId)
+            => GetReviewWorkers().FirstOrDefault(w => w.Id == reviewId)
+                ?? throw new TimingEditorException($"'{reviewId}' is not a review of this scene (TransformReview).");
 
         private AudioExtraction[] GetAudioExtractions(WorkInProgressSubtitles wip)
         {
@@ -115,11 +115,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 lightVideoSuffix = LightVideoSuffix,
                 reviews = GetReviewWorkers().Select(w =>
                 {
-                    TranscriberInteractifReview.JobState jobState = null;
+                    TransformReview.JobState jobState = null;
                     wip.ExecuteLocked(() => jobState = w.GetJobState(wip));
                     return new
                     {
-                        id = w.TranscriptionId,
+                        id = w.Id,
                         worker = w.DisplayName,
                         fileSuffix = w.FileSuffix,
                         state = jobState == null ? "not started" : jobState.IsDone ? "done" : "to review"
@@ -176,10 +176,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         private static string KeyOf(TimeSpan start, TimeSpan end) => $"{(long)start.TotalMilliseconds}-{(long)end.TotalMilliseconds}";
 
-        private static string StampOf(TranscriberInteractifReview.JobState jobState) => $"v{jobState.Version}";
+        private static string StampOf(TransformReview.JobState jobState) => $"v{jobState.Version}";
 
         /// <summary>Changes the job state of a review (not done), then saves the .wipsubtitles.</summary>
-        private T ChangeReview<T>(string reviewId, Func<TranscriberInteractifReview.JobState, T> change)
+        private T ChangeReview<T>(string reviewId, Func<TransformReview.JobState, T> change)
         {
             var wip = Wip;
             var worker = GetReviewWorker(reviewId);
@@ -234,9 +234,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     speakersConfig = worker.HasSpeakersPass
                         ? new { speaker = worker.SpeakerMetadata, ongoing = worker.OngoingSpeakersMetadata }
                         : null,
-                    speakers = (jobState.Speakers ?? new List<TranscriberInteractifReview.ReviewSpeaker>()).Select(sp => new { name = sp.Name, alias = sp.Alias, image = sp.Image }).ToArray(),
+                    speakers = (jobState.Speakers ?? new List<TransformReview.ReviewSpeaker>()).Select(sp => new { name = sp.Name, alias = sp.Alias, image = sp.Image }).ToArray(),
                     // (the parts listened to, to validate the gaps)
-                    gaps = (jobState.ValidatedGaps ?? new List<TranscriberInteractifReview.ReviewTimeRange>())
+                    gaps = (jobState.ValidatedGaps ?? new List<TransformReview.ReviewTimeRange>())
                         .Select(r => new { s = (long)r.Start.TotalMilliseconds, e = (long)r.End.TotalMilliseconds }).ToArray(),
                     subtitles = jobState.Items.OrderBy(i => i.StartTime).Select(i => new
                     {
@@ -272,7 +272,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     throw new TimingEditorException($"Invalid range: {r?.S}-{r?.E} ms.");
             }
             // (sorted, the ones that touch / overlap merged)
-            var merged = new List<TranscriberInteractifReview.ReviewTimeRange>();
+            var merged = new List<TransformReview.ReviewTimeRange>();
             foreach (var r in ranges.OrderBy(r => r.S))
             {
                 var last = merged.LastOrDefault();
@@ -283,7 +283,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 }
                 else
                 {
-                    merged.Add(new TranscriberInteractifReview.ReviewTimeRange { Start = TimeSpan.FromMilliseconds(r.S), End = TimeSpan.FromMilliseconds(r.E) });
+                    merged.Add(new TransformReview.ReviewTimeRange { Start = TimeSpan.FromMilliseconds(r.S), End = TimeSpan.FromMilliseconds(r.E) });
                 }
             }
             ChangeReview(reviewId, jobState => jobState.ValidatedGaps = merged);
@@ -325,8 +325,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 throw new TimingEditorException("No list of speakers received.");
             foreach (var speaker in speakers)
             {
-                var error = TranscriberInteractifReview.GetSpeakerNameError(speaker?.Name)
-                    ?? (string.IsNullOrWhiteSpace(speaker.Alias) ? null : TranscriberInteractifReview.GetSpeakerNameError(speaker.Alias))
+                var error = TransformReview.GetSpeakerNameError(speaker?.Name)
+                    ?? (string.IsNullOrWhiteSpace(speaker.Alias) ? null : TransformReview.GetSpeakerNameError(speaker.Alias))
                     ?? GetSpeakerImageError(speaker.Name, speaker.Image);
                 if (error != null)
                     throw new TimingEditorException(error);
@@ -337,7 +337,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     throw new TimingEditorException($"Invalid timing: {TimeSpan.FromMilliseconds(sub.S):hh\\:mm\\:ss\\.fff} to {TimeSpan.FromMilliseconds(sub.E):hh\\:mm\\:ss\\.fff}.");
                 // (a line break in a line: they are separate lines in the file. A subtitle without text, or with empty lines,
                 // is read back the same way, see SubtitleFile.FromSrtFile)
-                sub.Lines = TranscriberInteractifReview.SplitLines(sub.Lines);
+                sub.Lines = TransformReview.SplitLines(sub.Lines);
             }
 
             return ChangeReview(reviewId, jobState =>
@@ -347,7 +347,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
                 // (finalized or not comes with the subtitles: a finalized subtitle stays finalized when it's moved;
                 // not sent, ex. an older page: what was saved for the same timing)
-                var saved = new Dictionary<string, TranscriberInteractifReview.ReviewItem>();
+                var saved = new Dictionary<string, TransformReview.ReviewItem>();
                 foreach (var item in jobState.Items)
                     saved[KeyOf(item.StartTime, item.EndTime)] = item;
                 jobState.Items = subtitles
@@ -357,7 +357,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         var start = TimeSpan.FromMilliseconds(s.S);
                         var end = TimeSpan.FromMilliseconds(s.E);
                         saved.TryGetValue(KeyOf(start, end), out var before);
-                        return new TranscriberInteractifReview.ReviewItem
+                        return new TransformReview.ReviewItem
                         {
                             StartTime = start,
                             EndTime = end,
@@ -369,7 +369,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     .ToList();
                 jobState.Speakers = speakers
                     .GroupBy(sp => sp.Name.Trim(), StringComparer.OrdinalIgnoreCase)
-                    .Select(g => new TranscriberInteractifReview.ReviewSpeaker
+                    .Select(g => new TransformReview.ReviewSpeaker
                     {
                         Name = g.Key,
                         Alias = string.IsNullOrWhiteSpace(g.First().Alias) ? null : g.First().Alias.Trim(),

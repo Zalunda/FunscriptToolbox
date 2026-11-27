@@ -31,7 +31,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.AudioExtractions
         protected override void DoWork(
             SubtitleGeneratorContext context)
         {
-            var audioExtraction = context.WIP.AudioExtractions.First(t => t.Id == this.AudioExtractionId);
+            var audioExtraction = context.WIP.AudioExtractions.First(t => t.Id == this.Id);
             var mergedPcmStream = new MemoryStream();
 
             // The initial TimelineMap only has filenames. We now populate the durations, while accumulating the PcmAudioData

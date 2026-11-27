@@ -73,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return true;
         }
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Transcription transcription)
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var processStartTime = DateTime.Now;
 
@@ -246,7 +246,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             return new AIRequest(
                 processStartTime,
                 requestNumber,
-                this.TranscriptionId,
+                this.Id,
                 null,
                 systemParts,
                 userParts,
@@ -263,7 +263,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private void HandleResponse(
                    SubtitleGeneratorContext context,
-                   Transcription transcription,
+                   Track transcription,
                    AIResponse response,
                    TimeSpan chunkStartTime,
                    TimeSpan chunkEndTime,
@@ -296,7 +296,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
                     if (responseArray == null) throw new Exception("Parsed JSON resulted in null.");
 
-                    var pendingItems = new List<TranscribedItem>();
+                    var pendingItems = new List<TimedItemWithMetadata>();
                     foreach (var segment in responseArray)
                     {
                         if (!(segment is JObject segmentObj))
@@ -359,7 +359,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
                         var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(p => p.Regex.IsMatch(voiceText));
                         if (pattern == null)
                         {
-                            pendingItems.Add(new TranscribedItem(
+                            pendingItems.Add(new TimedItemWithMetadata(
                                 startTime,
                                 endTime,
                                 extraMetadatas));
