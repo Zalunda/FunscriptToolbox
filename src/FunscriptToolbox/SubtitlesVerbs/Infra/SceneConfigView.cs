@@ -239,6 +239,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     throw new ConfigChangeException("This property has no objects to choose from.");
                 if (leaf.Kind != "val" && !request.IsObjectChange && !request.IsNull && !request.Remove)
                     throw new ConfigChangeException("Choose an object (a shared object, or a new one).");
+                if (leaf.IsKey == true)
+                    throw new ConfigChangeException($"'{leaf.Name}' is how the override files find this item: it can't be changed here (to rename it: in every file that has it).");
                 if (leaf.Unused == true && !request.Remove)
                     throw new ConfigChangeException("This setting is not used (no class has it): it can only be removed.");
 
@@ -654,6 +656,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             /// <summary>The object is defined here with an '$id' (it can be used elsewhere with a '$ref').</summary>
             [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
             public string Id { get; set; }
+
+            /// <summary>
+            /// The key of its item for the override files (ex. the 'Id' of a step): every file that changes the item repeats it, so it's
+            /// not an override (no history; its level: the file that defines the item), and it can't be changed in the web UI.
+            /// </summary>
+            [JsonProperty("key", NullValueHandling = NullValueHandling.Ignore)]
+            public bool? IsKey { get; set; }
 
             /// <summary>The values it replaced, the oldest first.</summary>
             [JsonProperty("h", NullValueHandling = NullValueHandling.Ignore)]
@@ -1126,9 +1135,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (jsonProperty == null && property.ShouldSerialize != null && !property.ShouldSerialize(obj))
                         continue;
                     var value = obj == null ? null : property.ValueProvider.GetValue(obj);
-                    node.Children.Add(WithDoc(Build(jsonProperty?.Name ?? property.PropertyName, jsonProperty?.Value, value, property.PropertyType, depth + 1), property));
+                    var child = WithDoc(Build(jsonProperty?.Name ?? property.PropertyName, jsonProperty?.Value, value, property.PropertyType, depth + 1), property);
+                    if (IsItemKey(obj?.GetType() ?? contract.UnderlyingType, property.PropertyName) && child.Kind == "val")
+                    {
+                        // (repeated by every file that changes the item: where the item is defined, not a chain of overrides)
+                        child.IsKey = true;
+                        child.Level = child.History?.FirstOrDefault()?.Level ?? child.Level;
+                        child.History = null;
+                    }
+                    node.Children.Add(child);
                 }
                 AddUnusedProperties(node, json, used, depth);
+            }
+
+            /// <summary>The keys of the items for the override files (see SubtitleGeneratorConfigLoader, the merge rules of the arrays).</summary>
+            private static bool IsItemKey(Type itemType, string propertyName)
+            {
+                return itemType != null
+                    && ((typeof(SubtitleWorker).IsAssignableFrom(itemType) && propertyName == nameof(SubtitleWorker.Id))
+                        || (typeof(BinaryDataExtractor).IsAssignableFrom(itemType) && propertyName == nameof(BinaryDataExtractor.OutputFieldName)));
             }
 
             private void BuildDictionary(Node node, JObject json, IDictionary obj, JsonDictionaryContract contract, int depth)

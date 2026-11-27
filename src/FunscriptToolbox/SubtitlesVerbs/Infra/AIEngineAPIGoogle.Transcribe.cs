@@ -52,7 +52,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //       3. RecoverMissedChunkOverlap (TranscriberAudioFullAIGoogleTranscribe.RebuildItems): the subtitles of chunk 1 in the overlap
     //          are taken as they are, because chunk 2 has nothing there, including the cut one (wrong end, text cut).
     //     What should happen: the blackout is detected and kept as such (a 'hole': its start / end, in the job state), the subtitles
-    //     recovered from the previous chunk in it are suspicious (at least the first one, cut by the end of the chunk) and are not
+    //     recovered from the previous chunk in it are suspicious (at least the last one, cut by the end of the chunk) and are not
     //     trusted as is: retry the blackout (a request centered on it, not starting at its start) and/or flag them (ex. a metadata
     //     for the review). The hole retry (RetryGapMinDuration) only sees the gaps between the subtitles after the recovery: a
     //     blackout filled by suspicious recovered subtitles is not seen as a hole.

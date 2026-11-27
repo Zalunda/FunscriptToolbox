@@ -1952,6 +1952,7 @@
     if (n.ref) lines.push(n.refo ? "The shared object '" + n.ref + "', with values changed for this step only (a '$ref' with other properties)." : "The shared object '" + n.ref + "' (a '$ref'): its values are the ones of the shared object.");
     if (n.id) lines.push("Defines the shared object '" + n.id + "' (it can be used elsewhere with a '$ref').");
     if (n.u) lines.push("No class has this setting: it is ignored when the configuration is read (a typo, a setting at the wrong place, or an old setting).");
+    if (n.key) lines.push("How the override files find this item (each file that changes it repeats it): not an override, and it can't be changed here (to rename it: in every file that has it).");
     if (n.h && n.h.length) {
       lines.push("", "It replaced (the oldest first):");
       n.h.forEach(function (h) { lines.push("  " + h.lv + ": " + h.v); });
@@ -2064,8 +2065,8 @@
     // A value (or the object of a property that has choices: another shared object, a new object): it can be changed (written in a
     // .override.user.config), unless it's in a list (a list is replaced as a whole)
     // (the whole configuration of the scene: a value is written in its 'parent', the step / shared object it's in, or at the root;
-    // an item of 'Workers' / 'SharedObjects' itself can't be replaced)
-    if ((!isContainer || n.oc) && !ctx.isItem) {
+    // an item of 'Workers' / 'SharedObjects' itself can't be replaced; nor the key of an item, ex. the 'Id' of a step: n.key)
+    if ((!isContainer || n.oc) && !ctx.isItem && !n.key) {
       var info = { node: n, segs: ctx.segs, ref: ctx.ref, stepOk: !ctx.arrAny, sharedOk: !!ctx.ref && !ctx.arrSinceRef, parent: ctx.parent };
       flowConfig.rows[path] = info;
       if (info.stepOk || info.sharedOk)
