@@ -17,27 +17,40 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public bool IsAPIKeyAvailableIfNeeded(SubtitleGeneratorContext context) => (this.APIKeyName == null || context.GetPrivateConfig(this.APIKeyName) != null);
 
+        [ConfigDoc("The root address of the API (ex. \"https://generativelanguage.googleapis.com/v1beta\", \"https://api.poe.com/v1\", \"http://localhost:10000/v1\" for a local server).")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string BaseAddress { get; set; } = "http://localhost:10000";
 
+        [ConfigDoc("The name of the model, as the provider writes it (ex. \"gemini-2.5-pro\", \"claude-opus-5\", \"GPT-5\" on Poe).")]
         [JsonProperty(Order = 11, Required = Required.Always)]
         public string Model { get; set; }
 
+        [ConfigDoc("Checks that the answer comes from the model asked for (an error otherwise).",
+            Advice = "Useful with a local server (ex. LM Studio), which can answer with another model than the one asked for.")]
         [JsonProperty(Order = 12)]
         public bool ValidateModelNameInResponse { get; set; } = false;
 
+        [ConfigDoc("The name of the API key in '--FSTB-SubtitleGenerator.private.config' (ex. \"APIKeyGemini\"). null: no key (ex. a local server).\n" +
+            "When the key is not in the private config, an AIEngineCollection skips this engine.")]
         [JsonProperty(Order = 13)]
         public string APIKeyName { get; set; }
 
+        [ConfigDoc("JSON added as is to the body of each request: the settings of the provider that have no setting here (ex. Google: \"safetySettings\", \"generationConfig\" with \"thinkingConfig\" / \"mediaResolution\"; " +
+            "Anthropic: \"max_tokens\" (required), \"thinking\"; Poe: \"extra_body\").",
+            Advice = "See the API documentation of the provider for the names. Google: \"temperature\" / \"maxOutputTokens\" must be inside \"generationConfig\" (at the top level, the request is rejected).")]
         [JsonProperty(Order = 14, TypeNameHandling = TypeNameHandling.None)]
         public ExpandoObject RequestBodyExtension { get; set; }
 
+        [ConfigDoc("How long to wait for the answer of one request (not used for the wait of a batch, see UseBatchMode).")]
         [JsonProperty(Order = 15)]
         public TimeSpan TimeOut { get; set; } = TimeSpan.FromMinutes(15);
 
+        [ConfigDoc("The price of 1 million input tokens ($), for the costs shown in the web UI and in the .cost.txt. Only an estimate: the real bill is the one of the provider.",
+            Advice = "Take the price on the page of the provider (with Poe, the price of the vendor is a good approximation). The batch discount is applied by UseBatchModeSaving: put the normal price here.")]
         [JsonProperty(Order = 16)]
         public double EstimatedCostPerInputMillionTokens { get; set; } = 0.0;
 
+        [ConfigDoc("The price of 1 million output tokens ($), thinking tokens included. Only an estimate (see EstimatedCostPerInputMillionTokens).")]
         [JsonProperty(Order = 17)]
         public double EstimatedCostPerOutputMillionTokens { get; set; } = 0.0;
 
@@ -47,10 +60,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         protected virtual double CostSaving => 1.0;
 
-        /// <summary>
-        /// Set to true when this engine uses the local machine (ex. a local AI server). In --ui mode (several videos
-        /// processed in parallel), only one request at a time is then sent to this kind of engine.
-        /// </summary>
+        [ConfigDoc("The engine uses the local machine (ex. a local AI server): one request at a time, all the scenes together (the 'GPU' lock, shared with Purfview whisper).",
+            Advice = "true for a local server; false for an online API.")]
         [JsonProperty(Order = 19)]
         public bool UseLocalResourceLock { get; set; } = false;
 
@@ -61,8 +72,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 : null; // 'using' accepts null
         }
 
+        [ConfigDoc("Debug: waits for a confirmation in the web UI before sending each request (the prompt is shown).",
+            Advice = "Leave false, except to look at a request before paying for it.")]
         [JsonProperty(Order = 20)]
         public bool PauseBeforeSendingRequest { get; set; } = false;
+        [ConfigDoc("Debug: waits for a confirmation in the web UI before saving each answer.",
+            Advice = "Leave false.")]
         [JsonProperty(Order = 21)]
         public bool PauseBeforeSavingResponse { get; set; } = false;
 

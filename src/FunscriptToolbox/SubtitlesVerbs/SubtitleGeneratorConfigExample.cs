@@ -40,7 +40,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             });
 
             // All engine should be overriden in --FSTB-SubtitleGenerator.override.txt
-            var defaultEngine = AddSharedObject("ChatBotAIEngineWillBeOverriden", new AIEngineChatBot());
+            var defaultEngine = AddSharedObject("AIEngineNeedToBeOverriden", new AIEngineNeedToBeOverriden());
 
             // The transcription model of Google (another API than the other Gemini models, no batch mode): see TranscriberAudioFullAIGoogleTranscribe.
             var googleTranscribeEngine = AddSharedObject("AIEngineGeminiTranscribeOnGoogle", new AIEngineAPIGoogle
@@ -638,8 +638,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         OutputId = "final-ai-srt",
                         TextSources = "final-ai-texts",
                         FileSuffix = ".final-ai.srt",
-                        MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         ExpandSubtileDuration = TimeSpan.FromSeconds(0.5),
+                        MinimumSubtitleDuration = TimeSpan.FromSeconds(1.5),
                         SaveFullFileToo = true
                     },
                     new SubtitleOutputSrt()

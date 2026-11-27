@@ -11,6 +11,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     [JsonObject(MissingMemberHandling = MissingMemberHandling.Error)]
     public class AIEngineConfigOverride
     {
+        [ConfigDoc("JSON merged into the RequestBodyExtension of the engine, for the requests of this step only (ex. { \"generationConfig\": { \"maxOutputTokens\": 16384 } }).",
+            Advice = "Google: \"temperature\" / \"maxOutputTokens\" must be inside \"generationConfig\" (at the top level, the request is rejected).")]
         public ExpandoObject RequestBodyExtension { get; set; }
 
         public AIEngineConfigOverride() { }

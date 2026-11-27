@@ -8,15 +8,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public abstract class Transcriber : SubtitleWorker
     {
+        [ConfigDoc("The id of the transcription produced (ex. \"full-ai\"): the other steps use it (ex. in Metadatas.Sources), and an override file uses it to change this step.\n" +
+            "The result is kept in the .wipsubtitles under this id: a new id = done again from the start.")]
         [JsonProperty(Order = 1, Required = Required.Always)]
         public string TranscriptionId { get; set; }
 
+        [ConfigDoc("Metadata of this step that the next steps don't receive (ex. \"TimingTrace\", only useful to debug). ',' = several.")]
         [JsonProperty(Order = 6)]
         public string PrivateMetadataNames { get; set; }
 
+        [ConfigDoc("Writes the result with all its metadata in '<video>.Worker.<id>.srt'. A '<video>.Worker.<id>.import.srt' (edited) is imported instead of doing the step " +
+            "(the old result is kept as '<id>-OLD').",
+            Advice = "Useful to look at the result of a step in a subtitle editor, or to fix it by hand.")]
         [JsonProperty(Order = 7)]
         public bool ExportMetadataSrt { get; set; } = false;
 
+        [ConfigDoc("The first time the step is reached, the scene stops before doing it (to look at the result of the steps before it); the next time, it's done.")]
         [JsonProperty(Order = 8)]
         public bool StopOnFirstExecution { get; set; } = false;
 

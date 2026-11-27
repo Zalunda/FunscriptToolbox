@@ -14,20 +14,28 @@ using System.Threading;
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     /// <remarks>The transcription models (ex. 'gemini-3.5-transcribe', another API): see AIEngineAPIGoogle.Transcribe.cs.</remarks>
+    [ConfigDoc("Google's Gemini API (https://generativelanguage.googleapis.com/v1beta): audio, images, thinking, batch mode (half price). Also the transcription models (ex. 'gemini-3.5-transcribe').",
+        Advice = "The best choice for the audio steps: Google receives the audio as is (Poe can shorten the silences, which breaks the timings).")]
     public partial class AIEngineAPIGoogle : AIEngineAPI
     {
         private const string PROHIBITED_CONTENT = "PROHIBITED_CONTENT";
         public override string ToolName { get; } = "Google-API";
 
+        [ConfigDoc("Sends the requests to the batch queue of Google instead of waiting for each answer: cheaper (see UseBatchModeSaving), but the answers can take minutes (sometimes hours) to come back.",
+            Advice = "true for the scenes that can wait (the default workflows). Set it to false to remove the wait time (but without the cost saving). Must be false for the transcription models (no batch).")]
         [JsonProperty(Order = 30)]
         public bool UseBatchMode { get; set; } = true;
 
+        [ConfigDoc("The cost multiplier when UseBatchMode is true (0.5 = half price), for the costs shown (only an estimate).")]
         [JsonProperty(Order = 31)]
         public double UseBatchModeSaving { get; set; } = 0.5;
 
+        [ConfigDoc("When Google refuses a request with images (PROHIBITED_CONTENT), each image is tested alone, the ones refused are removed, and the request is sent again.",
+            Advice = "Leave true: otherwise, one refused image blocks the whole batch.")]
         [JsonProperty(Order = 32)]
         public bool ValidateImagesOnProbititedResponse { get; set; } = true;
 
+        [ConfigDoc("Debug: writes each answer of the polling of a batch in the log.", Advice = "Leave false.")]
         [JsonProperty(Order = 33)]
         public bool DebugBatchPollingResponse { get; set; }
 

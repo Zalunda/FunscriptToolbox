@@ -4,10 +4,8 @@ using System.Collections.Generic;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
-    /// <summary>
-    /// No refining after the initial snap on the terrain of the audio: no AI request at all (no tokens).
-    /// The title cards and the validation still work (expect many warnings: the text is never checked).
-    /// </summary>
+    [ConfigDoc("The snap on the terrain of the audio, and nothing else: no AI request at all (free). Title card detection and Validation still work (expect many warnings: the text is never checked).",
+        Advice = "The recommended choice for now: the timings are checked in the Review editor anyway.")]
     public class TimingRefineEngineNone : TimingRefineEngine
     {
         public override bool UsesAI => false;

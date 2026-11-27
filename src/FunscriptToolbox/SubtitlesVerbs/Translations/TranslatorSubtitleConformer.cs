@@ -7,35 +7,49 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
+    [ConfigDoc("Shapes the translated lines into subtitles, without AI: merges short close lines (same speaker: 2 lines; two speakers: a dialogue '- ... / - ...'), " +
+        "and breaks the long lines in two at the best place (SplitPatterns).")]
     public class TranslatorSubtitleConformer : Translator
     {
+        [ConfigDoc("The subtitles (TimingsSource) and the sources of their text and speaker (Sources).")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
 
+        [ConfigDoc("Only MetadataNeeded (the text to shape, ex. \"TranslatedText\") and MetadataAlwaysProduced (the result, ex. \"ConformedText\") are used: no AI.")]
         [JsonProperty(Order = 21, Required = Required.Always)]
         public AIOptions Options { get; set; }
 
+        [ConfigDoc("The metadata of the speaker: two lines of the same speaker are merged as one subtitle on 2 lines; two lines of different speakers as a dialogue ('- ... / - ...').")]
         [JsonProperty(Order = 22)]
         public string MetadataSpeaker { get; set; } = "Speaker";
 
+        [ConfigDoc("The maximum number of characters of a line: a longer text is broken in two lines (at the best place, see SplitPatterns), and lines that would be longer are not merged.")]
         [JsonProperty(Order = 30)]
         public int MaxLineLength { get; set; } = 50;
 
+        [ConfigDoc("Two lines of the same speaker closer than this can be merged into one subtitle.")]
         [JsonProperty(Order = 31)]
         public TimeSpan MaxMergeGapSameSpeaker { get; set; } = TimeSpan.FromSeconds(1);
 
+        [ConfigDoc("Two lines of different speakers closer than this can be merged into one dialogue subtitle ('- ... / - ...').")]
         [JsonProperty(Order = 32)]
         public TimeSpan MaxMergeGapDialogue { get; set; } = TimeSpan.FromSeconds(1.2);
 
+        [ConfigDoc("A merged subtitle can't be longer than this.")]
         [JsonProperty(Order = 33)]
         public TimeSpan MaxMergeDuration { get; set; } = TimeSpan.FromSeconds(6);
 
+        [ConfigDoc("Removes the subtitles that have no text to shape (otherwise they're kept with '[!MISSING]').")]
         [JsonProperty(Order = 34)]
         public bool RemoveMissing { get; set; } = false;
 
+        [ConfigDoc("Adds '[!REVIEW]' to a text longer than 2 lines (MaxLineLength x 2): too long for one subtitle, to fix by hand.")]
         [JsonProperty(Order = 35)]
         public bool AddReviewIfTooLong { get; set; } = true;
 
+        [ConfigDoc("Where a long line is broken, in order of preference: each { \"CutWhere\": \"After\" / \"Before\", \"Pattern\": a regular expression }. " +
+            "The first pattern that finds a place near the middle of the text is used (ex. the punctuation first, then the conjunctions, then any space).",
+            Advice = "For another target language, use its own conjunctions / connectors (see the French example in the workflow overrides).")]
         [JsonProperty(Order = 40)]
         public SplitPattern[] SplitPatterns { get; set; } = new[]
             {

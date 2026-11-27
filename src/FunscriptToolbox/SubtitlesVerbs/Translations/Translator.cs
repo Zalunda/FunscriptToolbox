@@ -7,18 +7,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Translations
 {
     public abstract class Translator : SubtitleWorker
     {
+        [ConfigDoc("The id of the translation produced (ex. \"translated-texts_maverick\"): the other steps use it (ex. in Metadatas.Sources), and an override file uses it to change this step.\n" +
+            "The result is kept in the .wipsubtitles under this id: a new id = done again from the start.")]
         [JsonProperty(Order = 1, Required = Required.Always)]
         public string TranslationId { get; set; }
 
+        [ConfigDoc("The language to translate to (ex. \"en\", \"fr\"): used in the prompts ([TranslationLanguage]).")]
         [JsonProperty(Order = 3)]
         public Language TargetLanguage { get; set; } = Language.FromString("en");
 
+        [ConfigDoc("Metadata of this step that the next steps don't receive (ex. a field only useful to debug). ',' = several.")]
         [JsonProperty(Order = 6)]
         public string PrivateMetadataNames { get; set; }
 
+        [ConfigDoc("Writes the result with all its metadata in '<video>.Worker.<id>.srt'.",
+            Advice = "Useful to look at the result of a step in a subtitle editor.")]
         [JsonProperty(Order = 7)]
         public bool ExportMetadataSrt { get; set; } = false;
 
+        [ConfigDoc("The first time the step is reached, the scene stops before doing it (to look at the result of the steps before it); the next time, it's done.")]
         [JsonProperty(Order = 8)]
         public bool StopOnFirstExecution { get; set; } = false;
 

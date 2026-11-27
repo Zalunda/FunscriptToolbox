@@ -1,6 +1,7 @@
 {
   // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
   // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
+  // What each setting does (and what we suggest): the ⓘ of the setting in the 'Config' tab of the web UI (Flow view).
 
   "SharedObjects": [
     {
@@ -491,17 +492,8 @@ _______________________________________=",
        "TextAfter": "The target Language is: [TranslationLanguage]",
       "Lines": null
     },
+    // The engines of the timing refiner (manual-input-preparer: RefineTiming.Engine) ----------------------------------------------------------
     {
-      // The settings of the engine 'TimingRefineEngineStartEndJudge' of the timing refiner (manual-input-preparer: RefineTiming.Engine).
-      // The AI picks the best Start, then the best End, among options built on the terrain (several AI requests and clips per subtitle):
-      //   - MaxDipsInward / MaxDipsOutward: how many options around the snapped boundary are tried (fewer = cheaper,
-      //     but a boundary that is further is flagged Missing instead of being found).
-      //   - MaxTestsInRequest: how many options are in one request (more = bigger requests, fewer retries). Ideally, it should be
-      //     greater than MaxDipsInward + MaxDipsOutward + 1 so that only 1 request is needed to validate every possibility.
-      //   - MaxExpansion: how far from the snapped boundary the options can go.
-      //   - StartPassTailPadding: Start pass only, every clip ends this long after the initial End (more = more tokens).
-      //   - StartClipPadding / EndClipPadding: the silence at the start (Start pass) / the end (End pass) of every clip.
-      // (its prompts / requests: InnerOptionsStart, InnerOptionsEnd, EndTail.InnerOptions, see --FSTB-SubtitleGenerator.config)
       "$id": "TimingRefineEngineStartEndJudge",
       "MaxTestsInRequest": 5,
       "MaxDipsInward": 2,
@@ -510,13 +502,6 @@ _______________________________________=",
       "StartPassTailPadding": "00:00:00.8",
       "StartClipPadding": "00:00:00.300",
       "EndClipPadding": "00:00:00.300",
-
-      // ---------------- After the End pass: what did the chosen End append? (optional: set "EndTail": null to not do it) ----------------
-      // When the End chosen by the AI is at least "MinExtra" after the closest option before it, one request (no text) asks
-      // what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back
-      // to that option (then the new End is checked against the option before it, up to "MaxChecks" times: 1 is best, a second move back often cuts the end of the speech).
-      // By answer of the AI: when the terrain finds Speech over at least this fraction of the extra audio, the answer is not trusted and the End is kept
-      // ("Silence" over loud audio is wrong, "Moaning" over continuous speech is often the last words misidentified). A kind not listed always moves the End back.
       "EndTail": {
         "MinExtra": "00:00:00.4",
         "MaxChecks": 1,
@@ -527,29 +512,10 @@ _______________________________________=",
       }
     },
     {
-      // The settings of the engine 'TimingRefineEngineVerify' of the timing refiner (manual-input-preparer: RefineTiming.Engine).
-      // ONE AI request per subtitle with ONE clip (the snapped start to the snapped end) and the text: does the clip contain the text?
-      //   - StartClipPadding: the silence at the start of the clip.
-      // (its prompt / request: InnerOptions, see --FSTB-SubtitleGenerator.config)
       "$id": "TimingRefineEngineVerify",
       "StartClipPadding": "00:00:00.000"
     },
     {
-      // The settings of the engine 'TimingRefineEngineSpokenMarkers' of the timing refiner (manual-input-preparer: RefineTiming.Engine).
-      // Short English number words are inserted in the audio of each subtitle at the possible places of its start and its end (the dips
-      // of the terrain); the AI transcribes the clip with the markers inline and the line between « and »: the markers around the line
-      // give its start and its end. One request per subtitle and per run, in batches of 50 nodes.
-      // The AI engine of the task needs a "maxOutputTokens" big enough for 50 answers (ex. 16384) and, ideally, a low thinking level.
-      //   - Runs: how many times each subtitle is asked (other random labels each time). 1 = no cross-check (no real confidence).
-      //     2 = the best value in the tests: when the runs agree, the boundary gets a high confidence ('Conf.' column of the Review editor).
-      //   - OnDisagreement: "Wider" (the widest answer: extra silence is better than a cut) or "Majority" (needs Runs >= 3).
-      //   - StartOptionsBefore / StartOptionsAfter / EndOptionsBefore / EndOptionsAfter: how many dips around the snapped boundary get a
-      //     marker (the snapped ends are often too wide: more options before the end). At most 12 markers in total (the number of labels).
-      //   - MaxExpansion: how far from the snapped boundary a marker can be.
-      //   - MarkerMergeDistance: two markers closer than this are one marker.
-      //   - ClipMargin: the audio kept before the first marker and after the last one.
-      // The long subtitles are not split with this engine (a split part has no text to give).
-      // (its prompt / request: InnerOptions, see --FSTB-SubtitleGenerator.config)
       "$id": "TimingRefineEngineSpokenMarkers",
       "Runs": 2,
       "OnDisagreement": "Wider",
@@ -582,12 +548,8 @@ _______________________________________=",
       "Enabled": true
     },
     {
-      // The light video of each part ("<video>.FAST.mp4", next to it), for the Review editor of the web UI ('manual-input-review')
-      // and the speaker correction (one video at a time: lock 'ENC'). Done early, with the other preparations of the files:
-      // ready when the review can start. Already there (ex. made by a script): not created again.
       // (its ffmpeg parameters: in the main configuration; the 2D override removes the crop of the left eye)
       "Id": "fast-video",
-      // [OPTION] set to true to speed up playback in Subtitle build in editor
       "Enabled": false
     },
     // -----------------------------
@@ -605,8 +567,6 @@ _______________________________________=",
       "ExportMetadataSrt": true
     },
     {
-      // Prepares the subtitles of 'full-ai' for the manual-input file: refines their timings, adds the title cards, and flags what needs
-      // a look ('[REVIEW:Code:Detail] reason' lines, checked one by one in the Review editor).
       // (defined in --FSTB-SubtitleGenerator.config: here, the settings that can be adjusted)
       "Id": "manual-input-preparer",
       "Enabled": true,
@@ -635,51 +595,22 @@ _______________________________________=",
       "IncludeTraceInVoiceTextForManualReviewOnError": true,
       "IncludeTextInVoiceTextForManualReview": true,
 
-      // The task does up to three things, each with its own "Enabled": TitleCardDetection, RefineTiming, Validation (needs RefineTiming).
-      // With the three disabled, the result is a clone of the source ("full-ai").
-
       "TitleCardDetection": {
         "Enabled": true,
         "FfmpegFilter": "crop=iw*0.20:ih*0.10:iw*0.15:ih*0.45"
       },
 
-      // Refines the Start and End of each subtitle: first snapped on the terrain of the audio (where the speech is), then refined by
-      // the engine of the refiner. "Engine" is the main lever between the quality of the timings and the cost in AI tokens
-      // (the settings of the engines: in "SharedObjects", at the top of this file):
-      //   { "$ref": "TimingRefineEngineNone" }          => the snap, and nothing else. No AI request at all (free).
-      //                                                   Title card detection and Validation work. Expect many warnings (the text is never checked):
-      //                                                   ignore the codes that fire on almost every node, in Validation.Validations.
-      //   { "$ref": "TimingRefineEngineVerify" }        => ONE AI request per subtitle with ONE clip (the snapped start to the snapped end) and the text:
-      //                                                   the AI says if the clip contains the text (HeardText when it differs, Inaudible when nothing).
-      //                                                   The timings are kept whatever the answer: a problem is only flagged.
-      //   { "$ref": "TimingRefineEngineStartEndJudge" } => the AI picks the best Start, then the best End, among options built on the terrain
-      //                                                   (several AI requests and clips per subtitle).
-      //   { "$ref": "TimingRefineEngineSpokenMarkers" } => markers spoken in the audio at the options of the terrain, the AI transcribes them
-      //                                                   around the line (one request per subtitle and per run, in batches; a confidence per subtitle).
-      // WARNING: for now, none of the engines that send AI requests (Verify, StartEndJudge, SpokenMarkers) is worth its cost: a lot of
-      //          tokens, and the timings still need to be checked in the Review editor. TimingRefineEngineNone is the recommended choice.
-      // "Enabled": false => the timings are kept as they are. No terrain, no AI. (Validation can't be used.)
+      // (the settings of the engines: in "SharedObjects", at the top of this file)
       "RefineTiming": {
         "Enabled": true,
         "Engine": { "$ref": "TimingRefineEngineNone" },
-
-        // The text of a neighbour closer than this is sent with a request (a possible bleed of its voice in the clip).
         "BleedDetectionMargin": "00:00:03.0",
-
-        // After the final answer, move the boundary inward over pure silence (according to the terrain).
         "TrimSilenceOnStart": true,
         "TrimSilenceOnEnd": true
       },
 
-      // Checks the refined subtitles, flags what needs a look ('[REVIEW:Code:Detail] reason' lines in the node: checked one by one in the Review editor) and fixes some problems. Needs RefineTiming.
-      // (Also decides what the refining itself flags. Disabled: nothing is flagged at all.)
       "Validation": {
         "Enabled": true,
-
-        // What to do for each kind of finding: "Warn" (the node gets a '[REVIEW:Code] reason' line, and goes in the .REVIEW.srt),
-        // "Ignore" (not flagged) or "Fix", for only this code that have an automatic fix available:
-        //   LongWithSilence => the subtitle is split at its silences (see Checks: MaxSubtitleDuration, MinSilenceToSplit, SplitStrategy).
-        //                      The split parts get their text from the AI, and are flagged (SplitPart).
         "Validations": {
           "MissingStart": "Warn",
           "MissingEnd": "Warn",
@@ -706,9 +637,6 @@ _______________________________________=",
           "EmptyText": "Warn",
           "TitleCard": "Warn"
         },
-
-        // Thresholds of the checks done on the final result (the values below are the defaults, made for Japanese).
-        // A threshold set to null turns its check off. Tune them by looking at what ends up in the REVIEW nodes.
         "Checks": {
           "MinDuration": "00:00:00.300",
           "MaxCharsPerSecond": 15,
@@ -722,12 +650,7 @@ _______________________________________=",
           "RepeatedTextMinSimilarity": 0.9,
           "RepeatedTextMinChars": 8,
 
-          // A subtitle made only of these words (one or several, in any order) gets "MaybePointless": it may not be worth a subtitle.
-          // A regex on the text as it is (not case sensitive; katakana and hiragana are different characters).
-          // Each pattern takes its own trailing spaces/punctuation, so the patterns can follow each other.
-          // Comment (//) the lines of the words that you want to keep. No list (or an empty one) = the check is not done.
-          // "IgnoredInCombination": true = said with other words, this pattern doesn't count in the name of the warning
-          // (ex. "ああ、きもちいい" is "MaybePointless:Kimochii...", not "MaybePointless:Combination").
+          // Comment (//) the lines of the words that you want to keep.
           "MaybePointlessPatterns": [
             // Moans, grunt, etc
             { "Name": "A-Moans", "Pattern": "[あぁーっ、。\\s…!！]+", "IgnoredInCombination": true },
@@ -770,15 +693,10 @@ _______________________________________=",
       "Enabled": false
     },
     {
-      // The review of the manual-input file in the Review editor of the web UI (button 'Review' of the scene), instead of editing the file by hand:
-      // passes 'Timing', 'Review warnings' and 'Speakers'. Kept in the .wipsubtitles; when the user clicks 'Review done', the file is written
-      // (then imported by 'manual-input'). An existing .manual-input.srt is imported once (a review started by editing the file continues in the editor).
       "Id": "manual-input-review",
       "Enabled": true,
       // [OPTION] Change to "manual-input-preparer,full-ai_google" (and enable 'full-ai_google' above) if you also want a basic english translation in the manual-input file.
       "TextSources": "manual-input-preparer",
-      // [OPTION] What is added to the first subtitle, for the user to fill (ex. the context of the scene).
-      // (the other properties, ex. GrabOnScreenText, VisualTraining: added in the Properties tab of the Review editor)
       "AddToFirstSubtitle": "{OngoingContext:The scene take place in...}",
       // [OPTION] Uncomment the following line to be in 'fully automatic' generation (no review: the file is written right away).
       //"ReviewNeeded": false
@@ -828,9 +746,6 @@ _______________________________________=",
           },
           {
             "OutputFieldName": "Screenshot",
-            // [OPTION] Set AddContextNodes to 'false' to reduce the size of requests, or increase the Gap settings to have less nodes added.
-            // Short explanation, if there is a large gap between two subtitles, the following context nodes will be added:
-            //    <previous>.EndTime + <ContextShortGap>, ...images every <ContextLongGap>..., <current>.Start Time - <ContextShortGap>.
             "Enabled": true,
             "AddContextNodes": true,
             "ContextShortGap": "00:00:05",
@@ -900,8 +815,8 @@ _______________________________________=",
     {
       "Id": "final-ai-srt",
       "Enabled": true,
-      "MinimumSubtitleDuration": "00:00:01.0",
-      "ExpandSubtileDuration": "00:00:00.3"
+      "ExpandSubtileDuration": "00:00:00.3",
+      "MinimumSubtitleDuration": "00:00:01.0"
     },
     {
       "Id": "final-ai-debug-srt",
@@ -1028,8 +943,8 @@ _______________________________________=",
       "WaitForFinished": false,
       "Metadatas": null,
       "TextSources": "finalized_french",
-      "MinimumSubtitleDuration": "00:00:01.0000000",
       "ExpandSubtileDuration": "00:00:00.3000000",
+      "MinimumSubtitleDuration": "00:00:01.0000000",
       "SubtitlesToInject": null,
       "SkipWhenTextSourcesAreIdentical": null,
       "SaveFullFileToo": true

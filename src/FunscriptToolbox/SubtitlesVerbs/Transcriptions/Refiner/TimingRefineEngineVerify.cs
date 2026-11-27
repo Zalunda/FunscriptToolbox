@@ -6,18 +6,15 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
 {
-    /// <summary>
-    /// After the initial snap: ONE request per subtitle, with ONE clip (exactly the snapped Start to the snapped End) and its text:
-    /// does the clip contain the text? The answer (Verdict) can be "Inaudible", and HeardText when it differs. The timings are kept
-    /// whatever the answer: a problem is only flagged.
-    /// </summary>
+    [ConfigDoc("ONE AI request per subtitle with ONE clip (the snapped Start to the snapped End) and the text: does the clip contain the text? " +
+        "(HeardText when it differs, Inaudible when nothing). The timings are kept whatever the answer: a problem is only flagged.")]
     public class TimingRefineEngineVerify : TimingRefineEngine
     {
-        /// <summary>Prompt/batching/extractors of the request: one clip, the snapped Start to the snapped End, and the text (must produce Verdict).</summary>
+        [ConfigDoc("The options of the request (prompt, batching, the clip): it must produce \"Verdict\". Defined in the main configuration.")]
         [JsonProperty(Order = 1)]
         public AIOptions InnerOptions { get; set; }
 
-        /// <summary>The clip starts with at least this much silence (see TimingRefineEngineStartEndJudge.StartClipPadding). Zero = no padding.</summary>
+        [ConfigDoc("The clip starts with at least this much silence (the AI needs a moment to settle in): the silence just before the clip first, the rest taken from the nearest other silence. Zero = no padding.")]
         [JsonProperty(Order = 2)]
         public TimeSpan StartClipPadding { get; set; } = TimeSpan.Zero;
 

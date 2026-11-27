@@ -70,16 +70,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     /// </summary>
     public partial class AIEngineAPIGoogle
     {
-        /// <summary>
-        /// Transcriptions only: at least this time between two requests to this engine (all the scenes together: the rate limit is by key).
-        /// </summary>
+        [ConfigDoc("Transcription models only: at least this time between two requests to this engine, all the scenes together (the rate limit of Google is by key).",
+            Advice = "The rate limit of the transcription model is low ('Too many requests' after 3 requests in less than a minute): 30 s is safe.")]
         [JsonProperty(Order = 34)]
         public TimeSpan TranscribeMinTimeBetweenRequests { get; set; } = TimeSpan.Zero;
 
-        /// <summary>
-        /// Transcriptions only: 'Too many requests' (HTTP 429): the request is sent again after a wait (30 s, then twice as long each time,
-        /// at most 10 minutes), at most this number of times. 0: an error right away.
-        /// </summary>
+        [ConfigDoc("Transcription models only: on 'Too many requests' (HTTP 429), the request is sent again after a wait (30 s, then twice as long each time, at most 10 minutes), at most this number of times. 0: an error right away.")]
         [JsonProperty(Order = 35)]
         public int TranscribeMaxRetriesOnTooManyRequests { get; set; } = 5;
 

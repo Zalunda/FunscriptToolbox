@@ -20,30 +20,41 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
             public TimeSpan NextStartTime { get; set; }
         }
 
+        [ConfigDoc("The metadata the text goes in (ex. \"VoiceText\").")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
+        [ConfigDoc("The audio is sent in chunks of at most this duration (one request each).",
+            Advice = "Shorter chunks: the timings drift less toward the end of a chunk, but more requests.")]
         [JsonProperty(Order = 21)]
         public TimeSpan MaxChunkDuration { get; set; } = TimeSpan.FromMinutes(15);
 
+        [ConfigDoc("Keeps the audio chunks sent to the AI in the backup folder of the scene.")]
         [JsonProperty(Order = 22)]
         public bool KeepTemporaryFiles { get; set; } = false;
 
+        [ConfigDoc("The AI engine that transcribes the whole audio.",
+            Advice = "An engine that receives the audio as is: the Google API (on Poe, or with some models, the silences can be removed before the model hears the audio: the timings are then wrong).")]
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngine Engine { get; set; }
 
+        [ConfigDoc("Changes merged into the body of the requests of this step only, in \"RequestBodyExtension\": the engine stays shared. Any other property here is an error.")]
         [JsonProperty(Order = 31)]
         public AIEngineConfigOverride EngineConfigOverride { get; set; }
 
+        [ConfigDoc("The system prompt: the instructions to the AI.")]
         [JsonProperty(Order = 32)]
         public AIPrompt SystemPrompt { get; set; }
 
+        [ConfigDoc("The user prompt, sent with the audio.")]
         [JsonProperty(Order = 33)]
         public AIPrompt UserPrompt { get; set; }
 
+        [ConfigDoc("A subtitle whose whole text matches one of these patterns is left out of the result (ex. a phrase the AI writes on silences). Each pattern: { \"Name\", \"Pattern\" }.")]
         [JsonProperty(Order = 34)]
         public TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
 
+        [ConfigDoc("When the answer of the AI can't be read (ex. broken JSON), the web UI asks you to fix the text (false: an error right away).")]
         [JsonProperty(Order = 35)]
         public bool PromptUserOnError { get; set; } = true;
 
@@ -388,7 +399,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         public class TranscriptioToIgnorePattern
         {
+            [ConfigDoc("The name of the pattern (shown in the warning, ex. \"MaybePointless:Kimochii\").")]
             public string Name { get; set; }
+            [ConfigDoc("A regular expression on the text as it is (not case sensitive). It should take its own trailing spaces / punctuation (ex. \"[、。\\\\s…!！]*\"), so that the patterns can follow each other.")]
             public string Pattern { get; set; }
             private Regex _regex;
 

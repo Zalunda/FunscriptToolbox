@@ -14,22 +14,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
     public sealed class TitleCardDetectorOptions
     {
-        /// false: the title cards are not detected (the other settings are not used).
+        [ConfigDoc("Looks for title cards (text on a black background) in the videos, in the background, and adds a subtitle for each (with {GrabOnScreenText}: its text is read later by the AI).\n" +
+            "false: not done (the other settings are not used).")]
         public bool Enabled { get; init; } = true;
 
+        [ConfigDoc("How many frames per second are looked at. null: every frame of the video.")]
         public double? SampleFps { get; init; }
+        [ConfigDoc("The ffmpeg filter that gives the zone of the image where the text of a card is (ex. a crop of the left eye of a VR video, around its middle).",
+            Advice = "Adjust it to the place of the cards of a studio when they're not found (the zone must be mostly black, with the text in it).")]
         public string FfmpegFilter { get; init; } = "crop=iw*0.20:ih*0.06:iw*0.15:ih*0.47";
 
+        [ConfigDoc("A pixel at or below this level (0 - 255) is black.")]
         public byte DarkLevel { get; init; } = 24;         // pixel <= this is "black"
+        [ConfigDoc("A pixel at or above this level (0 - 255) is text.")]
         public byte BrightLevel { get; init; } = 140;      // pixel >= this is "text"
+        [ConfigDoc("The share of the zone that must be black for a card (0 to 1).")]
         public double MinDarkRatio { get; init; } = 0.95;  // share of the zone that must be black
+        [ConfigDoc("The minimum share of the zone that is text (0 to 1): below, it's an empty black screen.")]
         public double MinBrightRatio { get; init; } = 0.0005;
+        [ConfigDoc("The maximum share of the zone that is text (0 to 1): above, it's not a card.")]
         public double MaxBrightRatio { get; init; } = 0.30; // zone is tight, text fills more of it
+        [ConfigDoc("The share of the text pixels that must be new for a new card (0 to 1): below, it's the same card.")]
         public double ChangeRatio { get; init; } = 0.30;   // share of text pixels that are new = new card
+        [ConfigDoc("A card shown for less than this is ignored.")]
         public TimeSpan MinDuration { get; init; } = TimeSpan.FromSeconds(1);
 
-        /// The fade in/out of a card (text brighter/dimmer than BrightLevel, so not detected as a card) is followed through the
-        /// brightness of the text, for at most this long on each side. Zero: the fades are not followed.
+        [ConfigDoc("The fade in / out of a card is followed (through the brightness of the text) for at most this long on each side, to get the whole time the card is visible. Zero: the fades are not followed.")]
         public TimeSpan MaxFadeDuration { get; init; } = TimeSpan.FromSeconds(1.5);
     }
 

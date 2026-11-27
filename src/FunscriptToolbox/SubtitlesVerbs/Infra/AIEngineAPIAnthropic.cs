@@ -12,6 +12,8 @@ using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
+    [ConfigDoc("Anthropic's Messages API (https://api.anthropic.com/v1, Claude models): images (no audio), thinking, batch mode (half price).",
+        Advice = "\"max_tokens\" is required by Anthropic: put it in RequestBodyExtension.")]
     public class AIEngineAPIAnthropic : AIEngineAPI
     {
         private const string ANTHROPIC_VERSION = "2023-06-01";
@@ -20,12 +22,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         public override string ToolName { get; } = "Anthropic-API";
 
+        [ConfigDoc("Sends the requests as an Anthropic Message Batch instead of waiting for each answer: cheaper (see UseBatchModeSaving), but the answers can take minutes (sometimes hours) to come back.",
+            Advice = "true for the scenes that can wait. Set it to false to remove the wait time (but without the cost saving).")]
         [JsonProperty(Order = 30)]
         public bool UseBatchMode { get; set; } = true;
 
+        [ConfigDoc("The cost multiplier when UseBatchMode is true (0.5 = half price), for the costs shown (only an estimate).")]
         [JsonProperty(Order = 31)]
         public double UseBatchModeSaving { get; set; } = 0.5;
 
+        [ConfigDoc("Debug: writes each answer of the polling of a batch in the log.", Advice = "Leave false.")]
         [JsonProperty(Order = 32)]
         public bool DebugBatchPollingResponse { get; set; }
 

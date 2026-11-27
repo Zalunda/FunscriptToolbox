@@ -679,6 +679,35 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             /// </summary>
             [JsonProperty("oc", NullValueHandling = NullValueHandling.Ignore)]
             public string ObjectChoices { get; set; }
+
+            /// <summary>The documentation of the setting (ConfigDocAttribute.What of the property).</summary>
+            [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
+            public string Doc { get; set; }
+
+            /// <summary>What we suggest (ConfigDocAttribute.Advice of the property).</summary>
+            [JsonProperty("adv", NullValueHandling = NullValueHandling.Ignore)]
+            public string Advice { get; set; }
+
+            /// <summary>An object: the documentation of its type (ConfigDocAttribute.What of the class).</summary>
+            [JsonProperty("tdoc", NullValueHandling = NullValueHandling.Ignore)]
+            public string TypeDoc { get; set; }
+
+            /// <summary>An object: what we suggest about its type (ConfigDocAttribute.Advice of the class).</summary>
+            [JsonProperty("tadv", NullValueHandling = NullValueHandling.Ignore)]
+            public string TypeAdvice { get; set; }
+        }
+
+        /// <summary>The documentation of a type ('$type') that can be chosen (see ObjectChoiceList.TypeDocs).</summary>
+        public class TypeDocItem
+        {
+            [JsonProperty("type")]
+            public string Type { get; set; }
+
+            [JsonProperty("doc", NullValueHandling = NullValueHandling.Ignore)]
+            public string Doc { get; set; }
+
+            [JsonProperty("adv", NullValueHandling = NullValueHandling.Ignore)]
+            public string Advice { get; set; }
         }
 
         /// <summary>The objects that can be chosen for a property of a type (see Node.ObjectChoices).</summary>
@@ -699,6 +728,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             /// <summary>The types ('$type') a new object can have.</summary>
             [JsonProperty("types")]
             public string[] Types { get; set; }
+
+            /// <summary>The documentation of the types of 'Types' and of the shared objects (only the ones that have one).</summary>
+            [JsonProperty("typeDocs", NullValueHandling = NullValueHandling.Ignore)]
+            public List<TypeDocItem> TypeDocs { get; set; }
         }
 
         public class SharedObjectChoice
@@ -757,7 +790,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 r_sharedObjects = GetSharedObjects(merged);
             }
 
-            /// <summary>The objects of 'SharedObjects', with their type (not the placeholders, ex. 'ChatBotAIEngineWillBeOverriden').</summary>
+            /// <summary>The types that are never offered as a choice: placeholders (ex. the engine of the main configuration, AIEngineNeedToBeOverriden).</summary>
+            private static bool IsPlaceholderType(Type type) => type == typeof(AIEngineNeedToBeOverriden);
+
+            /// <summary>The objects of 'SharedObjects', with their type (not the placeholders, ex. 'AIEngineNeedToBeOverriden').</summary>
             internal static List<(string Id, Type Type, string TypeName, string Level)> GetSharedObjects(JObject merged)
             {
                 var list = new List<(string, Type, string, string)>();
@@ -767,12 +803,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (!(item.Property("$id")?.Value is JValue id) || id.Type != JTokenType.String
                         || !(item.Property("$type")?.Value is JValue typeName) || typeName.Type != JTokenType.String)
                         continue;
-                    if (((string)id).IndexOf("WillBeOverriden", StringComparison.OrdinalIgnoreCase) >= 0)
-                        continue;
                     Type type = null;
                     try { type = SubtitleGeneratorConfigLoader.rs_serializer.SerializationBinder.BindToType(null, (string)typeName); }
                     catch (Exception) { /* (an unknown type: not offered) */ }
-                    if (type != null)
+                    if (type != null && !IsPlaceholderType(type))
                         list.Add(((string)id, type, (string)typeName, id.Annotation<ConfigSource>()?.Level));
                 }
                 return list;
@@ -788,7 +822,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     var binder = SubtitleGeneratorConfigLoader.rs_serializer.SerializationBinder;
                     return t.Assembly.GetTypes()
-                        .Where(x => t.IsAssignableFrom(x) && !x.IsAbstract && !x.IsGenericTypeDefinition)
+                        .Where(x => t.IsAssignableFrom(x) && !x.IsAbstract && !x.IsGenericTypeDefinition && !IsPlaceholderType(x))
                         .Select(x => { binder.BindToName(x, out var assemblyName, out var typeName); return assemblyName == null ? typeName : null; })
                         .Where(x => x != null)
                         .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
@@ -813,8 +847,45 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 var types = GetConcreteTypes(declaredType);
                 if (shared.Count == 0 && types.Length <= 1)
                     return null;
-                Choices[key] = new ObjectChoiceList { Key = key, Declared = declaredType.Name, Shared = shared, Types = types };
+                var binder = SubtitleGeneratorConfigLoader.rs_serializer.SerializationBinder;
+                var typeDocs = types
+                    .Concat(shared.Select(s => s.Type))
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(typeName =>
+                    {
+                        Type type = null;
+                        try { type = binder.BindToType(null, typeName); }
+                        catch (Exception) { /* (an unknown type: no documentation) */ }
+                        var doc = GetDoc(type);
+                        return doc == null ? null : new TypeDocItem { Type = typeName, Doc = doc.What, Advice = doc.Advice };
+                    })
+                    .Where(d => d != null)
+                    .ToList();
+                Choices[key] = new ObjectChoiceList { Key = key, Declared = declaredType.Name, Shared = shared, Types = types, TypeDocs = typeDocs.Count > 0 ? typeDocs : null };
                 return key;
+            }
+
+            /// <summary>The documentation of a type: of its own class only (not inherited: a derived type would show the text of its base class under its own name).</summary>
+            internal static ConfigDocAttribute GetDoc(Type type)
+            {
+                return type == null ? null : (ConfigDocAttribute)Attribute.GetCustomAttribute(type, typeof(ConfigDocAttribute), inherit: false);
+            }
+
+            /// <summary>The documentation of a property (also when it's declared, or overridden, in a base class).</summary>
+            private static ConfigDocAttribute GetDoc(JsonProperty property)
+            {
+                return property.AttributeProvider?.GetAttributes(typeof(ConfigDocAttribute), inherit: true).OfType<ConfigDocAttribute>().FirstOrDefault();
+            }
+
+            private static Node WithDoc(Node node, JsonProperty property)
+            {
+                var doc = GetDoc(property);
+                if (doc != null)
+                {
+                    node.Doc = doc.What;
+                    node.Advice = doc.Advice;
+                }
+                return node;
             }
 
             public Node Build(string name, JToken json, object obj, Type declaredType, int depth)
@@ -1026,6 +1097,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             {
                 node.Kind = "obj";
                 node.Type = obj?.GetType().Name ?? (string)json?["$type"];
+                var typeDoc = GetDoc(obj?.GetType() ?? contract.UnderlyingType);
+                if (typeDoc != null)
+                {
+                    node.TypeDoc = typeDoc.What;
+                    node.TypeAdvice = typeDoc.Advice;
+                }
                 node.Children = new List<Node>();
                 var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var property in contract.Properties)
@@ -1039,7 +1116,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     {
                         // (a property that can only be written, ex. an old name kept for the old files: used, but it has no value of its own)
                         if (jsonProperty != null)
-                            node.Children.Add(Build(jsonProperty.Name, jsonProperty.Value, null, property.PropertyType, depth + 1));
+                            node.Children.Add(WithDoc(Build(jsonProperty.Name, jsonProperty.Value, null, property.PropertyType, depth + 1), property));
                         continue;
                     }
                     // (written nowhere: only when there is an object to read its default value from)
@@ -1048,7 +1125,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     if (jsonProperty == null && property.ShouldSerialize != null && !property.ShouldSerialize(obj))
                         continue;
                     var value = obj == null ? null : property.ValueProvider.GetValue(obj);
-                    node.Children.Add(Build(jsonProperty?.Name ?? property.PropertyName, jsonProperty?.Value, value, property.PropertyType, depth + 1));
+                    node.Children.Add(WithDoc(Build(jsonProperty?.Name ?? property.PropertyName, jsonProperty?.Value, value, property.PropertyType, depth + 1), property));
                 }
                 AddUnusedProperties(node, json, used, depth);
             }

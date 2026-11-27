@@ -14,13 +14,16 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
     /// for all the parts of the scene (the parts of several scenes are not mixed: each scene gets all its light videos before the next one).
     /// The file is written under a temporary name, then renamed: a file that is there is complete.
     /// </summary>
+    [ConfigDoc("A light video of each part ('<video>.FAST.mp4', next to it): small and quick to seek, for the Review editor of the web UI and the speaker correction. " +
+        "One video at a time (lock 'ENC'). Already there (ex. made by a script): not made again.",
+        Advice = "Enable it to make the playback in the Review editor faster (mostly for VR videos).")]
     internal class SubtitleOutputFastVideo : SubtitleOutput
     {
-        /// <summary>Replaces the extension of the video (ex. ".FAST.mp4"). The other tools only look for '.FAST.mp4'.</summary>
+        [ConfigDoc("Replaces the extension of the video (ex. \".FAST.mp4\"). The Review editor only looks for '.FAST.mp4'.")]
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string FileSuffix { get; set; }
 
-        /// <summary>The ffmpeg parameters between the input (-i) and the output, ex. the filters and the codecs.</summary>
+        [ConfigDoc("The ffmpeg parameters between the input (-i) and the output: the filters (ex. the crop of the left eye of a VR video) and the codecs.")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string FfmpegParameters { get; set; }
 

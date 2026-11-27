@@ -19,6 +19,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     /// - Then the worker is blocked until the user clicks 'Review done' in the editor (what the user does is saved in the job state).
     /// - Then the file is written (without the line that blocks its import, ex. '[USER-REVISION-NEEDED]'), and the transcription is finished.
     /// </summary>
+    [ConfigDoc("The review of the file you revise (ex. '.manual-input.srt') in the Review editor of the web UI, instead of editing the file by hand: passes 'Timing', 'Review warnings' and 'Speakers'. " +
+        "When you click 'Review done', the file is written (then imported by the next step).")]
     public class TranscriberInteractifReview : Transcriber
     {
         /// <summary>
@@ -115,33 +117,33 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 
         private const string ToolName = "InteractifReview";
 
+        [ConfigDoc("The file written when the review is done (ex. \".manual-input.srt\"), then imported by the next step (ex. 'manual-input').")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string FileSuffix { get; set; }
+        [ConfigDoc("The subtitles to review (TimingsSource) and the steps whose metadata are added to them (Sources).")]
         [JsonProperty(Order = 21)]
         public MetadataAggregator Metadatas { get; set; }
+        [ConfigDoc("The ids of the steps whose text is put in the subtitles to review, separated by ',' (ex. \"manual-input-preparer\"; add a translation, ex. \"full-ai_google\", to also have a basic translation).")]
         [JsonProperty(Order = 22)]
         public string TextSources { get; set; }
+        [ConfigDoc("The metadata used as the text of the sources (null: the main metadata of each source).")]
         [JsonProperty(Order = 23)]
         public string MetadataToUse { get; set; }
+        [ConfigDoc("Added to the first subtitle, for you to fill (ex. \"{OngoingContext:...}\", \"{OngoingSpeakers:...}\": the context of the scene, the speakers). " +
+            "The other properties (ex. GrabOnScreenText, VisualTraining) are added in the Properties tab of the Review editor.")]
         [JsonProperty(Order = 24)]
         public string AddToFirstSubtitle { get; set; }
-        /// <summary>False: no review, the file is written right away (ex. 'fully automatic').</summary>
+        [ConfigDoc("false: no review, the file is written right away ('fully automatic'). true: the scene waits until you click 'Review done' in the Review editor (button 'Review' of the scene).")]
         [JsonProperty(Order = 25)]
         public bool ReviewNeeded { get; set; } = true;
-        /// <summary>True: when the file already exists the first time, the review starts from it (ex. a review started by editing the file).</summary>
+        [ConfigDoc("When the file already exists the first time, the review starts from it (ex. a review started by editing the file by hand).")]
         [JsonProperty(Order = 26)]
         public bool ImportExistingFile { get; set; } = true;
-        /// <summary>
-        /// The metadata of the speaker of a subtitle (ex. "Speaker"), set with the 'Speakers' pass of the Timing editor.
-        /// Null (with OngoingSpeakersMetadata): no 'Speakers' pass.
-        /// </summary>
+        [ConfigDoc("The metadata of the speaker of a subtitle (ex. \"Speaker\"), set in the 'Speakers' pass of the Review editor. null (with OngoingSpeakersMetadata): no 'Speakers' pass.")]
         [JsonProperty(Order = 27)]
         public string SpeakerMetadata { get; set; }
-        /// <summary>
-        /// The metadata of the speakers present from a subtitle on (ex. "OngoingSpeakers": "A, B"). It must start with "Ongoing"
-        /// (the next steps carry it to the next subtitles, until the next one). A subtitle's speaker is known when it has SpeakerMetadata,
-        /// or when only one speaker is present; otherwise, the AI decides.
-        /// </summary>
+        [ConfigDoc("The metadata of the speakers present from a subtitle on (ex. \"OngoingSpeakers\": \"A, B\"). It must start with \"Ongoing\" (carried to the next subtitles). " +
+            "A subtitle's speaker is known when it has SpeakerMetadata, or when only one speaker is present; otherwise, the AI decides.")]
         [JsonProperty(Order = 28)]
         public string OngoingSpeakersMetadata { get; set; }
 

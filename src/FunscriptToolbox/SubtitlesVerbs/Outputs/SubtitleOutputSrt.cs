@@ -17,19 +17,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         }
 
 
+        [ConfigDoc("The end of the name of the file written next to the video (ex. \".final-ai.srt\" => '<video>.final-ai.srt'; \".srt\" => '<video>.srt', used by the players).")]
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string FileSuffix { get; set; }
+        [ConfigDoc("Writes the file only when all the sources are finished (false: written with what is there, and written again later).")]
         [JsonProperty(Order = 10)]
         public bool WaitForFinished { get; set; } = false;
 
+        [ConfigDoc("The subtitles of the file (TimingsSource) and the steps whose metadata are written in them (Sources).")]
         [JsonProperty(Order = 15)]
         public MetadataAggregator Metadatas { get; set; }
 
+        [ConfigDoc("Writes the metadata of each source in the subtitles (a '------- Metadatas -------' section, '[source] {Name:Value}'), ex. for a debug file.")]
         [JsonProperty(Order = 16)]
         public bool UseBySourceMetadatas { get; set; } = true;
 
+        [ConfigDoc("The ids of the steps whose text is written in the subtitles, separated by ',' (ex. \"conformed-texts\").")]
         [JsonProperty(Order = 17)]
         public string TextSources { get; set; }
+        [ConfigDoc("The metadata used as the text of the sources (null: the main metadata of each source, ex. \"TranslatedText\" for a translation).")]
         [JsonProperty(Order = 18)]
         public string MetadataToUse { get; set; }
         public string WorkerId // For backward compatibility
@@ -37,18 +43,25 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
             set { TextSources = value; }
         }
 
+        [ConfigDoc("Added to the end of every subtitle, for the comfort of reading (never over the start of the next subtitle).")]
         [JsonProperty(Order = 20)]
-        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.Zero;
-        [JsonProperty(Order = 21)]
         public TimeSpan ExpandSubtileDuration { get; set; } = TimeSpan.Zero;
+        [ConfigDoc("Then, a subtitle still shorter than this is made this long (never over the start of the next subtitle).")]
+        [JsonProperty(Order = 21)]
+        public TimeSpan MinimumSubtitleDuration { get; set; } = TimeSpan.Zero;
 
+        [ConfigDoc("Text added to the first subtitle of the file (ex. a line for the user to fill).")]
         [JsonProperty(Order = 22)]
         public string AddToFirstSubtitle { get; set; } = string.Empty;
+        [ConfigDoc("Fixed subtitles added to the file (ex. the credits at the start of the video).",
+            Advice = "Put your name / your credit line here (in your .override.user.config).")]
         [JsonProperty(Order = 23)]
         public SubtitleToInject[] SubtitlesToInject { get; set; }
 
+        [ConfigDoc("Two ids of TextSources, separated by ',': a subtitle where their texts are the same is left out (only the differences are written, ex. a file of what you changed).")]
         [JsonProperty(Order = 24)]
         public string SkipWhenTextSourcesAreIdentical { get; set; }
+        [ConfigDoc("For a scene made of several videos (.vseq): also writes one file for the whole scene ('<scene><FileSuffix>'), not only one per video.")]
         [JsonProperty(Order = 25)]
         public bool SaveFullFileToo { get; set; } = false;
 

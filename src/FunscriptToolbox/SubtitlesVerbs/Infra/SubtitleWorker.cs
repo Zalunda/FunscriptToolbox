@@ -12,9 +12,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     public abstract class SubtitleWorker
     {
+        [ConfigDoc("false: the step is skipped (and the steps that need what it produces wait). The main configuration defines the steps disabled; each workflow override enables the ones it uses.")]
         [JsonProperty(Order = 2)] // Order = 1 is the Id
         public bool Enabled { get; set; } = false;
 
+        [ConfigDoc("true: the step runs again each time the scene is processed, even when it's already done (ex. an output file written again with the latest data).",
+            Advice = "Leave false. Set it to true temporarily to see the effect of a change on a step that is already done (or use 'Redo this step' in the Flow view).")]
         [JsonProperty(Order = 5)]
         public bool CanBeUpdated { get; set; } = false;
 

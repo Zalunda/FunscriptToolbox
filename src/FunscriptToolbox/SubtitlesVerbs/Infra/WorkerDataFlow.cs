@@ -156,15 +156,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     var viaAlias = new Dictionary<string, string>();   // key => the alias it was reached with
                     if (input.Kind == DataKind.Sources)
                     {
-                        // Same rule as the run: a transcription / translation whose id matches
-                        var regex = MetadataAggregator.ToSourceRegex(input.Id);
-                        foreach (var (kind, id) in producedIds.Distinct().Where(p => regex.IsMatch(p.id)))
+                        // Same rule as the run: the transcription / translation with this id
+                        foreach (var (kind, id) in producedIds.Distinct().Where(p => MetadataAggregator.IsSourceMatch(input.Id, p.id)))
                         {
                             AddData(kind, id);
                             keys.Add(DataKey(kind, id));
                         }
                         // An alias that matches: its source (once, even if it's also matched by its own id)
-                        foreach (var alias in aliasTargets.Where(a => regex.IsMatch(a.Key)))
+                        foreach (var alias in aliasTargets.Where(a => MetadataAggregator.IsSourceMatch(input.Id, a.Key)))
                         {
                             var target = producedIds.Distinct().FirstOrDefault(p => p.id == alias.Value);
                             if (target.id == null)
@@ -184,7 +183,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         }
                         if (keys.Count == 0)
                         {
-                            // (nothing in this configuration matches the rule: shown as is)
+                            // (no step of this configuration has this id: shown as is)
                             AddData(DataKind.Sources, input.Id);
                             keys.Add(DataKey(DataKind.Sources, input.Id));
                         }
@@ -195,7 +194,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                         keys.Add(DataKey(input.Kind, input.Id));
                     }
 
-                    foreach (var key in keys.Where(k => !ownOutputs.Contains(k)))   // (a rule like "*" also matches the worker's own output)
+                    foreach (var key in keys.Where(k => !ownOutputs.Contains(k)))   // (never the worker's own output)
                     {
                         var role = viaAlias.TryGetValue(key, out var aliasName)
                             ? (input.Role == null ? $"as '{aliasName}'" : $"{input.Role} (as '{aliasName}')")

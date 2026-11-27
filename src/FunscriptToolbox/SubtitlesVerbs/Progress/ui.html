@@ -185,6 +185,12 @@
   #flowPanel .cfeditor select[data-cflevel] { max-width: 100%; }
   #flowPanel .cfeditor textarea { width: 100%; box-sizing: border-box; resize: vertical; }
   #flowPanel .finote.cfok { color: var(--ok); }
+  /* The documentation of a setting (ConfigDoc): ⓘ after the name (the text in the tooltip of the row), and in the editor */
+  #flowPanel .cfdocmark { flex: none; color: var(--accent); font-size: 10px; opacity: .7; cursor: help; }
+  #flowPanel .cfdoc { color: var(--text); white-space: pre-wrap; line-height: 1.35; }
+  #flowPanel .cfdoc .cfdocadv { display: block; margin-top: 3px; padding: 3px 6px; border-left: 3px solid var(--ok); color: var(--text);
+    background: color-mix(in srgb, var(--ok) 10%, transparent); border-radius: 0 4px 4px 0; }
+  #flowPanel .cfdoc .cfdoctype { color: var(--muted); font-weight: 600; }
   #flowPanel .finote.cferr { color: var(--err); }
   #flowPanel .cflvs .cflv { min-width: 0; font-size: 9px; line-height: 13px; }
 
@@ -1935,7 +1941,8 @@
   function cfgAdded(n) { return !n.d && !!n.lv && n.lv !== "0" && !(n.h && n.h.length); }
   /// The tooltip of a row: where the value was written, and the values it replaced
   function cfgTitle(n) {
-    var lines = [];
+    var lines = cfgDocLines(n);
+    if (lines.length) lines.push("");
     if (n.d) lines.push("Written in no file: the default value of the code.");
     else if (n.lv) {
       var s = cfgSource(n.lv);
@@ -1950,6 +1957,32 @@
       n.h.forEach(function (h) { lines.push("  " + h.lv + ": " + h.v); });
     }
     return lines.join("\n");
+  }
+  /// The documentation of a setting (its property) and of its object type, as lines of text (the tooltip of the row)
+  function cfgDocLines(n) {
+    var lines = [];
+    if (n.doc) lines.push(n.doc);
+    if (n.adv) lines.push("💡 Suggested: " + n.adv);
+    if (n.tdoc) {
+      if (lines.length) lines.push("");
+      lines.push((n.ty ? n.ty + ": " : "") + n.tdoc);
+      if (n.tadv) lines.push("💡 Suggested: " + n.tadv);
+    }
+    return lines;
+  }
+  /// The documentation in the editor of a value: what it does, then what we suggest (typeDoc: the type chosen for a new / shared object)
+  function cfgDocHtml(doc, adv, typeName, typeDoc) {
+    var h = "";
+    if (doc) h += esc(doc);
+    if (adv) h += '<span class="cfdocadv">💡 ' + esc(adv) + '</span>';
+    if (typeDoc && (typeDoc.doc || typeDoc.adv)) {
+      h += (h ? '<br>' : '') + '<span class="cfdoctype">' + esc(typeName) + ':</span> ' + esc(typeDoc.doc || "");
+      if (typeDoc.adv) h += '<span class="cfdocadv">💡 ' + esc(typeDoc.adv) + '</span>';
+    }
+    return h ? '<div class="cfdoc">' + h + '</div>' : "";
+  }
+  function cfgTypeDoc(ch, typeName) {
+    return ((ch && ch.typeDocs) || []).filter(function (d) { return d.type === typeName; })[0] || null;
   }
   function cfgMatches(n, filter) {
     return n.n.toLowerCase().indexOf(filter) >= 0 || (n.v || "").toLowerCase().indexOf(filter) >= 0 || (n.ref || "").toLowerCase().indexOf(filter) >= 0;
@@ -2003,7 +2036,8 @@
       '<span class="cfind" style="width:' + (depth * 14) + 'px"></span>' +
       '<span class="cftog">' + (isContainer && n.c.length ? (open ? "▾" : "▸") : "") + '</span>' +
       cfgBadge(n.lv, n.d, "", cfgAdded(n)) +
-      '<span class="cfname">' + esc(n.n) + '</span>';
+      '<span class="cfname">' + esc(n.n) + '</span>' +
+      (n.doc || n.tdoc ? '<span class="cfdocmark">ⓘ</span>' : '');
     if (isContainer) {
       var meta = [];
       if (n.ty) meta.push(esc(n.ty));
@@ -2112,7 +2146,8 @@
     if (e.obj === "#new") {
       var copies = ch.shared.filter(function (s) { return s.type === e.newType; });
       h += '<div class="cfedrow"><span class="cfedlbl">Type</span><select data-cfnewtype>' + ch.types.map(function (t) {
-        return '<option' + (t === e.newType ? " selected" : "") + '>' + esc(t) + '</option>';
+        var td = cfgTypeDoc(ch, t);
+        return '<option' + (t === e.newType ? " selected" : "") + (td && td.doc ? ' title="' + esc(td.doc) + '"' : '') + '>' + esc(t) + '</option>';
       }).join("") + '</select>' +
         '<span class="cfedlbl">Copy of</span><select data-cfcopy><option value="">(nothing: the defaults of the code)</option>' + copies.map(function (s) {
           return '<option value="' + esc(s.id) + '"' + (s.id === e.copyFrom ? " selected" : "") + '>' + esc(s.id) + '</option>';
@@ -2155,6 +2190,10 @@
         '<label><input type="radio" name="cfscope" data-cfscope="shared"' + (e.shared ? " checked" : "") + '> every step that uses \'' + esc(info.ref) + '\'</label></div>';
     }
     var och = n.oc && cfgChoices(n.oc);
+    // (the documentation: of the setting, and for an object, of the type chosen: the type of the new object or of the shared object)
+    var chosenType = !och ? null : e.obj === "#new" ? e.newType
+      : e.obj && e.obj.indexOf("ref:") === 0 ? ((och.shared.filter(function (s) { return "ref:" + s.id === e.obj; })[0] || {}).type || null) : null;
+    h += cfgDocHtml(n.doc, n.adv, chosenType || n.ty || "", chosenType ? cfgTypeDoc(och, chosenType) : (!och && n.tdoc ? { doc: n.tdoc, adv: n.tadv } : null));
     if (och) h += cfgObjectEditorHtml(n, e, och);
     else if (!n.u) {
       var input;

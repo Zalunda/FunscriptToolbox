@@ -5,6 +5,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
     public abstract class SubtitleOutput : SubtitleWorker
     {
+        [ConfigDoc("The id of the output (ex. \"final-ai-srt\"): an override file uses it to change this step.")]
         [JsonProperty(Order = 2, Required = Required.Always)]
         public string OutputId { get; set; }
 

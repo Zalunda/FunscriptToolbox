@@ -25,6 +25,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
     ///   - Validation: checks the refined subtitles, flags what needs a look and splits the long ones.
     ///   - TitleCardDetection: adds a node for each title card found in the videos.
     /// </summary>
+    [ConfigDoc("Prepares the subtitles of a transcription (ex. 'full-ai') for the manual-input file: refines their timings (RefineTiming), adds the title cards (TitleCardDetection), " +
+        "and flags what needs a look (Validation: '[REVIEW:Code:Detail] reason' lines, checked one by one in the Review editor). All three disabled: a clone of the source.")]
     public class TranscriberAIManualInputPreparer : TranscriberAI
     {
         // ---------------------------------------------------------------------
@@ -194,31 +196,30 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
         // All three disabled: the output is a clone of the source (full-ai).
         // ---------------------------------------------------------------------
 
+        [ConfigDoc("Adds the [TRACES] of the refining (each step, the options, the answers of the AI) to every subtitle of the manual-input file.",
+            Advice = "Leave false (long subtitles to read); OnError already adds them where something was flagged.")]
         [JsonProperty(Order = 27)]
         public bool IncludeTraceInVoiceTextForManualReviewAlways { get; set; } = false;
 
+        [ConfigDoc("Adds the [TRACES] of the refining to the subtitles that were flagged (or without a confidence): to understand why.")]
         [JsonProperty(Order = 28)]
         public bool IncludeTraceInVoiceTextForManualReviewOnError { get; set; } = true;
 
+        [ConfigDoc("Adds the transcribed text to the subtitles of the manual-input file (false: only the timings and the review lines).")]
         [JsonProperty(Order = 29)]
         public bool IncludeTextInVoiceTextForManualReview { get; set; } = true;
 
-        /// <summary>
-        /// Looks for title cards (text on a black background) in the videos, in the background, and adds a node for each
-        /// (with {GrabOnScreenText}, so that its on-screen text is read later). Not set (null) or not Enabled: not done.
-        /// </summary>
+        [ConfigDoc("Looks for title cards (text on a black background) in the videos and adds a subtitle for each (with {GrabOnScreenText}: its text is read later). null or not Enabled: not done.")]
         [JsonProperty(Order = 30)]
         public TitleCardDetectorOptions TitleCardDetection { get; set; }
 
 
-        /// <summary>Refines the Start and End of each subtitle (AI + terrain of the audio).</summary>
+        [ConfigDoc("Refines the Start and End of each subtitle: snapped on the terrain of the audio, then refined by the Engine (the AI, or nothing).")]
         [JsonProperty(Order = 31)]
         public TimingRefinerSettings RefineTiming { get; set; } = new TimingRefinerSettings();
 
-        /// <summary>
-        /// Checks the refined subtitles (and fixes some of the problems). Needs RefineTiming.
-        /// Its Validations / Checks settings are used while refining too (what is flagged, the similarity of the texts).
-        /// </summary>
+        [ConfigDoc("Checks the refined subtitles, flags what needs a look (checked one by one in the Review editor) and fixes some problems. Needs RefineTiming. " +
+            "(Also decides what the refining itself flags. Disabled: nothing is flagged at all.)")]
         [JsonProperty(Order = 32)]
         public TimingValidatorSettings Validation { get; set; } = new TimingValidatorSettings();
 

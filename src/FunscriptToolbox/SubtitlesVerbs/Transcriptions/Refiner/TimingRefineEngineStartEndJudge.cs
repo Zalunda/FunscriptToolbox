@@ -22,61 +22,55 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     ///   - Start pass: all Init values are suspect; a start may go back anywhere except onto/before the previous candidate's INITIAL start.
     ///   - Between the passes: every End is capped by the next (now locked) Start.
     /// </summary>
+    [ConfigDoc("The AI picks the best Start, then the best End, among options built on the terrain (several AI requests and clips per subtitle), " +
+        "then (optional, EndTail) checks what the chosen Ends appended.")]
     public class TimingRefineEngineStartEndJudge : TimingRefineEngine
     {
         private static readonly TimeSpan MinOverlapViableDuration = TimeSpan.FromSeconds(0.1);
         private static readonly TimeSpan TinyOverlapThreshold = TimeSpan.FromMilliseconds(60);
         private const string MaxOptionKey = "Max";
 
-        /// <summary>Prompt/batching/extractors of the START pass (must produce BestStart, optionally HeardText).</summary>
+        [ConfigDoc("The options of the requests of the Start pass (prompt, batching, the clips): they must produce \"BestStart\" (and optionally \"HeardText\"). Defined in the main configuration.")]
         [JsonProperty(Order = 1)]
         public AIOptions InnerOptionsStart { get; set; }
 
-        /// <summary>Prompt/batching/extractors of the END pass (must produce BestEnd).</summary>
+        [ConfigDoc("The options of the requests of the End pass: they must produce \"BestEnd\". Defined in the main configuration.")]
         [JsonProperty(Order = 2)]
         public AIOptions InnerOptionsEnd { get; set; }
 
-        /// <summary>Max dips (S1..Sn / E1..En) offered to the AI in ONE request. More dips are spread evenly, then narrowed down around the AI's choice.</summary>
+        [ConfigDoc("How many options are in one request (more options: spread evenly, then narrowed down around the choice of the AI, in other requests).",
+            Advice = "Ideally greater than MaxDipsInward + MaxDipsOutward + 1, so that only 1 request is needed per boundary (bigger requests, fewer of them).")]
         [JsonProperty(Order = 3)]
         public int MaxTestsInRequest { get; set; } = 4;
 
-        /// <summary>How many dips inside the snapped boundary are tried (fewer = cheaper).</summary>
+        [ConfigDoc("How many options (dips of the terrain) inside the snapped boundary are tried (fewer = cheaper).")]
         [JsonProperty(Order = 4)]
         public int MaxDipsInward { get; set; } = 100;
 
-        /// <summary>How many dips outside the snapped boundary are tried (fewer = cheaper, but a boundary further is flagged Missing instead of being found).</summary>
+        [ConfigDoc("How many options (dips of the terrain) outside the snapped boundary are tried (fewer = cheaper, but a boundary that is further is flagged Missing instead of being found).")]
         [JsonProperty(Order = 5)]
         public int MaxDipsOutward { get; set; } = 100;
 
-        /// <summary>How far from the snapped boundary the options can go.</summary>
+        [ConfigDoc("How far from the snapped boundary the options can go.")]
         [JsonProperty(Order = 6)]
         public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
 
-        /// <summary>START pass only: all clips end this long after the initial End (so the AI hears the whole line).</summary>
+        [ConfigDoc("Start pass only: every clip ends this long after the initial End, so that the AI hears the whole line (more = more tokens).")]
         [JsonProperty(Order = 7)]
         public TimeSpan StartPassTailPadding { get; set; } = TimeSpan.FromSeconds(0.8);
 
-        /// <summary>
-        /// START pass only: every clip starts with at least this much silence (the AI needs a moment to settle in).
-        /// The silence that really precedes the clip is used first; when it is shorter, the rest is stolen from the nearest
-        /// other silence of the audio and spliced in front (never digital silence, the AI could react differently to it).
-        /// Zero = no padding.
-        /// </summary>
+        [ConfigDoc("Start pass only: every clip starts with at least this much silence (the AI needs a moment to settle in): the silence just before the clip first, " +
+            "the rest taken from the nearest other silence of the audio and spliced in front (never digital silence: the AI could react differently to it). Zero = no padding.")]
         [JsonProperty(Order = 8)]
         public TimeSpan StartClipPadding { get; set; } = TimeSpan.Zero;
 
-        /// <summary>
-        /// END pass only: every clip ends with at least this much silence (the AI understands a sound a moment after hearing it,
-        /// so it needs to hear what follows the end to recognise the last syllable). Same rules as StartClipPadding. Zero = no padding.
-        /// </summary>
+        [ConfigDoc("End pass only: every clip ends with at least this much silence (the AI understands a sound a moment after hearing it: it needs to hear what follows " +
+            "the end to recognize the last syllable). Same rules as StartClipPadding. Zero = no padding.")]
         [JsonProperty(Order = 9)]
         public TimeSpan EndClipPadding { get; set; } = TimeSpan.Zero;
 
-        /// <summary>
-        /// Optional (null = not done). After the End pass, when the End chosen by the AI is later than the closest option before it by
-        /// at least EndTail.MinExtra, ONE more request asks what that extra audio is (the text is not sent): Speech, Silence, Breathing,
-        /// Laughter, Moaning or Noise. Anything but Speech moves the End back to that option (then the new End is checked the same way).
-        /// </summary>
+        [ConfigDoc("After the End pass: when the End chosen by the AI is at least EndTail.MinExtra after the closest option before it, one more request (no text) asks " +
+            "what that extra audio is: Speech, Laughter, Moaning, Breathing, Noise or Silence. Anything but Speech moves the End back to that option. null: not done.")]
         [JsonProperty(Order = 10)]
         public TimingRefineEndTailSettings EndTail { get; set; }
 
@@ -860,23 +854,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     /// <summary>The settings of the End tail check of <see cref="TimingRefineEngineStartEndJudge"/>.</summary>
     public class TimingRefineEndTailSettings
     {
-        /// <summary>Prompt/batching/extractors of the tail request (must produce "TailKind").</summary>
+        [ConfigDoc("The options of the tail request: it must produce \"TailKind\". Defined in the main configuration.")]
         [JsonProperty(Order = 1)]
         public AIOptions InnerOptions { get; set; }
 
-        /// <summary>The extra audio appended by the chosen End must be at least this long to be checked (a shorter one is not worth a request).</summary>
+        [ConfigDoc("The extra audio appended by the chosen End must be at least this long to be checked (a shorter one is not worth a request).")]
         [JsonProperty(Order = 2)]
         public TimeSpan MinExtra { get; set; } = TimeSpan.FromMilliseconds(400);
 
-        /// <summary>How many times in a row the End of a subtitle can be moved back by the tail check.</summary>
+        [ConfigDoc("How many times in a row the End of a subtitle can be moved back (the new End is checked against the option before it).",
+            Advice = "1 is best: a second move back often cuts the end of the speech.")]
         [JsonProperty(Order = 3)]
         public int MaxChecks { get; set; } = 1;
 
-        /// <summary>
-        /// By answer of the AI (TailKind): when the terrain finds Speech over at least this fraction of the extra audio (0 to 1),
-        /// the answer is not trusted and the End is kept. Ex: "Silence" over loud audio is wrong; "Moaning" over continuous speech is
-        /// often the last word(s) misidentified. A kind that is not listed always moves the End back.
-        /// </summary>
+        [ConfigDoc("By answer of the AI (TailKind): when the terrain finds Speech over at least this fraction of the extra audio (0 to 1), the answer is not trusted and the End is kept " +
+            "(\"Silence\" over loud audio is wrong, \"Moaning\" over continuous speech is often the last words misidentified). A kind not listed always moves the End back.")]
         [JsonProperty(Order = 4, ObjectCreationHandling = ObjectCreationHandling.Replace)]
         public Dictionary<string, float> KeepIfSpeechRatio { get; set; } = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
         {

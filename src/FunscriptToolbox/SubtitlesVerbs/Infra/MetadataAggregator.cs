@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
@@ -14,12 +13,22 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         {
         }
 
+        [ConfigDoc("The id of the step whose subtitles give the timings (usually \"timings\"): one node per subtitle of this source; the metadata of the Sources are attached to these nodes.")]
         [JsonProperty(Order = 1)]
         public string TimingsSource { get; set; }
+        [ConfigDoc("The ids of the steps whose metadata are attached to each node, separated by ',' (ex. \"singlevad-ai-refined,on-screen-texts,speakers,manual-input\"). " +
+            "A subtitle of a source that overlaps a node gives its metadata to that node. An id that no step has is an error.\n" +
+            "When two sources have the same metadata, the last one in the list wins.")]
         [JsonProperty(Order = 2)]
         public string Sources { get; set; }
+        [ConfigDoc("Renames (or removes, with null) metadata of the sources before they're merged: { \"<metadata>\": \"<new name>\" } for every source, " +
+            "or { \"<source id>,<metadata>\": \"<new name>\" } for one source (the first form wins when both are there).\n" +
+            "Ex. { \"TranslatedText\": \"OriginalTranslatedText\" }: the translation of a source kept under another name, so that the AI can refine it without it being replaced by its own answer.")]
         [JsonProperty(Order = 3)]
         public MergeRuleDictionary MergeRules { get; set; }
+        [ConfigDoc("Changes the values of metadata of the sources before they're merged: { \"<metadata>\": { \"Pattern\": ..., \"Replacement\": ... } } for every source, " +
+            "or { \"<source id>,<metadata>\": { ... } } for one source (the first form wins when both are there).\n" +
+            "Ex. { \"TranslationAnalysis\": { \"Pattern\": \"^Option \\\\d.*$\", \"Replacement\": \"\" } }: the lines 'Option n...' removed.")]
         [JsonProperty(Order = 4)]
         public ValueTransformationRuleDictionary ValueTransformationRules { get; set; }
 
@@ -45,7 +54,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         public (TimedItemWithMetadataCollection[], string[]) GetOthersSources(
-            SubtitleGeneratorContext context, 
+            SubtitleGeneratorContext context,
             string[] sources)
         {
             return GetRawSources(context, sources);
@@ -56,23 +65,32 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             TimedItemWithMetadataCollection additionalSource = null)
         {
             var (rawSourceReferences, reasonsFromSourcesReferences) = GetRawSources(
-                context, 
-                this.Sources?.Split(',').Select(f => f.Trim()).ToArray(), 
+                context,
+                this.Sources?.Split(',').Select(f => f.Trim()).ToArray(),
                 additionalSource);
 
             return rawSourceReferences;
         }
 
         /// <summary>
-        /// The regex of one source rule (ex. "full-whisper", "singlevad-*"): the id of a transcription / translation must match it.
-        /// (also used by the flow graph of the web UI: the same rule as the run)
+        /// A source (ex. "full-whisper") is the id of a transcription / translation, exactly (no wildcard: every dependency is
+        /// known, so a missing one can be reported). (also used by the flow graph of the web UI: the same rule as the run)
         /// </summary>
-        internal static Regex ToSourceRegex(string rule)
+        internal static bool IsSourceMatch(string source, string id)
+            => string.Equals(source, id, StringComparison.Ordinal);
+
+        /// <summary>A clear error for a source that can't be used: a wildcard (not supported anymore), or an id that no step has (ex. a typo).</summary>
+        private static void ValidateSource(SubtitleGeneratorContext context, string source)
         {
-            var pattern = rule.Contains("*")
-                ? rule.Replace("*", ".*").Replace("..*", ".*")
-                : rule;
-            return new Regex($"^{pattern}$");
+            if (source.Contains("*"))
+                throw new InvalidOperationException(
+                    $"'Sources': '{source}': the wildcard '*' is not supported anymore. List the ids of the steps, separated by ','.");
+            var known = context.Config.Workers.Any(w =>
+                (w is Transcriber transcriber && IsSourceMatch(source, transcriber.TranscriptionId))
+                || (w is Translator translator && IsSourceMatch(source, translator.TranslationId)));
+            if (!known)
+                throw new InvalidOperationException(
+                    $"'Sources': no step has the id '{source}' (a typo, or a step that was removed / renamed?).");
         }
 
         private static (TimedItemWithMetadataCollection[], string[]) GetRawSources(
@@ -105,10 +123,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             foreach (var rule in sources ?? Array.Empty<string>())
             {
-                var regex = ToSourceRegex(rule);
+                if (string.IsNullOrEmpty(rule))
+                    continue;
+                ValidateSource(context, rule);
 
                 foreach (var transcriber in context.Config.Workers.OfType<Transcriber>()
-                        .Where(t => !(t is TranscriberAlias) && regex.IsMatch(t.TranscriptionId)))
+                        .Where(t => !(t is TranscriberAlias) && IsSourceMatch(rule, t.TranscriptionId)))
                 {
                     var transcription = context.WIP.Transcriptions.FirstOrDefault(t => t.Id == transcriber.TranscriptionId);
                     if (transcriber.Enabled && transcription?.IsFinished != true)
@@ -117,23 +137,23 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                 }
 
-                metadataProviders.AddRange(context.WIP.Transcriptions.Where(t => regex.IsMatch(t.Id) && !aliasIds.Contains(t.Id)));
+                metadataProviders.AddRange(context.WIP.Transcriptions.Where(t => IsSourceMatch(rule, t.Id) && !aliasIds.Contains(t.Id)));
 
                 foreach (var translator in context.Config.Workers.OfType<Translator>()
-                        .Where(t => regex.IsMatch(t.TranslationId)))
+                        .Where(t => IsSourceMatch(rule, t.TranslationId)))
                 {
                     var translation = context.WIP.Translations
-                        .FirstOrDefault(t => regex.IsMatch(t.Id));
+                        .FirstOrDefault(t => IsSourceMatch(rule, t.Id));
                     if (translator.Enabled && translation?.IsFinished != true)
                     {
                         reasons.Add($"Translation '{translator.TranslationId}' is not done yet.");
                     }
                 }
 
-                metadataProviders.AddRange(context.WIP.Translations.Where(t => regex.IsMatch(t.Id) && !aliasIds.Contains(t.Id)));
+                metadataProviders.AddRange(context.WIP.Translations.Where(t => IsSourceMatch(rule, t.Id) && !aliasIds.Contains(t.Id)));
 
                 // The aliases: their source
-                foreach (var alias in aliases.Where(a => regex.IsMatch(a.TranscriptionId)))
+                foreach (var alias in aliases.Where(a => IsSourceMatch(rule, a.TranscriptionId)))
                 {
                     var targetId = context.ResolveSourceId(alias.TranscriptionId);
                     var target = context.FindSource(alias.TranscriptionId);
@@ -210,7 +230,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     }
                     if (nbMerges >= 2)
                     {
-                        // TODO 
+                        // TODO
                         //throw new Exception("do we handle this differently? do we merge the values?");
                     }
                 }

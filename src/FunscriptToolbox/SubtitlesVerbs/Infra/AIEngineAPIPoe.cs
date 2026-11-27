@@ -2,6 +2,8 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
+    [ConfigDoc("Poe's API (https://api.poe.com/v1): many models (GPT, Gemini, Claude, Grok...) with one subscription / one balance of points.",
+        Advice = "Good as a fallback in an AIEngineCollection. Not for the steps that need exact audio timings (ex. 'full-ai'): the audio can be shortened (silences removed) before it reaches the model.")]
     public class AIEngineAPIPoe : AIEngineAPIOpenAICompatible
     {
         public override string ToolName { get; } = "Poe-API";

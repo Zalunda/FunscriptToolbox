@@ -1,6 +1,7 @@
 ﻿{
   // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
   // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
+  // What each setting does (and what we suggest): the ⓘ of the setting in the 'Config' tab of the web UI (Flow view).
 
   "Workers": [
     {

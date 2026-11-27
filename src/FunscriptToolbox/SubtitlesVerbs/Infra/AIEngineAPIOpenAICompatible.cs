@@ -10,10 +10,13 @@ using System.Threading;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
+    [ConfigDoc("An API in the OpenAI format: OpenAI itself (https://api.openai.com/v1), a local server (LM Studio, Ollama, vLLM...) or any compatible provider.")]
     public class AIEngineAPIOpenAICompatible : AIEngineAPI
     {
         public override string ToolName { get; } = "OpenAI-API";
 
+        [ConfigDoc("Receives the answer while it's written (streaming) instead of all at once at the end.",
+            Advice = "If the provider fails with streaming (ex. it didn't work with OpenAI), set it to false.")]
         [JsonProperty(Order = 30)]
         public bool UseStreaming { get; set; } = true;
 

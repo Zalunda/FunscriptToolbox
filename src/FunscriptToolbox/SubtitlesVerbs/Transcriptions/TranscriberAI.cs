@@ -13,14 +13,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions
 {
     public class TranscriberAI : Transcriber
     {
+        [ConfigDoc("The AI engine of the step (usually a shared engine, ex. { \"$ref\": \"AIEngineGemini3Pro\" }: an AIEngineCollection with its fallbacks).",
+            Advice = "Choose another engine with ✎ (the shared engines are listed). For the steps that send audio, an engine that receives the audio as is (Google API).")]
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngine Engine { get; set; }
+        [ConfigDoc("Changes merged into the body of the requests of this step only, in \"RequestBodyExtension\" (ex. { \"RequestBodyExtension\": { \"generationConfig\": { \"maxOutputTokens\": 16384 } } }): " +
+            "the engine stays shared. Any other property here is an error.")]
         [JsonProperty(Order = 31)]
         public AIEngineConfigOverride EngineConfigOverride { get; set; }
+        [ConfigDoc("Which subtitles are sent (TimingsSource) and which metadata of the other steps are attached to them (Sources).")]
         [JsonProperty(Order = 32, Required = Required.Always)]
         internal MetadataAggregator Metadatas { get; set; }
+        [ConfigDoc("The requests: the prompts, which subtitles are sent (MetadataNeeded), the batching, the audio clips / screenshots added (BinaryDataExtractors).")]
         [JsonProperty(Order = 33, Required = Required.Always)]
         public AIOptions Options { get; set; } = new AIOptions();
+        [ConfigDoc("When the answer of the AI can't be read (ex. broken JSON), the web UI asks you to fix the text (false: an error right away).")]
         [JsonProperty(Order = 34)]
         public bool PromptUserOnError { get; set; } = true;
 

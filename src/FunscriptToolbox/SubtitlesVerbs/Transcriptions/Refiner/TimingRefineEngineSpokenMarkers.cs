@@ -31,48 +31,52 @@ namespace FunscriptToolbox.SubtitlesVerbs.Transcriptions.Refiner
     /// '[TimingConfidence:x] reason' line (the 'Conf.' column of the Timing editor).
     /// The long subtitles are not split with this engine (a split part has no text to give).
     /// </summary>
+    [ConfigDoc("Short English number words are inserted in the audio of each subtitle at the possible places of its start and its end (the dips of the terrain); " +
+        "the AI transcribes the clip with the markers inline and the line between « and »: the markers around the line give its start and its end. " +
+        "One request per subtitle and per run, in batches. A confidence per subtitle (the 'Conf.' column of the Review editor). The long subtitles are not split with this engine.",
+        Advice = "The AI engine of the step needs a \"maxOutputTokens\" big enough for a whole batch of answers (ex. 16384 for 50) and, ideally, a low thinking level.")]
     public class TimingRefineEngineSpokenMarkers : TimingRefineEngine
     {
-        /// <summary>Prompt/batching/extractors of the request: ONE clip with the markers ('AudioClip') and the text (must produce MarkedTranscription).</summary>
+        [ConfigDoc("The options of the request (prompt, batching, ONE clip with the markers: 'AudioClip'): it must produce \"MarkedTranscription\". Defined in the main configuration.")]
         [JsonProperty(Order = 1)]
         public AIOptions InnerOptions { get; set; }
 
-        /// <summary>
-        /// How many times each subtitle is asked (other random labels each time). 1 = no cross-check (no confidence, nothing to choose
-        /// from). 2 = the best value in the tests (a disagreement is solved by OnDisagreement, the agreement gives the confidence).
-        /// </summary>
+        [ConfigDoc("How many times each subtitle is asked (other random labels each time). 1 = no cross-check (no real confidence). " +
+            "When the runs agree, the boundary gets a high confidence; otherwise OnDisagreement decides.",
+            Advice = "2: the best value in the tests.")]
         [JsonProperty(Order = 2)]
         public int Runs { get; set; } = 2;
 
-        /// <summary>How a boundary is picked when the runs disagree (Majority needs at least 3 runs).</summary>
+        [ConfigDoc("How a boundary is picked when the runs disagree: Wider (the widest answer: extra silence is better than a cut) or Majority (the answer of the most runs; needs Runs >= 3).")]
         [JsonProperty(Order = 3)]
         public SpokenMarkersPick OnDisagreement { get; set; } = SpokenMarkersPick.Wider;
 
-        /// <summary>Start: how many start dips before (earlier than) the snapped Start get a marker.</summary>
+        [ConfigDoc("How many dips before (earlier than) the snapped Start get a marker. At most 12 markers in total for a subtitle (the number of labels).")]
         [JsonProperty(Order = 4)]
         public int StartOptionsBefore { get; set; } = 2;
 
-        /// <summary>Start: how many start dips after the snapped Start get a marker.</summary>
+        [ConfigDoc("How many dips after the snapped Start get a marker.")]
         [JsonProperty(Order = 5)]
         public int StartOptionsAfter { get; set; } = 2;
 
-        /// <summary>End: how many end dips before the snapped End get a marker (the snapped Ends are often too wide: more before than after).</summary>
+        [ConfigDoc("How many dips before the snapped End get a marker.",
+            Advice = "The snapped Ends are often too wide: more options before the End than after.")]
         [JsonProperty(Order = 6)]
         public int EndOptionsBefore { get; set; } = 4;
 
-        /// <summary>End: how many end dips after the snapped End get a marker.</summary>
+        [ConfigDoc("How many dips after the snapped End get a marker.")]
         [JsonProperty(Order = 7)]
         public int EndOptionsAfter { get; set; } = 2;
 
-        /// <summary>How far from the snapped boundary a marker can be.</summary>
+        [ConfigDoc("How far from the snapped boundary a marker can be.")]
         [JsonProperty(Order = 8)]
         public TimeSpan MaxExpansion { get; set; } = TimeSpan.FromSeconds(2.0);
 
-        /// <summary>Two markers closer than this are one marker (the time of the snapped boundary is kept when it is one of them).</summary>
+        [ConfigDoc("Two markers closer than this are one marker (the time of the snapped boundary is kept when it's one of them).")]
         [JsonProperty(Order = 9)]
         public TimeSpan MarkerMergeDistance { get; set; } = TimeSpan.FromMilliseconds(80);
 
-        /// <summary>The audio kept before the first marker and after the last one.</summary>
+        [ConfigDoc("The audio kept before the first marker and after the last one.")]
         [JsonProperty(Order = 10)]
         public TimeSpan ClipMargin { get; set; } = TimeSpan.FromSeconds(0.7);
 
