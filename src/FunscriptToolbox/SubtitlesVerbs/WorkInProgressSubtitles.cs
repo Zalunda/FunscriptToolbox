@@ -186,6 +186,63 @@ namespace FunscriptToolbox.SubtitlesVerbs
             this.FormatVersion = CURRENT_FORMAT_VERSION;
         }
 
+        /// <summary>
+        /// The ids of the steps renamed in 3.3 (old => the new ids it can have: a workflow has only one of them, ex. 'singlevad-ai-refined'
+        /// translates in ManualHQWorkflow-G4, it doesn't in the older workflows).
+        /// </summary>
+        private static readonly Dictionary<string, string[]> rs_renamedTrackIds = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["full-whisper"] = new[] { "transcription-from-whisper" },
+            ["full-whisper_google"] = new[] { "quick-translation-of-whisper-using-google" },
+            ["full-whisper_local-api"] = new[] { "quick-translation-of-whisper-using-local-api" },
+            ["full-ai"] = new[] { "transcription-from-ai" },
+            ["full-transcribe"] = new[] { "transcription-from-google-ai-transcribe" },
+            ["full-ai_google"] = new[] { "quick-translation-of-ai-using-google" },
+            ["manual-input-preparer"] = new[] { "annotated-timings-proposal" },
+            ["manual-input-review"] = new[] { "annotated-timings-review-in-editor" },
+            ["manual-input"] = new[] { "annotated-timings" },
+            ["singlevad-ai-refined"] = new[] { "analysis-and-translation-en", "analysis-and-transcription" },
+            ["translated-texts_maverick"] = new[] { "translation-en" },
+            ["finalized_maverick"] = new[] { "final-subtitles-en" },
+            ["translated-texts_french"] = new[] { "translation-fr" },
+            ["finalized_french"] = new[] { "final-subtitles-fr" },
+        };
+
+        /// <summary>
+        /// The tracks of the steps renamed in 3.3: under their new id (the work done is kept). An old id with several new ids: the one of
+        /// the configuration of the scene (enabled first). Not when the configuration has no step with the new id, or a track already has
+        /// it. The 'SourceIdUsed' of a clone too (otherwise it's done again). Returns the ids renamed ("old => new").
+        /// </summary>
+        public List<string> RenameOldTrackIds(IEnumerable<SubtitleWorker> workers)
+        {
+            var workerList = workers.ToList();
+            string NewId(string oldId)
+            {
+                if (oldId == null || !rs_renamedTrackIds.TryGetValue(oldId, out var candidates))
+                    return null;
+                return candidates.FirstOrDefault(c => workerList.Any(w => w.Enabled && w.Id == c))
+                    ?? candidates.FirstOrDefault(c => workerList.Any(w => w.Id == c));
+            }
+
+            var renamed = new List<string>();
+            foreach (var track in this.Tracks.ToList())
+            {
+                var newId = NewId(track.Id);
+                if (newId != null && !this.Tracks.Any(t => t.Id == newId))
+                {
+                    renamed.Add($"{track.Id} => {newId}");
+                    track.ChangeId(newId);
+                }
+            }
+            foreach (var clone in this.Tracks.Select(t => t.CurrentJobState).OfType<TransformClone.JobState>())
+            {
+                var newId = NewId(clone.SourceIdUsed);
+                if (newId != null)
+                    clone.SourceIdUsed = newId;
+            }
+            return renamed;
+        }
+
         private readonly object r_saveLock = new object();
 
         /// <summary>

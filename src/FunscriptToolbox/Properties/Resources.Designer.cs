@@ -371,6 +371,30 @@ namespace FunscriptToolbox.Properties {
                 return ResourceManager.GetString("FSTB_VerifyDownloadedScripts_sh", resourceCulture);
             }
         }
+        internal static string TranscriberAudioFullSystemPromptForG4 {
+            get {
+                return ResourceManager.GetString("TranscriberAudioFullSystemPromptForG4", resourceCulture);
+            }
+        }
+        
+        internal static string TranscriberAudioSingleVADRefinerSystemPromptForG4 {
+            get {
+                return ResourceManager.GetString("TranscriberAudioSingleVADRefinerSystemPromptForG4", resourceCulture);
+            }
+        }
+        
+        internal static string TranscriberAudioSingleVADRefinerUserPromptForG4 {
+            get {
+                return ResourceManager.GetString("TranscriberAudioSingleVADRefinerUserPromptForG4", resourceCulture);
+            }
+        }
+        
+        internal static string TranslatorUniversalSystemPrompt {
+            get {
+                return ResourceManager.GetString("TranslatorUniversalSystemPrompt", resourceCulture);
+            }
+        }
+        
         internal static string TranscriberAudioFullSystemPrompt {
             get {
                 return ResourceManager.GetString("TranscriberAudioFullSystemPrompt", resourceCulture);

@@ -15,6 +15,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string SourceId { get; set; }
 
+        [ConfigDoc("Other sources whose metadata are added to the copy, and the rules applied to all of them (also to the source copied), " +
+            "ex. { \"MergeRules\": { \"*\": null } }: only the start / end of the items are copied, without any metadata.")]
         [JsonProperty(Order = 12)]
         public MetadataAggregator Metadatas { get; set; }
 
@@ -39,7 +41,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 return false;
             }
 
-            if (Metadatas != null && !Metadatas.Aggregate(context).IsPrerequisitesMetWithoutTimings(out reason))
+            if (!string.IsNullOrWhiteSpace(Metadatas?.Sources) && !Metadatas.Aggregate(context).IsPrerequisitesMetWithoutTimings(out reason))
             {
                 return false;
             }
@@ -62,7 +64,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
         {
             var source = context.FindSource(this.SourceId);
-            _metadataProduced = source.MetadataAlwaysProduced;
+            // (the metadata always produced by the source, unless the rules remove it, ex. "*": null)
+            var mergeRules = this.Metadatas?.MergeRules;
+            _metadataProduced = source.MetadataAlwaysProduced == null || mergeRules == null
+                ? source.MetadataAlwaysProduced
+                : mergeRules.GetFinalKey(this.SourceId, source.MetadataAlwaysProduced);
 
             transcription.Items.Clear();
 
@@ -70,7 +76,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             var aggregatedMetadata = new MetadataAggregator()
             {
                 TimingsSource = this.SourceId,
-                Sources = this.Metadatas == null ? this.SourceId : this.Metadatas.Sources + $",{this.SourceId}"
+                Sources = string.Join(",", new[] { this.Metadatas?.Sources, this.SourceId }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                MergeRules = mergeRules,
+                ValueTransformationRules = this.Metadatas?.ValueTransformationRules
             }
                 .Aggregate(context, source);
 

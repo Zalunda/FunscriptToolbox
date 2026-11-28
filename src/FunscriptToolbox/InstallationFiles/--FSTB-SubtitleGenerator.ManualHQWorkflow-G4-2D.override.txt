@@ -1,8 +1,4 @@
 ﻿{
-  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
-  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
-  // What each setting does (and what we suggest): the ⓘ of the setting in the 'Config' tab of the web UI (Flow view).
-
   "SharedObjects": [
     {
       "$id": "TranscriberAudioSingleVADRefinerSystemPromptForG4",
@@ -11,18 +7,17 @@
   ],
   "Workers": [
     {
-      // (not a VR video: no crop of the left eye)
       "Id": "fast-video",
       "FfmpegParameters": "-vf \"scale=-2:512\" -af \"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\" -ar 48000 -c:v libx264 -g 1 -c:a aac -b:a 128k -movflags +faststart"
     },
     {
-      "Id": "manual-input-preparer",
+      "Id": "annotated-timings-proposal",
       "TitleCardDetection": {
         "FfmpegFilter": "crop=iw*0.40:ih*0.10:iw*0.30:ih*0.45"
       }
     },
     {
-      "Id": "singlevad-ai-refined",
+      "Id": "analysis-and-translation-en",
       "Options": {
         "BinaryDataExtractors": [
           {

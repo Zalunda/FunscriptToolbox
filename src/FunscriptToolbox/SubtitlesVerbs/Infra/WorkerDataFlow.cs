@@ -17,7 +17,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public const string Track = "track";
         /// <summary>A file next to the video, by its suffix (ex. ".manual-input.srt").</summary>
         public const string File = "file";
-        /// <summary>(input only) Track(s) given by their ids, ex. "full-ai,manual-input" (resolved by the graph).</summary>
+        /// <summary>(input only) Track(s) given by their ids, separated by ',' (resolved by the graph).</summary>
         public const string Sources = "sources";
     }
 
@@ -48,7 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 Outputs.Add(new DataRef { Kind = kind, Id = id.Trim(), Role = role });
         }
 
-        /// <summary>A list of source rules (ex. "full-whisper, singlevad-*"), resolved like the run does (see MetadataAggregator).</summary>
+        /// <summary>A list of source rules, resolved like the run does (see MetadataAggregator).</summary>
         public void InputSources(string sources, string role)
         {
             foreach (var rule in (sources ?? string.Empty).Split(',').Select(f => f.Trim()).Where(f => f.Length > 0))
@@ -103,7 +103,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var dataItems = new Dictionary<string, object>();
             var edges = new List<object>();
 
-            // The tracks produced by the workers (for the sources, ex. "full-ai,manual-input")
+            // The tracks produced by the workers (for the sources)
             var producedIds = new List<(string kind, string id)>();
             foreach (var flow in flows)
                 foreach (var output in flow.Outputs.Where(o => o.Kind == DataKind.Track))
@@ -219,7 +219,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         private const int MaxItems = 5000;
 
         /// <summary>
-        /// The number of items of each transcription / translation (key of the graph, ex. "transcription:full-whisper"), and if it's finished:
+        /// The number of items of each transcription / translation (key of the graph, ex. "track:<id>"), and if it's finished:
         /// shown in a corner of their box. (only the sizes of the lists are read: no lock needed, the scene can be adding items)
         /// And the AI cost of each step that has AI calls (its key, ex. "w3": { cost, calls, fallbacks }), in a corner of its box
         /// (the costs are copied with the lock of the .wipsubtitles, see OutputCostReport.GetAICostByWorker).
@@ -265,7 +265,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 return InspectWorker(context, workers[index]);
             }
 
-            // A data ("track:full-whisper", "audio:...", "file:...")
+            // A data ("track:...", "audio:...", "file:...")
             var colon = key.IndexOf(':');
             var kind = colon > 0 ? key.Substring(0, colon) : key;
             var id = colon > 0 ? key.Substring(colon + 1) : string.Empty;

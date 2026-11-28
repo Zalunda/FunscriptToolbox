@@ -1361,6 +1361,41 @@
     return { nodes: nodes, edges: Object.keys(merged).map(function (k) { return merged[k]; }) };
   }
 
+  /// The name of a box of the Flow graph, on at most 'maxLines' lines of at most 'max' characters: cut before the id of a step ("Quick
+  /// translation" / "'quick-translation-of-…'"), otherwise after a '-' or a space (ex. the long ids); what doesn't fit on the last line ends
+  /// with '…' (the whole name: in the tooltip).
+  function flowLabelLines(text, max, maxLines) {
+    var lines = [];
+    var quote = text.indexOf(" '");
+    if (quote > 0 && quote <= max && text.length > max) {
+      lines.push(text.substring(0, quote));
+      text = text.substring(quote + 1);
+    }
+    while (text.length > max && lines.length < maxLines - 1) {
+      var cut = -1;
+      for (var i = max; i > max / 3; i--) {
+        var c = text.charAt(i - 1);
+        if (c === "-" || c === " ") { cut = i; break; }
+      }
+      if (cut < 0) cut = max;
+      lines.push(text.substring(0, cut).replace(/ +$/, ""));
+      text = text.substring(cut).replace(/^ +/, "");
+    }
+    lines.push(text.length > max ? text.substring(0, max - 1) + "…" : text);
+    return lines;
+  }
+  /// The name of a box: a step on up to 3 lines, a data on up to 2 (see flowLabelLines)
+  function flowNodeLines(n) {
+    return n.type === "worker" ? flowLabelLines(n.w.name, 30, 3) : flowLabelLines((FLOW_ICONS[n.d.kind] || "") + " " + n.d.name, 24, 2);
+  }
+  /// The text of a box, centered vertically (one 'tspan' by line)
+  function flowNodeText(b, lines) {
+    var lineH = 14, y0 = b.y + b.h / 2 + 4 - (lines.length - 1) * lineH / 2;
+    return '<text x="' + (b.x + 10) + '" y="' + y0 + '">' + lines.map(function (l, i) {
+      return '<tspan x="' + (b.x + 10) + '" y="' + (y0 + i * lineH) + '">' + esc(l) + '</tspan>';
+    }).join("") + '</text>';
+  }
+
   // Columns (left to right, in the order of the workers in the configuration), then the order inside each column
   function layoutFlow(g) {
     var preds = {}, succs = {};
@@ -1429,7 +1464,11 @@
     for (var l3 = 1; l3 < cols.length; l3++) { sortRow(cols[l3], preds, succs); setPos(); }
 
     // Coordinates: top to bottom (a level = a row, its nodes side by side, centered); vertical scrolling is more natural in the pane
-    var size = function (k) { return isWorker(k) ? { w: 190, h: 32 } : { w: 150, h: 22 }; };
+    // (a name on 2 lines: a box 14 px higher)
+    var size = function (k) {
+      var extra = (flowNodeLines(g.nodes[k]).length - 1) * 14;
+      return isWorker(k) ? { w: 190, h: 32 + extra } : { w: 150, h: 22 + extra };
+    };
     var GAP_X = 16, GAP_Y = 44;
     var rowW = cols.map(function (c) { return c.reduce(function (a, k) { return a + size(k).w + GAP_X; }, -GAP_X); });
     var rowH = cols.map(function (c) { return c.reduce(function (a, k) { return Math.max(a, size(k).h); }, 0); });
@@ -1559,7 +1598,7 @@
         }
         parts.push('<g class="fnode fw st-' + st.cls + (dim ? " dim" : "") + (flowFocus === k ? " focus" : "") + '" data-fkey="' + k + '">' +
           '<title>' + esc(tip) + '</title><rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="6"/>' +
-          '<text x="' + (b.x + 10) + '" y="' + (b.y + b.h / 2 + 4) + '">' + esc(trunc(w.name, 30)) + '</text>' + costBadge + '</g>');
+          flowNodeText(b, flowNodeLines(n)) + costBadge + '</g>');
       } else {
         var dd = n.d;
         var dtip = dd.kind + ": " + dd.name + (n.avail === "input" ? "\n(an input of the scene: produced by no worker)" : n.avail === "yes" ? "\n(available)" : "\n(not produced yet)") +
@@ -1581,7 +1620,7 @@
         }
         parts.push('<g class="fnode fd ' + (external ? "ext" : "int") + ' k-' + dd.kind + ' av-' + n.avail + (dim ? " dim" : "") + (flowFocus === k ? " focus" : "") + '" data-fkey="' + k + '">' +
           '<title>' + esc(dtip + (external ? "\n(on disk)" : "\n(in the .wipsubtitles)")) + '</title>' + shape +
-          '<text x="' + (b.x + 10) + '" y="' + (b.y + b.h / 2 + 4) + '">' + esc((FLOW_ICONS[dd.kind] || "") + " " + trunc(dd.name, 22)) + '</text>' + badge + '</g>');
+          flowNodeText(b, flowNodeLines(n)) + badge + '</g>');
       }
     });
     // ...and a callout on its right: how to come back to the whole graph

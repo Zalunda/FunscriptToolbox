@@ -15,13 +15,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [ConfigDoc("The id of the step whose subtitles give the timings (usually \"timings\"): one node per subtitle of this source; the metadata of the Sources are attached to these nodes.")]
         [JsonProperty(Order = 1)]
         public string TimingsSource { get; set; }
-        [ConfigDoc("The ids of the steps whose metadata are attached to each node, separated by ',' (ex. \"singlevad-ai-refined,on-screen-texts,speakers,manual-input\"). " +
+        [ConfigDoc("The ids of the steps whose metadata are attached to each node, separated by ',' (ex. \"<id 1>,<id 2>\"). " +
             "A subtitle of a source that overlaps a node gives its metadata to that node. An id that no step has is an error.\n" +
             "When two sources have the same metadata, the last one in the list wins.")]
         [JsonProperty(Order = 2)]
         public string Sources { get; set; }
         [ConfigDoc("Renames (or removes, with null) metadata of the sources before they're merged: { \"<metadata>\": \"<new name>\" } for every source, " +
-            "or { \"<source id>,<metadata>\": \"<new name>\" } for one source (the first form wins when both are there).\n" +
+            "or { \"<source id>,<metadata>\": \"<new name>\" } for one source (the first form wins when both are there). " +
+            "\"*\" is every other metadata (\"<source id>,*\": of one source), ex. { \"*\": null }: none kept.\n" +
             "Ex. { \"TranslatedText\": \"OriginalTranslatedText\" }: the translation of a source kept under another name, so that the AI can refine it without it being replaced by its own answer.")]
         [JsonProperty(Order = 3)]
         public MergeRuleDictionary MergeRules { get; set; }
@@ -72,7 +73,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         }
 
         /// <summary>
-        /// A source (ex. "full-whisper") is the id of a transcription / translation, exactly (no wildcard: every dependency is
+        /// A source is the id of a step that produces a track, exactly (no wildcard: every dependency is
         /// known, so a missing one can be reported). (also used by the flow graph of the web UI: the same rule as the run)
         /// </summary>
         internal static bool IsSourceMatch(string source, string id)

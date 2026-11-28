@@ -12,8 +12,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
     /// The review of the file the user revises (ex. '.manual-input.srt'), in the 'Timing' editor of the web UI, instead of editing the file by hand.
-    /// It replaces the output that creates that file (ex. OutputSrt 'generated-manual-input-srt'); the file is still imported by the next worker
-    /// (ex. InputImportMetadatas 'manual-input'), so the file can still be edited by hand once the review is done
+    /// It replaces the output that creates that file (ex. an OutputSrt); the file is still imported by the next worker
+    /// (an InputImportMetadatas), so the file can still be edited by hand once the review is done
     /// (its metadata, ex. {Note:...}, are always used; its timings only until the next steps use them, then they are frozen).
     /// - First run: the subtitles to review are created in the .wipsubtitles (job state): from the file when it already exists (imported once,
     ///   with what was validated in the editor: ex. a review started with the file), otherwise from Metadatas / TextSources, like OutputSrt.
@@ -118,13 +118,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 
         private const string ToolName = "InteractifReview";
 
-        [ConfigDoc("The file written when the review is done (ex. \".manual-input.srt\"), then imported by the next step (ex. 'manual-input').")]
+        [ConfigDoc("The file written when the review is done (ex. \".manual-input.srt\"), then imported by the next step (an InputImportMetadatas).")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string FileSuffix { get; set; }
         [ConfigDoc("The subtitles to review (TimingsSource) and the steps whose metadata are added to them (Sources).")]
         [JsonProperty(Order = 21)]
         public MetadataAggregator Metadatas { get; set; }
-        [ConfigDoc("The ids of the steps whose text is put in the subtitles to review, separated by ',' (ex. \"manual-input-preparer\"; add a translation, ex. \"full-ai_google\", to also have a basic translation).")]
+        [ConfigDoc("The ids of the steps whose text is put in the subtitles to review, separated by ',' (add a quick translation to also have a basic translation).")]
         [JsonProperty(Order = 22)]
         public string TextSources { get; set; }
         [ConfigDoc("The metadata used as the text of the sources (null: the main metadata of each source).")]
@@ -438,7 +438,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 
         // ---- Review done ----
 
-        /// <summary>The workers that import the file (ex. InputImportMetadatas 'manual-input').</summary>
+        /// <summary>The workers that import the file (InputImportMetadatas).</summary>
         private InputImportMetadatas[] GetImporters(SubtitleGeneratorContext context)
             => context.Config.Workers
                 .OfType<InputImportMetadatas>()

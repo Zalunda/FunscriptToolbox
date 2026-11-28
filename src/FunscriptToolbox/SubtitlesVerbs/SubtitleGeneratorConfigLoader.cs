@@ -944,9 +944,10 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
         private static string ReplaceLongStringFromHybridToJson(string originalText)
         {
+            // (the line breaks around: '\n' or '\r\n', a file saved on Windows: its '\r' would otherwise start the string)
             return Regex.Replace(
                 originalText,
-                @"\n*=_{3,}(?<text>.*?)_{3,}=(?:\n*[ \t]*(?<quote>"")|\n*)",
+                @"[\r\n]*=_{3,}(?<text>.*?)_{3,}=(?:[\r\n]*[ \t]*(?<quote>"")|[\r\n]*)",
                 match =>
                 {
                     string capturedText = match.Groups["text"].Value.Trim();

@@ -1,54 +1,43 @@
 ﻿{
-  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
-  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
-  // What each setting does (and what we suggest): the ⓘ of the setting in the 'Config' tab of the web UI (Flow view).
-
   "Workers": [
     {
       "Id": "used-config",
       "Enabled": true
     },
-    // -----------------------------
-    // Audio extraction
     {
       "Id": "audio",
       "Enabled": true
     },
     {
       "Id": "audio-clean-waveform",
-      "Enabled": true,
+      "Enabled": true
     },
     {
       "Id": "asig",
       "Enabled": true
     },
-    // -----------------------------
-    // Transcription with Whisper with a basic google translation
     {
-      "Id": "full-whisper",
-      "Enabled": true,
-      "ExportMetadataSrt": false
+      "Id": "transcription-from-whisper",
+      "Enabled": true
     },
     {
-      "Id": "full-whisper_google",
-      "Enabled": true,
-      "ExportMetadataSrt": false
+      "Id": "quick-translation-of-whisper-using-google",
+      "Enabled": true
     },
     {
-      "Id": "full-whisper_local-api",
-      "Enabled": false,
-      "ExportMetadataSrt": false
+      "Id": "quick-translation-of-whisper-using-local-api",
+      "Engine": {
+        "$ref": "AIEngineLocalAPI"
+      }
     },
     {
-      "Id": "preliminary-srt",
-      "Enabled": true,
-      "FileSuffix": ".srt",
-      "WorkerId": "full-whisper_google"
+      "Id": "quick-translation-srt",
+      "Enabled": true
     },
     {
-      "Id": "full",
+      "Id": "transcription",
       "Enabled": true,
-      "SourceId": "full-whisper"
+      "SourceId": "transcription-from-whisper"
     }
   ]
 }

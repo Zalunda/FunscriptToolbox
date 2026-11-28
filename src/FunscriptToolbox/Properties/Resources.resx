@@ -145,6 +145,18 @@
   <data name="TranscriberAudioFullSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="TranscriberAudioFullSystemPromptForG4" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullSystemPromptForG4.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TranscriberAudioSingleVADRefinerSystemPromptForG4" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerSystemPromptForG4.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TranscriberAudioSingleVADRefinerUserPromptForG4" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranscriberAudioSingleVADRefinerUserPromptForG4.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="TranslatorUniversalSystemPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\SubtitlesVerbs\Prompts\TranslatorUniversalSystemPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
   <data name="TranscriberAudioFullUserPrompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\SubtitlesVerbs\Prompts\TranscriberAudioFullUserPrompt.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>

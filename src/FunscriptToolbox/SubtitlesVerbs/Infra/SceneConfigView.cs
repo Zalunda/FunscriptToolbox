@@ -613,7 +613,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         /// <summary>A node of the tree sent to the page (short names: a configuration can have thousands of values).</summary>
         public class Node
         {
-            /// <summary>The name of the property (or "[2] full-whisper" for an item of an array).</summary>
+            /// <summary>The name of the property (or "[2] <label>" for an item of an array).</summary>
             [JsonProperty("n")]
             public string Name { get; set; }
 

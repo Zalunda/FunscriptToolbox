@@ -1059,6 +1059,14 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                             videoSequence.ContainerFullPath);
                     wipsub.SetBackupParentFolder(config.Global?.BackupParentFolder);
 
+                    // The steps renamed in 3.3 (ex. 'full-ai' => 'transcription-from-ai'): their work kept under the new id
+                    var renamedIds = wipsub.RenameOldTrackIds(config.Workers);
+                    if (renamedIds.Count > 0)
+                    {
+                        context.WriteInfo($"Steps renamed (3.3), their work kept: {string.Join(", ", renamedIds)}.");
+                        wipsub.Save();
+                    }
+
                     // The data saved under the name of an alias (ex. 'full', when it was a clone): not used anymore (removed at the next save)
                     var aliasIds = new HashSet<string>(Processors.TrackAlias.GetAliases(config).Select(a => a.Id));
                     var nbRemoved = wipsub.Tracks.RemoveAll(t => aliasIds.Contains(t.Id));

@@ -1,8 +1,4 @@
 {
-  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
-  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
-  // What each setting does (and what we suggest): the ⓘ of the setting in the 'Config' tab of the web UI (Flow view).
-
   "SharedObjects": [
     {
       "$id": "TranscriberAudioFullSystemPromptForG4",
@@ -109,9 +105,6 @@ When `OngoingSpeakers` lists more than one character or multiple speakers intera
 _______________________________________=",
     },
     {
-      // The prompt of the timing refine engine 'TimingRefineEngineSpokenMarkers' (manual-input-preparer: RefineTiming.Engine):
-      // with several speakers in a node, the AI must bracket all of them (tested on TMAVR-269: without this, it sometimes
-      // bracketed only the first speaker, and the End cut the second one).
       "$id": "TimingSpokenMarkersSystemPrompt",
       "TextAfter": "
 =_______________________________________
@@ -127,7 +120,7 @@ _______________________________________=",
   ],
   "Workers": [
     {
-      "Id": "full-ai",
+      "Id": "transcription-from-ai",
       "MaxChunkDuration": "00:15:00"
     }
   ]

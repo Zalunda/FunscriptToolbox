@@ -15,14 +15,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
     // =================================================================================================================================
     // NOTES FOR LATER (2026-11-26): the state of the tests of 'gemini-3.5-transcribe', the open questions and the possible improvements.
-    // (used by TranscriberAudioFullAIGoogleTranscribe, step 'full-transcribe' of the main configuration, disabled for now: 'full-ai' is
-    //  still a TranscriberAudioFullAI. If it replaces the type of 'full-ai' (same id), what scenes already did is kept, see its JobState.)
+    // (used by TranscriberAudioFullAIGoogleTranscribe, a step of the main configuration, disabled for now: the transcription by AI is
+    //  still a TranscriberAudioFullAI. If it replaces the type of that step (same id), what scenes already did is kept, see its JobState.)
     //
     // What was measured
     //   - MDVR-094 (15 min, the first part), against the timings reviewed by hand: word starts ~+0.1 s (85 % within 0.2 s), word ends
     //     ~0.2 s too early (=> EndPadding 0.25 s). The times are in steps of 0.1 s; ~25 % of the words last <= 0.1 s, some 0 s.
     //     (careful: the texts of a manual-input file can be on the neighbour subtitle; compare the boundaries, not the texts)
-    //   - The text is put on the right subtitle (better than 'full-ai', whose texts were often on the neighbour in that part).
+    //   - The text is put on the right subtitle (better than TranscriberAudioFullAI, whose texts were often on the neighbour in that part).
     //   - Cost: 25 audio tokens / s ($2 / M) + ~900 output tokens / 15 min ($12 / M): ~$0.21 / hour. Diarization: ~+4 % output, nothing.
     //   - Fast: ~13 s for 15 min of audio.
     //   - MDVR-093 (52 min, 4 women): 25-min chunks: the 2nd chunk had broken times at its start, lost the speakers after 2 min (955 of
@@ -69,7 +69,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //     TranscriberAudioFullAIGoogleTranscribe.RemoveBrokenWords (thresholds: 5 s, 30 s later than the next 20 words): to keep an eye on.
     //   - The subtitles built from the words (MaxGap 0.6 s, 。？！, MaxDuration 6 s): to tune on reviewed scenes (CanBeUpdated:
     //     rebuilt from the answers kept, without a new request).
-    //   - If it becomes the source of the manual-input file: compare the Review editor work needed vs 'full-ai'; much of the timing refiner
+    //   - If it becomes the source of the manual-input file: compare the Review editor work needed vs TranscriberAudioFullAI; much of the timing refiner
     //     (RefineTiming engines, their prompts) may become useless.
     // =================================================================================================================================
 

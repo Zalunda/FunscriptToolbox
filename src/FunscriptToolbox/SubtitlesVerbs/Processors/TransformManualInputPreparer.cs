@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
-    /// Prepares the subtitles of a transcription (full-ai) for the manual-input file: the nodes that are clean, and the ones
+    /// Prepares the subtitles of a transcription for the manual-input file: the nodes that are clean, and the ones
     /// that need the user's attention ('[REVIEW:Code:Detail] message' lines). It does up to three things, each with its own settings and Enabled
     /// (all disabled: the result is a clone of the source):
     ///   - RefineTiming: snaps the boundaries of each subtitle on the terrain of the audio, then refines them with its engine
@@ -25,7 +25,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
     ///   - Validation: checks the refined subtitles, flags what needs a look and splits the long ones.
     ///   - TitleCardDetection: adds a node for each title card found in the videos.
     /// </summary>
-    [ConfigDoc("Prepares the subtitles of a transcription (ex. 'full-ai') for the manual-input file: refines their timings (RefineTiming), adds the title cards (TitleCardDetection), " +
+    [ConfigDoc("Prepares the subtitles of a transcription for the manual-input file: refines their timings (RefineTiming), adds the title cards (TitleCardDetection), " +
         "and flags what needs a look (Validation: '[REVIEW:Code:Detail] reason' lines, checked one by one in the Review editor). All three disabled: a clone of the source.")]
     public class TransformManualInputPreparer : TransformAI
     {
@@ -193,7 +193,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 
         // ---------------------------------------------------------------------
         // Settings: the task does up to three things, each with its own settings and its own Enabled.
-        // All three disabled: the output is a clone of the source (full-ai).
+        // All three disabled: the output is a clone of the source.
         // ---------------------------------------------------------------------
 
         [ConfigDoc("Adds the [TRACES] of the refining (each step, the options, the answers of the AI) to every subtitle of the manual-input file.",

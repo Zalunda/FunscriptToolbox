@@ -7,7 +7,7 @@ using System.Linq;
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
-    /// Another name for a transcription / translation (ex. 'full' for 'full-ai', 'full-whisper' or 'manual-input-preparer'), so that the
+    /// Another name for a transcription / translation (ex. one name for the transcription that a workflow chose), so that the
     /// steps after it always use the same name, whatever the workflow. Nothing is copied, nothing is saved in the .wipsubtitles:
     /// the name is resolved each time it's used (see <see cref="Resolve"/>), so it always gives the current state of its source.
     /// (Unlike <see cref="TransformClone"/>: a copy, frozen once done, ex. 'timings', so that the next steps keep the same timings

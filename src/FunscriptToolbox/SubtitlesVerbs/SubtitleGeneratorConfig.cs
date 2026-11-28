@@ -29,7 +29,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         public object[] SharedObjects { get; set; }
 
         [ConfigDoc("The steps of the workflow, in order: audio extractions, transcriptions, translations, outputs. Each step uses what the steps before it produced.\n" +
-            "An override file changes a step by repeating its id (ex. \"Id\": \"full-ai\") with only the values it changes.")]
+            "An override file changes a step by repeating its id (\"Id\": \"<id>\") with only the values it changes.")]
         [JsonProperty(Order = 3)]
         public SubtitleWorker[] Workers { get; set; }
 

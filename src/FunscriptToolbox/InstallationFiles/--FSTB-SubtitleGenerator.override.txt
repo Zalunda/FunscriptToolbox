@@ -1,42 +1,5 @@
 {
-  // Your own changes: in '--FSTB-SubtitleGenerator.override.user.config' (same folder, same format, only what you change),
-  // merged after this file. The installation never creates or replaces it: keep it when you start from a new version of this file.
-  // What each setting does (and what we suggest): the ⓘ of the setting in the 'Config' tab of the web UI (Flow view).
-
-  "GlobalShared": {
-    "MaxConcurrent": { "GPU": 1, "VID": 1, "AUD": 3, "PREP": 1, "ENC": 1 },
-    "ScenePriorities": [
-      { "Metadata": "Type", "Pattern": "ManualHQWorkflow-G4" },
-      { "Metadata": "Type", "Pattern": "ManualHQWorkflow" },
-      { "Metadata": "Type", "Pattern": "AutomaticHQWorkflow" },
-      { "Metadata": "Type", "Pattern": "Staging" }
-    ],
-  },
-
-  "Global": {
-    // Remove '//' on next line to create the backup folders of the scenes under another folder (a full path, with '\' doubled => '\\').
-    //"BackupParentFolder": "C:\\...\\FSTB-LogsAndBackups",
-
-    // Ex. for 'ManualHQWorkflow-G4\3DSVR-1072\3DSVR-1072- - Mei Miyajima - Night Bus Sex [zalunda].vseq' => '3DSVR-1072 (ManualHQWorkflow-G4)':
-    //   1. ShortName: '<digit?><letters>-<digits>' in the file name (ex. '3DSVR-1072', 'nhdtb-273'),
-    //   2. else ShortName: '<digit?><letters><digits>' in the file name (ex. '3dsvr01866'),
-    //   3. Type: the first folder of the path (ex. 'ManualHQWorkflow-G4', '01-Staging').
-    "SceneMetadata": [
-      "(?<![A-Za-z0-9.])(?<ShortName>\\d?[A-Za-z]{2,}-\\d+)[^\\\\]*$",
-      "(?<![A-Za-z0-9.])(?<ShortName>\\d?[A-Za-z]{2,}\\d+)[^\\\\]*$",
-      "^(?<Type>[^\\\\]+)\\\\"
-    ],
-    "SceneDisplayName": "{ShortName}[ ({Type})]",
-  },
-
   "SharedObjects": [
-    {
-      "$id": "TranscriberToolPurfviewWhisper",
-      // Remove '//' on next line and change [TOREPLACE-WITH-PathToPurfview] to the path of SubtitleEdit\Whisper (with '\' doubled => '\\').
-      //"ApplicationFullPath": "[TOREPLACE-WITH-PathToPurfview]\\Purfview-Whisper-Faster\\faster-whisper-xxl.exe",
-    },
-
-    // AIEngines for OpenAI (GPT-5) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIOpenAICompatible",
       "$id": "AIEngineGPT5OnOpenAI",
@@ -46,11 +9,9 @@
       "RequestBodyExtension": {
         "service_tier": "flex"
       },
-      "UseStreaming": false, // Not sure why but streaming didn't work when I tried
-      "SupportAudio": true, // I think
+      "UseStreaming": false,
+      "SupportAudio": true,
       "SupportImage": true,
-
-      // Note: "service_tier = flex" => 50% of the regular price, from 1.25 / 10
       "EstimatedCostPerInputMillionTokens": 0.625,
       "EstimatedCostPerOutputMillionTokens": 5
     },
@@ -65,9 +26,7 @@
           "reasoning_effort": "medium"
         }
       },
-      "SupportAudio": false,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 1.25,
       "EstimatedCostPerOutputMillionTokens": 10
     },
@@ -78,11 +37,8 @@
         { "$ref": "AIEngineGPT5OnOpenAI" },
         { "$ref": "AIEngineGPT5OnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
-
-    // AIEngines for Google (gemini-2.5-pro, gemini-3-flash and gemini-3-pro) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIGoogle",
       "$id": "AIEngineGemini2.5ProOnGoogle",
@@ -90,37 +46,22 @@
       "Model": "gemini-2.5-pro",
       "APIKeyName": "APIKeyGemini",
       "UseBatchMode": true,
-      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
-          {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "OFF"
-          }
+          { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
         ],
         "generationConfig": {
           "thinkingConfig": {
             "includeThoughts": true
           },
-          // According to Gemini doc: LOW: 64 tokens, MEDIUM: 256 tokens, HIGH: 256 tokens + Pan & Scan (not sure what it mean)
           "mediaResolution": "MEDIA_RESOLUTION_HIGH"
         }
       },
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 1.25,
       "EstimatedCostPerOutputMillionTokens": 10
     },
@@ -132,7 +73,6 @@
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 1.25,
       "EstimatedCostPerOutputMillionTokens": 10.0
     },
@@ -143,10 +83,8 @@
         { "$ref": "AIEngineGemini2.5ProOnGoogle" },
         { "$ref": "AIEngineGemini2.5ProOnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
-
     {
       "$type": "AIEngineAPIGoogle",
       "$id": "AIEngineGemini3FlashOnGoogle",
@@ -154,37 +92,22 @@
       "Model": "gemini-3-flash-preview",
       "APIKeyName": "APIKeyGemini",
       "UseBatchMode": true,
-      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
-          {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "OFF"
-          }
+          { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
         ],
         "generationConfig": {
           "thinkingConfig": {
             "includeThoughts": true
           },
-          // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
           "mediaResolution": "MEDIA_RESOLUTION_MEDIUM"
         }
       },
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 0.5,
       "EstimatedCostPerOutputMillionTokens": 3
     },
@@ -201,7 +124,6 @@
       },
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 0.5,
       "EstimatedCostPerOutputMillionTokens": 3
     },
@@ -212,10 +134,8 @@
         { "$ref": "AIEngineGemini3FlashOnGoogle" },
         { "$ref": "AIEngineGemini3FlashOnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
-
     {
       "$type": "AIEngineAPIGoogle",
       "$id": "AIEngineGemini3ProOnGoogle",
@@ -223,41 +143,24 @@
       "Model": "gemini-3.1-pro-preview",
       "APIKeyName": "APIKeyGemini",
       "UseBatchMode": true,
-      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
-          {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "OFF"
-          }
+          { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
         ],
         "generationConfig": {
           "thinkingConfig": {
-            // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => automatic detection based on content, I think)
             "includeThoughts": true
           },
-          // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
-          // [OPTION] Change to MEDIUM/HIGH if you don't mind the higher cost. LOW seem to be a good enough job.
           "mediaResolution": "MEDIA_RESOLUTION_LOW"
         }
       },
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 2,
-      "EstimatedCostPerOutputMillionTokens": 12,
+      "EstimatedCostPerOutputMillionTokens": 12
     },
     {
       "$type": "AIEngineAPIPoe",
@@ -267,15 +170,13 @@
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": true,
       "SupportImage": true,
-
       "RequestBodyExtension": {
         "extra_body": {
           "thinking_level": "high"
         }
       },
-
       "EstimatedCostPerInputMillionTokens": 2,
-      "EstimatedCostPerOutputMillionTokens": 12,
+      "EstimatedCostPerOutputMillionTokens": 12
     },
     {
       "$type": "AIEngineCollection",
@@ -284,7 +185,6 @@
         { "$ref": "AIEngineGemini3ProOnGoogle" },
         { "$ref": "AIEngineGemini3ProOnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
     {
@@ -294,61 +194,25 @@
       "Model": "gemini-4-neon",
       "APIKeyName": "APIKeyGemini",
       "UseBatchMode": true,
-      "UseBatchModeSaving": 0.50,
       "RequestBodyExtension": {
         "safetySettings": [
-          {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "OFF"
-          },
-          {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "OFF"
-          }
+          { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" }
         ],
         "generationConfig": {
           "thinkingConfig": {
-            // [OPTION] "thinkingLevel": "LOW" or "HIGH", (not defined => seem to be HIGH). LOW is smart enough for the task needed.
             "thinkingLevel": "LOW",
             "includeThoughts": true
           },
-          // According to Gemini doc: LOW: 280 tokens, MEDIUM: 560 tokens, HIGH: 1120 tokens, ULTRA_HIGH: 2240 tokens
-          // [OPTION] Change to MEDIUM/HIGH if you don't mind the higher cost. LOW seem to be a good enough job.
           "mediaResolution": "MEDIA_RESOLUTION_MEDIUM"
         }
       },
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 3,
-      "EstimatedCostPerOutputMillionTokens": 15,
-      "PauseBeforeSendingRequest": false,
-      "PauseBeforeSavingResponse": false,
-    },
-    // The transcription model of Google (the step 'full-transcribe', disabled for now): another API than the models above, no batch mode
-    // (UseBatchMode must stay false).
-    {
-      "$type": "AIEngineAPIGoogle",
-      "$id": "AIEngineGeminiTranscribeOnGoogle",
-      "BaseAddress": "https://generativelanguage.googleapis.com/v1beta",
-      "Model": "gemini-3.5-transcribe",
-      "APIKeyName": "APIKeyGemini",
-      "UseBatchMode": false,
-      "SupportAudio": true,
-      "EstimatedCostPerInputMillionTokens": 2,
-      "EstimatedCostPerOutputMillionTokens": 12,
-      "TranscribeMinTimeBetweenRequests": "00:00:30",
-      "TranscribeMaxRetriesOnTooManyRequests": 5,
-      "PauseBeforeSendingRequest": false,
-      "PauseBeforeSavingResponse": false
+      "EstimatedCostPerOutputMillionTokens": 15
     },
     {
       "$type": "AIEngineAPIPoe",
@@ -358,9 +222,8 @@
       "APIKeyName": "APIKeyPoe",
       "SupportAudio": true,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 3,
-      "EstimatedCostPerOutputMillionTokens": 15,
+      "EstimatedCostPerOutputMillionTokens": 15
     },
     {
       "$type": "AIEngineCollection",
@@ -369,11 +232,8 @@
         { "$ref": "AIEngineGemini4OnGoogle" },
         { "$ref": "AIEngineGemini4OnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
-
-    // AIEngines for Anthropic (Claude Opus) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIAnthropic",
       "$id": "AIEngineClaudeOpusOnAnthropic",
@@ -381,20 +241,10 @@
       "Model": "claude-opus-5",
       "APIKeyName": "APIKeyAnthropic",
       "RequestBodyExtension": {
-        // Note: max_tokens is required for Anthropic API
-        "max_tokens": 8192,
-
-        // [OPTION] Remove '//' for the following lines to activate thinking mode.
-        // "thinking": {
-        //  "type": "enabled",
-        //  "budget_tokens": 4196
-        //}
+        "max_tokens": 8192
       },
       "UseBatchMode": true,
-      "UseBatchModeSaving": 0.50,
-      "SupportAudio": false,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 5,
       "EstimatedCostPerOutputMillionTokens": 25
     },
@@ -404,18 +254,14 @@
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "claude-opus-5",
       "APIKeyName": "APIKeyPoe",
-      "SupportAudio": false,
-      "SupportImage": true,
       "RequestBodyExtension": {
         "extra_body": {
           "output_effort": "none"
         }
       },
-      "SupportAudio": false,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 5,
-      "EstimatedCostPerOutputMillionTokens": 25,
+      "EstimatedCostPerOutputMillionTokens": 25
     },
     {
       "$type": "AIEngineCollection",
@@ -424,22 +270,17 @@
         { "$ref": "AIEngineClaudeOpusOnAnthropic" },
         { "$ref": "AIEngineClaudeOpusOnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
-
-    // AIEngines for Grok (grok-4) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIPoe",
       "$id": "AIEngineGrok4OnPoe",
       "BaseAddress": "https://api.poe.com/v1",
       "Model": "grok-4",
       "APIKeyName": "APIKeyPoe",
-      "SupportAudio": false,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 3,
-      "EstimatedCostPerOutputMillionTokens": 15,
+      "EstimatedCostPerOutputMillionTokens": 15
     },
     {
       "$type": "AIEngineCollection",
@@ -447,105 +288,17 @@
       "Engines": [
         { "$ref": "AIEngineGrok4OnPoe" }
       ],
-      "SkipOnQuotasUsed": true,
       "SkipOnServiceUnavailable": false
     },
-
-    // AIEngines for local API (define other if needed or change this one) ----------------------------------------------------------
     {
       "$type": "AIEngineAPIOpenAICompatible",
       "$id": "AIEngineLocalAPI",
       "BaseAddress": "http://localhost:10000/v1",
       "Model": "mistralai/mistral-small-3.2",
       "ValidateModelNameInResponse": true,
-      "APIKeyName": null,
-      "RequestBodyExtension": null,
-      "UseStreaming": true,
-      "SupportAudio": false,
       "SupportImage": true,
-
       "EstimatedCostPerInputMillionTokens": 0.0,
-      "EstimatedCostPerOutputMillionTokens": 0.0,
-    },
-
-    // Prompt adjustments ----------------------------------------------------------
-    {
-      "$id": "TranscriberAudioFullUserPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranscriberAudioSingleVADUserPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranscriberAudioSingleVADRefinerUserPrompt",
-      "TextAfter": ""
-    },
-    {
-      "$id": "TranslatorMaverickUserPrompt",
-      "TextAfter": "
-=_______________________________________
-It depend on the context in the scene but, by default, try using translation using any of the following tones: Affectionate, Caring, Cute, Casual, Playful, Teasing, Sensation, Service.
-And avoid the following tones: Descriptive, Explanation, Literal.
-_______________________________________="
-    }
-  ],
-  "Workers": [
-    {
-      "Id": "full-whisper_local-api",
-      "Engine": {
-        "$ref": "AIEngineLocalAPI"
-      }
-    },
-    {
-      "Id": "full-ai",
-      "Engine": {
-        // As of 2026/12, it seem like only gemini-2.5-pro and gemini-3-flash on Google API return good timings.
-        // When using Poe or Gemini3.0 (on google or poe), the audio in 'shortened' (removing silence) before
-        // sending it to the AI, so the AI response return timings based on the shortend audio.
-        "$ref": "AIEngineGemini2.5ProOnGoogle"
-      }
-    },
-    {
-      "Id": "singlevad-ai",
-      "Engine": {
-        "$ref": "AIEngineGemini3Pro"
-      }
-    },
-    {
-      "Id": "singlevad-ai-refined",
-      "Engine": {
-        // [OPTION] Change to "AIEngineGPT5" then "AIEngineGrok4" if you receive too much Prohibated response from Gemini, it won't be able to receive/handle the audio but it will use the images.
-        "$ref": "AIEngineGemini3Pro"
-      }
-    },
-    {
-      "Id": "on-screen-texts",
-      "Engine": {
-        "$ref": "AIEngineGemini3Flash"
-      }
-    },
-    {
-      "Id": "translated-texts_maverick",
-      "Engine": {
-        // [OPTION] Change to "AIEngineClaudeOpus" or "AIEngineGPT5" or other model you prefer.
-        "$ref": "AIEngineGemini3Pro"
-      }
-    },
-    {
-      "Id": "final-ai-srt",
-      "SubtitlesToInject": [
-        {
-          "Origin": "Start",
-          "InjectInAllFiles": true,
-          "OffsetTime": "00:00:00",
-          "Duration": "00:00:10",
-          "Lines": [
-            "Created by ???, using the FunscriptToolbox and SubtitleEdit.",
-            "Using AI with manual review to improve accuracy and quality."
-          ]
-        }
-      ]
+      "EstimatedCostPerOutputMillionTokens": 0.0
     }
   ]
 }
