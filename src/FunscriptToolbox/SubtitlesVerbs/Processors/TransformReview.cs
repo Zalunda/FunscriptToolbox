@@ -164,7 +164,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         }
 
         protected override string GetMetadataProduced() => null;
-        protected override string GetDefaultProduces() => "Review";
         protected override string GetDefaultVerb() => "Reviewing";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)

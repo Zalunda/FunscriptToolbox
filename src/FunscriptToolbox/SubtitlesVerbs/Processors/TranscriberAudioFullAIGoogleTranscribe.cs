@@ -12,16 +12,14 @@ using System.Text;
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
-    /// A full transcription by a transcription model of Google (ex. 'gemini-3.5-transcribe', see AIEngineAPIGoogle.Transcribe):
-    /// verbatim, with the start / end of each word. The audio is sent in chunks of MaxChunkDuration (like TranscriberAudioFullAI:
-    /// what starts in the last BufferZone of a chunk is done again by the next one). The subtitles are built from the words: a new one
-    /// after a pause (MaxGap), after the end of a sentence (。？！?!), when it would be too long (MaxDuration), or when
-    /// the speaker changes (Diarization). Their end is moved EndPadding later (the word ends of the model are too early), but not
-    /// after the start of the next one.
-    /// The answers of the model (the text and the words of each chunk) are kept in the job state (the only place with the words): the subtitles are built again
-    /// from them at each run, so, with 'CanBeUpdated', a change of these rules is applied without any new request.
-    /// The language: the one of the transcription (SourceLanguage).
+    /// The engine: AIEngineAPIGoogle.Transcribe. The answers of the model (the text and the words of each chunk) are kept in the job state
+    /// (the only place with the words): the subtitles are built again from them at each run.
     /// </summary>
+    [ConfigDoc("A transcription of the whole audio by a transcription model of Google (ex. 'gemini-3.5-transcribe'): verbatim, with the start / end of each word, " +
+        "in the language of the video. The audio is sent in chunks (MaxChunkDuration; what starts in the last BufferZone of a chunk is done again by the next one). " +
+        "The subtitles are built from the words: a new one after a pause (MaxGap), after the end of a sentence (。？！?!), when it would be too long (MaxDuration), " +
+        "or when the speaker changes (Diarization); their end is moved EndPadding later (the word ends of the model are too early), not after the start of the next one.",
+        Advice = "With CanBeUpdated, a change of these rules is applied at the next run without any new request (the answers of the model are kept).")]
     public class TranscriberAudioFullAIGoogleTranscribe : TranscriberAudio
     {
         public class JobState
@@ -48,6 +46,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             public string IncompleteReason { get; set; }
         }
 
+        [ConfigDoc("The metadata the text goes in (ex. \"VoiceText\").")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
@@ -67,9 +66,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 24)]
         public double MaxTotalAudioFactor { get; set; } = 2.0;
 
+        [ConfigDoc("Keeps the audio chunks sent to the model in the backup folder of the scene.")]
         [JsonProperty(Order = 25)]
         public bool KeepTemporaryFiles { get; set; } = false;
 
+        [ConfigDoc("The Google engine (AIEngineAPIGoogle) with a transcription model (ex. \"gemini-3.5-transcribe\"; UseBatchMode false: the transcription models have no batch mode).")]
         [JsonProperty(Order = 30, Required = Required.Always)]
         public AIEngineAPIGoogle Engine { get; set; }
 
@@ -87,6 +88,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 42)]
         public string MultipleSpeakersMetadata { get; set; }
 
+        [ConfigDoc("The value written in MultipleSpeakersMetadata for a line said by 2 speakers.")]
         [JsonProperty(Order = 43)]
         public string MultipleSpeakersValue { get; set; } = "Multiple";
 
@@ -114,6 +116,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 55)]
         public bool RecoverMissedChunkOverlap { get; set; } = true;
 
+        [ConfigDoc("A subtitle whose whole text matches one of these patterns is left out of the result (ex. a phrase the model writes on silences). Each pattern: { \"Name\", \"Pattern\" }.")]
         [JsonProperty(Order = 60)]
         public TranscriberAudioFullAI.TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
 
@@ -415,6 +418,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                     catch (UserStoppedWorkerException)
                     {
                         requestNode.SetState(TaskState.Cancelled, "stopped by the user");
+                        throw;
+                    }
+                    catch (NeedsUserException ex)
+                    {
+                        // (not sent: the step waits for the user, ex. an API key)
+                        requestNode.SetState(TaskState.Skipped, ex.Message);
                         throw;
                     }
                     catch (Exception ex)

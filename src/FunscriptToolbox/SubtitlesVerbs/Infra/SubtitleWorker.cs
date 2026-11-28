@@ -21,10 +21,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 2)]
         public bool Enabled { get; set; } = false;
 
-        [ConfigDoc("What the step produces, as shown in the web UI and the logs: '<Produces> '<Id>'' (ex. \"Translation\", \"Analysis & Translation\"). null: the name of its kind of step (ex. \"Transcription\").")]
-        [JsonProperty(Order = 3)]
-        public string Produces { get; set; }
-
         [ConfigDoc("What the step does, in the logs: '<Verb> '<Id>'...' (ex. \"Translating\"). null: the verb of its kind of step (ex. \"Transcribing\").")]
         [JsonProperty(Order = 4)]
         public string Verb { get; set; }
@@ -36,20 +32,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         protected string GetId() => this.Id;
 
-        /// <summary>The name of the kind of step (when Produces is not set), ex. "Transcription".</summary>
-        protected abstract string GetDefaultProduces();
-
         /// <summary>The verb of the kind of step (when Verb is not set), ex. "Transcribing".</summary>
         protected abstract string GetDefaultVerb();
 
-        private string GetProducesLabel() => string.IsNullOrWhiteSpace(this.Produces) ? GetDefaultProduces() : this.Produces;
         private string GetVerbLabel() => string.IsNullOrWhiteSpace(this.Verb) ? GetDefaultVerb() : this.Verb;
 
         /// <summary>False: the worker is not run and has no task (ex. an alias, only a name resolved when it's used).</summary>
         internal virtual bool IsTask => true;
 
-        /// <summary>How the worker is shown in the task tree of the web UI.</summary>
-        internal string DisplayName => $"{GetProducesLabel()} '{GetId()}'";
+        /// <summary>How the worker is shown in the web UI (the task tree, the inspector of the 'Flow' view) and in the logs: its class, like its
+        /// box in the graph, and its Id, ex. "TranscriberAudioFullAI 'transcription-from-ai'".</summary>
+        internal string DisplayName => $"{GetType().Name} '{GetId()}'";
 
         /// <summary>What the worker uses and produces (the 'Flow' view of the web UI).</summary>
         internal WorkerDataFlow GetDataFlow()
@@ -77,11 +70,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             using var node = context.BeginWorkerTask(this, DisplayName);
 
+            // An alias that it uses (ex. 'transcription') whose SourceId is still a hint to replace, when the step is not done yet: blocked,
+            // the user is asked to choose its source ('needs you'; the alias has no box in the 'Flow' view: in the whole configuration)
+            if (!IsFinished(context))
+            {
+                var aliasWithPlaceholder = Processors.TrackAlias.FindWithPlaceholder(
+                    context.Config,
+                    GetDataFlow().Inputs.Select(input => input.Id));
+                if (aliasWithPlaceholder != null)
+                {
+                    var aliasIndex = Array.IndexOf(context.Config.Workers, aliasWithPlaceholder);
+                    BlockForUser(context, node, new NeedsUserException(
+                        $"The alias '{aliasWithPlaceholder.Id}' (TrackAlias) has no source yet: its 'SourceId' is still '{aliasWithPlaceholder.SourceId}'. " +
+                        "Set it to the id of the track it stands for (in the Config tab, or in a .override.user.config).",
+                        NeedsUserException.ConfigAllActionPrefix + $"Workers/[{aliasIndex}]/{nameof(Processors.TrackAlias.SourceId)}"));
+                    return;
+                }
+            }
+
             // (in the page, the start / end of the worker are shown from its task: "Started: ...", "Finished: ... (duration)",
             //  "Skipped: ...: already done", "Blocked: ...: reason". The same messages here only go in the log file)
             if (!IsPrerequisitesMet(context, out var reasonPrerequisites))
             {
-                context.WriteLog($"{GetProducesLabel()} '{GetId()}' can't be done yet: {reasonPrerequisites}");
+                context.WriteLog($"{DisplayName} can't be done yet: {reasonPrerequisites}");
                 node.SetState(TaskState.Blocked, reasonPrerequisites);
                 context.AddBlockedWorker(DisplayName);
                 return;
@@ -104,6 +115,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                     needsToRun = true;
                     reasonNeedsToRun = "worker is updatable";
                     node.MarkAsRefreshOnly();
+                }
+            }
+
+            // A value of its configuration still to set (a hint of the installation, ex. "[TOREPLACE-WITH-PathToPurfview]\..."), when
+            // the step has to run (a step already done doesn't need it): blocked, the user is asked to set it ('needs you')
+            if (needsToRun)
+            {
+                var placeholderPath = FindPlaceholder(this, null, new HashSet<object>(ReferenceEqualityComparer.Instance), out var placeholderValue);
+                if (placeholderPath != null)
+                {
+                    BlockForUser(context, node, new NeedsUserException(
+                        $"'{placeholderPath}' must be set: its value is still '{placeholderValue}' (set it in the Config tab, or in a .override.user.config).",
+                        NeedsUserException.ConfigActionPrefix + placeholderPath));
+                    return;
                 }
             }
 
@@ -133,8 +158,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     // (not an error: the user asked for it, like a pause of the scene)
                     node.SetState(TaskState.Cancelled, "stopped by the user");
-                    context.WriteInfo($"{GetProducesLabel()} '{GetId()}' stopped by the user: what was already received is kept, it continues at the next run (Retry or Rescan).", ConsoleColor.Yellow);
+                    context.WriteInfo($"{DisplayName} stopped by the user: what was already received is kept, it continues at the next run (Retry or Rescan).", ConsoleColor.Yellow);
                     context.WriteLog(ex.ToString());
+                }
+                catch (NeedsUserException ex)
+                {
+                    // (not an error: something only the user can give, ex. an API key; what was already done is kept)
+                    BlockForUser(context, node, ex);
                 }
                 catch (Exception ex)
                 {
@@ -149,7 +179,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
             else
             {
-                context.WriteLog($"{GetProducesLabel()} '{GetId()}' has already been done.");
+                context.WriteLog($"{DisplayName} has already been done.");
                 foreach (var line in GetAdditionalStatusLines(context))
                 {
                     context.WriteInfoAlreadyDone(line);
@@ -159,6 +189,82 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             }
         }
 
+
+        /// <summary>The step waits for the user (see NeedsUserException): blocked, with the action offered in the web UI ('needs you').</summary>
+        private void BlockForUser(SubtitleGeneratorContext context, ITaskNode node, NeedsUserException ex)
+        {
+            context.WriteInfo($"{DisplayName} needs you: {ex.Message}", ConsoleColor.Yellow);
+            node.SetState(TaskState.Blocked, ex.Message);
+            node.SetUserAction(ex.UserAction);
+            context.AddBlockedWorker(DisplayName);
+            context.AddUserTodo($"{DisplayName}: {ex.Message}");
+        }
+
+        /// <summary>The start of a value still to set (a hint of the installation files, ex. "[TOREPLACE-WITH-PathToPurfview]\...").</summary>
+        internal const string PlaceholderPrefix = "[TOREPLACE";
+
+        /// <summary>
+        /// The first value of the configuration of the object that is still a hint to replace (see PlaceholderPrefix): its path (the names of
+        /// the properties, as in the configuration files, '[n]' for an item of a list), or null. The same properties as the files (the contract
+        /// of the serializer of the configuration), also in the shared objects used (ex. the transcriber tool of a step).
+        /// </summary>
+        private static string FindPlaceholder(object obj, string path, HashSet<object> seen, out string value)
+        {
+            value = null;
+            if (obj == null)
+                return null;
+            if (obj is string text)
+            {
+                if (text.Contains(PlaceholderPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = text;
+                    return path;
+                }
+                return null;
+            }
+            var type = obj.GetType();
+            if (type.IsValueType || !seen.Add(obj))
+                return null;
+            string Join(string name) => path == null ? name : $"{path}/{name}";
+            if (obj is System.Collections.IDictionary dictionary)
+            {
+                foreach (System.Collections.DictionaryEntry entry in dictionary)
+                {
+                    var found = FindPlaceholder(entry.Value, Join(Convert.ToString(entry.Key)), seen, out value);
+                    if (found != null)
+                        return found;
+                }
+                return null;
+            }
+            if (obj is System.Collections.IEnumerable list)
+            {
+                var index = 0;
+                foreach (var item in list)
+                {
+                    var found = FindPlaceholder(item, Join($"[{index++}]"), seen, out value);
+                    if (found != null)
+                        return found;
+                }
+                return null;
+            }
+            // (only the classes of the application: not a Regex, an HttpClient...)
+            if (type.Namespace == null || !type.Namespace.StartsWith(nameof(FunscriptToolbox)))
+                return null;
+            if (!(SubtitleGeneratorConfigLoader.rs_serializer.ContractResolver.ResolveContract(type) is Newtonsoft.Json.Serialization.JsonObjectContract contract))
+                return null;
+            foreach (var property in contract.Properties)
+            {
+                if (property.Ignored || !property.Readable)
+                    continue;
+                object propertyValue;
+                try { propertyValue = property.ValueProvider.GetValue(obj); }
+                catch (Exception) { continue; }
+                var found = FindPlaceholder(propertyValue, Join(property.PropertyName), seen, out value);
+                if (found != null)
+                    return found;
+            }
+            return null;
+        }
 
         protected abstract bool IsPrerequisitesMet(SubtitleGeneratorContext context, out string reason);
         protected abstract bool IsFinished(SubtitleGeneratorContext context);

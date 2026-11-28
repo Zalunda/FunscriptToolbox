@@ -134,6 +134,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 {
                     key = workerKey,
                     name = worker.DisplayName,
+                    id = worker.Id,
                     type = worker.GetType().Name,
                     enabled = worker.Enabled,
                     order = index,

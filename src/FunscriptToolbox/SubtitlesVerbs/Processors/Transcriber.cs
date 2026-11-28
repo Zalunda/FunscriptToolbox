@@ -10,7 +10,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
     public abstract class Transcriber : TrackProducer
     {
         protected override Language GetTrackLanguage(SubtitleGeneratorContext context) => context.Config.SourceLanguage;
-        protected override string GetDefaultProduces() => "Transcription";
         protected override string GetDefaultVerb() => "Transcribing";
     }
 }

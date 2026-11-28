@@ -5,14 +5,18 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Inputs
 {
+    [ConfigDoc("Another version of an audio extraction (SourceAudioId), through ffmpeg filters (FfmpegParameters), ex. a band-pass and a normalization: a cleaner waveform for the timing refiner. SaveAsFileSuffixe: also saved as a file next to each part of the scene.")]
     public class AudioExtractorFromPcm : AudioExtractor
     {
+        [ConfigDoc("The Id of the audio extraction it starts from (ex. \"audio\").")]
         [JsonProperty(Order = 10)]
         public string SourceAudioId { get; set; }
 
+        [ConfigDoc("The ffmpeg parameters applied to that audio (ex. a filter: \"-af \\\"highpass=f=300,lowpass=f=3500,loudnorm=I=-16:TP=-1\\\"\"). The sampling rate stays the same.")]
         [JsonProperty(Order = 11)]
         public string FfmpegParameters { get; set; } = "";
 
+        [ConfigDoc("Also saved as a file next to each part of the scene, with this suffix (ex. \".wav\": the extension decides the format). null: not saved.")]
         [JsonProperty(Order = 12)]
         public string SaveAsFileSuffixe { get; set; }
 

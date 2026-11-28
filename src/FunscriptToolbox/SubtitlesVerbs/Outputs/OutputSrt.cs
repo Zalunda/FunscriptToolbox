@@ -9,6 +9,7 @@ using System.IO;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
+    [ConfigDoc("Writes a .srt next to the video (FileSuffix): the subtitles of a track (Metadatas.TimingsSource, or the first of TextSources) with the text of the TextSources (several: each one under its name), the metadata of the sources when asked (ex. a debug file), the subtitles to inject (ex. a credit at the start). A scene in several parts: one .srt per part (SaveFullFileToo: also one of the whole scene).")]
     internal class OutputSrt : SubtitleOutput
     {
         public OutputSrt()
@@ -38,6 +39,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         [ConfigDoc("The metadata used as the text of the sources (null: the main metadata of each source, ex. \"TranslatedText\" for a translation).")]
         [JsonProperty(Order = 18)]
         public string MetadataToUse { get; set; }
+        [ConfigDoc("The old name of TextSources (still read in the old files): use TextSources.")]
         public string WorkerId // For backward compatibility
         {
             set { TextSources = value; }

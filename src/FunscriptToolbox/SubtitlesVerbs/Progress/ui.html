@@ -90,6 +90,8 @@
   #flowPanel .finsp { border-top: 1px solid var(--border); padding-top: 8px; }
   #flowPanel .fihead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   #flowPanel .fititle { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #flowPanel button.firestart { font-weight: 600; font-size: 13px; padding: 4px 14px; border-radius: 6px; white-space: nowrap; flex: none; }
+  #flowPanel button.firestart:disabled { background: var(--bg); color: var(--muted); border-color: var(--border); }
   #flowPanel #fiSearch { width: 150px; font: inherit; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
   #flowPanel .fimeta { color: var(--muted); font-size: 11px; }
   #flowPanel .fimeta button.redostep { margin-left: 8px; color: var(--accent); border-color: var(--accent); }
@@ -191,6 +193,20 @@
   #flowPanel .cfdoc .cfdocadv { display: block; margin-top: 3px; padding: 3px 6px; border-left: 3px solid var(--ok); color: var(--text);
     background: color-mix(in srgb, var(--ok) 10%, transparent); border-radius: 0 4px 4px 0; }
   #flowPanel .cfdoc .cfdoctype { color: var(--muted); font-weight: 600; }
+  /* 'Docs': the documentation written under each setting (what we suggest: 💡, its text in the tooltip) */
+  #flowPanel .cfdocrow { font: 11px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--muted); white-space: pre-wrap; padding: 0 4px 4px; }
+  #flowPanel .cfdocrow .cfdoctype { font-weight: 600; }
+  #flowPanel .cfdocrow .cfadvmark { cursor: help; margin-left: 4px; }
+  #flowPanel .cfdocrow.top { color: var(--text); padding: 2px 4px 8px; }
+  /* An API key asked by a scene ('needs you': 🔑) */
+  .pkdlg { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .pkdlg .pkbox { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; width: min(480px, 90vw);
+    display: flex; flex-direction: column; gap: 8px; font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .pkdlg .pkt { font-weight: 600; }
+  .pkdlg .pkr { color: var(--muted); font-size: 12px; }
+  .pkdlg input { font: 12px Consolas, "Cascadia Mono", monospace; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .pkdlg .pkbtns { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+  .pkdlg .pkerr { color: var(--err); flex: 1; font-size: 12px; }
   #flowPanel .finote.cferr { color: var(--err); }
   #flowPanel .cflvs .cflv { min-width: 0; font-size: 9px; line-height: 13px; }
 
@@ -314,6 +330,11 @@
 
   /* ---- Scene board (scenes grouped by state) ---- */
   #board { flex: none; max-height: 48vh; overflow: auto; padding: 6px 16px 2px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  #boardEmpty { font-size: 13px; line-height: 1.5; padding: 4px 0 8px; max-width: 900px; }
+  #boardEmpty .bet { font-weight: 600; }
+  #boardEmpty ol { margin: 4px 0 6px; padding-left: 22px; }
+  #boardEmpty ul { margin: 2px 0; padding-left: 18px; }
+  #boardEmpty code { font: 12px Consolas, "Cascadia Mono", monospace; }
   .sec { margin: 2px 0 6px; }
   .sec > h2 { display: flex; align-items: center; gap: 6px; font-size: 11px; margin: 0 0 3px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
   .tiles { display: flex; flex-wrap: wrap; gap: 4px 6px; }
@@ -1024,6 +1045,16 @@
       sec.innerHTML = '<h2 title="' + esc(TIPS[s]) + '"><span class="sd ' + s + '"></span><span class="h"></span></h2><div class="' + (s === "running" || s === "needs" ? "runs" : "tiles") + '"></div>';
       board.appendChild(sec);
     });
+    // (no scene found: the first steps, for a new user)
+    var empty = document.createElement("div"); empty.id = "boardEmpty"; empty.style.display = "none";
+    empty.innerHTML = '<div class="bet">No scene found yet. To start:</div><ol>' +
+      '<li>Choose a workflow: one of the folders next to <code>--FSTB-CreateSubtitles.bat</code>:<ul>' +
+        '<li><code>ManualHQWorkflow-G4</code> / <code>ManualHQWorkflow</code>: the subtitles made by an AI. Only needs an API key (asked when it\'s needed), nothing else to install.</li>' +
+        '<li><code>Staging</code>: free, but needs Subtitle Edit and its Whisper installed on your computer.</li></ul></li>' +
+      '<li>In it, create a folder for your scene and put its video in it (<code>.mp4</code>; a scene in several parts: put all the parts in that folder).</li>' +
+      '<li>Click <b>&#8635; Rescan</b> (top): the scene appears here and starts. When it needs something from you (a value to set, an API key), ' +
+        'it\'s in <b>needs you</b>, with a button.</li></ol>';
+    board.appendChild(empty);
   }
   // Right click on the title of the section 'config changed': 'Reload all' (each scene started again, like Retry: its configuration is read again)
   var boardMenu = document.createElement("div");
@@ -1070,6 +1101,13 @@
       var action = actionWorker.userAction, button = "";
       if (action.indexOf("timing:") === 0)
         button = '<button class="mini primary" data-useraction="' + esc(action) + '" data-root="' + r.id + '" title="' + esc(actionWorker.reason || "") + '">&#9998; Review</button>';
+      // (a value of the configuration of the step to set: its Config tab, the editor on the value)
+      // (configall: a value of the whole configuration, ex. the source of an alias, a step without box in the Flow)
+      else if (action.indexOf("config:") === 0 || action.indexOf("configall:") === 0)
+        button = '<button class="mini primary" data-useraction="' + esc(action) + '" data-root="' + r.id + '" data-node="' + actionWorker.id + '" title="' + esc(actionWorker.reason || "") + '">&#9881; Set value</button>';
+      // (an API key to enter: saved in the .private.config)
+      else if (action.indexOf("privatekey:") === 0)
+        button = '<button class="mini primary" data-useraction="' + esc(action) + '" data-root="' + r.id + '" data-reason="' + esc(actionWorker.reason || "") + '" title="' + esc(actionWorker.reason || "") + '">&#128273; ' + (action.indexOf(",") >= 0 ? "Enter a key" : "Enter key") + '</button>';
       return {
         key: r.id, cls: "run" + sel, title: sceneTip(r),
         html: '<div class="rh"><span class="sd needs"></span>' + nameHtml(r) + errors + button +
@@ -1113,6 +1151,8 @@
       sec.querySelector(".h").textContent = LABELS[s] + " (" + list.length + ")";
       sync(sec.querySelector(".runs, .tiles"), visible ? list.map(sceneItem) : []);
     });
+    // (not while the folders are read: the scenes may be on their way)
+    $("boardEmpty").style.display = scenes.length === 0 && !state.rescanning ? "" : "none";
   }
 
   // ---- Prompts ----
@@ -1302,7 +1342,8 @@
   // ---- 'Flow' of a scene: the graph of its workers and of the data between them ----
   // (built by the server from the configuration of the scene; the states come from the task tree)
   // (output files hidden by default; a new key: the choices saved with the old defaults are not used)
-  var flowOpts = { files: false, disabled: false };
+  // (the output files shown by default: a new user, nothing saved in the browser yet)
+  var flowOpts = { files: true, disabled: false };
   try { var savedFlow = JSON.parse(localStorage.getItem("fstFlowOpts2") || "null"); if (savedFlow) for (var fk in flowOpts) if (typeof savedFlow[fk] === "boolean") flowOpts[fk] = savedFlow[fk]; } catch (e) { }
   var flowFocus = null, flowFocusDir = "up", flowZoom = 1, flowLastKey = null;
   var flowCounts = {};   // (the number of items of each track: "track:x" -> { n, done })   // (focus: "up" = what it needs, "down" = what uses it)
@@ -1351,6 +1392,11 @@
       p.forEach(function (pp) { edges.push({ from: pp.w, to: d.key, label: pp.role }); });
       c.forEach(function (cc) { edges.push({ from: d.key, to: cc.w, label: cc.role }); });
     });
+    // (a step whose result has a box (its track, its audio, its file): the box of the step shows only what it does, its type)
+    edges.forEach(function (e) {
+      var w = nodes[e.from], d = nodes[e.to];
+      if (w && w.type === "worker" && d && d.type === "data") w.ownDataShown = true;
+    });
     // Same from / to: one arrow, with all the labels
     var merged = {};
     edges.forEach(function (e) {
@@ -1385,8 +1431,12 @@
     return lines;
   }
   /// The name of a box: a step on up to 3 lines, a data on up to 2 (see flowLabelLines)
+  /// A step: what it does, its type (ex. "TranscriberAudioFullAI"); its id only when what it produces has no box (ex. an output, the
+  /// files hidden): otherwise what it produces is just below (its name is in the tooltip)
   function flowNodeLines(n) {
-    return n.type === "worker" ? flowLabelLines(n.w.name, 30, 3) : flowLabelLines((FLOW_ICONS[n.d.kind] || "") + " " + n.d.name, 24, 2);
+    if (n.type !== "worker") return flowLabelLines((FLOW_ICONS[n.d.kind] || "") + " " + n.d.name, 24, 2);
+    var label = n.ownDataShown ? n.w.type : n.w.type + " '" + (n.w.id || "") + "'";
+    return flowLabelLines(label, 30, 3);
   }
   /// The text of a box, centered vertically (one 'tspan' by line)
   function flowNodeText(b, lines) {
@@ -1583,7 +1633,7 @@
       var dim = related && !related[k];
       if (n.type === "worker") {
         var w = n.w, st = n.status;
-        var tip = w.name + "\n" + w.type + "\n" + st.text;
+        var tip = w.name + "\n" + st.text;   // (its name: its type and its id)
         // The AI cost of the step (estimate, like the 'costs' report), in the top right corner
         // (no pill when nothing is known to cost, ex. a local AI that doesn't report its tokens: only in the tooltip)
         var wcost = flowCounts[k], costBadge = "";
@@ -1640,10 +1690,32 @@
   // 3. otherwise, a step blocked, otherwise failed / stopped.
   var flowAutoSelectPending = false;
   var FLOW_AUTO_PRIORITY = { Running: 1, WaitingForLock: 1, WaitingForUser: 1, Blocked: 3, Failed: 4, Cancelled: 4 };
+  /// 'Set value' of a scene that needs you: { rootId, nodeId (the task of the step), path (in its configuration), key (its box, once found) }
+  var pendingConfigAction = null;
   function autoSelectFlowBox(n, flow) {
     flowAutoSelectPending = false;
     var counts = flowCounts || {};
     var workers = (flow.workers || []).slice().sort(function (a, b) { return a.order - b.order; });
+    // ('Set value': the step that waits, with its Config tab; the editor is opened on the value when its configuration is read)
+    if (pendingConfigAction && pendingConfigAction.rootId === n.id && pendingConfigAction.whole) {
+      ensureFlowPanel();
+      pendingConfigAction.key = CFG_ALL;
+      flowInspect.sceneId = n.id;
+      clearInspectedBox();
+      return;
+    }
+    if (pendingConfigAction && pendingConfigAction.rootId === n.id) {
+      var waiting = workers.filter(function (w) { return w.nodeId === pendingConfigAction.nodeId; })[0];
+      if (waiting) {
+        ensureFlowPanel();
+        pendingConfigAction.key = waiting.key;
+        flowFocus = waiting.key; flowFocusDir = "up";
+        flowInspect.tab = "config";
+        inspectFlowBox(n.id, waiting.key);
+        return;
+      }
+      pendingConfigAction = null;
+    }
     var bestKey = null, bestPriority = 99;
     workers.forEach(function (w) {
       var task = w.nodeId != null ? state.byId[w.nodeId] : null;
@@ -1978,9 +2050,39 @@
   }
   /// The value is first defined in an override file (no file read before has it, ex. a step added by a workflow): not an override of another value
   function cfgAdded(n) { return !n.d && !!n.lv && n.lv !== "0" && !(n.h && n.h.length); }
-  /// The tooltip of a row: where the value was written, and the values it replaced
+  /// 'Docs': the documentation of a setting (and of the type of its object), written under its row; what we suggest: 💡 (its text in the tooltip)
+  function cfgDocRow(n, indentPx, top) {
+    var parts = [];
+    if (n.doc) parts.push(esc(n.doc));
+    if (n.tdoc) parts.push((n.ty ? '<span class="cfdoctype">' + esc(n.ty) + ':</span> ' : "") + esc(n.tdoc));
+    var adv = [n.adv, n.tadv].filter(function (a) { return !!a; }).join("\n");
+    if (!parts.length && !adv) return "";
+    return '<div class="cfdocrow' + (top ? " top" : "") + '" style="padding-left:' + indentPx + 'px">' + parts.join("\n") +
+      (adv ? '<span class="cfadvmark" title="' + esc("💡 Suggested: " + adv) + '">💡</span>' : "") + '</div>';
+  }
+  /// 'Set value' of a scene: the path of the value in the tree of the step (the names of its properties, '[n]' for an item of a list, see
+  /// SubtitleWorker.FindPlaceholder) => the path of its row; its containers are opened, and all the values shown. null: not found.
+  function cfgRevealPath(d, valuePath) {
+    var node = d.tree, path = d.title || "";
+    var segs = (valuePath || "").split("/").filter(function (s) { return s.length; });
+    for (var i = 0; i < segs.length; i++) {
+      var seg = segs[i], isIndex = /^\[\d+\]$/.test(seg);
+      var child = (node.c || []).filter(function (c) { return c.n === seg || (isIndex && (c.n === seg || c.n.indexOf(seg + " ") === 0)); })[0];
+      if (!child) return null;
+      path += "/" + child.n;
+      if (i < segs.length - 1) flowConfig.open[path] = true;
+      node = child;
+    }
+    if (flowConfig.show !== "all" || flowConfig.search) {
+      flowConfig.show = "all"; flowConfig.search = "";
+      if ($("cfShow")) $("cfShow").value = "all";
+      if ($("cfSearch")) $("cfSearch").value = "";
+    }
+    return path;
+  }
+  /// The tooltip of a row: where the value was written, and the values it replaced (its documentation too, unless 'Docs' writes it under the row)
   function cfgTitle(n) {
-    var lines = cfgDocLines(n);
+    var lines = flowConfig.docs ? [] : cfgDocLines(n);
     if (lines.length) lines.push("");
     if (n.d) lines.push("Written in no file: the default value of the code.");
     else if (n.lv) {
@@ -2077,7 +2179,7 @@
       '<span class="cftog">' + (isContainer && n.c.length ? (open ? "▾" : "▸") : "") + '</span>' +
       cfgBadge(n.lv, n.d, "", cfgAdded(n)) +
       '<span class="cfname">' + esc(n.n) + '</span>' +
-      (n.doc || n.tdoc ? '<span class="cfdocmark">ⓘ</span>' : '');
+      (!flowConfig.docs && (n.doc || n.tdoc) ? '<span class="cfdocmark">ⓘ</span>' : '');
     if (isContainer) {
       var meta = [];
       if (n.ty) meta.push(esc(n.ty));
@@ -2116,6 +2218,8 @@
         html += '<button class="mini cfeditbtn" data-cfrevert="' + esc(path) + '" title="' + esc(revert) + '">↶</button>';
     }
     out.push(html + '</div>');
+    // ('Docs': its documentation under it, aligned with its name)
+    if (flowConfig.docs) { var docRow = cfgDocRow(n, depth * 14 + 56, false); if (docRow) out.push(docRow); }
     if (flowConfig.edit && flowConfig.edit.path === path && flowConfig.rows[path]) out.push(cfgEditorHtml(path, flowConfig.rows[path], depth));
     // (the whole configuration: the items of 'Workers' / 'SharedObjects' are the 'parents' of their values, like a step in its own view)
     var isParentList = cfgIsWhole() && ctx.segs.length === 1 && n.k === "arr" && (n.n === "Workers" || n.n === "SharedObjects");
@@ -2303,7 +2407,13 @@
     if (!d) { body.innerHTML = '<div class="empty">' + (flowConfig.loading ? "Reading the configuration files..." : "") + '</div>'; body._cfgSig = null; return; }
     // (drawn again only when something shown changed: not while a value is typed, ex. when the scene refreshes the page)
     var ed = flowConfig.edit;
-    var sig = [flowConfig.dataId, flowConfig.loading, flowConfig.show, flowConfig.defaults, flowConfig.search, Object.keys(flowConfig.open).sort().join("|"),
+    // ('Set value' of a scene that needs you: the value shown (its containers open, all the values), then its editor opened, once)
+    var openPath = null;
+    if (pendingConfigAction && pendingConfigAction.key === target.key && d.tree) {
+      openPath = cfgRevealPath(d, pendingConfigAction.path);
+      pendingConfigAction = null;
+    }
+    var sig = [flowConfig.dataId, flowConfig.loading, flowConfig.show, flowConfig.defaults, flowConfig.docs, flowConfig.search, Object.keys(flowConfig.open).sort().join("|"),
       ed ? [ed.path, ed.level, ed.shared, ed.isNull, ed.busy, ed.error, ed.obj, ed.newType, ed.copyFrom].join("|") : "", flowConfig.notice ? flowConfig.notice.text : "", !!flowConfig.sourcesOpen].join("§");
     if (body._cfgSig === sig && body.querySelector(".cftree")) return;
     body._cfgSig = sig;
@@ -2329,12 +2439,21 @@
       if (d.tree.ty)
         rows.push('<div class="cfrow" title="' + esc("The type of this step ($type).\n" + cfgTitle(d.tree)) + '"><span class="cfind" style="width:0"></span><span class="cftog"></span>' +
           cfgBadge(d.tree.lv, d.tree.d, "", cfgAdded(d.tree)) + '<span class="cfname">$type</span><span class="cfval vt-str">"' + esc(d.tree.ty) + '"</span></div>');
+      // ('Docs': the documentation of the step itself, its type, at the top)
+      var shownBefore = rows.length;
+      if (flowConfig.docs && (d.tree.tdoc || d.tree.tadv)) rows.push(cfgDocRow({ tdoc: d.tree.tdoc, tadv: d.tree.tadv, ty: d.tree.ty }, 4, true));
       d.tree._kids.forEach(function (c) { cfgRows(c, (d.title || "") + "/" + c.n, 0, expandAll, rows, { segs: [c.n], ref: null, arrAny: false, arrSinceRef: false }); });
-      html += '<div class="cftree">' + rows.join("") + (rows.length > (d.tree.ty ? 1 : 0) ? "" : '<div class="empty">Nothing to show with these options.</div>') + '</div>';
+      html += '<div class="cftree">' + rows.join("") + (rows.length > shownBefore + (flowConfig.docs && d.tree.tdoc ? 1 : 0) ? "" : '<div class="empty">Nothing to show with these options.</div>') + '</div>';
     }
     var scroll = body.scrollTop;
     body.innerHTML = html;
     body.scrollTop = scroll;
+    // (after this drawing: the editor opened on the value asked, which draws it again)
+    if (openPath && flowConfig.rows[openPath]) setTimeout(function () {
+      cfgOpenEditor(openPath);
+      var row = body.querySelector('[data-cfpath="' + (window.CSS && CSS.escape ? CSS.escape(openPath) : openPath) + '"]');
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: "center" });
+    }, 0);
     var det = body.querySelector("details.cfsrc");
     if (det) det.addEventListener("toggle", function () { flowConfig.sourcesOpen = det.open; });
   }
@@ -2377,7 +2496,9 @@
           '<button data-fitab="items" title="What the box receives and what it produced">Items</button>' +
           '<button data-fitab="config" title="The configuration of the step (a worker), with the level where each value was written">Config</button>' +
         '</div>' +
-        '<div class="fihead"><span id="fiTitle" class="fititle">Inspector</span><span class="spacer"></span>' +
+        '<div class="fihead"><span id="fiTitle" class="fititle">Inspector</span>' +
+          '<button id="fiRestart" class="primary firestart" style="display:none">&#8635; Restart with the new configuration</button>' +
+          '<span class="spacer"></span>' +
           '<span id="fiItemsOpts" style="display:contents">' +
           '<label class="fiwrapopt" title="Hide the items that have none of the metadata shown (a metadata without value, ex. {GrabOnScreenText}, counts; the hidden columns are not counted)"><input type="checkbox" id="fiHideEmpty"> Hide empty</label>' +
           '<label class="fiwrapopt" title="The long values (ex. an analysis) on several lines, instead of cut"><input type="checkbox" id="fiWrap"> Full text</label>' +
@@ -2388,6 +2509,7 @@
           '<select id="cfShow" title="All: every value. Overrides only: the values that replaced the value of a file read before (written in an override file, or by a shortcut in a name), not the ones of the main configuration, nor the defaults, nor the ones first defined in an override file (+1-S). User overrides only: the values written in a .override.user.config (your own changes)." style="font:inherit;padding:1px 4px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)">' +
             '<option value="all">All</option><option value="overrides">Overrides only</option><option value="user">User overrides only</option></select> ' +
           '<label class="fiwrapopt" title="The values written in no file: the default values of the code (in grey)"><input type="checkbox" id="cfDefaults"> Defaults</label> ' +
+          '<label class="fiwrapopt" title="The documentation of the step and of each setting, written under it (instead of the tooltip of the row). 💡: what we suggest (its text in its tooltip)."><input type="checkbox" id="cfDocs"> Docs</label> ' +
           '<button class="mini" id="cfReload" title="Read the configuration files again">Reload</button> ' +
           '<input id="cfSearch" type="search" placeholder="Filter the settings" spellcheck="false" style="width:130px;font:inherit;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></span></div>' +
         '<div id="fiBody"><div class="empty">Click on a box of the graph: what it receives and what it produced are shown here.</div></div>' +
@@ -2412,6 +2534,13 @@
     } catch (e) { }
     $("cfDefaults").checked = flowConfig.defaults;
     $("cfShow").value = flowConfig.show;
+    try { flowConfig.docs = localStorage.getItem("fstConfigDocs") === "1"; } catch (e) { }
+    $("cfDocs").checked = flowConfig.docs;
+    $("cfDocs").addEventListener("change", function () {
+      flowConfig.docs = $("cfDocs").checked;
+      try { localStorage.setItem("fstConfigDocs", flowConfig.docs ? "1" : "0"); } catch (e) { }
+      renderInspector();
+    });
     $("cfDefaults").addEventListener("change", function () {
       flowConfig.defaults = $("cfDefaults").checked;
       try { localStorage.setItem("fstConfigDefaults", flowConfig.defaults ? "1" : "0"); } catch (e) { }
@@ -2557,9 +2686,35 @@
     }, wait);
   }
 
+  // 'Restart with the new configuration' (the head of the inspector, it doesn't scroll): the configuration files of the selected scene
+  // changed since it started (a value saved in the Config tab, or a file changed on disk): the scene is started again (Retry), it reads
+  // them again (what is already done is not done again; the step that waited for the value runs with it)
+  var restartAskedFor = null;   // (the scene node asked to restart: the button is greyed until the scene is replaced by its new node)
+  function inspRestartScene() {
+    var sel = selectedId != null ? state.byId[selectedId] : null, r = sel ? rootOf(sel) : null;
+    if (!r) return null;
+    var target = cfgTarget();
+    var cd = inspTab() === "config" && flowConfig.sceneId === target.sceneId && flowConfig.key === target.key ? flowConfig.data : null;
+    return (cd && cd.changed) || r.configChange === "changed" ? r : null;
+  }
+  function updateRestartButton() {
+    var b = $("fiRestart");
+    if (!b) return;
+    var r = isFlowMode() ? inspRestartScene() : null;
+    b.style.display = r ? "" : "none";
+    if (!r) return;
+    var running = !terminal[r.state];
+    b.disabled = running || restartAskedFor === r.id;
+    b.title = restartAskedFor === r.id ? "Starting again..."
+      : running ? "The configuration files changed since this scene started, but it's still running: it can be started again once it's done (or stopped)."
+      : "The configuration files changed since this scene started (it still uses the values it read then): start it again, it reads them again.\n\n" +
+        "What is already done is not done again; the step that waited for a value runs with the new one. A step that already ran keeps what it produced (to do it again: 'Redo this step', in its Items tab).";
+  }
+
   function renderInspector() {
     var d = flowInspect.sceneId === selectedId ? flowInspect.data : null, body = $("fiBody");
     if (!body) return;
+    updateRestartButton();
     // The tabs: 'Config' only for a step (a worker)
     // (no box selected: 'Items' greyed, the whole configuration of the scene in 'Config')
     var hasBox = inspHasBox(), shownTab = inspTab();
@@ -2807,6 +2962,7 @@
     var scenes = computeScenes();
     renderHeader(scenes); renderPrompts(); renderBoard(scenes); renderTree();
     if (reportView || (selectedId != null && state.byId[selectedId])) renderDetail();
+    updateRestartButton();
     // (the big screenshot of the inspector: only in the 'Flow' tab, for its scene)
     if (!isFlowMode() || flowInspect.sceneId !== selectedId) hideInspectorViewer();
     tick();
@@ -2869,6 +3025,47 @@
     renderAll(); fetchDetail();
     if (scroll) { var row = $("tree").querySelector('[data-key="' + id + '"]'); if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" }); }
   }
+  /// '🔑 Enter key' of a scene that needs you: the API key, saved in the .private.config (never shown again in the page); then the
+  /// blocked scenes are checked again (Rescan: all those that wait for this key continue)
+  /// names: the API keys asked, separated by ',' (several: the engines of a collection, none has its key; at least one is needed)
+  function askPrivateKey(names, reason) {
+    var old = $("pkDialog");
+    if (old) old.remove();
+    var list = (names || "").split(",").filter(function (n) { return n.length; });
+    var dlg = document.createElement("div");
+    dlg.id = "pkDialog"; dlg.className = "pkdlg";
+    dlg.innerHTML = '<div class="pkbox"><div class="pkt">' + (list.length === 1 ? "API key '" + esc(list[0]) + "'" : "API keys (at least one)") + '</div>' +
+      (reason ? '<div class="pkr">' + esc(reason) + '</div>' : '') +
+      list.map(function (n, i) {
+        return (list.length > 1 ? '<div class="pkr" style="color:var(--text)">' + esc(n) + '</div>' : '') +
+          '<input type="password" data-pkname="' + esc(n) + '" autocomplete="off" spellcheck="false" placeholder="' + (list.length > 1 && i > 0 ? "Paste the key here (optional)" : "Paste the key here") + '">';
+      }).join("") +
+      '<div class="pkr">Saved in --FSTB-SubtitleGenerator.private.config (next to the main configuration), never shown again here. The scenes that wait for it continue.</div>' +
+      '<div class="pkbtns"><span id="pkErr" class="pkerr"></span><button class="mini" id="pkCancel">Cancel</button><button class="mini primary" id="pkSave">Save</button></div></div>';
+    document.body.appendChild(dlg);
+    var inputs = Array.prototype.slice.call(dlg.querySelectorAll("[data-pkname]"));
+    if (inputs.length) inputs[0].focus();
+    var close = function () { dlg.remove(); };
+    var save = function () {
+      var items = inputs
+        .map(function (inp) { return { name: inp.getAttribute("data-pkname"), value: inp.value.trim() }; })
+        .filter(function (it) { return it.value; });
+      if (!items.length) { $("pkErr").textContent = list.length > 1 ? "Enter at least one key." : ""; return; }
+      $("pkSave").disabled = true; $("pkErr").textContent = "";
+      fetch("/api/privatekey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: items }) })
+        .then(function (r) { return r.ok ? null : r.text(); })
+        .then(function (err) {
+          if (err) { $("pkErr").textContent = err; $("pkSave").disabled = false; return; }
+          rescanClickedUntil = Date.now() + 3000;   // ('Rescanning...' until the server takes it)
+          close();
+        })
+        .catch(function (ex) { $("pkErr").textContent = "Can't save it: " + ex; $("pkSave").disabled = false; });
+    };
+    $("pkCancel").onclick = close;
+    $("pkSave").onclick = save;
+    inputs.forEach(function (inp) { inp.addEventListener("keydown", function (e) { if (e.key === "Enter") save(); else if (e.key === "Escape") close(); }); });
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) close(); });
+  }
   function onCancelClick(e) {
     // ('Pause after this request' / its Undo: 'Pause scene' / 'Resume scene')
     var pauseValue = e.target.getAttribute && e.target.getAttribute("data-scenepause");
@@ -2904,6 +3101,17 @@
       e.stopPropagation();
       var root = state.byId[action.getAttribute("data-root")], what = action.getAttribute("data-useraction");
       if (root && what.indexOf("timing:") === 0) window.fstTiming.open(root.id, sceneName(root), root.name, what.substring("timing:".length));
+      else if (root && what.indexOf("config:") === 0) {
+        // (the scene, its Flow with the step selected, its Config tab, the editor on the value: see autoSelectFlowBox / renderConfig)
+        pendingConfigAction = { rootId: root.id, nodeId: parseInt(action.getAttribute("data-node"), 10), path: what.substring("config:".length), key: null };
+        select(root.id, true);
+      }
+      else if (root && what.indexOf("configall:") === 0) {
+        // (the whole configuration of the scene: no box selected, see autoSelectFlowBox)
+        pendingConfigAction = { rootId: root.id, whole: true, path: what.substring("configall:".length), key: null };
+        select(root.id, true);
+      }
+      else if (what.indexOf("privatekey:") === 0) askPrivateKey(what.substring("privatekey:".length), action.getAttribute("data-reason"));
       return;
     }
     var item = e.target.closest ? e.target.closest("[data-key]") : null;
@@ -3003,6 +3211,16 @@
   });
   // Flow panel: zoom, 'Show everything', refresh of the inspector, a row of the inspector (shown in full / cut), switches
   $("flowPanel").addEventListener("click", function (e) {
+    // 'Restart with the new configuration' (see updateRestartButton)
+    if (e.target.closest && e.target.closest("#fiRestart")) {
+      var rr = inspRestartScene();
+      if (!rr || !terminal[rr.state]) return;
+      restartAskedFor = rr.id; updateRestartButton();
+      fetch("/api/retry/" + rr.id, { method: "POST" })
+        .then(function (res) { if (!res.ok) { restartAskedFor = null; updateRestartButton(); } })
+        .catch(function () { restartAskedFor = null; updateRestartButton(); });
+      return;
+    }
     // 'Redo this step' (the inspector of a step)
     if (e.target.closest && e.target.closest("[data-redostep]")) {
       var rd = flowInspect.data, rs = state.byId[flowInspect.sceneId];

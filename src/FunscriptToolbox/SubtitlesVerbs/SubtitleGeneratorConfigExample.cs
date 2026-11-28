@@ -231,7 +231,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         Id = "quick-translation-of-whisper-using-google",
                         SourceId = "transcription-from-whisper",
-                        Produces = "Quick translation",
                         Language = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
@@ -239,7 +238,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TransformAI()
                     {
                         Id = "quick-translation-of-whisper-using-local-api",
-                        Produces = "Quick translation",
                         Language = Language.FromString("en"),
                         Engine = defaultEngine,
                         Metadatas = new MetadataAggregator
@@ -299,7 +297,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     {
                         Id = "quick-translation-of-ai-using-google",
                         SourceId = "transcription-from-ai",
-                        Produces = "Quick translation",
                         Language = Language.FromString("en"),
                         MetadataNeeded = "VoiceText",
                         MetadataProduced = "TranslatedText"
@@ -313,7 +310,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TransformManualInputPreparer()
                     {
                         Id = "annotated-timings-proposal",
-                        Produces = "Proposal",
                         Engine = defaultEngine,
                         PrivateMetadataNames = "TimingTrace",
                         Metadatas = new MetadataAggregator()
@@ -416,7 +412,8 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TrackAlias()
                     {
                         Id = "transcription",
-                        SourceId = "NEED-TO-BE-OVERRIDED" // Should be transcription-from-whisper, transcription-from-ai or annotated-timings-proposal
+                        // (set by each workflow: a workflow made from scratch that doesn't set it waits for the user, 'needs you')
+                        SourceId = "[TOREPLACE-WITH-transcription-from-whisper|transcription-from-ai|annotated-timings-proposal]"
                     },
 
                     // (the manual-input file written by hand from the transcription, instead of the Review editor)
@@ -457,7 +454,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new InputImportMetadatas()
                     {
                         Id = "annotated-timings",
-                        Produces = "Annotated timings",
                         FileSuffix = ".manual-input.srt",
                         CanBeUpdated = true,
                         ProcessOnlyWhenStringIsRemoved = "[USER-REVISION-NEEDED]",
@@ -466,7 +462,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TransformClone()
                     {
                         Id = "timings",
-                        Produces = "Timings",
                         SourceId = "annotated-timings",
                         Metadatas = new MetadataAggregator()
                         {
@@ -480,7 +475,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                     new TransformAI()
                     {
                         Id = "analysis-and-translation-en",
-                        Produces = "Analysis & Translation",
                         Language = Language.FromString("en"),
                         Engine = defaultEngine,
                         ExportMetadataSrt = true,
@@ -491,7 +485,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                             MergeRules = new MergeRuleDictionary()
                             {
                                 { "VoiceText", null },
-                                { "VoiceTextValidated", "full-VoiceText" },
+                                { "VoiceTextValidated", "VoiceTextDraft" },
                                 { "VoiceTextForManualReview", null }
                             }
                         },
@@ -499,7 +493,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         {
                             SystemPrompt = transcriberAudioSingleVADRefinerSystemPromptForG4,
                             UserPrompt = transcriberAudioSingleVADRefinerUserPromptForG4,
-                            MetadataNeeded = "!SkipRefined",
+                            MetadataNeeded = "!SkipAnalysis",
                             MetadataAlwaysProduced = "TranslatedText",
                             BinaryDataExtractors = new BinaryDataExtractor[]
                                 {
@@ -538,7 +532,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { "StartTime", 50 },
                                 { "EndTime", 50 },
                                 { "TranslationAnalysis", 10 },
-                                { "full-VoiceText", 0 },
+                                { "VoiceTextDraft", 0 },
                                 { "VoiceText", 10 },
                                 { "OnScreenText", 10 },
                                 { "Overlap", 5 }

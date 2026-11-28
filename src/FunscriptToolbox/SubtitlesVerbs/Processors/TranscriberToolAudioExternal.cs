@@ -10,6 +10,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("A transcription done by you, with another tool: the audio is written next to the video ('.TODO-<id>_<n>.wav'), and the scene waits for the .srt you make from it (same name, '.srt'; OverrideFileSuffixe: another name, one audio only), then imports it.")]
     public class TranscriberToolAudioExternal : TranscriberToolAudio
     {
         private const string ToolName = "AudioExternal";
@@ -18,6 +19,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         {
         }
 
+        [ConfigDoc("The suffix of the .srt to import instead of '.TODO-<id>_<n>.srt' (ex. \".whisper.srt\"). Only when there is one audio (an error otherwise).")]
         [JsonProperty(Order = 21)]
         public string OverrideFileSuffixe { get; set; } = null;
 

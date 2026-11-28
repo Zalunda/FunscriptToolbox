@@ -15,7 +15,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonIgnore]
         public abstract string ToolName { get; }
 
-        public bool IsAPIKeyAvailableIfNeeded(SubtitleGeneratorContext context) => (this.APIKeyName == null || context.GetPrivateConfig(this.APIKeyName) != null);
+        public bool IsAPIKeyAvailableIfNeeded(SubtitleGeneratorContext context) => (this.APIKeyName == null || !string.IsNullOrEmpty(context.GetPrivateConfig(this.APIKeyName)));
 
         [ConfigDoc("The root address of the API (ex. \"https://generativelanguage.googleapis.com/v1beta\", \"https://api.poe.com/v1\", \"http://localhost:10000/v1\" for a local server).")]
         [JsonProperty(Order = 10, Required = Required.Always)]

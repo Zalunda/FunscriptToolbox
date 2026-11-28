@@ -74,6 +74,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
             return r_privateConfig.GetValidatedValue(itemName);
         }
 
+        /// <summary>The scene waits for the user: at least one of these API keys is needed (see SubtitleGeneratorPrivateConfig.CreateNeedsAnyOf).</summary>
+        public NeedsUserException CreateNeedsAnyPrivateConfig(IReadOnlyList<string> itemNames)
+        {
+            return r_privateConfig.CreateNeedsAnyOf(itemNames);
+        }
+
         internal void WriteInfoAlreadyDone(string message = null)
         {
             WriteInfo(message, ConsoleColor.DarkGray);

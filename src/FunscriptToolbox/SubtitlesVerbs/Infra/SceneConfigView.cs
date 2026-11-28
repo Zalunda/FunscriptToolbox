@@ -152,7 +152,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var loadedWorkers = loaded.Config?.Workers;
             if (loadedWorkers != null && mergedWorkers != null && loadedWorkers.Length == mergedWorkers.Count)
             {
-                // (by its Id: its name in the web UI can change with the files, ex. 'Produces')
+                // (by its Id: its index can change with the files)
                 var found = Array.FindIndex(loadedWorkers, w => w != null && w.GetType() == runningWorker.GetType() && w.Id == runningWorker.Id);
                 if (found >= 0)
                 {

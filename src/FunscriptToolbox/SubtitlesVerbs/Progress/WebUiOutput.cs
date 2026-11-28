@@ -48,6 +48,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
             }
         }
 
+        // ---- A value of the .private.config entered in the page (ex. an API key asked by a scene, 'needs you') ----
+
+        /// <summary>Writes a value in the .private.config, for the scenes running too (set by the command that owns it). Null: not possible.</summary>
+        public Action<string, string> SetPrivateValue { get; set; }
+
         // ---- 'Rescan' (asked from the page, done by the main thread) ----
 
         private readonly ManualResetEventSlim r_requestReceived = new ManualResetEventSlim(false);

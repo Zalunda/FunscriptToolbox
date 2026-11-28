@@ -62,7 +62,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         private const string FLAG_REVIEW = "[!REVIEW]";
         
         protected override string GetMetadataProduced() => this.Options.MetadataAlwaysProduced;
-        protected override string GetDefaultProduces() => "Subtitles";
         protected override string GetDefaultVerb() => "Conforming";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)
@@ -333,7 +332,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 
         public struct SplitPattern
         {
+            [ConfigDoc("The line is broken before (\"Before\") or after (\"After\") what the Pattern finds.")]
             public CutWhere CutWhere { get; set; }
+            [ConfigDoc("A regular expression (case ignored), ex. \"\\\\b(and|but|or)\\\\b\": the places where the line can be broken.")]
             public string Pattern { get; set; }
             private Regex _regex;
 

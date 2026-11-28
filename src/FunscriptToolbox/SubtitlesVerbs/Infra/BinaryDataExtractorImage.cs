@@ -2,6 +2,7 @@
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
+    [ConfigDoc("Adds to each subtitle sent to the AI a screenshot of the video, taken in the middle of the subtitle (FfmpegFilter: ex. the left eye of a VR video, a resize); AddContextNodes: also screenshots of the gaps between the subtitles.")]
     public class BinaryDataExtractorImage : BinaryDataExtractor
     {
         public override BinaryDataType DataType => BinaryDataType.Image;

@@ -4,11 +4,14 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("A transcription of the whole audio (SourceAudioId) by a tool (TranscriberTool), ex. Whisper on this computer: subtitles with their timings, in the language of the video. Free (no AI request), less precise than an AI transcription.")]
     public class TranscriberAudioFull : TranscriberAudio
     {
+        [ConfigDoc("The metadata the text goes in (ex. \"VoiceText\").")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
+        [ConfigDoc("The tool that transcribes: TranscriberToolAudioPurfviewWhisper (Whisper on this computer), or TranscriberToolAudioExternal (you, with another tool).")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public TranscriberToolAudio TranscriberTool { get; set; }
 

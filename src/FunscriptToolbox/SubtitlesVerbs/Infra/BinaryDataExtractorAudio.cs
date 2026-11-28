@@ -3,6 +3,7 @@ using System;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Infra
 {
+    [ConfigDoc("Adds to each subtitle sent to the AI its audio clip, cut from an audio extraction (SourceAudioId), with a margin before / after (ExpandStart / ExpandEnd).")]
     public class BinaryDataExtractorAudio : BinaryDataExtractor
     {
         public override BinaryDataType DataType => BinaryDataType.Audio;

@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using FunscriptToolbox.SubtitlesVerbs.Infra;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -45,44 +46,86 @@ namespace FunscriptToolbox.SubtitlesVerbs
         private SubtitleGeneratorPrivateConfig(string filepath, Dictionary<string, string> privateItems = null)
         {
             r_filepath = filepath;
-            r_privateItems = privateItems;
+            m_privateItems = privateItems;
         }
 
         private readonly string r_filepath;
-        private readonly Dictionary<string, string> r_privateItems;
+        // (replaced as a whole when a value is set: the scenes that read it at the same time see the old or the new one)
+        private volatile Dictionary<string, string> m_privateItems;
+        private readonly object r_writeLock = new object();
 
         internal string GetValue(string itemName)
         {
-            if (r_privateItems?.TryGetValue(itemName, out var value) == true)
+            if (m_privateItems?.TryGetValue(itemName, out var value) == true)
             {
                 return value;
             }
             return null;
         }
 
+        /// <summary>
+        /// The value, or NeedsUserException when it's not there (the scene waits for the user: 'needs you', the web UI asks for it; without
+        /// the web UI: written in the file by the user, then Retry). The file is created (with this name, without value) when it doesn't exist.
+        /// </summary>
         internal string GetValidatedValue(string itemName)
         {
-            if (r_privateItems == null)
+            var value = GetValue(itemName);
+            if (!string.IsNullOrEmpty(value))
             {
-                if (!File.Exists(r_filepath))
-                {
-                    using (var writer = new StreamWriter(r_filepath, false, Encoding.UTF8))
-                    {
-                        var newConfig = new ExpandoObject();
-                        ((IDictionary<string,object>)newConfig)[itemName] = null;
-                        rs_serializer.Serialize(writer, newConfig);
-                    }
-                }
-                throw new Exception($"Can't resolve the value for the private config '{itemName}'. A new file '{r_filepath}' as been created, you need to set the value for this private config in that file.");
-            }
-            else if (! r_privateItems.TryGetValue(itemName, out var value) || string.IsNullOrEmpty(value))
-            {
-                throw new Exception($"Can't resolve the value for the private config '{itemName}'. You need to set the value for this private config in '{r_filepath}'.");
-            }
-            else 
-            { 
                 return value;
             }
+            throw CreateNeedsAnyOf(new[] { itemName });
+        }
+
+        /// <summary>
+        /// NeedsUserException for several API keys, at least one needed (ex. the engines of an AIEngineCollection: none has its key). The names
+        /// not in the file yet are written in it, without value (the file is created when needed; the other values kept).
+        /// </summary>
+        internal NeedsUserException CreateNeedsAnyOf(IReadOnlyList<string> itemNames)
+        {
+            lock (r_writeLock)
+            {
+                var items = File.Exists(r_filepath)
+                    ? FromFile(r_filepath).m_privateItems ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var missingInFile = itemNames.Where(name => !items.ContainsKey(name)).ToArray();
+                if (missingInFile.Length > 0 || !File.Exists(r_filepath))
+                {
+                    foreach (var name in missingInFile)
+                        items[name] = null;
+                    WriteFile(items);
+                }
+            }
+            var fileName = Path.GetFileName(r_filepath);
+            return new NeedsUserException(
+                itemNames.Count == 1
+                    ? $"The API key '{itemNames[0]}' is needed (in '{fileName}'): enter it in the web UI (button of the scene), or in that file, then Retry."
+                    : $"One of the API keys {string.Join(", ", itemNames.Select(name => $"'{name}'"))} is needed (at least one; the engines are tried in this order; in '{fileName}'): " +
+                      "enter it in the web UI (button of the scene), or in that file, then Retry.",
+                NeedsUserException.PrivateKeyActionPrefix + string.Join(",", itemNames));
+        }
+
+        /// <summary>Sets a value (ex. an API key entered in the web UI): in the file (created when needed; the other values kept) and for the scenes running.</summary>
+        internal void SetValue(string itemName, string value)
+        {
+            if (string.IsNullOrWhiteSpace(itemName))
+                throw new ArgumentException("The name of the value is missing.");
+            lock (r_writeLock)
+            {
+                // (the file as it is now: it may have been changed by hand since it was read)
+                var items = File.Exists(r_filepath)
+                    ? FromFile(r_filepath).m_privateItems ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                items[itemName] = value;
+                WriteFile(items);
+                m_privateItems = items;
+            }
+        }
+
+        private void WriteFile(Dictionary<string, string> items)
+        {
+            using var writer = new StreamWriter(r_filepath, false, Encoding.UTF8);
+            rs_serializer.Serialize(writer, items);
         }
     }
 }

@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("Sends tracks to an AI and produces a track: for each subtitle of Metadatas.TimingsSource, the metadata of the Sources (and, with Options.BinaryDataExtractors, its audio clip / screenshot) are sent in batches with the prompts (Options); the answers are the metadata it produces (Options.MetadataAlwaysProduced), in Language. Ex. an analysis, a translation, the texts on the screen.",
+        Advice = "A prompt and the metadata it expects go together: when the prompt changes, check MetadataNeeded / MetadataAlwaysProduced.")]
     public class TransformAI : Transform
     {
         [ConfigDoc("The AI engine of the step (usually a shared engine, ex. { \"$ref\": \"AIEngineGemini3Pro\" }: an AIEngineCollection with its fallbacks).",

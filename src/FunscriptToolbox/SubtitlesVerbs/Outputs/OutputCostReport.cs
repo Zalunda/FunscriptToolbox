@@ -10,14 +10,18 @@ using System.Text;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
+    [ConfigDoc("Writes the cost of the AI requests of the scene (FileSuffix, ex. '.cost.txt'): by step, the tokens and the estimated price (from the EstimatedCost... of the engines). OutputToConsole: also in the log.",
+        Advice = "Keep CanBeUpdated: written again at each run, with the costs of the steps done since.")]
     internal class OutputCostReport : SubtitleOutput
     {
         public OutputCostReport()
         {
         }
 
+        [ConfigDoc("The suffix of the file written, next to the scene (ex. \".cost.txt\").")]
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string FileSuffix { get; set; }
+        [ConfigDoc("Also written in the log of the scene.")]
         [JsonProperty(Order = 10)]
         public bool OutputToConsole { get; set; } = true;
 

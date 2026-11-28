@@ -5,6 +5,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("A copy of another track (SourceId), done once and then frozen: the next steps keep the same items even if the source changes later (ex. timings that must not move while their annotations can still change: \"MergeRules\": { \"*\": null }, only the times are copied). Unlike an alias (TrackAlias), which always gives the current state of its source.")]
     public class TransformClone : Transform
     {
         public class JobState
@@ -12,6 +13,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             public string SourceIdUsed { get; set; }
         }
 
+        [ConfigDoc("The Id of the track copied (or an alias: its source when the copy is made).")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string SourceId { get; set; }
 
@@ -97,7 +99,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             transcription.MarkAsFinished();
             context.WIP.Save();
         }
-        protected override string GetDefaultProduces() => "Clone";
         protected override string GetDefaultVerb() => "Cloning";
 
         protected override IEnumerable<string> GetAdditionalStatusLines(SubtitleGeneratorContext context)

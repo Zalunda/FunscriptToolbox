@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
         [ConfigDoc("The text of the prompt. [TranscriptionLanguage] / [TranslationLanguage] are replaced by the languages (ex. \"Japanese\", \"English\").\n" +
             "In the files, a long text can be written on several lines between '=___...' and '___=' (no '\\n' needed).")]
-        [JsonProperty(Order = 2)]
+        [JsonProperty(Order = 2, Required = Required.Always)]
         public string Text { get; }
 
         [ConfigDoc("Text added after Text (ex. in an override file, your preferences added to a prompt of the main configuration, like the tones of the translation).",
@@ -22,16 +22,10 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         [JsonProperty(Order = 3)]
         public string TextAfter { get; }
 
-        [ConfigDoc("The prompt as a list of lines (used when Text is not set).")]
-        [JsonProperty(Order = 4)]
-        public string[] Lines { get; }
-
         [JsonConstructor]
-        public AIPrompt(string text, string textBefore = null, string textAfter = null, string[] lines = null)
+        public AIPrompt(string text, string textBefore = null, string textAfter = null)
         {
-            this.Text = text == null 
-                ? string.Join("\n", lines)
-                : $"{textBefore}{text}{textAfter}";
+            this.Text = $"{textBefore}{text}{textAfter}";
         }
 
         public string GetFinalText(

@@ -4,6 +4,7 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -433,6 +434,29 @@ namespace FunscriptToolbox.SubtitlesVerbs.Progress
                 {
                     r_output.RequestRescan();
                     WriteResponse(context, 200, "text/plain", "OK");
+                }
+                else if (method == "POST" && path == "/api/privatekey")
+                {
+                    // An API key asked by a scene ('needs you'): body { name, value }, written in the .private.config (never sent back to
+                    // the page); then 'Rescan': the scenes blocked are checked again (all those that wait for this key continue)
+                    var setter = r_output.SetPrivateValue;
+                    if (setter == null) { WriteResponse(context, 404, "text/plain", "Not possible here."); return; }
+                    try
+                    {
+                        // (several keys at once, ex. the engines of a collection: body { items: [{ name, value }] }, the empty ones ignored, at least one)
+                        var body = JObject.Parse(ReadBody(context));
+                        var items = (body["items"] as JArray)?.OfType<JObject>().ToArray() ?? new[] { body };
+                        var given = items
+                            .Select(item => (Name: (string)item["name"], Value: ((string)item["value"])?.Trim()))
+                            .Where(item => !string.IsNullOrEmpty(item.Value))
+                            .ToArray();
+                        if (given.Length == 0 || given.Any(item => string.IsNullOrEmpty(item.Name))) { WriteResponse(context, 400, "text/plain", "At least one key (its name and its value) is needed."); return; }
+                        foreach (var (name, value) in given)
+                            setter(name, value);
+                        r_output.RequestRescan();
+                        WriteResponse(context, 200, "text/plain", "OK");
+                    }
+                    catch (Exception ex) { WriteResponse(context, 500, "text/plain", $"Can't save it: {ex.Message}"); }
                 }
                 else if (method == "POST" && path.StartsWith("/api/redostep/"))
                 {

@@ -248,7 +248,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         // Prerequisites
         // ---------------------------------------------------------------------
 
-        protected override string GetDefaultProduces() => "Preparation";
         protected override string GetDefaultVerb() => "Preparing";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)
@@ -940,12 +939,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             return refiner;
         }
 
-        /// <summary>
-        /// Test only (to limit the tokens used): suffix of a subtitle file (ex: ".included-in-test.srt", one per video, loaded like the
-        /// other subtitle files, in the time of the whole timeline). When set, only the subtitles (and title cards) that overlap
-        /// a subtitle of that file are refined, validated, exported...: the others are left out as if they did not exist.
-        /// The file must exist. Not set: everything is included.
-        /// </summary>
+        [ConfigDoc("Test only (to use fewer tokens): the suffix of a subtitle file next to the video (ex. \".included-in-test.srt\"). Only the subtitles (and title cards) " +
+            "that overlap one of its subtitles are refined, validated, written...: the others are left out, as if they did not exist. The file must exist. null: everything is included.")]
         public string IncludedInTestExtension { get; set; }
 
         /// <summary>The time ranges of the file of IncludedInTestExtension (null = everything is included).</summary>
@@ -1374,17 +1369,13 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 m_report.Add(context, $"           - {(label + ":"),-33}{count,4}");
         }
 
-        /// <summary>
-        /// After refining, replays the refining with these settings, using this run's final timings as the truth (no AI call).
-        /// The real settings are simulated first, as a calibration.
-        /// </summary>
+        [ConfigDoc("Debug: after the refining, it's replayed with other settings (each variant), using the final timings of this run as the truth (no AI request): " +
+            "the result of each variant in the report (the real settings first, as a calibration). Only with the engine TimingRefineEngineStartEndJudge.")]
         public TimingSimulationVariant[] Simulations { get; set; }
 
-        /// <summary>
-        /// Debug: suffix of the files (ex: ".manual-input.srt") that the user fixed by hand from the output of a previous run.
-        /// When set, the final timings are compared with them (the truth) and the differences are exported
-        /// (see <see cref="TimingGroundTruthAnalyzer"/>). Nothing is done when not set.
-        /// </summary>
+        /// <summary>(see <see cref="TimingGroundTruthAnalyzer"/>)</summary>
+        [ConfigDoc("Debug: the suffix of the files (ex. \".manual-input.srt\") that the user fixed by hand from the result of a previous run. " +
+            "The final timings are compared with them (the truth), and the differences written in the report. null: not done.")]
         public string GroundTruthExtension { get; set; }
 
         private void RunGroundTruthAnalysis(SubtitleGeneratorContext context, Track transcription, TimingRefiner refiner)

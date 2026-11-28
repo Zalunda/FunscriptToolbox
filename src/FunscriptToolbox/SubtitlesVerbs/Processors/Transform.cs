@@ -16,7 +16,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         public Language Language { get; set; }
 
         protected override Language GetTrackLanguage(SubtitleGeneratorContext context) => this.Language ?? context.Config.SourceLanguage;
-        protected override string GetDefaultProduces() => "Track";
         protected override string GetDefaultVerb() => "Processing";
     }
 }

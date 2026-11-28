@@ -48,6 +48,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
 
             var exceptions = new List<Exception>();
             var now = DateTime.UtcNow;
+            var missingAPIKeyNames = new List<string>();   // (the engines skipped because their API key is not set, in their order)
 
             foreach (var engine in Engines)
             {
@@ -79,6 +80,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                 if (!engine.IsAPIKeyAvailableIfNeeded(context))
                 {
                     context.WriteInfo($"Skipping engine '{engineId}' because it's disbled (API key not set).");
+                    if (!missingAPIKeyNames.Contains(engine.APIKeyName, StringComparer.OrdinalIgnoreCase))
+                        missingAPIKeyNames.Add(engine.APIKeyName);
                     continue;
                 }
 
@@ -135,6 +138,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             // All engines failed
             if (exceptions.Count == 0)
             {
+                // (none could run, at least one only because its API key is not set: the user is asked for them, 'needs you'; one is enough)
+                if (missingAPIKeyNames.Count > 0)
+                {
+                    throw context.CreateNeedsAnyPrivateConfig(missingAPIKeyNames);
+                }
                 throw new AIEngineAPIException($"All engines are disabled/skipped.");
             }
             if (exceptions.Count == 1)

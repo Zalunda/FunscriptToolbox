@@ -14,7 +14,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
         public AIPrompt UserPrompt { get; set; }
 
         [ConfigDoc("Which nodes are sent to the AI: the metadata they must have, ',' = and (ex. \"VoiceText|OnScreenText,!SkipTranslation\"). " +
-            "A rule is a regular expression on the names of the metadata (ex. \"VoiceText|OnScreenText\": one or the other; not anchored: \"VoiceText\" also matches \"full-VoiceText\"); " +
+            "A rule is a regular expression on the names of the metadata (ex. \"VoiceText|OnScreenText\": one or the other; not anchored: \"VoiceText\" also matches \"VoiceTextDraft\");" +
             "'!' + an exact name = must not have it. Empty: all the nodes.")]
         [JsonProperty(Order = 4, Required = Required.Always)]
         public string MetadataNeeded { get; set; }
@@ -61,17 +61,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             "Also the minimum number of nodes in a request before BatchMaxImages / BatchMaxAudioDuration / BatchMaxMBSize can end it.")]
         [JsonProperty(Order = 17)]
         public int NbItemsMinimumReceivedToContinue { get; set; } = 50;
+        [ConfigDoc("The times written in each node, besides its metadata: \"StartTime\" (always written), \"EndTime\", \"Duration\"; several: \"StartTime, EndTime\".")]
         [JsonProperty(Order = 18)]
         public NodeFields FieldsToInclude { get; set; } = NodeFields.StartTime | NodeFields.EndTime;
+        [ConfigDoc("For the context nodes (see NbContextItems): a metadata (or \"StartTime\", \"EndTime\", \"Duration\") is written only in the N context nodes closest to the request " +
+            "(ex. { \"VoiceText\": 10, \"VoiceTextDraft\": 0 }: the VoiceText of the last 10 context nodes only, never VoiceTextDraft). Not in the list: in all the context nodes.",
+            Advice = "Keeps a long context cheap: the old nodes with only what's useful far back (ex. their translation), the recent ones with everything.")]
         [JsonProperty(Order = 19)]
         public Dictionary<string, int> MetadataInContextLimits { get; set; }
 
+        [ConfigDoc("The text written before the context nodes (the nodes already done, see NbContextItems), in the user part of the request.")]
         [JsonProperty(Order = 22)]
         public string TextBeforeContextData { get; set; } = "Context from preceding nodes:";
+        [ConfigDoc("The text written after the context nodes.")]
         [JsonProperty(Order = 23)]
         public object TextAfterContextData { get; set; } = "--------------------------------------------------";
+        [ConfigDoc("The text written before the nodes to do (the ones the AI must answer for).")]
         [JsonProperty(Order = 24)]
         public string TextBeforeAnalysis { get; set; } = "Begin Node Analysis:";
+        [ConfigDoc("The text written after the nodes to do, at the end of the request (null: nothing).",
+            Advice = "The last thing the AI reads: a short reminder there has a strong effect (ex. against a refusal).")]
         [JsonProperty(Order = 25)]
         public string TextAfterAnalysis { get; set; } = null;
     }

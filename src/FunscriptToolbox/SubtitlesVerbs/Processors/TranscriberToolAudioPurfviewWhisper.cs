@@ -14,6 +14,8 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("Whisper on this computer, with Purfview's faster-whisper (ApplicationFullPath: its .exe, ex. the one installed with Subtitle Edit), with a Whisper model (Model).",
+        Advice = "A GPU makes it much faster. It takes the lock 'GPU' (one at a time by default: GlobalShared.MaxConcurrent).")]
     public class TranscriberToolAudioPurfviewWhisper : TranscriberToolAudio
     {
         private object r_lock = new object();
@@ -29,14 +31,20 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         {
         }
 
+        [ConfigDoc("The full path of faster-whisper-xxl.exe (ex. \"C:\\\\...\\\\SubtitleEdit\\\\Whisper\\\\Purfview-Whisper-Faster\\\\faster-whisper-xxl.exe\", with '\\\\' doubled in the file).",
+            Advice = "Install it from Subtitle Edit (Video > Audio to text (Whisper), engine 'Purfview's Faster-Whisper'): it downloads the .exe and the model.")]
         [JsonProperty(Order = 1, Required = Required.Always)]
         public string ApplicationFullPath { get; set; }
+        [ConfigDoc("More command-line parameters for faster-whisper (added after --model, --language, --task transcribe, --output_format json).")]
         [JsonProperty(Order = 2)]
         public string AdditionalParameters { get; set; } = "";
+        [ConfigDoc("The Whisper model (the --model parameter of faster-whisper), ex. \"Large-V2\".")]
         [JsonProperty(Order = 3, Required = Required.Always)]
         public string Model { get; set; } = "Large-V2";
+        [ConfigDoc("The words are grouped into subtitles at each end of sentence (。.?!); true: also at each comma (、,), shorter subtitles.")]
         [JsonProperty(Order = 4)]
         public bool ForceSplitOnComma { get; set; } = true;
+        [ConfigDoc("The subtitles shorter than this are left out (ex. a word of a few ms, a mistake of the model).")]
         [JsonProperty(Order = 5)]
         public TimeSpan IgnoreSubtitleShorterThen { get; set; } = TimeSpan.FromMilliseconds(20);
 

@@ -15,7 +15,7 @@ You will receive a JSON array of input objects:
 2. `AudioClip`: **The Absolute Ground Truth** for spoken words, vocal tone, breaths, stutters, and pauses (omitted when `GrabOnScreenText` is present).
 3. `Screenshot`: Video frame captured at the segment midpoint, bearing the `[STARTTIME]` watermark in the upper-left corner.
 4. `GrabOnScreenText` (Optional): Indicates an on-screen text/caption node with no `AudioClip`. May be empty/generic (extract main caption) or contain specific target instructions (e.g., `"Sign on the desk"`).
-5. `full-VoiceText` (Optional): Prior transcription draft for guidance only. Because the user may have adjusted the node timing (and thus `AudioClip`) after this draft was generated, **never follow `full-VoiceText` blindly—`AudioClip` always takes precedence**.
+5. `VoiceTextDraft` (Optional): Prior transcription draft for guidance only. Because the user may have adjusted the node timing (and thus `AudioClip`) after this draft was generated, **never follow `VoiceTextDraft` blindly—`AudioClip` always takes precedence**.
 6. `Speaker` (Optional): Designated character name to prioritize.
 7. `Note` (Optional): Explicit user instructions for a specific node.
 8. Context Objects (`"StartTime FOR CONTEXT ONLY"`): Visual-only frames depicting actions occurring during silent gaps between dialogue segments.
@@ -39,7 +39,7 @@ You will receive a JSON array of input objects:
 * **Colloquial Fidelity & Node Notes:** Preserve casual contractions (`ちゃう`, `てる`, `なきゃ`), particles (`よ`, `ね`, `もん`), and honor any explicit `Note` on the node.
 
 **Directive 2: Scope, Boundary Discipline & Unintelligible / "Just-in-Case" Timings**
-* **Ignore Overhang:** Extract **only** the words audible within the current `AudioClip`, discarding any text from `full-VoiceText` that belongs to adjacent segments.
+* **Ignore Overhang:** Extract **only** the words audible within the current `AudioClip`, discarding any text from `VoiceTextDraft` that belongs to adjacent segments.
 * **Speaker Boundaries:** Never merge nodes. Only trim speaker bleed from a next speaker at the very end of a clip, or recover a cut-off start of the current speaker's line from the boundary.
 * **Unintelligible Whispers / Faint Breaths vs. Muffled Speech (Mouth Full):**
   1. **Faint Breaths & "Just-in-Case" Timings (Zero Guessing):**

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("A quick translation of a track (SourceId) by Google Translate (its free web API, no key needed), subtitle by subtitle, into Language: free and fast, but basic, to see something early (ex. a first .srt), not for the final subtitles.")]
     internal class TransformGoogleTranslate : Transform
     {
         private const string ToolName = "GoogleV1-API";
@@ -18,17 +19,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         {
         }
 
+        [ConfigDoc("The Id of the track translated (ex. \"transcription-from-whisper\", or an alias).")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string SourceId { get; set; }
+        [ConfigDoc("The metadata of each item that is translated (ex. \"VoiceText\").")]
         [JsonProperty(Order = 21, Required = Required.Always)]
         public string MetadataNeeded { get; set; }
+        [ConfigDoc("The metadata the translation goes in (ex. \"TranslatedText\").")]
         [JsonProperty(Order = 22, Required = Required.Always)]
         public string MetadataProduced { get; set; }
+        [ConfigDoc("How many items are sent to Google Translate at the same time.",
+            Advice = "Keep it low: the free API can refuse too many requests at once.")]
         [JsonProperty(Order = 23)]
         public int MaxConcurrency { get; set; } = 2;
 
         protected override string GetMetadataProduced() => this.MetadataProduced;
-        protected override string GetDefaultProduces() => "Translation";
         protected override string GetDefaultVerb() => "Translating";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)

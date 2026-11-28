@@ -5,7 +5,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
     public abstract class SubtitleOutput : SubtitleWorker
     {
-        protected override string GetDefaultProduces() => "Output";
         protected override string GetDefaultVerb() => "Creating";
 
         protected override void EnsureDataObjectExists(SubtitleGeneratorContext context)

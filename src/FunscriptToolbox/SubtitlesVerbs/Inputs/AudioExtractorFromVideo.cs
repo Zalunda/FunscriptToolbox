@@ -7,11 +7,15 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Inputs
 {
+    [ConfigDoc("The audio of the scene (all its parts, one after the other, as one audio): what the transcribers, the audio clips sent to the AI and the timing refiner use. SaveAsFileSuffixe: also saved as a file next to each part (ex. '.wav').")]
     public class AudioExtractorFromVideo : AudioExtractor
     {
+        [ConfigDoc("Additional ffmpeg parameters for the extraction (ex. a filter: \"-af \\\"loudnorm\\\"\"). Empty: the audio as it is.",
+            Advice = "Keep this one as it is (the original audio) and make a filtered version with an AudioExtractorFromPcm: the steps can then use one or the other.")]
         [JsonProperty(Order = 10)]
         public string FfmpegParameters { get; set; } = "";
 
+        [ConfigDoc("Also saved as a file next to each part of the scene, with this suffix (ex. \".wav\": the extension decides the format). null: not saved.")]
         [JsonProperty(Order = 11)]
         public string SaveAsFileSuffixe { get; set; }
 

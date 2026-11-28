@@ -104,7 +104,6 @@
     {
       "$type": "TransformAI",
       "Id": "translation-fr",
-      "Produces": "Translation",
       "Language": "French",
       "Engine": {
         "$ref": "AIEngineGemini4"

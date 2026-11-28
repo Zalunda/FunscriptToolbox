@@ -311,7 +311,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var globalShared = SubtitleGeneratorConfigLoader.LoadGlobalShared(r_options.ConfigPath);
             var locks = new SharedLocks(globalShared?.MaxConcurrent);
             // (as a server: no 'Close' in the page, only 'Pause all')
-            var webOutput = new WebUiOutput(locks) { IsServer = r_options.IsServer };
+            var webOutput = new WebUiOutput(locks) { IsServer = r_options.IsServer, SetPrivateValue = privateConfig.SetValue };
             IUserOutput output = webOutput;
             var webServer = new WebUiServer(webOutput, m_uiPort.Value, m_uiHost);
             webServer.Start();

@@ -7,22 +7,20 @@ using System.Linq;
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
-    /// Another name for a transcription / translation (ex. one name for the transcription that a workflow chose), so that the
-    /// steps after it always use the same name, whatever the workflow. Nothing is copied, nothing is saved in the .wipsubtitles:
-    /// the name is resolved each time it's used (see <see cref="Resolve"/>), so it always gives the current state of its source.
-    /// (Unlike <see cref="TransformClone"/>: a copy, frozen once done, ex. 'timings', so that the next steps keep the same timings
-    /// even if its source changes.)
-    /// It's not a task: it's not run, it's not in the task tree, it has no box in the 'Flow' view (the steps that use it are linked to its source).
-    /// An alias can be the source of another alias. A disabled alias doesn't exist.
+    /// The name is resolved each time it's used (see <see cref="Resolve"/>). It's not a task: it's not run, it's not in the task tree,
+    /// it has no box in the 'Flow' view (the steps that use it are linked to its source).
     /// </summary>
+    [ConfigDoc("Another name for a track (SourceId), ex. one name for the transcription a workflow chose, so that the steps after it use the same name whatever the workflow. " +
+        "Nothing is copied: it always gives the current state of its source (unlike a TransformClone, a copy frozen once done). " +
+        "An alias can be the source of another alias; a disabled alias doesn't exist.")]
     public class TrackAlias : SubtitleWorker
     {
+        [ConfigDoc("The Id of the track it stands for (ex. \"transcription-from-ai\"), or another alias. Still \"[TOREPLACE-...]\": the steps that use the alias wait for you ('needs you').")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string SourceId { get; set; }
 
         internal override bool IsTask => false;
 
-        protected override string GetDefaultProduces() => "Alias";
         protected override string GetDefaultVerb() => "Resolving";
 
         // (nothing is produced: the steps that use the alias are linked to its source, see SceneFlowGraph)
@@ -43,6 +41,31 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         /// <summary>The enabled aliases of a configuration.</summary>
         internal static TrackAlias[] GetAliases(SubtitleGeneratorConfig config)
             => (config?.Workers ?? Array.Empty<SubtitleWorker>()).OfType<TrackAlias>().Where(a => a.Enabled).ToArray();
+
+        /// <summary>
+        /// The first alias met from these ids (following the aliases of aliases) whose SourceId is still a hint to replace (ex.
+        /// "[TOREPLACE-WITH-...]", see SubtitleWorker.PlaceholderPrefix), or null.
+        /// </summary>
+        internal static TrackAlias FindWithPlaceholder(SubtitleGeneratorConfig config, IEnumerable<string> ids)
+        {
+            var aliases = GetAliases(config);
+            foreach (var id in ids)
+            {
+                var seen = new List<string>();
+                var current = id;
+                while (current != null && !seen.Contains(current))
+                {
+                    seen.Add(current);
+                    var alias = aliases.FirstOrDefault(a => a.Id == current);
+                    if (alias == null)
+                        break;
+                    if (alias.SourceId?.Contains(PlaceholderPrefix, StringComparison.OrdinalIgnoreCase) == true)
+                        return alias;
+                    current = alias.SourceId;
+                }
+            }
+            return null;
+        }
 
         /// <summary>
         /// The id of the transcription / translation that an id really is: the source of the alias with this id (following the aliases

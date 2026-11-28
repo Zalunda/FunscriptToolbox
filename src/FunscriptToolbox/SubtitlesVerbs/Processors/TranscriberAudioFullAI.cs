@@ -13,6 +13,8 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
+    [ConfigDoc("A transcription of the whole audio (SourceAudioId) by an AI that listens to it: the audio is sent in chunks (MaxChunkDuration), the AI answers the subtitles with their timings (the prompts: SystemPrompt / UserPrompt), in the language of the video. What starts at the end of a chunk is done again by the next one.",
+        Advice = "The engine must give exact timings: some API / models shorten the audio (silences removed) before the model hears it, and their timings are wrong.")]
     public class TranscriberAudioFullAI : TranscriberAudio
     {
         public class JobState
@@ -146,6 +148,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                     catch (UserStoppedWorkerException)
                     {
                         requestNode.SetState(TaskState.Cancelled, "stopped by the user");
+                        throw;
+                    }
+                    catch (NeedsUserException ex)
+                    {
+                        // (not sent: the step waits for the user, ex. an API key)
+                        requestNode.SetState(TaskState.Skipped, ex.Message);
                         throw;
                     }
                     catch (Exception ex)

@@ -7,7 +7,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Inputs
 {
     public abstract class AudioExtractor : SubtitleWorker
     {
-        protected override string GetDefaultProduces() => "Audio extraction";
         protected override string GetDefaultVerb() => "Extracting audio";
 
         protected override void DescribeDataFlow(WorkerDataFlow flow)

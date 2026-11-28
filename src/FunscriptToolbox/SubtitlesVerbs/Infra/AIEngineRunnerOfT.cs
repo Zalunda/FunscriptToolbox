@@ -106,6 +106,12 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
                                 requestNode.SetState(TaskState.Cancelled, "stopped by the user");
                                 throw;
                             }
+                            catch (NeedsUserException ex)
+                            {
+                                // (not sent: the step waits for the user, ex. an API key)
+                                requestNode.SetState(TaskState.Skipped, ex.Message);
+                                throw;
+                            }
                             catch (Exception ex)
                             {
                                 requestNode.Fail(ex.Message);

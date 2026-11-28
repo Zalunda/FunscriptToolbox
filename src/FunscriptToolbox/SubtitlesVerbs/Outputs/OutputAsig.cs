@@ -8,6 +8,7 @@ using System.Linq;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Outputs
 {
+    [ConfigDoc("Writes the audio signature ('.asig') of each part of the scene, from an audio extraction (SourceAudioId); SaveFullFileToo: also one of the whole scene. Used by the audio synchronization of FunscriptToolbox (ex. to move a script to another version of the video).")]
     internal class OutputAsig : SubtitleOutput
     {
         public OutputAsig()
@@ -16,12 +17,15 @@ namespace FunscriptToolbox.SubtitlesVerbs.Outputs
         }
 
 
+        [ConfigDoc("The suffix of the files written, next to each part of the scene (ex. \".asig\").")]
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string FileSuffix { get; set; }
+        [ConfigDoc("The Id of the audio extraction it uses (ex. \"audio\": the original audio, not a filtered one).")]
         [JsonProperty(Order = 10, Required = Required.Always)]
         public string SourceAudioId { get; set; }
+        [ConfigDoc("Also one file for the whole scene (all its parts, one after the other), named after the scene.")]
         [JsonProperty(Order = 11)]
-        public bool SaveFullFileToo = false;
+        public bool SaveFullFileToo { get; set; } = false;
 
         protected override void DescribeDataFlow(Infra.WorkerDataFlow flow)
         {

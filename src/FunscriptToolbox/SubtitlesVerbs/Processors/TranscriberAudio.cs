@@ -6,6 +6,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     public abstract class TranscriberAudio : Transcriber 
     {
+        [ConfigDoc("The Id of the audio extraction transcribed (ex. \"audio\").")]
         [JsonProperty(Order = 5, Required = Required.Always)]
         public string SourceAudioId { get; internal set; }
 
