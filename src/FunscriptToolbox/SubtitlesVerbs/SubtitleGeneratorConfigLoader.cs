@@ -32,8 +32,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 typeof(AIPrompt),
                 typeof(BinaryDataExtractor),
                 typeof(SubtitleWorker),
-                typeof(TranscriberToolAudio),
-                typeof(TimingRefineEngine)
+                typeof(TranscriberToolAudio)
             });
 
         private static readonly System.Threading.ThreadLocal<JsonSerializer> rs_serializerByThread = new System.Threading.ThreadLocal<JsonSerializer>(() =>
@@ -571,7 +570,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
         }
 
         /// <summary>
-        /// A '$ref' with other properties (ex. "Engine": { "$ref": "TimingRefineEngineSpokenMarkers", "Runs": 3 }): replaced by a copy of
+        /// A '$ref' with other properties (ex. "Engine": { "$ref": "AIEngineGemini4", "UseBatchMode": false }): replaced by a copy of
         /// the object it points to, with these properties merged in it (same rules as an override file). The shared object itself is not
         /// changed (the other '$ref' to it are not affected). Done once, after all the override files are merged, so the copy has the final
         /// values of the shared object. (Newtonsoft.Json refuses a '$ref' with other properties.)

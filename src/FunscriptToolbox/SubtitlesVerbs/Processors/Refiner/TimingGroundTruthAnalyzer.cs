@@ -22,45 +22,21 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
 
         public enum Category
         {
-            /// <summary>The user kept the boundary: the refiner was right.</summary>
+            /// <summary>The user kept the boundary: the snapped timing was right.</summary>
             Unchanged,
 
-            /// <summary>The AI chose what the user wants, but the final boundary is not that (silence trim, overlaps, validation...).</summary>
-            PostProcessed,
+            /// <summary>The terrain has a dip near the user's time, but snapping picked a different boundary.</summary>
+            DipNearby,
 
-            /// <summary>The terrain offered the user's time to the AI (in at least one round), and the AI chose another one.</summary>
-            OfferedNotChosen,
-
-            /// <summary>The terrain found a dip at the user's time, but it was never offered to the AI (eliminated by the search, or not sampled).</summary>
-            DipNeverOffered,
-
-            /// <summary>The terrain found a dip at the user's time, but a hard limit (previous/next subtitle...) forbade it.</summary>
-            BlockedByHardLimit,
-
-            /// <summary>The user's time is inside the searched area, but the terrain has no dip near it.</summary>
+            /// <summary>The terrain has no dip near the user's time.</summary>
             NoDipNearby,
-
-            /// <summary>The user's time is outside of the searched area (further than the options of the terrain go).</summary>
-            OutsideWindow,
-
-            /// <summary>The boundary has no dips at all (nothing was snapped on the terrain).</summary>
-            NoDips,
-
-            /// <summary>The boundary was already validated (outer edge of a split subtitle): not judged.</summary>
-            Fixed,
         }
 
         private static readonly Dictionary<Category, string> r_descriptions = new Dictionary<Category, string>
         {
-            { Category.Unchanged, "User kept the boundary (refiner was right)" },
-            { Category.PostProcessed, "AI chose the user's time, but post-processing changed it" },
-            { Category.OfferedNotChosen, "User's time WAS offered to the AI, but not chosen" },
-            { Category.DipNeverOffered, "Terrain had a dip at the user's time, but it was never offered" },
-            { Category.BlockedByHardLimit, "Terrain had a dip at the user's time, but a hard limit forbade it" },
-            { Category.NoDipNearby, "Terrain has no dip at the user's time (inside the searched area)" },
-            { Category.OutsideWindow, "User's time is outside of the searched area" },
-            { Category.NoDips, "Boundary had no dips (not snapped on the terrain)" },
-            { Category.Fixed, "Boundary was fixed (not judged)" },
+            { Category.Unchanged, "User kept the boundary (snapped timing was right)" },
+            { Category.DipNearby, "Terrain had a dip at the user's time, but snapping picked another boundary" },
+            { Category.NoDipNearby, "Terrain has no dip at the user's time" },
         };
 
         private class BoundaryResult
@@ -72,15 +48,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
             public TimeSpan FinalTime;
             public Category Category;
             public string Detail;
-
-            /// <summary>What the AI chose on its last round (null when it chose nothing): the boundary before the post-processing.</summary>
-            public TimeSpan? AiTime;
-
-            /// <summary>The AI was not on the user's time, but the final boundary is (the post-processing fixed it).</summary>
-            public bool PostProcessingFixed;
-
-            /// <summary>The AI was not on the user's time, and the final boundary is clearly closer to it (but still not on it).</summary>
-            public bool PostProcessingImproved;
 
             /// <summary>Micro subtitles added after the difference (ex: the dips closest to the user's time), to see them in the editor.</summary>
             public List<(TimeSpan Time, string Text)> Markers = new List<(TimeSpan, string)>();
@@ -222,95 +189,27 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
             };
             var userTime = result.UserTime;
 
-            var aiRound = cand.Rounds.LastOrDefault(r => r.Side == side && r.Choice != null && r.Options.ContainsKey(r.Choice));
-            if (aiRound != null)
-            {
-                result.AiTime = aiRound.Options[aiRound.Choice];
-                if (!IsSame(userTime, result.AiTime.Value))
-                {
-                    result.PostProcessingFixed = IsSame(userTime, boundary.Current);
-                    result.PostProcessingImproved = !result.PostProcessingFixed
-                        && (boundary.Current - userTime).Duration() + SameTolerance < (result.AiTime.Value - userTime).Duration();
-                }
-            }
-
             if (IsSame(userTime, boundary.Current))
-                return With(result, Category.Unchanged, result.PostProcessingFixed
-                    ? $"AI chose {aiRound.Choice} ({Fmt(result.AiTime.Value)}), the post-processing moved it to the user's time ({Fmt(boundary.Current)})"
-                    : "");
+                return With(result, Category.Unchanged, "");
 
-            if (boundary.Fixed)
-                return With(result, Category.Fixed, "");
-
-            // What was offered to the AI, in all the rounds of this side
-            var rounds = cand.Rounds.Where(r => r.Side == side).ToList();
-            var offered = rounds
-                .SelectMany(r => r.Options.Select(o => (Round: r, Id: o.Key, Time: o.Value)))
-                .ToList();
-
-            // 1. The last choice of the AI is what the user wants
-            var lastRound = rounds.LastOrDefault(r => r.Choice != null && r.Options.ContainsKey(r.Choice));
-            if (lastRound != null && IsSame(userTime, lastRound.Options[lastRound.Choice]))
-                return With(result, Category.PostProcessed,
-                    $"AI chose {lastRound.Choice} ({Fmt(lastRound.Options[lastRound.Choice])}), final is {Fmt(boundary.Current)}");
-
-            // 2. Offered to the AI
-            var offeredNearest = offered.OrderBy(o => (o.Time - userTime).Duration()).FirstOrDefault();
-            if (offeredNearest.Round != null && IsSame(userTime, offeredNearest.Time))
+            if (terrain != null)
             {
-                var inRounds = offered
-                    .Where(o => IsSame(userTime, o.Time))
-                    .Select(o => $"round {o.Round.RoundNumber}: {o.Id} {Fmt(o.Time)}")
-                    .Distinct();
-                return With(result, Category.OfferedNotChosen,
-                    $"Offered ({string.Join(", ", inRounds)}), AI chose {lastRound?.Choice ?? "?"} ({(lastRound != null ? Fmt(lastRound.Options[lastRound.Choice]) : "?")})");
-            }
+                var nearest = terrain.GetDips(side, userTime - CoverageSearchRange, userTime + CoverageSearchRange)
+                    .Select(d => (Time: d, Distance: (d - userTime).Duration()))
+                    .OrderBy(d => d.Distance)
+                    .FirstOrDefault();
 
-            // 3. In the dips of the terrain, but never offered
-            if (boundary.Dips.Count == 0 && offered.Count == 0)
-                return With(result, Category.NoDips, "");
-
-            var dipNearest = boundary.Dips.OrderBy(d => (d.Time - userTime).Duration()).FirstOrDefault();
-            if (dipNearest != null && IsSame(userTime, dipNearest.Time))
-            {
-                return With(result,
-                    dipNearest.State == DipCandidateState.HardLimit ? Category.BlockedByHardLimit : Category.DipNeverOffered,
-                    $"Dip {Fmt(dipNearest.Time)} state={dipNearest.State}");
-            }
-
-            // 4. Outside or inside of the searched area?
-            var searched = boundary.Dips.Select(d => d.Time).Concat(offered.Select(o => o.Time)).ToList();
-            var min = searched.Min();
-            var max = searched.Max();
-            var nearestAny = searched.OrderBy(t => (t - userTime).Duration()).First();
-            if (userTime < min || userTime > max)
-            {
-                var beyond = userTime < min ? min - userTime : userTime - max;
-                var direction = (side == BoundarySide.Start) == (userTime < min) ? "outward" : "inward";
-                if (terrain != null)
+                if (nearest.Time != TimeSpan.Zero)
                 {
-                    // The dip of the terrain nearest to the user's time, that was out of reach of the search
-                    var available = terrain.GetDips(side, userTime - CoverageSearchRange, userTime + CoverageSearchRange)
-                        .Select(d => (Time: d, Distance: (d - userTime).Duration()))
-                        .OrderBy(d => d.Distance)
-                        .FirstOrDefault();
-                    if (available.Time != TimeSpan.Zero)
-                        result.Markers.Add((available.Time, $"[{side}] dip out of the searched area, nearest to USER: {Fmt(available.Time)} ({SignedMs(available.Time - userTime)} from USER)"));
+                    result.Markers.Add((nearest.Time, $"[{side}] nearest terrain dip to USER: {Fmt(nearest.Time)} ({SignedMs(nearest.Time - userTime)} from USER)"));
+                    if (nearest.Distance <= SameTolerance)
+                        return With(result, Category.DipNearby, $"Terrain dip {Fmt(nearest.Time)} ({SignedMs(nearest.Time - userTime)} from USER)");
+
+                    return With(result, Category.NoDipNearby, $"Nearest terrain dip {Fmt(nearest.Time)} is {nearest.Distance.TotalMilliseconds:0}ms away");
                 }
-                return With(result, Category.OutsideWindow,
-                    $"{beyond.TotalSeconds:0.000}s {direction} beyond the searched area [{Fmt(min)} .. {Fmt(max)}]" +
-                    (boundary.OutwardLimit.HasValue ? $", dips dropped beyond {Fmt(boundary.OutwardLimit.Value)}" : ""));
             }
 
-            var before = searched.Where(t => t < userTime).DefaultIfEmpty(TimeSpan.MinValue).Max();
-            var after = searched.Where(t => t >= userTime).DefaultIfEmpty(TimeSpan.MinValue).Min();
-            if (before != TimeSpan.MinValue)
-                result.Markers.Add((before, $"[{side}] closest dip/option before USER: {Fmt(before)} ({SignedMs(before - userTime)} from USER)"));
-            if (after != TimeSpan.MinValue)
-                result.Markers.Add((after, $"[{side}] closest dip/option after USER: {Fmt(after)} ({SignedMs(after - userTime)} from USER)"));
-
-            return With(result, Category.NoDipNearby,
-                $"Nearest dip/option {Fmt(nearestAny)} is {(nearestAny - userTime).Duration().TotalMilliseconds:0}ms away");
+            return With(result, Category.NoDipNearby, "No terrain dip nearby");
         }
 
         private static BoundaryResult With(BoundaryResult result, Category category, string detail)
@@ -328,32 +227,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         // Exports
         // ---------------------------------------------------------------------
 
-        /// <summary>The categories where the user's time was not reached, merged in two files (by the sign of the delta) instead of one per category.</summary>
-        private static readonly HashSet<Category> r_mergedCategories = new HashSet<Category>
-        {
-            Category.NoDipNearby, Category.OfferedNotChosen, Category.OutsideWindow, Category.PostProcessed,
-        };
-
         private void Export(List<BoundaryResult> results)
         {
             var notUnchanged = results.Where(r => r.Category != Category.Unchanged).ToList();
 
-            // What the post-processing did right: the AI was off, the final boundary is on the user's time (or clearly closer to it)
-            Save(results.Where(r => r.PostProcessingFixed || r.PostProcessingImproved), "PostProcessing-Helped");
-
-            // One file per (side, category) for the rare categories
-            foreach (var group in notUnchanged
-                .Where(r => !r_mergedCategories.Contains(r.Category))
-                .GroupBy(r => (r.Side, r.Category)))
-            {
-                Save(group, $"{group.Key.Side}-{group.Key.Category}");
-            }
-
-            // Two files for the others: "+REFINER" = the refiner covers more than the user (too much audio),
+            // Two files: "+REFINER" = the refiner covers more than the user (too much audio),
             // "-REFINER" = some audio of the user's subtitles might be lost
-            var merged = notUnchanged.Where(r => r_mergedCategories.Contains(r.Category)).ToList();
-            Save(merged.Where(r => r.Delta >= TimeSpan.Zero), "+REFINER");
-            Save(merged.Where(r => r.Delta < TimeSpan.Zero), "-REFINER");
+            Save(notUnchanged.Where(r => r.Delta >= TimeSpan.Zero), "+REFINER");
+            Save(notUnchanged.Where(r => r.Delta < TimeSpan.Zero), "-REFINER");
         }
 
         private void Save(IEnumerable<BoundaryResult> results, string name)
@@ -440,19 +321,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
                         text += $"  [median delta {deltas[deltas.Count / 2]:+0.000;-0.000;0.000}s]";
                     }
                     lines.Add(text);
-                }
-
-                // The post-processing (silence trim, overlaps, validation...) compared with the choice of the AI
-                var withAi = sideResults.Where(x => x.AiTime.HasValue && x.Category != Category.Fixed).ToList();
-                if (withAi.Count > 0)
-                {
-                    string Pct(int n) => $"{n,5} ({n * 100.0 / withAi.Count,5:0.0}%)";
-                    int fixedByPost = withAi.Count(x => x.PostProcessingFixed);
-                    int improved = withAi.Count(x => x.PostProcessingImproved);
-                    int ruined = withAi.Count(x => x.Category == Category.PostProcessed);
-                    int aiOnUser = withAi.Count(x => IsSame(x.UserTime, x.AiTime.Value));
-                    lines.Add($"    Post-processing, on the {withAi.Count} boundaries chosen by the AI ({aiOnUser} were on the user's time):");
-                    lines.Add($"      helped, now on the user's time {Pct(fixedByPost)}   helped, closer {Pct(improved)}   made worse (AI was on the user's time) {Pct(ruined)}");
                 }
             }
             lines.AddRange(coverageLines);

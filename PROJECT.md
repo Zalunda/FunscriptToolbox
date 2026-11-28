@@ -83,16 +83,10 @@ A modular pipeline driven by JSON/C# configuration files to transcribe, identify
 
 ---
 
-## Timing refiner engines (TransformManualInputPreparer)
+## Timing snapping (TransformManualInputPreparer)
 
-`RefineTiming` (`TimingRefinerSettings`) snaps the boundaries of each subtitle on the terrain of the audio, then refines them with its `Engine` (shared objects of the default config, chosen with a `$ref`): `TimingRefineEngineNone` (no AI), `TimingRefineEngineVerify` (one request per subtitle), `TimingRefineEngineStartEndJudge` (Start / End passes + optional End tail check), `TimingRefineEngineSpokenMarkers` (see below).
-A `$ref` can carry other properties (ex. `{ "$ref": "TimingRefineEngineSpokenMarkers", "Runs": 3 }`): `SubtitleGeneratorConfigLoader.ExpandReferencesWithOverrides` replaces it, after all the overrides are merged, by a copy of the shared object (its `$id`s removed) with these properties merged in; the shared object is not changed. In a merge, an override with another `$ref` / `$type` replaces the object instead of being merged in it (`IsAnotherObject`).
-- `TimingRefineEngineSpokenMarkers`: English number words (`SpokenMarkers`: 12 long labels, embedded .wav resources in `Refiner/Markers/`, 16 kHz) are INSERTED in the clip of each subtitle at the start dips around its snapped Start and the end dips around its snapped End (`TimingClipOption.Inserts`, the audio built by `SpokenMarkers.BuildClipAudio`); the AI (prompt `TimingSpokenMarkersSystemPrompt`, answer `MarkedTranscription`, batches of 50) transcribes the clip with the markers inline and the line between « and ». Start = the last marker before «, End = the first after »; asked `Runs` times (other random labels), decided after the last run (`OnDisagreement`: Wider / Majority), silence trimmed, Ends capped by the next Starts; writes `TimingCandidate.TimingConfidence` (the `[TimingConfidence:x]` line). Flags: `UnsureStart` / `UnsureEnd`
-(a side not confirmed by every run, or a single run, or an End capped: two codes, so one side can be ignored), `MissingStart` / `MissingEnd` (the line starts before
-/ ends after every marker in a run: set to the outermost option). No split of the long subtitles (`CanSplitLongSubtitles` = false). The experiments that led to it: `Refiner/scratchbook/` (git-ignored, README.md).
-- `TimingRefiner`: what is common to all the engines (the candidates, the terrain and the snap, the silence trimming, the overlaps, the stats).
-- `TimingRefineEngine` (abstract): the building blocks (clips + silence padding, dips, hard limits, bleed text, reading an answer, the cache key `BuildCacheKey`). An engine implements `UsesAI`, `InnerOptionsUsed`, `CreatePasses` (+ `Validate`, capabilities); its passes (`TimingRefinePass`: `Begin` / `PrepareNextRound` / `ProcessResults` / `End`, new objects for each refiner: they hold the state of a run) say which answer fields are cached (`CachedMetadataNames`).
-- A new engine: a subclass (no serializer change: the base type is registered), added as a shared object in `SubtitleGeneratorConfigExample`, its tunable settings exposed in the `SharedObjects` of the workflow overrides.
+`TransformManualInputPreparer` snaps the boundaries of each subtitle onto the terrain of the audio (`RefineTiming`: `TimingRefinerSettings` / `TimingRefiner`), handles minor overlaps, detects title cards, and flags issues (`Validation`: `TimingValidator`). No AI requests are sent.
+A `$ref` can carry other properties (ex. `{ "$ref": "AIEngineGemini4", "UseBatchMode": false }`): `SubtitleGeneratorConfigLoader.ExpandReferencesWithOverrides` replaces it, after all the overrides are merged, by a copy of the shared object (its `$id`s removed) with these properties merged in; the shared object is not changed. In a merge, an override with another `$ref` / `$type` replaces the object instead of being merged in it (`IsAnotherObject`).
 
 ## Interactive review (web UI)
 

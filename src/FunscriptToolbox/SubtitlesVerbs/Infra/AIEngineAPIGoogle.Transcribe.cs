@@ -28,6 +28,19 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //   - MDVR-093 (52 min, 4 women): 25-min chunks: the 2nd chunk had broken times at its start, lost the speakers after 2 min (955 of
     //     1,186 words without speaker) and ended 'incomplete' with only 1,688 output tokens (not the token limit?). 5-min chunks: no lost
     //     speaker, 1 broken word, more words (4,389 vs 3,625), the same cost. => Shorter chunks look better (default 25 min: change to 5?).
+    //   - Probes of 2026-11-28 (HNVR-141, MDVR-093, against the reviewed timings / the Gemini 4 transcription):
+    //     . The 'blackouts' = the model stops writing after a long pause, status 'completed' (MDVR-093 chunk 19:21.8-24:21.8: nothing after
+    //       20:43.3, a pause 20:45-21:01, 67 lines lost). The same audio again: the same answer, the same stop. A 5-min request starting 13 s
+    //       before: stops at 20:51. A 5-min request starting at the last word (20:43.3 or 20:51.2): goes on (91 of 97 lines). 30-s requests
+    //       over the blackout: 60 of 64 lines. Blackouts happen anywhere in a chunk, not only at its start.
+    //     . The first ~10 s of a request are less reliable: the line at 04:58 of HNVR-141 (8 s into the requests starting at 04:50) was
+    //       wrong in the 3 requests that started there, right in a request starting at 04:44.3. In the overlaps of 2 chunks, 11 of 14 lines
+    //       heard by only one of them were missed by the next chunk in its first 0-9 s.
+    //     . The same request twice: the same answer (2 of 3 times, once different): asking the same audio again is (almost) useless.
+    //     . Once, the model repeated itself: 6,984 words for 2.5 minutes of audio (a hole retry at the end of HNVR-141).
+    //     . The rate limit: no 'Too many requests' with 13 requests in ~50 s, 8 of them at the same time (2 of the 8 took ~27 s instead of ~3).
+    //     => TranscriberAudioFullAIGoogleTranscribe: early stop (the next chunk at the last word), boundary retries, short gap retries in
+    //        parallel, each line from the request where it's farthest from the start / end of the audio sent.
     //
     // Open questions
     //   - 'incomplete': what is the real reason (incomplete_details was not captured: run with --verbose to get the -Resp.json)? Is there
@@ -35,8 +48,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //     RequestBodyExtension, it's merged with transcription_config)? The answer is used up to its last subtitle, see the transcriber.
     //   - The statuses of an interaction still being done ('in_progress', 'queued'... rs_transcribeInProgressStatuses): guessed, never seen
     //     (the answers were always 'completed' / 'incomplete' right away).
-    //   - The rate limit: 3 requests in less than a minute => 'Too many requests'. The real limit (by minute? by day? by tier?) is not known:
-    //     TranscribeMinTimeBetweenRequests 30 s is a guess.
+    //   - The rate limit: once, 3 requests in less than a minute => 'Too many requests'; but 13 requests in ~50 s (8 at the same time) went
+    //     through (2026-11-28). The real limit (by minute? by day? by tier?) is not known.
     //   - A chunk that comes back almost empty: MDVR-093 48:21-52:03 (3 min 42 s) gave only 'うん。 ねえ。' ('completed'), where a 25-min
     //     chunk had 48 subtitles. Censorship of explicit content? Something else?
     //   - language_codes ["ja-JP"] (from SourceLanguage) vs [] (detected): not compared.
@@ -45,19 +58,11 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     //   - The audio is uploaded with the Files API (then deleted); the inline base64 audio was not tried (size limit?).
     //
     // Possible improvements
-    //   - TO DO NEXT (user, 2026-11-27): a smarter retrier for the 'blackouts' (the model stops transcribing for 20+ s, often at the start
-    //     of a chunk), instead of a bigger BufferZone (20 s, ex. 10 s before: not the real fix). The case seen:
-    //       1. chunk 00:00-05:00: no blackout, but its last subtitle is cut by the end of the chunk (the real line is ~04:57-05:02).
-    //       2. chunk 04:50-09:50: a blackout in its first ~30 s.
-    //       3. RecoverMissedChunkOverlap (TranscriberAudioFullAIGoogleTranscribe.RebuildItems): the subtitles of chunk 1 in the overlap
-    //          are taken as they are, because chunk 2 has nothing there, including the cut one (wrong end, text cut).
-    //     What should happen: the blackout is detected and kept as such (a 'hole': its start / end, in the job state), the subtitles
-    //     recovered from the previous chunk in it are suspicious (at least the last one, cut by the end of the chunk) and are not
-    //     trusted as is: retry the blackout (a request centered on it, not starting at its start) and/or flag them (ex. a metadata
-    //     for the review). The hole retry (RetryGapMinDuration) only sees the gaps between the subtitles after the recovery: a
-    //     blackout filled by suspicious recovered subtitles is not seen as a hole.
+    //   - DONE (2026-11-28): the retrier for the 'blackouts' (see the probes above). To check on more scenes: the gaps still empty after
+    //     their retry (asked once: a second request with other limits?), a flag for the review on the lines read only near the start /
+    //     end of a request.
     //   - A chunk with far fewer words / minute than the others (ex. < 20 % of the average of the scene): asked again once automatically,
-    //     then flagged in the log if it's still so.
+    //     then flagged in the log if it's still so. (the early stops and the gap retries now cover the cases seen)
     //   - 'Forget the answer of one chunk' (redo only that part), instead of 'Redo this step' on the whole transcription.
     //   - The same line returned twice is merged (same text, starts <= SameLineMaxStartDifference): also the nearly same text (one contains
     //     the other, or >= ~80 % similar, ex. 「あ、私も見てもらっていいですか。」 / 「うんあ、私も見てもらっていいですか。」).
@@ -82,7 +87,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
     public partial class AIEngineAPIGoogle
     {
         [ConfigDoc("Transcription models only: at least this time between two requests to this engine, all the scenes together (the rate limit of Google is by key).",
-            Advice = "The rate limit of the transcription model is low ('Too many requests' after 3 requests in less than a minute): 30 s is safe.")]
+            Advice = "1 s: 13 requests in ~50 s (8 at the same time) went through, with a single 'Too many requests' seen before (TranscribeMaxRetriesOnTooManyRequests). A long wait makes the parallel retries of the Google transcription useless (MaxParallelRequests).")]
         [JsonProperty(Order = 34)]
         public TimeSpan TranscribeMinTimeBetweenRequests { get; set; } = TimeSpan.Zero;
 

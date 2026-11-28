@@ -7,25 +7,42 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors
 {
     /// <summary>
-    /// The engine: AIEngineAPIGoogle.Transcribe. The answers of the model (the text and the words of each chunk) are kept in the job state
+    /// The engine: AIEngineAPIGoogle.Transcribe. The answers of the model (the text and the words of each request) are kept in the job state
     /// (the only place with the words): the subtitles are built again from them at each run.
+    /// What the model does (probes of 2026-11-28, see the notes of AIEngineAPIGoogle.Transcribe.cs): it can stop writing after a long pause
+    /// (status 'completed', the same audio again = the same stop, a request starting at its last word goes on), the first ~10 s of a request
+    /// are less reliable, and two requests over the same audio don't always hear the same lines.
     /// </summary>
     [ConfigDoc("A transcription of the whole audio by a transcription model of Google (ex. 'gemini-3.5-transcribe'): verbatim, with the start / end of each word, " +
-        "in the language of the video. The audio is sent in chunks (MaxChunkDuration; what starts in the last BufferZone of a chunk is done again by the next one). " +
-        "The subtitles are built from the words: a new one after a pause (MaxGap), after the end of a sentence (。？！?!), when it would be too long (MaxDuration), " +
-        "or when the speaker changes (Diarization); their end is moved EndPadding later (the word ends of the model are too early), not after the start of the next one.",
-        Advice = "With CanBeUpdated, a change of these rules is applied at the next run without any new request (the answers of the model are kept).")]
-    public class TranscriberAudioFullAIGoogleTranscribe : TranscriberAudio
+        "in the language of the video. The audio is sent in chunks (MaxChunkDuration, BufferZone shared by two chunks), in one or several main passes shifted by a " +
+        "few ms (MainPassCount: another reading of the same audio); when the model stops writing before the end " +
+        "of a chunk (it can stop after a long pause), the next chunk starts at its last word (EarlyStopMinDuration). Then, in short requests sent in parallel " +
+        "(MaxParallelRequests): the places where a chunk hands over to the next one (BoundaryRetryMargin) and the gaps between the subtitles (RetryGapMinDuration). " +
+        "Each line is taken from the request where it's farthest from the start / end of the audio sent (the first seconds of a request are less reliable, its " +
+        "last line can be cut). The subtitles are built from the words: a new one after a pause (MaxGap), after the end of a sentence (。？！?!), when it would be " +
+        "too long (MaxDuration), or when the speaker changes (Diarization); their end is moved EndPadding later (the word ends of the model are too early), not " +
+        "after the start of the next one.",
+        Advice = "With CanBeUpdated, a change of these rules is applied at the next run without any new request (the answers of the model are kept), except the " +
+        "rules that decide what is asked (the chunks, the retries): what wasn't asked yet is asked.")]
+    public partial class TranscriberAudioFullAIGoogleTranscribe : TranscriberAudio
     {
         public class JobState
         {
-            /// <summary>Unified cache of all transcribed chunks (primary chunks and hole retries), keyed by exact (StartTime, EndTime).</summary>
+            /// <summary>All the answers received (the chunks and the retries), found again by their exact times (StartTime, EndTime).</summary>
             public List<CachedChunk> Chunks { get; set; } = new List<CachedChunk>();
+
+            /// <summary>
+            /// The gaps already asked again (their audio: a chunk of Chunks), kept so that the next runs send the same requests (from the cache)
+            /// and don't ask them again, even if the rules that find the gaps change.
+            /// </summary>
+            public List<GapRetry> GapRetries { get; set; } = new List<GapRetry>();
 
             /// <summary>
             /// The subtitles that start before this time were made by the previous type of this step (TranscriberAudioFullAI, the same id,
@@ -46,32 +63,88 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             public string IncompleteReason { get; set; }
         }
 
+        public class GapRetry
+        {
+            /// <summary>The gap asked again (times of the scene).</summary>
+            public TimeSpan HoleStart { get; set; }
+            public TimeSpan HoleEnd { get; set; }
+            /// <summary>The audio sent for it (its answer: the chunk of the job state with these times).</summary>
+            public TimeSpan WindowStart { get; set; }
+            public TimeSpan WindowEnd { get; set; }
+        }
+
         [ConfigDoc("The metadata the text goes in (ex. \"VoiceText\").")]
         [JsonProperty(Order = 20, Required = Required.Always)]
         public string MetadataProduced { get; set; }
 
-        [ConfigDoc("The duration of the audio sent in each request. At most 30 minutes with the times of the words (a limit of the model: the rest would be lost).")]
+        [ConfigDoc("The duration of the audio sent in each request of the main pass. At most 30 minutes with the times of the words (a limit of the model: the rest would be lost).",
+            Advice = "5 minutes: the long chunks lose more (ex. the speakers stop being given after a few minutes).")]
         [JsonProperty(Order = 21)]
-        public TimeSpan MaxChunkDuration { get; set; } = TimeSpan.FromMinutes(25);
+        public TimeSpan MaxChunkDuration { get; set; } = TimeSpan.FromMinutes(5);
 
-        [ConfigDoc("Overlap duration between consecutive chunks so speech near a chunk boundary is transcribed cleanly past the model's ~10-15 s cold-start zone and away from the previous chunk's hard end.")]
+        [ConfigDoc("The number of main passes over the whole audio. Pass k of n: its chunks are shifted by k / n of a chunk (its first chunk is k / n of " +
+            "MaxChunkDuration: with 5-minute chunks and 2 passes, the chunks of pass 2 start at 0, ~2.5, ~7.5 minutes...) and by k / n of an audio token of the " +
+            "model (40 ms, 25 tokens / s: 2 passes = 0 and 20 ms; 3 = 0, 13.33 and 26.67 ms...). Another reading of the same audio (the same request again gives " +
+            "the same answer, the same stops), and the start / end of the chunks of a pass (less reliable) are in the middle of the chunks of the others: a line " +
+            "missed by one pass can be heard by another. Each pass has its own chunks, early stops and boundary retries; the gap retries come after all of them. " +
+            "MaxTotalAudioFactor must leave room for them.",
+            Advice = "2: much fewer lines missed (MDVR-093: a chunk that stopped after 1 minute heard everything shifted by 20 ms), for one more pass of the cost.")]
         [JsonProperty(Order = 22)]
-        public TimeSpan BufferZone { get; set; } = TimeSpan.FromSeconds(20);
+        public int MainPassCount { get; set; } = 3;
 
-        [ConfigDoc("Automatically retries any gap (hole) between subtitles of at least this duration using a targeted request with BufferZone pre-roll. null: disabled.")]
+        [ConfigDoc("The audio shared by two chunks of the main pass: what starts in the last BufferZone of a chunk is also in the next one (each line is then taken " +
+            "from the chunk where it's farthest from the start / end of the audio sent).")]
         [JsonProperty(Order = 23)]
-        public TimeSpan? RetryGapMinDuration { get; set; } = null;
+        public TimeSpan BufferZone { get; set; } = TimeSpan.FromSeconds(10);
 
-        [ConfigDoc("Hard cap on total audio duration to transcribe (primary chunks + all hole retries combined) as a multiple of the video duration (e.g. 2.0 = at most 2x video length, must be >= 1.0).")]
+        [ConfigDoc("When the last word of a chunk ends at least this long before the end of the audio sent (the model can stop writing after a long pause, and the same " +
+            "audio again gives the same stop), the next chunk starts at the end of that word, instead of near the end of the chunk. Only when the chunk got at least " +
+            "this long past its start (otherwise: the next chunk as usual, the gap is left to the gap retries). null: disabled.")]
         [JsonProperty(Order = 24)]
-        public double MaxTotalAudioFactor { get; set; } = 2.0;
+        public TimeSpan? EarlyStopMinDuration { get; set; } = TimeSpan.FromSeconds(15);
+
+        [ConfigDoc("Each place where a chunk of the main pass hands over to the next one is asked again in a request centered on it, with this much audio on each " +
+            "side (the line said there is at the start of the next chunk, where the model is less reliable, and can be cut by the end of the previous one). " +
+            "Not done where a chunk starts at an early stop (EarlyStopMinDuration). null: not done.")]
+        [JsonProperty(Order = 25)]
+        public TimeSpan? BoundaryRetryMargin { get; set; } = null;
+
+        [ConfigDoc("A gap between the subtitles (the ones matching TranscriptionToIgnorePatterns not counted) of at least this duration is asked again, in short " +
+            "requests (RetryPreRoll, RetryPostRoll, RetryWindowMaxDuration). A gap already asked is not asked again. null: disabled.",
+            Advice = "One speaker: ~10 s. Several speakers: 2 to 3 s (the lines of the other speakers are often missed, even in short gaps).")]
+        [JsonProperty(Order = 26)]
+        public TimeSpan? RetryGapMinDuration { get; set; } = TimeSpan.FromSeconds(10);
+
+        [ConfigDoc("A gap retry: the audio sent before the gap (the first seconds of a request are less reliable).")]
+        [JsonProperty(Order = 27)]
+        public TimeSpan RetryPreRoll { get; set; } = TimeSpan.FromSeconds(10);
+
+        [ConfigDoc("A gap retry: the audio sent after the gap.")]
+        [JsonProperty(Order = 28)]
+        public TimeSpan RetryPostRoll { get; set; } = TimeSpan.FromSeconds(5);
+
+        [ConfigDoc("A gap retry: at most this much audio in one request (with RetryPreRoll and RetryPostRoll). A longer gap is asked in several requests, close gaps " +
+            "together in one.",
+            Advice = "Keep it short: a long request can stop again at a pause, 30-60 s requests heard 60 of the 64 lines of a 3.5-minute blackout (MDVR-093).")]
+        [JsonProperty(Order = 29)]
+        public TimeSpan RetryWindowMaxDuration { get; set; } = TimeSpan.FromSeconds(60);
+
+        [ConfigDoc("The retries (BoundaryRetryMargin, RetryGapMinDuration) are sent this many at a time. The chunks of the main pass: one at a time (each one starts " +
+            "where the previous one stopped). The engine can still wait between two requests (its TranscribeMinTimeBetweenRequests).")]
+        [JsonProperty(Order = 30)]
+        public int MaxParallelRequests { get; set; } = 4;
+
+        [ConfigDoc("Hard cap on total audio duration to transcribe (the main passes + all the retries combined) as a multiple of the video duration (e.g. 3.0 = at " +
+            "most 3x video length, must be >= 1.0, and more than MainPassCount: each main pass is ~1x).")]
+        [JsonProperty(Order = 31)]
+        public double MaxTotalAudioFactor { get; set; } = 3.0;
 
         [ConfigDoc("Keeps the audio chunks sent to the model in the backup folder of the scene.")]
-        [JsonProperty(Order = 25)]
+        [JsonProperty(Order = 32)]
         public bool KeepTemporaryFiles { get; set; } = false;
 
         [ConfigDoc("The Google engine (AIEngineAPIGoogle) with a transcription model (ex. \"gemini-3.5-transcribe\"; UseBatchMode false: the transcription models have no batch mode).")]
-        [JsonProperty(Order = 30, Required = Required.Always)]
+        [JsonProperty(Order = 35, Required = Required.Always)]
         public AIEngineAPIGoogle Engine { get; set; }
 
         [ConfigDoc("The model separates the speakers: a new subtitle when the speaker changes. Its numbers (\"spk:0\", \"spk:1\"...) can't identify the " +
@@ -96,6 +169,14 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 44)]
         public TimeSpan SameLineMaxStartDifference { get; set; } = TimeSpan.FromSeconds(1.5);
 
+        [ConfigDoc("The answers of the requests are cut into phrases (the words without a pause of more than this between them, of the same speaker with Diarization); " +
+            "each phrase is taken from the request where it's farthest from the start / end of the audio sent, a phrase of another request at the same time is " +
+            "left out. A phrase that matches TranscriptionToIgnorePatterns is left out first. The subtitles are then built from the words of the phrases kept " +
+            "(MaxGap, EndOfSentenceMinGap, MaxDuration).",
+            Advice = "Short: a long phrase can hide a short line that only another request heard.")]
+        [JsonProperty(Order = 49)]
+        public TimeSpan PhraseMaxGap { get; set; } = TimeSpan.FromMilliseconds(300);
+
         [ConfigDoc("Splits into a new subtitle when the pause between two words exceeds this duration (even without sentence-ending punctuation). null: disabled (no split on gap alone).")]
         [JsonProperty(Order = 50)]
         public TimeSpan? MaxGap { get; set; } = TimeSpan.FromMilliseconds(600);
@@ -112,35 +193,152 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
         [JsonProperty(Order = 54)]
         public TimeSpan EndPadding { get; set; } = TimeSpan.FromMilliseconds(250);
 
-        [ConfigDoc("When true, subtitles transcribed in a chunk's overlap/buffer zone are kept if the next chunk produced no overlapping subtitle there (recovers cold-start misses at the start of a chunk).")]
-        [JsonProperty(Order = 55)]
-        public bool RecoverMissedChunkOverlap { get; set; } = true;
-
-        [ConfigDoc("A subtitle whose whole text matches one of these patterns is left out of the result (ex. a phrase the model writes on silences). Each pattern: { \"Name\", \"Pattern\" }.")]
+        [ConfigDoc("A phrase (see PhraseMaxGap) or a subtitle whose whole text matches one of these patterns is left out (ex. moans, a phrase the model writes on " +
+            "silences). Each pattern: { \"Name\", \"Pattern\" }.")]
         [JsonProperty(Order = 60)]
         public TranscriberAudioFullAI.TranscriptioToIgnorePattern[] TranscriptionToIgnorePatterns { get; set; }
 
-        [ConfigDoc("Peels off leading or trailing words that match TranscriptionToIgnorePatterns when separated from the rest of the subtitle by at least this pause (using word timings). null: disabled.")]
-        [JsonProperty(Order = 61)]
-        public TimeSpan? TrimIgnoredWordsMinGap { get; set; } = TimeSpan.FromMilliseconds(500);
-
         private const string EndOfSentence = "。？！?!";
 
-        /// <summary>Keep this much margin before the end of chunk N when handing off to chunk N+1 inside the overlap.</summary>
-        private static readonly TimeSpan HandoffEndMargin = TimeSpan.FromSeconds(5);
+        /// <summary>
+        /// An answer that ends with the same word this many times in a row (or with a word of the same character this many times, ex. 'おおおお...')
+        /// : the model repeated itself until its limit (seen in 'incomplete' answers), the end is cut where the repetition starts.
+        /// Only at the end of the answer: a real series of moans in the middle is kept.
+        /// </summary>
+        private const int MinRepetitionsToCut = 10;
 
-        /// <summary>The audio sent after the end of a hole, in a hole retry (the audio before it: BufferZone).</summary>
-        private static readonly TimeSpan HolePostRoll = TimeSpan.FromSeconds(5);
+        /// <summary>The text of the answer of a request (UTF-8, the indexes of its words are in it).</summary>
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<CachedChunk, byte[]> rs_textBytes = new System.Runtime.CompilerServices.ConditionalWeakTable<CachedChunk, byte[]>();
 
-        /// <summary>Margin used when checking whether the next chunk already covers an overlap subtitle from the previous chunk.</summary>
+        /// <summary>Two subtitles overlap when they are closer than this (also: the margin of a line of another request inside a longer one).</summary>
         private static readonly TimeSpan OverlapRecoveryMargin = TimeSpan.FromMilliseconds(300);
 
         /// <summary>A word that lasts longer than this: a broken time (seen at the start of some chunks), ignored.</summary>
         private static readonly TimeSpan MaxWordDuration = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// An answer with more words than this by second of audio: the model repeated itself (seen: 6,984 words for 2.5 minutes), ignored.
+        /// (the speech of the scenes seen: at most ~2 words / s)
+        /// </summary>
+        private const double LoopingMinWordsPerSecond = 8.0;
+
+        /// <summary>
+        /// A line of a request that overlaps lines of other requests (more reliable there) replaces them when they are all inside it and leave at
+        /// least this much of its speech (the times of its words, and at least half of them) without a line: the other request cut the speech in
+        /// shorter lines and missed some.
+        /// </summary>
+        private static readonly TimeSpan MinUncoveredForLongerLine = TimeSpan.FromSeconds(1);
+
+        /// <summary>The gap retries: at most this number of rounds in a run (the gaps left by a round, not asked yet, are asked in the next one).</summary>
+        private const int MaxGapRetryRounds = 2;
+
+        /// <summary>The audio of a request is read by the model in pieces of this length from its start (25 audio tokens / s): the main passes are shifted by a fraction of it.</summary>
+        private static readonly TimeSpan AudioTokenDuration = TimeSpan.FromMilliseconds(40);
+
+        /// <summary>
+        /// The retries start this much later than computed, to be on another grid of audio tokens than all the requests of the main passes.
+        /// The starts of the chunks of a pass are its shift + a multiple of 100 ms (the times of the words, BufferZone), so its chunks are at 2 phases
+        /// of a token (100 ms = 2.5 tokens: + 0 or + 20 ms). With n passes (shifts of 40 ms x k / n), the phases used are the multiples of
+        /// (20 ms / n) x gcd(2, n): the retries are shifted by half of that (1 or 2 passes: 10 ms; 3: 3.33 ms; 4: 5 ms; 5: 2 ms).
+        /// (the probes: a shift of a whole token, on the same grid, also changed the answer; this is only to be sure)
+        /// </summary>
+        private TimeSpan RetryGridShift => TimeSpan.FromTicks(TimeSpan.FromMilliseconds(10).Ticks * (this.MainPassCount % 2 == 0 ? 2 : 1) / this.MainPassCount);
+
         protected override string GetMetadataProduced() => this.MetadataProduced;
 
-        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
+        private enum ReadingKind
+        {
+            Chunk,
+            Boundary,
+            Gap
+        }
+
+        /// <summary>An answer used to build the subtitles: a chunk of the main pass or a retry.</summary>
+        private sealed class Reading
+        {
+            public Reading(CachedChunk chunk, ReadingKind kind)
+            {
+                this.Chunk = chunk;
+                this.Kind = kind;
+            }
+
+            public CachedChunk Chunk { get; }
+            public ReadingKind Kind { get; }
+        }
+
+        /// <summary>A request to do (or found in the job state).</summary>
+        private sealed class RequestToDo
+        {
+            public RequestToDo(Timing timing, string name, ReadingKind kind)
+            {
+                this.Timing = timing;
+                this.Name = name;
+                this.Kind = kind;
+            }
+
+            public Timing Timing { get; }
+            public string Name { get; }
+            public ReadingKind Kind { get; }
+            /// <summary>The answer (null: not sent, ex. the budget).</summary>
+            public CachedChunk Result { get; set; }
+            // (for the run report)
+            public int? Pass { get; set; }
+            public int? Round { get; set; }
+            public TimeSpan? HoleStart { get; set; }
+            public TimeSpan? HoleEnd { get; set; }
+            public string NotSent { get; set; }
+            public double? Seconds { get; set; }
+            public string Note { get; set; }
+            public bool FromCache { get; set; }
+            public Cost Cost { get; set; }
+        }
+
+        /// <summary>A phrase of an answer: its words without a pause of more than PhraseMaxGap between them (see PhraseMaxGap).</summary>
+        private sealed class Phrase
+        {
+            public Phrase(CachedChunk chunk, List<AIEngineAPIGoogle.TranscribedWordInfo> words, TimedItemWithMetadata item)
+            {
+                this.Chunk = chunk;
+                this.Words = words;
+                this.Item = item;
+            }
+
+            public CachedChunk Chunk { get; }
+            /// <summary>Their times: in the chunk.</summary>
+            public List<AIEngineAPIGoogle.TranscribedWordInfo> Words { get; }
+            /// <summary>Its times in the scene, its text.</summary>
+            public TimedItemWithMetadata Item { get; }
+            public string Speaker => this.Words[0].Speaker;
+        }
+
+        private sealed class Candidate
+        {
+            public Candidate(Phrase phrase, int readingIndex, ReadingKind kind, double score)
+            {
+                this.Phrase = phrase;
+                this.Item = phrase.Item;
+                this.Speaker = phrase.Speaker;
+                // (at least 100 ms each: the times of the model are in steps of 0.1 s)
+                this.WordSpans = phrase.Words
+                    .Select(w => (phrase.Chunk.StartTime + w.StartTime, phrase.Chunk.StartTime + TimeSpanExtensions.Max(w.EndTime, w.StartTime + TimeSpan.FromMilliseconds(100))))
+                    .ToList();
+                this.ReadingIndex = readingIndex;
+                this.Kind = kind;
+                this.Score = score;
+            }
+
+            public Phrase Phrase { get; }
+            public TimedItemWithMetadata Item { get; }
+            public string Speaker { get; }
+            /// <summary>The times of its words (in the scene): where there is speech in the phrase (not its pauses).</summary>
+            public List<(TimeSpan Start, TimeSpan End)> WordSpans { get; }
+            public int ReadingIndex { get; }
+            public ReadingKind Kind { get; }
+            /// <summary>How far (in seconds) the line is from the start / end of the audio sent (the closest of the two): the more, the more reliable.</summary>
+            public double Score { get; }
+        }
+
+        private void ValidateSettings()
         {
             if (this.MaxChunkDuration > TimeSpan.FromMinutes(30))
             {
@@ -150,13 +348,76 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             {
                 throw new Exception($"'{this.Id}': 'BufferZone' ({this.BufferZone}) must be >= 0 and smaller than 'MaxChunkDuration' ({this.MaxChunkDuration}).");
             }
+            if (this.EarlyStopMinDuration is TimeSpan earlyStop && earlyStop <= TimeSpan.Zero)
+            {
+                throw new Exception($"'{this.Id}': 'EarlyStopMinDuration' ({earlyStop}) must be > 0 (null: disabled).");
+            }
+            if (this.BoundaryRetryMargin is TimeSpan boundaryMargin && boundaryMargin <= TimeSpan.Zero)
+            {
+                throw new Exception($"'{this.Id}': 'BoundaryRetryMargin' ({boundaryMargin}) must be > 0 (null: not done).");
+            }
+            if (this.RetryGapMinDuration is TimeSpan minGap && minGap <= TimeSpan.Zero)
+            {
+                throw new Exception($"'{this.Id}': 'RetryGapMinDuration' ({minGap}) must be > 0 (null: disabled).");
+            }
+            if (this.RetryPreRoll < TimeSpan.Zero || this.RetryPostRoll < TimeSpan.Zero)
+            {
+                throw new Exception($"'{this.Id}': 'RetryPreRoll' ({this.RetryPreRoll}) and 'RetryPostRoll' ({this.RetryPostRoll}) must be >= 0.");
+            }
+            if (this.RetryWindowMaxDuration <= this.RetryPreRoll + this.RetryPostRoll)
+            {
+                throw new Exception($"'{this.Id}': 'RetryWindowMaxDuration' ({this.RetryWindowMaxDuration}) must be longer than 'RetryPreRoll' + 'RetryPostRoll' ({this.RetryPreRoll + this.RetryPostRoll}).");
+            }
+            if (this.MaxParallelRequests < 1)
+            {
+                throw new Exception($"'{this.Id}': 'MaxParallelRequests' ({this.MaxParallelRequests}) must be >= 1.");
+            }
             if (this.MaxTotalAudioFactor < 1.0)
             {
                 throw new Exception($"'{this.Id}': 'MaxTotalAudioFactor' ({this.MaxTotalAudioFactor}) must be >= 1.0.");
             }
+            if (this.MainPassCount < 1)
+            {
+                throw new Exception($"'{this.Id}': 'MainPassCount' ({this.MainPassCount}) must be >= 1.");
+            }
+            if (this.MainPassCount > 1 && this.MaxChunkDuration.Ticks / this.MainPassCount <= 2 * this.BufferZone.Ticks)
+            {
+                throw new Exception($"'{this.Id}': with 'MainPassCount' {this.MainPassCount}, the first chunk of a pass can be as short as 'MaxChunkDuration' / {this.MainPassCount} ({TimeSpan.FromTicks(this.MaxChunkDuration.Ticks / this.MainPassCount)}): it must be longer than 2 x 'BufferZone' ({this.BufferZone}).");
+            }
+            if (this.MaxTotalAudioFactor <= this.MainPassCount)
+            {
+                throw new Exception($"'{this.Id}': 'MaxTotalAudioFactor' ({this.MaxTotalAudioFactor}) must be more than 'MainPassCount' ({this.MainPassCount}): each main pass is ~1x the audio (a bit more with BufferZone), the retries come on top.");
+            }
+        }
+
+        protected override void DoWorkInternal(SubtitleGeneratorContext context, Track transcription)
+        {
+            // (debug, for the tests of the retrier: '.Worker.<id>.run.json', with ExportMetadataSrt; also when stopped / failed)
+            var report = new RunReport();
+            var status = "stopped / failed";
+            try
+            {
+                DoWork(context, transcription, report);
+                status = "completed";
+            }
+            catch (Exception ex)
+            {
+                status = $"{ex.GetType().Name}: {ex.Message}";
+                throw;
+            }
+            finally
+            {
+                WriteRunReport(context, transcription, report, status);
+            }
+        }
+
+        private void DoWork(SubtitleGeneratorContext context, Track transcription, RunReport report)
+        {
+            ValidateSettings();
 
             var processStartTime = DateTime.Now;
             var fullPcmAudio = base.GetPcmAudio(context);
+            var audioEnd = fullPcmAudio.EndTime;
             var options = new AIEngineAPIGoogle.TranscribeOptions
             {
                 LanguageCodes = GetLanguageCodes(transcription.Language),
@@ -174,182 +435,260 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 jobState = new JobState
                 {
                     PreviousTypeEndTime = transcription.Items.Count == 0 ? (TimeSpan?)null
-                        : transcription.IsFinished ? fullPcmAudio.EndTime + TimeSpan.FromHours(1)
+                        : transcription.IsFinished ? audioEnd + TimeSpan.FromHours(1)
                         : previous?.NextStartTime ?? transcription.Items.Max(i => i.EndTime)
                 };
                 transcription.CurrentJobState = jobState;
             }
+            jobState.Chunks ??= new List<CachedChunk>();
+            jobState.GapRetries ??= new List<GapRetry>();
             var previousTypeItems = jobState.PreviousTypeEndTime is TimeSpan previousEnd
                 ? transcription.Items.Where(i => i.StartTime < previousEnd).ToList()
                 : new List<TimedItemWithMetadata>();
+            // (the subtitles of this type: after the ones of the previous type)
+            var searchStart = jobState.PreviousTypeEndTime ?? TimeSpan.Zero;
+            report.AudioEnd = audioEnd;
+            report.SearchStart = searchStart;
+            report.JobState = jobState;
 
-            var maxAudioBudget = TimeSpan.FromTicks((long)(fullPcmAudio.EndTime.Ticks * this.MaxTotalAudioFactor));
+            var maxAudioBudget = TimeSpan.FromTicks((long)(audioEnd.Ticks * this.MaxTotalAudioFactor));
             var requestNumber = 1;
             var isStopAfterRequested = false;
-            var primaryChunks = new List<CachedChunk>();
-            var holeRetries = new List<(CachedChunk Chunk, TimeSpan HoleStart, TimeSpan HoleEnd)>();
-            var cursor = jobState.PreviousTypeEndTime ?? TimeSpan.Zero;
+            // (the answers used by this run: the audio of the ones asked counts in MaxTotalAudioFactor)
+            var usedChunks = new HashSet<CachedChunk>();
+            var readings = new List<Reading>();
+            // (the chunks of each main pass, in their order)
+            var passes = new List<List<CachedChunk>>();
+            // (the chunks that start at an early stop of the previous one: no boundary retry there)
+            var continuationStarts = new HashSet<TimeSpan>();
 
-            // Phase 1: Primary chunking pass (walks from start through audio end, reusing exact (StartTime, EndTime) cache hits from jobState.Chunks)
-            while (cursor < fullPcmAudio.EndTime)
+            // 1. The main passes: chunk after chunk, each one starting where the previous one stopped (the answers of the job state, when they are
+            //    there). Each pass starts a fraction of an audio token later than the previous one: another reading of the same audio.
+            for (var pass = 0; pass < this.MainPassCount; pass++)
             {
-                StopOrPauseIfAsked();
-
-                var chunkStartTime = cursor;
-                var chunkEndTime = chunkStartTime + this.MaxChunkDuration;
-                var chunkTiming = new Timing(chunkStartTime, chunkEndTime < fullPcmAudio.EndTime ? chunkEndTime : fullPcmAudio.EndTime);
-                if (!IsWithinBudget(chunkTiming, out var budgetMessage))
+                var mainChunks = new List<CachedChunk>();
+                passes.Add(mainChunks);
+                var cursor = searchStart + TimeSpan.FromTicks(AudioTokenDuration.Ticks * pass / this.MainPassCount);
+                // (every chunk of the pass on its own grid of audio tokens: its shift + a multiple of 40 ms, rounded down, always forward;
+                //  a start taken from the times of the words, multiples of 100 ms = 2.5 tokens, would otherwise be on the grid of another pass)
+                var passShift = cursor;
+                TimeSpan OnPassGrid(TimeSpan time, TimeSpan chunkStart)
                 {
-                    throw new Exception($"'{this.Id}': {budgetMessage}.");
+                    var snapped = passShift + TimeSpan.FromTicks((time - passShift).Ticks / AudioTokenDuration.Ticks * AudioTokenDuration.Ticks);
+                    return snapped > chunkStart ? snapped : snapped + AudioTokenDuration;
                 }
-                var chunkName = $"chunk #{primaryChunks.Count + 1}, {chunkTiming.StartTime:hh\\:mm\\:ss} to {chunkTiming.EndTime:hh\\:mm\\:ss} of {fullPcmAudio.EndTime:hh\\:mm\\:ss}";
-                var (chunk, cost, fromCache) = GetOrTranscribeChunk(chunkTiming, chunkName, hole: null);
-                primaryChunks.Add(chunk);
-
-                // (diarization: the model can stop giving the speakers in the middle of a chunk (seen on a long chunk with a lot of speech))
-                var nbWithoutSpeaker = this.Diarization ? (chunk.Words ?? Array.Empty<AIEngineAPIGoogle.TranscribedWordInfo>()).Count(w => w.Speaker == null) : 0;
-                if (nbWithoutSpeaker > 0 && !fromCache)
+                var passName = this.MainPassCount > 1 ? $"pass {pass + 1}/{this.MainPassCount}, " : string.Empty;
+                while (cursor < audioEnd)
                 {
-                    context.WriteInfo($"{chunkName}: {nbWithoutSpeaker} of {chunk.Words.Length} words without a speaker (diarization lost by the model; a shorter 'MaxChunkDuration' may help).", ConsoleColor.Yellow);
-                }
+                    StopOrPauseIfAsked();
 
-                // Where the next chunk starts: what starts in the buffer zone at the end of this one is done again by the next one
-                var chunkItems = BuildItems(context, chunk, logIgnored: false, out _);
-                if (chunk.IncompleteReason != null)
-                {
-                    // The answer was cut (ex. too many output tokens): the next chunk starts at the last subtitle received (it may be cut too)
-                    var last = chunkItems.OrderBy(i => i.StartTime).LastOrDefault();
-                    if (last == null || last.StartTime <= chunkStartTime)
+                    var chunkStartTime = cursor;
+                    // (the first chunk of pass k of n: k / n of a chunk, so that the limits of the chunks of the passes are not at the same places)
+                    var chunkEndTime = chunkStartTime + (mainChunks.Count == 0
+                        ? TimeSpan.FromTicks(this.MaxChunkDuration.Ticks * (pass == 0 ? this.MainPassCount : pass) / this.MainPassCount)
+                        : this.MaxChunkDuration);
+                    var chunkTiming = new Timing(chunkStartTime, chunkEndTime < audioEnd ? chunkEndTime : audioEnd);
+                    var chunkName = $"{passName}chunk #{mainChunks.Count + 1}, {chunkTiming.StartTime:hh\\:mm\\:ss\\.fff} to {chunkTiming.EndTime:hh\\:mm\\:ss} of {audioEnd:hh\\:mm\\:ss}";
+                    var todo = new RequestToDo(chunkTiming, chunkName, ReadingKind.Chunk) { Pass = pass + 1 };
+                    if (!RunRequests(new[] { todo }, out var budgetMessage))
                     {
-                        primaryChunks.Remove(chunk);
-                        jobState.Chunks.Remove(chunk);
-                        throw new Exception($"The transcription of {chunkName} was cut ({chunk.IncompleteReason}) before a subtitle could be kept: reduce 'MaxChunkDuration' (or raise the maximum of output tokens of the engine, 'RequestBodyExtension').");
+                        throw new Exception($"'{this.Id}': {budgetMessage}.");
                     }
-                    cursor = last.StartTime;
-                    if (!fromCache)
-                        context.WriteInfo($"Cut answer: kept up to {last.StartTime:hh\\:mm\\:ss\\.fff}, the next chunk starts there.", ConsoleColor.Yellow);
-                }
-                else if (chunkEndTime >= fullPcmAudio.EndTime)
-                {
-                    cursor = fullPcmAudio.EndTime;
-                }
-                else
-                {
-                    var startOfBufferZone = chunkEndTime - BufferZone;
-                    var itemsToKeep = chunkItems.Where(i => i.StartTime < startOfBufferZone).ToList();
-                    var itemsToRedo = chunkItems.Where(i => i.StartTime >= startOfBufferZone).ToList();
-                    var keptEnd = itemsToKeep.Count > 0 ? itemsToKeep.Max(i => i.EndTime) : chunkStartTime;
-                    var nextStartTime = TimeSpanExtensions.Max(startOfBufferZone, keptEnd);
-                    if (itemsToRedo.Count > 0)
+                    var chunk = todo.Result;
+                    var fromCache = todo.FromCache;
+                    if (fromCache)
                     {
-                        nextStartTime = TimeSpanExtensions.Min(nextStartTime, itemsToRedo.Min(i => i.StartTime));
+                        context.WriteInfo($"Cache hit for {chunkName} ({chunk.Words?.Length ?? 0} words).");
                     }
-                    cursor = nextStartTime;
+                    mainChunks.Add(chunk);
+                    readings.Add(new Reading(chunk, ReadingKind.Chunk));
+
+                    var usableWords = GetUsableWords(chunk, out _, out var nbRepeated);
+                    var isIgnoredLoop = IsLooping(chunk) || (usableWords.Count == 0 && nbRepeated > 0);
+
+                    // (diarization: the model can stop giving the speakers in the middle of a chunk (seen on a long chunk with a lot of speech))
+                    var nbWithoutSpeaker = this.Diarization ? (chunk.Words ?? Array.Empty<AIEngineAPIGoogle.TranscribedWordInfo>()).Count(w => w.Speaker == null) : 0;
+                    if (nbWithoutSpeaker > 0 && !fromCache && !isIgnoredLoop)
+                    {
+                        context.WriteInfo($"{chunkName}: {nbWithoutSpeaker} of {chunk.Words.Length} words without a speaker (diarization lost by the model; a shorter 'MaxChunkDuration' may help).", ConsoleColor.Yellow);
+                    }
+
+                    // Where the next chunk starts: from the words themselves (all of them, also the ones of TranscriptionToIgnorePatterns), not from
+                    // the phrases / subtitles, so that a change of their rules doesn't change the requests
+                    var chunkItems = BuildPhrases(context, chunk, logIgnored: false).Select(p => p.Item).ToList();
+                    var wordRuns = GetWordRuns(chunk);
+                    var lastWordEnd = GetLastWordEnd(chunk);
+                    if (chunk.IncompleteReason != null && !isIgnoredLoop)
+                    {
+                        // The answer was cut (ex. too many output tokens): the next chunk starts at the last series of words received (it may be cut too)
+                        var last = wordRuns.Count == 0 ? null : new Timing(wordRuns[^1].Start, wordRuns[^1].End);
+                        if (last == null || last.StartTime <= chunkStartTime)
+                        {
+                            mainChunks.Remove(chunk);
+                            readings.RemoveAll(r => r.Chunk == chunk);
+                            jobState.Chunks.Remove(chunk);
+                            throw new Exception($"The transcription of {chunkName} was cut ({chunk.IncompleteReason}) before a subtitle could be kept: reduce 'MaxChunkDuration' (or raise the maximum of output tokens of the engine, 'RequestBodyExtension').");
+                        }
+                        cursor = OnPassGrid(last.StartTime, chunkStartTime);
+                        todo.Note = $"cut answer: the next chunk starts at {cursor:hh\\:mm\\:ss\\.fff}";
+                        if (!fromCache)
+                            context.WriteInfo($"Cut answer: kept up to {last.StartTime:hh\\:mm\\:ss\\.fff}, the next chunk starts there.", ConsoleColor.Yellow);
+                    }
+                    else if (chunkEndTime >= audioEnd)
+                    {
+                        cursor = audioEnd;
+                        if (isIgnoredLoop)
+                            todo.Note = "looping answer ignored (treated as empty)";
+                    }
+                    else if (this.EarlyStopMinDuration is TimeSpan earlyStop
+                        && lastWordEnd is TimeSpan lastEnd
+                        && chunkTiming.EndTime - lastEnd >= earlyStop
+                        && lastEnd - chunkStartTime >= earlyStop)
+                    {
+                        // The model stopped writing (ex. after a long pause; the same audio again = the same stop): the next chunk starts at its last word
+                        cursor = OnPassGrid(lastEnd, chunkStartTime);
+                        continuationStarts.Add(cursor);
+                        todo.Note = $"early stop: nothing in the last {chunkTiming.EndTime - lastEnd:hh\\:mm\\:ss\\.f}, the next chunk starts at the last word";
+                        if (!fromCache)
+                            context.WriteInfo($"Early stop: nothing after {lastEnd:hh\\:mm\\:ss\\.fff} ({chunkTiming.EndTime - lastEnd:hh\\:mm\\:ss} before the end of the chunk), the next chunk starts there.", ConsoleColor.Yellow);
+                    }
+                    else
+                    {
+                        // The last BufferZone of this one is also in the next one (from the start of the series of words said there, if any)
+                        var startOfBufferZone = chunkEndTime - BufferZone;
+                        var crossing = wordRuns.FirstOrDefault(r => r.Start < startOfBufferZone && r.End > startOfBufferZone);
+                        var nextStartTime = crossing.End > startOfBufferZone ? crossing.Start : startOfBufferZone;
+                        // (always forward)
+                        cursor = OnPassGrid(nextStartTime > chunkStartTime ? nextStartTime : startOfBufferZone, chunkStartTime);
+                        var nbRunsAlsoInNext = wordRuns.Count(r => r.Start >= cursor);
+                        todo.Note = isIgnoredLoop
+                            ? $"looping answer ignored (treated as empty): the next chunk starts at {cursor:hh\\:mm\\:ss\\.fff}"
+                            : $"the next chunk starts at {cursor:hh\\:mm\\:ss\\.fff} ({nbRunsAlsoInNext} series of words also in it)";
+                        if (!fromCache)
+                            context.WriteInfo($"Buffer zone: {nbRunsAlsoInNext} series of words also in the next chunk, it starts at {cursor:hh\\:mm\\:ss\\.fff}.");
+                    }
+
+                    if (todo.Cost != null)
+                    {
+                        todo.Cost.NbItemsInResponse = chunkItems.Count;
+                    }
+
                     if (!fromCache)
-                        context.WriteInfo($"Buffer zone: kept {itemsToKeep.Count}, will redo {itemsToRedo.Count} item(s), next chunk starts at {nextStartTime:hh\\:mm\\:ss\\.fff}.");
-                }
-
-                if (cost != null)
-                {
-                    cost.NbItemsInResponse = chunkItems.Count;
-                }
-
-                if (!fromCache)
-                {
-                    context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, primaryChunks, holeRetries, cursor, previousTypeItems));
-                    context.WriteInfo($"Current number of subtitles: {transcription.Items.Count}");
-                    context.WIP.Save();
+                    {
+                        context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, readings, previousTypeItems, searchStart, audioEnd, report, isFinal:false));
+                        context.WriteInfo($"Current number of subtitles: {transcription.Items.Count}");
+                        context.WIP.Save();
+                    }
                 }
             }
 
             // (also when chunks were received: the chunks taken from the job state after them must be in the subtitles too)
-            context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, primaryChunks, holeRetries, cursor, previousTypeItems));
+            var currentItems = context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, readings, previousTypeItems, searchStart, audioEnd, report, isFinal:false));
 
-            // Phase 2: Optional pass to retry long silent holes (blackouts) using targeted requests with BufferZone pre-roll,
-            // repeating if an 'incomplete' response made forward progress, capped by MaxTotalAudioFactor.
-            if (this.RetryGapMinDuration is TimeSpan retryGapMinDuration && retryGapMinDuration > TimeSpan.Zero)
+            // 2. The boundaries: each place where a chunk hands over to the next one (in each pass), asked again in a request centered on it
+            if (this.BoundaryRetryMargin is TimeSpan boundaryMargin)
             {
-                var triedHoles = new List<(TimeSpan Start, TimeSpan End)>();
-                var budgetReached = false;
-                var anyHoleFromCache = false;
-                List<(TimeSpan WinStart, TimeSpan WinEnd, TimeSpan HoleStart, TimeSpan HoleEnd)> holesToRetry;
-                while (!budgetReached
-                    && (holesToRetry = FindUnretriedHoleWindows(transcription.Items, fullPcmAudio.EndTime, retryGapMinDuration, this.BufferZone, HolePostRoll, this.MaxChunkDuration, triedHoles)).Count > 0)
+                var todos = new List<RequestToDo>();
+                foreach (var (mainChunks, index) in passes.SelectMany(p => Enumerable.Range(0, Math.Max(0, p.Count - 1)).Select(i => (p, i))))
                 {
-                    var uncachedCount = holesToRetry.Count(h => FindCachedChunk(jobState, h.WinStart, h.WinEnd) == null);
-                    if (uncachedCount > 0)
+                    var nextStart = mainChunks[index + 1].StartTime;
+                    var end = mainChunks[index].EndTime;
+                    if (nextStart >= end || continuationStarts.Contains(nextStart))
+                        continue;
+                    // (on another grid of audio tokens than the main passes)
+                    var timing = new Timing(
+                        TimeSpanExtensions.Max(searchStart, nextStart - boundaryMargin) + this.RetryGridShift,
+                        TimeSpanExtensions.Min(audioEnd, end + boundaryMargin + this.RetryGridShift));
+                    todos.Add(new RequestToDo(
+                        timing,
+                        $"boundary {end:hh\\:mm\\:ss} (audio {timing.StartTime:hh\\:mm\\:ss\\.f} to {timing.EndTime:hh\\:mm\\:ss\\.f})",
+                        ReadingKind.Boundary)
+                    { Pass = passes.IndexOf(mainChunks) + 1, Note = $"between the chunks {mainChunks[index].StartTime:hh\\:mm\\:ss\\.fff} and {nextStart:hh\\:mm\\:ss\\.fff}" });
+                }
+                currentItems = RunRetries(todos, "Boundary retries") ?? currentItems;
+            }
+
+            // 3. The gaps between the subtitles: asked again in short requests (the ones of the previous runs first, from the job state)
+            if (this.RetryGapMinDuration is TimeSpan retryGapMinDuration)
+            {
+                jobState.GapRetries.RemoveAll(g => FindCachedChunk(jobState, g.WindowStart, g.WindowEnd) == null);
+                var savedWindows = jobState.GapRetries
+                    .Select(g => FindCachedChunk(jobState, g.WindowStart, g.WindowEnd))
+                    .Distinct()
+                    .ToList();
+                if (savedWindows.Count > 0)
+                {
+                    foreach (var saved in savedWindows)
                     {
-                        context.WriteInfo($"Hole retry: {holesToRetry.Count} window(s) ({uncachedCount} new, {holesToRetry.Count - uncachedCount} cached) for gaps >= {retryGapMinDuration:hh\\:mm\\:ss}.");
+                        usedChunks.Add(saved);
+                        readings.Add(new Reading(saved, ReadingKind.Gap));
+                        var savedGap = jobState.GapRetries.First(g => FindCachedChunk(jobState, g.WindowStart, g.WindowEnd) == saved);
+                        report.Requests.Add(new RequestToDo(new Timing(saved.StartTime, saved.EndTime), "gap retry of a previous run", ReadingKind.Gap)
+                        {
+                            Result = saved,
+                            FromCache = true,
+                            HoleStart = savedGap.HoleStart,
+                            HoleEnd = savedGap.HoleEnd,
+                            Note = "saved in GapRetries by a previous run"
+                        });
                     }
-                    for (var h = 0; h < holesToRetry.Count; h++)
-                    {
-                        StopOrPauseIfAsked();
-
-                        var (winStart, winEnd, holeStart, holeEnd) = holesToRetry[h];
-                        var holeTiming = new Timing(winStart, winEnd);
-                        if (!IsWithinBudget(holeTiming, out var budgetMessage))
-                        {
-                            context.WriteInfo($"Hole retry stopped: {budgetMessage}.", ConsoleColor.Yellow);
-                            budgetReached = true;
-                            break;
-                        }
-
-                        var holeName = $"hole #{h + 1}/{holesToRetry.Count}, {holeStart:hh\\:mm\\:ss} to {holeEnd:hh\\:mm\\:ss} (audio {winStart:hh\\:mm\\:ss} to {winEnd:hh\\:mm\\:ss})";
-                        var (holeChunk, cost, fromCache) = GetOrTranscribeChunk(holeTiming, holeName, (holeStart, holeEnd));
-
-                        var holeItems = BuildItems(context, holeChunk, logIgnored: false, out _);
-                        var effectiveHoleEnd = holeEnd;
-                        if (holeChunk.IncompleteReason != null)
-                        {
-                            var lastInHole = holeItems
-                                .Where(i => i.StartTime > holeStart && i.StartTime < holeEnd)
-                                .OrderBy(i => i.StartTime)
-                                .LastOrDefault();
-                            if (lastInHole != null)
-                            {
-                                effectiveHoleEnd = lastInHole.StartTime;
-                                if (!fromCache)
-                                    context.WriteInfo($"Cut hole retry: kept up to {effectiveHoleEnd:hh\\:mm\\:ss\\.fff}, remaining tail will be retried.", ConsoleColor.Yellow);
-                            }
-                            else if (!fromCache)
-                            {
-                                context.WriteInfo($"Cut hole retry produced no subtitles inside the hole; skipping further retry for this window.", ConsoleColor.Yellow);
-                            }
-                        }
-
-                        holeRetries.Add((holeChunk, holeStart, effectiveHoleEnd));
-                        triedHoles.Add((holeStart, effectiveHoleEnd));
-
-                        if (cost != null)
-                        {
-                            cost.NbItemsInResponse = holeItems.Count;
-                        }
-
-                        var beforeCount = transcription.Items.Count;
-                        if (!fromCache)
-                        {
-                            context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, primaryChunks, holeRetries, cursor, previousTypeItems));
-                            context.WriteInfo($"Hole retry #{h + 1}/{holesToRetry.Count}: +{transcription.Items.Count - beforeCount} subtitle(s) (total: {transcription.Items.Count}).");
-                            context.WIP.Save();
-                        }
-                        else
-                        {
-                            anyHoleFromCache = true;
-                            RebuildItems(context, transcription, primaryChunks, holeRetries, cursor, previousTypeItems);
-                        }
-                    }
+                    currentItems = RebuildItems(context, transcription, readings, previousTypeItems, searchStart, audioEnd, report, isFinal:false);
+                    context.WriteInfo($"Gap retries of the previous runs: {savedWindows.Count} request(s), from the job state.");
                 }
 
-                if (anyHoleFromCache)
+                for (var round = 1; round <= MaxGapRetryRounds; round++)
                 {
-                    context.WriteInfo($"Hole retry (from cache): {holeRetries.Count} cached window(s) applied (total: {transcription.Items.Count} subtitles).");
+                    var tried = jobState.GapRetries.Select(g => (g.HoleStart, g.HoleEnd)).ToList();
+                    var holes = FindGaps(currentItems, searchStart, audioEnd, retryGapMinDuration)
+                        .SelectMany(h => Subtract(h, tried))
+                        .Where(h => h.End - h.Start >= retryGapMinDuration)
+                        .ToList();
+                    if (holes.Count == 0)
+                        break;
+
+                    var windows = BuildRetryWindows(holes, searchStart, audioEnd);
+                    var todos = windows
+                        .Select(w => new RequestToDo(
+                            new Timing(w.WindowStart, w.WindowEnd),
+                            $"gap {w.HoleStart:hh\\:mm\\:ss\\.f} to {w.HoleEnd:hh\\:mm\\:ss\\.f} (audio {w.WindowStart:hh\\:mm\\:ss\\.f} to {w.WindowEnd:hh\\:mm\\:ss\\.f})",
+                            ReadingKind.Gap)
+                        { Round = round, HoleStart = w.HoleStart, HoleEnd = w.HoleEnd })
+                        .ToList();
+                    var budgetReached = false;
+                    var items = RunRetries(
+                        todos,
+                        $"Gap retries, round {round} ({holes.Count} gap(s) of at least {retryGapMinDuration.TotalSeconds:0.#} s)",
+                        onStored: () =>
+                        {
+                            // (also an answer found in the job state, ex. of a run of an older version: the gap is asked)
+                            for (var index = 0; index < todos.Count; index++)
+                            {
+                                var window = windows[index];
+                                if (todos[index].Result != null
+                                    && !jobState.GapRetries.Any(g => g.HoleStart == window.HoleStart && g.HoleEnd == window.HoleEnd && g.WindowStart == window.WindowStart && g.WindowEnd == window.WindowEnd))
+                                {
+                                    jobState.GapRetries.Add(new GapRetry
+                                    {
+                                        HoleStart = windows[index].HoleStart,
+                                        HoleEnd = windows[index].HoleEnd,
+                                        WindowStart = windows[index].WindowStart,
+                                        WindowEnd = windows[index].WindowEnd
+                                    });
+                                }
+                            }
+                        },
+                        onBudget: () => budgetReached = true);
+                    currentItems = items ?? currentItems;
+                    if (budgetReached)
+                        break;
                 }
             }
 
+            context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, readings, previousTypeItems, searchStart, audioEnd, report, isFinal:true));
             transcription.MarkAsFinished();
             context.WIP.Save();
 
-            // (safe point: the previous chunk is saved)
+            // (safe point: the previous answers are saved)
             void StopOrPauseIfAsked()
             {
                 if (isStopAfterRequested)
@@ -359,38 +698,136 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 context.PauseIfClosing();
             }
 
-            // The audio transcribed in this run (each chunk counted once), with this one when it's not in the cache: within MaxTotalAudioFactor?
-            bool IsWithinBudget(Timing timing, out string message)
+            // Retries (boundaries, gaps): sent in parallel, then the subtitles built again (null: nothing to do)
+            List<TimedItemWithMetadata> RunRetries(List<RequestToDo> todos, string title, Action onStored = null, Action onBudget = null)
             {
-                var usedAudio = TimeSpan.FromTicks(primaryChunks.Concat(holeRetries.Select(h => h.Chunk)).Distinct()
-                    .Sum(c => Math.Max(0, (c.EndTime - c.StartTime).Ticks)));
-                message = $"total transcribed audio ({usedAudio + timing.Duration:hh\\:mm\\:ss}) would exceed 'MaxTotalAudioFactor' ({this.MaxTotalAudioFactor:0.##}x = {maxAudioBudget:hh\\:mm\\:ss})";
-                return FindCachedChunk(jobState, timing.StartTime, timing.EndTime) != null || usedAudio + timing.Duration <= maxAudioBudget;
-            }
-
-            // The answer for this audio: from the job state, or a new request (a hole retry: hole = the hole in this audio)
-            (CachedChunk Chunk, Cost Cost, bool FromCache) GetOrTranscribeChunk(Timing timing, string chunkName, (TimeSpan Start, TimeSpan End)? hole)
-            {
-                var cached = FindCachedChunk(jobState, timing.StartTime, timing.EndTime);
-                if (cached != null)
+                if (todos.Count == 0)
+                    return null;
+                var nbNew = todos.Count(t => FindCachedChunk(jobState, t.Timing.StartTime, t.Timing.EndTime) == null);
+                if (nbNew > 0)
                 {
-                    context.WriteInfo($"Cache hit for {chunkName} ({cached.Words?.Length ?? 0} words).");
-                    return (cached, null, true);
+                    context.WriteInfo($"{title}: {todos.Count} request(s), {nbNew} to send ({Math.Min(nbNew, this.MaxParallelRequests)} at a time).");
+                }
+                bool withinBudget;
+                string budgetMessage;
+                try
+                {
+                    withinBudget = RunRequests(todos, out budgetMessage);
+                }
+                finally
+                {
+                    // (what was received is kept, even if a request failed: the gaps asked are saved with their answer)
+                    foreach (var todo in todos.Where(t => t.Result != null))
+                    {
+                        if (!readings.Any(r => r.Chunk == todo.Result))
+                            readings.Add(new Reading(todo.Result, todo.Kind));
+                    }
+                    onStored?.Invoke();
+                    if (nbNew > 0)
+                        context.WIP.Save();
+                }
+                if (!withinBudget)
+                {
+                    context.WriteInfo($"{title}: stopped, {budgetMessage}.", ConsoleColor.Yellow);
+                    onBudget?.Invoke();
                 }
 
-                var fileName = $"{(hole == null ? string.Empty : "hole_")}{timing.StartTime:hh\\-mm\\-ss\\-fff}.wav";
-                var requestDescription = hole is (TimeSpan holeStart, TimeSpan holeEnd)
-                    ? $"hole {holeStart:hh\\:mm\\:ss\\.fff} to {holeEnd:hh\\:mm\\:ss\\.fff} (audio {timing.StartTime:hh\\:mm\\:ss\\.fff} to {timing.EndTime:hh\\:mm\\:ss\\.fff})"
-                    : $"{timing.StartTime:hh\\:mm\\:ss\\.fff} to {timing.EndTime:hh\\:mm\\:ss\\.fff} out of {context.WIP.TimelineMap.Duration:hh\\:mm\\:ss\\.fff}";
-                var number = requestNumber++;
-                var request = context.RunStep($"Prepare {chunkName}", _ =>
+                var beforeCount = transcription.Items.Count;
+                var items = context.RunStep("Build the subtitles from the words", _ => RebuildItems(context, transcription, readings, previousTypeItems, searchStart, audioEnd, report, isFinal:false));
+                if (nbNew > 0)
                 {
-                    var snippet = fullPcmAudio.ExtractSnippet(timing.StartTime, timing.EndTime);
+                    context.WriteInfo($"{title}: {transcription.Items.Count - beforeCount:+#;-#;0} subtitle(s) (total: {transcription.Items.Count}).");
+                    context.WIP.Save();
+                }
+                StopOrPauseIfAsked();
+                return items;
+            }
+
+            // The answers of these requests: from the job state, or sent (at most MaxParallelRequests at a time; the answers are stored here, on
+            // this thread). False: some were not sent, they would exceed MaxTotalAudioFactor.
+            bool RunRequests(IList<RequestToDo> todos, out string budgetMessage)
+            {
+                budgetMessage = null;
+                var toSend = new List<RequestToDo>();
+                var pendingAudio = TimeSpan.Zero;
+                foreach (var todo in todos)
+                {
+                    if (!report.Requests.Contains(todo))
+                        report.Requests.Add(todo);
+                    var cached = FindCachedChunk(jobState, todo.Timing.StartTime, todo.Timing.EndTime);
+                    if (cached != null)
+                    {
+                        todo.Result = cached;
+                        todo.FromCache = true;
+                        usedChunks.Add(cached);
+                        continue;
+                    }
+                    var usedAudio = TimeSpan.FromTicks(usedChunks.Sum(c => Math.Max(0, (c.EndTime - c.StartTime).Ticks)));
+                    if (usedAudio + pendingAudio + todo.Timing.Duration > maxAudioBudget)
+                    {
+                        budgetMessage ??= $"the transcribed audio ({usedAudio + pendingAudio + todo.Timing.Duration:hh\\:mm\\:ss}) would exceed 'MaxTotalAudioFactor' ({this.MaxTotalAudioFactor:0.##}x = {maxAudioBudget:hh\\:mm\\:ss})";
+                        todo.NotSent = "budget (MaxTotalAudioFactor)";
+                        continue;
+                    }
+                    pendingAudio += todo.Timing.Duration;
+                    toSend.Add(todo);
+                }
+
+                var running = new List<(RequestToDo Todo, Task<AIEngineAPIGoogle.TranscribeResult> Task)>();
+                Exception error = null;
+                var nextIndex = 0;
+                while (true)
+                {
+                    // (not after an error or a 'Stop after this request': the ones running end, the others are not sent)
+                    while (error == null && !isStopAfterRequested && running.Count < this.MaxParallelRequests && nextIndex < toSend.Count)
+                    {
+                        if (running.Count == 0)
+                            context.PauseIfClosing();
+                        // (the audio of the request: made when it's sent, not all of them in advance)
+                        var todo = toSend[nextIndex++];
+                        var request = PrepareRequest(todo);
+                        running.Add((todo, Task.Run(() => SendRequest(todo, request))));
+                    }
+                    if (running.Count == 0)
+                        break;
+                    var index = Task.WaitAny(running.Select(r => (Task)r.Task).ToArray());
+                    var (doneTodo, doneTask) = running[index];
+                    running.RemoveAt(index);
+                    if (doneTask.IsFaulted)
+                    {
+                        error ??= doneTask.Exception.InnerException;
+                        doneTodo.NotSent = $"failed: {doneTask.Exception.InnerException?.Message}";
+                    }
+                    else
+                        StoreResult(doneTodo, doneTask.Result);
+                }
+                for (var index = nextIndex; index < toSend.Count; index++)
+                {
+                    toSend[index].NotSent = error != null ? "not sent: another request failed" : "not sent: 'stop after the request'";
+                }
+                if (error != null)
+                {
+                    ExceptionDispatchInfo.Capture(error).Throw();
+                }
+                return budgetMessage == null;
+            }
+
+            AIRequest PrepareRequest(RequestToDo todo)
+            {
+                var prefix = todo.Kind == ReadingKind.Chunk ? string.Empty : todo.Kind == ReadingKind.Boundary ? "boundary_" : "gap_";
+                var fileName = $"{prefix}{todo.Timing.StartTime:hh\\-mm\\-ss\\-fff}.wav";
+                var requestDescription = todo.Kind == ReadingKind.Chunk
+                    ? $"{todo.Timing.StartTime:hh\\:mm\\:ss\\.fff} to {todo.Timing.EndTime:hh\\:mm\\:ss\\.fff} out of {context.WIP.TimelineMap.Duration:hh\\:mm\\:ss\\.fff}"
+                    : todo.Name;
+                var number = requestNumber++;
+                return context.RunStep($"Prepare {todo.Name}", _ =>
+                {
+                    var snippet = fullPcmAudio.ExtractSnippet(todo.Timing.StartTime, todo.Timing.EndTime);
                     var audioBytes = snippet.ToWavBytes();
                     if (this.KeepTemporaryFiles)
                         context.CreateVerboseBinaryFile($"{transcription.Id}_{fileName}", audioBytes, processStartTime);
                     var userParts = new AIRequestPartCollection();
-                    userParts.Add(new AIRequestPartAudio(AIRequestSection.PrimaryNodes, fileName, audioBytes, snippet.Duration, timing.StartTime));
+                    userParts.Add(new AIRequestPartAudio(AIRequestSection.PrimaryNodes, fileName, audioBytes, snippet.Duration, todo.Timing.StartTime));
                     return new AIRequest(
                         processStartTime,
                         number,
@@ -400,62 +837,76 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                         userParts,
                         this.MetadataProduced,
                         requestDescription,
-                        timing.StartTime);
+                        todo.Timing.StartTime);
                 });
-                context.PauseIfClosing();
+            }
 
-                AIEngineAPIGoogle.TranscribeResult result;
-                using (var requestNode = context.BeginTask(hole == null ? "AI request" : "AI request (hole retry)", chunkName))
+            // (on a thread of its own: only the engine and the task of the request, nothing of the job state)
+            AIEngineAPIGoogle.TranscribeResult SendRequest(RequestToDo todo, AIRequest request)
+            {
+                using var requestNode = context.BeginTask(todo.Kind == ReadingKind.Chunk ? "AI request" : "AI request (retry)", todo.Name);
+                requestNode.SetCancellable(AIEngineAPI.StopNowHint);
+                requestNode.SetPauseAfterSupported();
+                requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                try
                 {
-                    requestNode.SetCancellable(AIEngineAPI.StopNowHint);
-                    requestNode.SetPauseAfterSupported();
-                    requestNode.SetStopNowWarning(AIEngineAPI.StopNowCostWarning);
-                    try
-                    {
-                        result = this.Engine.Transcribe(context, request, options);
-                        isStopAfterRequested = requestNode.IsStopAfterRequested;
-                    }
-                    catch (UserStoppedWorkerException)
-                    {
-                        requestNode.SetState(TaskState.Cancelled, "stopped by the user");
-                        throw;
-                    }
-                    catch (NeedsUserException ex)
-                    {
-                        // (not sent: the step waits for the user, ex. an API key)
-                        requestNode.SetState(TaskState.Skipped, ex.Message);
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        requestNode.Fail(ex.Message);
-                        throw;
-                    }
+                    var result = this.Engine.Transcribe(context, request, options);
+                    todo.Seconds = Math.Round(watch.Elapsed.TotalSeconds, 1);
+                    if (requestNode.IsStopAfterRequested)
+                        isStopAfterRequested = true;
+                    return result;
                 }
+                catch (UserStoppedWorkerException)
+                {
+                    requestNode.SetState(TaskState.Cancelled, "stopped by the user");
+                    throw;
+                }
+                catch (NeedsUserException ex)
+                {
+                    // (not sent: the step waits for the user, ex. an API key)
+                    requestNode.SetState(TaskState.Skipped, ex.Message);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    requestNode.Fail(ex.Message);
+                    throw;
+                }
+            }
 
+            void StoreResult(RequestToDo todo, AIEngineAPIGoogle.TranscribeResult result)
+            {
                 var chunk = new CachedChunk
                 {
-                    StartTime = timing.StartTime,
-                    EndTime = timing.EndTime,
+                    StartTime = todo.Timing.StartTime,
+                    EndTime = todo.Timing.EndTime,
                     Text = result.Text,
                     Words = result.Words,
                     IncompleteReason = result.IncompleteReason
                 };
                 jobState.Chunks.Add(chunk);
+                usedChunks.Add(chunk);
+                todo.Result = chunk;
+                todo.Cost = result.Cost;
+                if (IsLooping(chunk))
+                {
+                    context.WriteInfo($"{todo.Name}: the answer is ignored, {chunk.Words.Length} words for {todo.Timing.Duration:hh\\:mm\\:ss} of audio (the model repeated itself).", ConsoleColor.Yellow);
+                }
 
                 if (result.Cost != null)
                 {
                     dynamic customInfos = result.Cost.CustomInfos ?? new ExpandoObject();
-                    customInfos.ChunkStartTime = $"{timing.StartTime:hh\\:mm\\:ss\\.fff}";
-                    customInfos.ChunkEndTime = $"{timing.EndTime:hh\\:mm\\:ss\\.fff}";
-                    customInfos.Duration = $"{timing.Duration:hh\\:mm\\:ss\\.fff}";
-                    if (hole != null)
-                        customInfos.HoleRetry = true;
+                    customInfos.ChunkStartTime = $"{todo.Timing.StartTime:hh\\:mm\\:ss\\.fff}";
+                    customInfos.ChunkEndTime = $"{todo.Timing.EndTime:hh\\:mm\\:ss\\.fff}";
+                    customInfos.Duration = $"{todo.Timing.Duration:hh\\:mm\\:ss\\.fff}";
+                    if (todo.Kind != ReadingKind.Chunk)
+                        customInfos.Retry = todo.Kind.ToString();
                     result.Cost.CustomInfos = customInfos;
+                    if (todo.Kind != ReadingKind.Chunk)
+                        result.Cost.NbItemsInResponse = BuildPhrases(context, chunk, logIgnored: false).Count;
                     transcription.Costs.Add(result.Cost);
                 }
-
-                return (chunk, result.Cost, false);
             }
         }
 
@@ -466,67 +917,168 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 Math.Abs((c.EndTime - endTime).TotalMilliseconds) < 1.0);
         }
 
-        private static List<(TimeSpan WinStart, TimeSpan WinEnd, TimeSpan HoleStart, TimeSpan HoleEnd)> FindUnretriedHoleWindows(
-            List<TimedItemWithMetadata> items,
-            TimeSpan audioEnd,
-            TimeSpan minGap,
-            TimeSpan preRoll,
-            TimeSpan postRoll,
-            TimeSpan maxChunkDuration,
-            List<(TimeSpan Start, TimeSpan End)> triedHoles)
+        /// <summary>The model repeated itself in this answer (far too many words for its audio).</summary>
+        private static bool IsLooping(CachedChunk chunk)
         {
-            var rawHoles = new List<(TimeSpan Start, TimeSpan End)>();
-            var prevEnd = TimeSpan.Zero;
+            var seconds = (chunk.EndTime - chunk.StartTime).TotalSeconds;
+            return seconds > 0 && (chunk.Words?.Length ?? 0) / seconds > LoopingMinWordsPerSecond;
+        }
+
+        /// <summary>
+        /// The words of the answer that can be used: none when the model repeated itself (far too many words), without the words with impossible
+        /// times, without the repetition at the end of the answer (see MinRepetitionsToCut).
+        /// </summary>
+        private static List<AIEngineAPIGoogle.TranscribedWordInfo> GetUsableWords(CachedChunk chunk, out int nbBroken, out int nbRepeated)
+        {
+            nbRepeated = 0;
+            if (IsLooping(chunk))
+            {
+                nbBroken = 0;
+                return new List<AIEngineAPIGoogle.TranscribedWordInfo>();
+            }
+            var words = RemoveBrokenWords(chunk.Words ?? Array.Empty<AIEngineAPIGoogle.TranscribedWordInfo>(), out nbBroken);
+            var cutAt = GetRepeatingTailStart(words);
+            nbRepeated = words.Count - cutAt;
+            if (nbRepeated > 0)
+                words.RemoveRange(cutAt, nbRepeated);
+            return words;
+        }
+
+        /// <summary>Where the repetition at the end of the answer starts (the number of words: none).</summary>
+        private static int GetRepeatingTailStart(List<AIEngineAPIGoogle.TranscribedWordInfo> words)
+        {
+            static string Normalize(string text) => new string((text ?? "").Where(char.IsLetterOrDigit).ToArray());
+            static bool IsSameCharacterRepeated(string text)
+            {
+                for (int i = 0, run = 1; i + 1 < text.Length; i++)
+                {
+                    run = text[i + 1] == text[i] ? run + 1 : 1;
+                    if (run >= MinRepetitionsToCut)
+                        return true;
+                }
+                return false;
+            }
+            if (words.Count == 0)
+                return 0;
+            var cutAt = words.Count;
+            // (the same word again and again, until the end)
+            var last = Normalize(words[^1].Text);
+            if (last.Length > 0)
+            {
+                var start = words.Count - 1;
+                while (start > 0 && Normalize(words[start - 1].Text) == last)
+                    start--;
+                if (words.Count - start >= MinRepetitionsToCut)
+                    cutAt = start;
+            }
+            // (one of the last words made of the same character again and again)
+            for (var index = words.Count - 1; index >= Math.Max(0, words.Count - 3); index--)
+            {
+                if (IsSameCharacterRepeated(Normalize(words[index].Text)))
+                    cutAt = Math.Min(cutAt, index);
+            }
+            return cutAt;
+        }
+
+        /// <summary>A pause longer than this between two words ends a series of words (where the next chunk starts: a fixed rule, not PhraseMaxGap).</summary>
+        private static readonly TimeSpan WordRunMaxGap = TimeSpan.FromMilliseconds(300);
+
+        /// <summary>
+        /// The series of words of the answer (in the scene, in the order of the time): the words without a pause of more than WordRunMaxGap between
+        /// them, all the words included (also the ones of TranscriptionToIgnorePatterns). Only the guards of the words (GetUsableWords) change them.
+        /// </summary>
+        private static List<(TimeSpan Start, TimeSpan End)> GetWordRuns(CachedChunk chunk)
+        {
+            var runs = new List<(TimeSpan Start, TimeSpan End)>();
+            foreach (var word in GetUsableWords(chunk, out _, out _).OrderBy(w => w.StartTime))
+            {
+                var start = chunk.StartTime + word.StartTime;
+                var end = chunk.StartTime + word.EndTime;
+                if (runs.Count > 0 && start - runs[^1].End <= WordRunMaxGap)
+                    runs[^1] = (runs[^1].Start, TimeSpanExtensions.Max(runs[^1].End, end));
+                else
+                    runs.Add((start, end));
+            }
+            return runs;
+        }
+
+        /// <summary>The end of the last word of the answer, all its words included (also the ones of TranscriptionToIgnorePatterns: the model was still writing), in the scene (null: no word).</summary>
+        private static TimeSpan? GetLastWordEnd(CachedChunk chunk)
+        {
+            var words = GetUsableWords(chunk, out _, out _);
+            return words.Count == 0 ? (TimeSpan?)null : chunk.StartTime + words.Max(w => w.EndTime);
+        }
+
+        /// <summary>The gaps of at least minGap between the subtitles (sorted by their start), from 'from' to 'to'.</summary>
+        private static List<(TimeSpan Start, TimeSpan End)> FindGaps(List<TimedItemWithMetadata> items, TimeSpan from, TimeSpan to, TimeSpan minGap)
+        {
+            var gaps = new List<(TimeSpan Start, TimeSpan End)>();
+            var previousEnd = from;
             foreach (var item in items.OrderBy(i => i.StartTime))
             {
-                if (item.StartTime - prevEnd >= minGap)
-                {
-                    rawHoles.Add((prevEnd, item.StartTime));
-                }
-                if (item.EndTime > prevEnd)
-                    prevEnd = item.EndTime;
+                if (item.StartTime - previousEnd >= minGap)
+                    gaps.Add((previousEnd, item.StartTime));
+                if (item.EndTime > previousEnd)
+                    previousEnd = item.EndTime;
             }
-            if (audioEnd - prevEnd >= minGap)
+            if (to - previousEnd >= minGap)
+                gaps.Add((previousEnd, to));
+            return gaps;
+        }
+
+        /// <summary>The parts of the gap that are not in one of these intervals.</summary>
+        private static IEnumerable<(TimeSpan Start, TimeSpan End)> Subtract((TimeSpan Start, TimeSpan End) gap, List<(TimeSpan Start, TimeSpan End)> intervals)
+        {
+            var parts = new List<(TimeSpan Start, TimeSpan End)> { gap };
+            foreach (var (start, end) in intervals)
             {
-                rawHoles.Add((prevEnd, audioEnd));
+                parts = parts.SelectMany(p =>
+                {
+                    if (end <= p.Start || start >= p.End)
+                        return new[] { p };
+                    var left = start > p.Start ? new[] { (p.Start, start) } : Array.Empty<(TimeSpan, TimeSpan)>();
+                    var right = end < p.End ? new[] { (end, p.End) } : Array.Empty<(TimeSpan, TimeSpan)>();
+                    return left.Concat(right).ToArray();
+                }).ToList();
             }
+            return parts;
+        }
 
-            var margin = TimeSpan.FromSeconds(1);
-            var unretried = rawHoles.Where(h => !triedHoles.Any(t =>
-                t.Start <= h.Start + margin && t.End >= h.End - margin)).ToList();
-
-            // Expand with pre-roll / post-roll and merge overlapping windows up to maxChunkDuration
-            TimeSpan WindowStart(TimeSpan holeStart) => holeStart > preRoll ? holeStart - preRoll : TimeSpan.Zero;
-            var merged = new List<(TimeSpan WinStart, TimeSpan WinEnd, TimeSpan HoleStart, TimeSpan HoleEnd)>();
-            foreach (var (hs, he) in unretried)
+        /// <summary>
+        /// The requests for these gaps: RetryPreRoll before, RetryPostRoll after, at most RetryWindowMaxDuration each (a longer gap: cut in
+        /// equal parts, one request each; close gaps: one request together).
+        /// </summary>
+        private List<(TimeSpan WindowStart, TimeSpan WindowEnd, TimeSpan HoleStart, TimeSpan HoleEnd)> BuildRetryWindows(
+            List<(TimeSpan Start, TimeSpan End)> holes,
+            TimeSpan from,
+            TimeSpan audioEnd)
+        {
+            var room = this.RetryWindowMaxDuration - this.RetryPreRoll - this.RetryPostRoll;
+            var windows = new List<(TimeSpan WindowStart, TimeSpan WindowEnd, TimeSpan HoleStart, TimeSpan HoleEnd)>();
+            foreach (var (holeStart, holeEnd) in holes.OrderBy(h => h.Start))
             {
-                var ws = WindowStart(hs);
-                var we = he + postRoll < audioEnd ? he + postRoll : audioEnd;
-                if (merged.Count > 0 && ws <= merged[^1].WinEnd && (TimeSpanExtensions.Max(merged[^1].WinEnd, we) - merged[^1].WinStart) <= maxChunkDuration)
+                var nbParts = (int)Math.Ceiling((holeEnd - holeStart).Ticks / (double)room.Ticks);
+                var partDuration = TimeSpan.FromTicks((holeEnd - holeStart).Ticks / Math.Max(1, nbParts));
+                for (var part = 0; part < nbParts; part++)
                 {
-                    var prev = merged[^1];
-                    merged[^1] = (prev.WinStart, TimeSpanExtensions.Max(prev.WinEnd, we), prev.HoleStart, TimeSpanExtensions.Max(prev.HoleEnd, he));
-                    continue;
-                }
-
-                // If a single hole window exceeds maxChunkDuration, split it cleanly
-                for (var curHoleStart = hs; curHoleStart < he;)
-                {
-                    var curWinStart = WindowStart(curHoleStart);
-                    var maxWinEnd = curWinStart + maxChunkDuration;
-                    if (we <= maxWinEnd)
+                    var partStart = holeStart + TimeSpan.FromTicks(partDuration.Ticks * part);
+                    var partEnd = part == nbParts - 1 ? holeEnd : partStart + partDuration;
+                    // (on another grid of audio tokens than the main passes)
+                    var windowStart = TimeSpanExtensions.Max(from, partStart - this.RetryPreRoll) + this.RetryGridShift;
+                    var windowEnd = TimeSpanExtensions.Min(audioEnd, partEnd + this.RetryPostRoll + this.RetryGridShift);
+                    if (windows.Count > 0)
                     {
-                        merged.Add((curWinStart, we, curHoleStart, he));
-                        break;
+                        var previous = windows[^1];
+                        if (windowStart <= previous.WindowEnd && TimeSpanExtensions.Max(windowEnd, previous.WindowEnd) - previous.WindowStart <= this.RetryWindowMaxDuration)
+                        {
+                            windows[^1] = (previous.WindowStart, TimeSpanExtensions.Max(windowEnd, previous.WindowEnd), previous.HoleStart, TimeSpanExtensions.Max(partEnd, previous.HoleEnd));
+                            continue;
+                        }
                     }
-                    var curHoleEnd = maxWinEnd - postRoll;
-                    if (curHoleEnd <= curHoleStart)
-                        curHoleEnd = maxWinEnd;
-                    merged.Add((curWinStart, maxWinEnd, curHoleStart, curHoleEnd));
-                    curHoleStart = curHoleEnd;
+                    windows.Add((windowStart, windowEnd, partStart, partEnd));
                 }
             }
-            return merged;
+            return windows;
         }
 
         /// <summary>The language of the transcription, as a BCP-47 code with its main region (ex. "ja" => "ja-JP"); none: detected by the model.</summary>
@@ -544,112 +1096,134 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             }
         }
 
-        /// <summary>A subtitle of these items overlaps the item (with OverlapRecoveryMargin on both sides).</summary>
-        private static bool IsCovered(TimedItemWithMetadata item, IEnumerable<TimedItemWithMetadata> items)
+        /// <summary>
+        /// A phrase of another answer with the same text (or one containing the other) that starts at most this far: the same phrase, placed a bit
+        /// elsewhere (seen: ~2 s apart between two requests), a duplicate.
+        /// </summary>
+        private static readonly TimeSpan SameTextMaxDistance = TimeSpan.FromSeconds(3);
+
+        /// <summary>The same text (letters / digits only), or one contains the other (at least 2 characters).</summary>
+        private static bool IsSameText(string a, string b)
         {
-            return items.Any(other =>
-                other.EndTime + OverlapRecoveryMargin > item.StartTime &&
-                other.StartTime - OverlapRecoveryMargin < item.EndTime);
+            static string Normalize(string text) => new string((text ?? "").Where(char.IsLetterOrDigit).ToArray());
+            var na = Normalize(a);
+            var nb = Normalize(b);
+            if (na.Length == 0 || nb.Length == 0)
+                return false;
+            if (na == nb)
+                return true;
+            var (shorter, longer) = na.Length <= nb.Length ? (na, nb) : (nb, na);
+            return shorter.Length >= 2 && longer.Contains(shorter);
+        }
+
+        /// <summary>The two subtitles overlap (with OverlapRecoveryMargin).</summary>
+        private static bool Overlaps(TimedItemWithMetadata a, TimedItemWithMetadata b)
+        {
+            return a.EndTime + OverlapRecoveryMargin > b.StartTime && a.StartTime - OverlapRecoveryMargin < b.EndTime;
+        }
+
+        /// <summary>How far (in seconds) the line is from the start / end of the audio sent, the closest of the two (the start / end of the whole audio: not a limit).</summary>
+        private static double GetScore(TimedItemWithMetadata item, CachedChunk chunk, TimeSpan audioEnd)
+        {
+            var fromStart = chunk.StartTime <= TimeSpan.Zero ? double.MaxValue : (item.StartTime - chunk.StartTime).TotalSeconds;
+            var toEnd = chunk.EndTime >= audioEnd - TimeSpan.FromMilliseconds(1) ? double.MaxValue : (chunk.EndTime - item.EndTime).TotalSeconds;
+            return Math.Min(fromStart, toEnd);
         }
 
         /// <summary>
-        /// The subtitles of the transcription, built again from all the chunks kept (with the rules of now): the ones of each chunk that
-        /// start before the next chunk (plus any overlap items missed by the next chunk when RecoverMissedChunkOverlap is true),
-        /// after the subtitles of the previous type of the step, if any.
+        /// The line (of a request less reliable there) should replace these lines of other requests: they are all inside it, and they leave
+        /// a good part of its speech (the times of its words, not its pauses) without a line (the other requests cut that speech in shorter
+        /// lines, and missed some of them).
         /// </summary>
-        private void RebuildItems(
+        private static bool IsLongerLineToKeep(Candidate line, List<TimedItemWithMetadata> others)
+        {
+            if (!others.All(o => o.StartTime >= line.Item.StartTime - OverlapRecoveryMargin && o.EndTime <= line.Item.EndTime + OverlapRecoveryMargin))
+                return false;
+            var speech = TimeSpan.Zero;
+            var uncovered = TimeSpan.Zero;
+            foreach (var (wordStart, wordEnd) in line.WordSpans)
+            {
+                speech += wordEnd - wordStart;
+                // (the parts of the word outside of the other lines)
+                foreach (var (start, end) in Subtract((wordStart, wordEnd), others.Select(o => (o.StartTime, o.EndTime)).ToList()))
+                    uncovered += end - start;
+            }
+            return uncovered >= MinUncoveredForLongerLine && uncovered.Ticks * 2 >= speech.Ticks;
+        }
+
+        /// <summary>
+        /// The subtitles of the transcription, built again from all the answers (with the rules of now), after the ones of the previous type of
+        /// the step, if any. The answers are cut in phrases (see PhraseMaxGap); each phrase comes from the answer where it's farthest from the
+        /// start / end of the audio sent: the phrases are taken in that order, a phrase that overlaps a phrase already taken from another answer
+        /// is left out (except a longer one, see IsLongerLineToKeep). The phrases of the same answer don't exclude each other (ex. the same line
+        /// by 2 speakers). Then the subtitles are built from the words of the phrases kept (MaxGap, EndOfSentenceMinGap, MaxDuration, the speakers).
+        /// Returns the subtitles without the end padding (to find the gaps).
+        /// </summary>
+        private List<TimedItemWithMetadata> RebuildItems(
             SubtitleGeneratorContext context,
             Track transcription,
-            List<CachedChunk> primaryChunks,
-            List<(CachedChunk Chunk, TimeSpan HoleStart, TimeSpan HoleEnd)> holeRetries,
-            TimeSpan nextStartTime,
-            List<TimedItemWithMetadata> previousTypeItems)
+            List<Reading> readings,
+            List<TimedItemWithMetadata> previousTypeItems,
+            TimeSpan searchStart,
+            TimeSpan audioEnd,
+            RunReport report,
+            bool isFinal)
         {
-            var perChunk = new List<(List<TimedItemWithMetadata> Items, List<string> Speakers)>(primaryChunks.Count);
-            for (var index = 0; index < primaryChunks.Count; index++)
+            var candidates = new List<Candidate>();
+            for (var index = 0; index < readings.Count; index++)
             {
-                var chunkItems = BuildItems(context, primaryChunks[index], logIgnored: true, out var speakers);
-                perChunk.Add((chunkItems, speakers));
-            }
-
-            // Compute the handoff timestamp for each boundary between chunk[i] and chunk[i + 1]:
-            // Hand off inside the overlap at Max(midpoint, chunk[i].EndTime - HandoffEndMargin) so chunk[i] is used
-            // up to ~5s before its hard end, and chunk[i+1] takes over well past its ~10-15s cold-start zone.
-            var handoffs = new TimeSpan[Math.Max(0, primaryChunks.Count - 1)];
-            for (var index = 0; index < handoffs.Length; index++)
-            {
-                var chunk = primaryChunks[index];
-                var nextStart = primaryChunks[index + 1].StartTime;
-                var overlap = chunk.EndTime - nextStart;
-                handoffs[index] = overlap > TimeSpan.Zero
-                    ? TimeSpanExtensions.Max(nextStart + TimeSpan.FromTicks(overlap.Ticks / 2), chunk.EndTime - HandoffEndMargin)
-                    : nextStart;
-            }
-
-            var built = new List<(TimedItemWithMetadata Item, string Speaker)>();
-            var recoveredFromOverlap = 0;
-            for (var index = 0; index < primaryChunks.Count; index++)
-            {
-                var chunk = primaryChunks[index];
-                var hasPrevChunk = index > 0;
-                var hasNextChunk = index + 1 < primaryChunks.Count;
-                TimeSpan? prevLimit = hasPrevChunk ? handoffs[index - 1] : (TimeSpan?)null;
-                // (the last chunk, not the end of the audio: its buffer zone is in the next chunk, not asked yet)
-                TimeSpan? nextLimit = hasNextChunk
-                    ? handoffs[index]
-                    : nextStartTime < chunk.EndTime ? nextStartTime : (TimeSpan?)null;
-                var (chunkItems, speakers) = perChunk[index];
-                for (var k = 0; k < chunkItems.Count; k++)
+                var reading = readings[index];
+                foreach (var phrase in BuildPhrases(context, reading.Chunk, logIgnored: isFinal && reading.Kind == ReadingKind.Chunk))
                 {
-                    var item = chunkItems[k];
-                    var beforePrevLimit = prevLimit != null && item.StartTime < prevLimit.Value;
-                    var atOrAfterNextLimit = nextLimit != null && item.StartTime >= nextLimit.Value;
-                    // (in the part of the other chunk: kept only when it has nothing there, with RecoverMissedChunkOverlap)
-                    // TO DO: 'nothing there' can be a blackout of the other chunk, and the item recovered can be cut by the end of its
-                    // chunk: see 'TO DO NEXT' (blackouts, smarter retrier) in the notes of AIEngineAPIGoogle.Transcribe.cs.
-                    var otherChunkItems = atOrAfterNextLimit && hasNextChunk ? perChunk[index + 1].Items
-                        : beforePrevLimit ? perChunk[index - 1].Items
-                        : null;
-                    if (!beforePrevLimit && !atOrAfterNextLimit)
-                    {
-                        built.Add((item, speakers[k]));
-                    }
-                    else if (this.RecoverMissedChunkOverlap && otherChunkItems != null && !IsCovered(item, otherChunkItems))
-                    {
-                        built.Add((item, speakers[k]));
-                        recoveredFromOverlap++;
-                    }
+                    // (not in the part of the subtitles of the previous type)
+                    if (phrase.Item.StartTime < searchStart)
+                        continue;
+                    candidates.Add(new Candidate(phrase, index, reading.Kind, GetScore(phrase.Item, reading.Chunk, audioEnd)));
                 }
             }
-            if (recoveredFromOverlap > 0)
-            {
-                context.WriteInfo($"Chunk overlap recovery: kept {recoveredFromOverlap} subtitle(s) from previous chunk buffer zones missed by the next chunk.");
-            }
 
-            // Merge subtitles recovered from targeted hole-retry chunks (only inside each hole's window, never overlapping existing items)
-            var recoveredFromHoles = 0;
-            foreach (var (holeChunk, rawHoleStart, rawHoleEnd) in holeRetries)
+            var accepted = new List<Candidate>();
+            var nbLongerLines = 0;
+            var nbDuplicates = 0;
+            var duplicates = new List<(Candidate Dropped, CachedChunk DroppedChunk, Candidate Kept, CachedChunk KeptChunk)>();
+            foreach (var candidate in candidates.OrderByDescending(c => c.Score).ThenBy(c => c.ReadingIndex).ThenBy(c => c.Item.StartTime))
             {
-                var holeItems = BuildItems(context, holeChunk, logIgnored: true, out var holeSpeakers);
-                for (var k = 0; k < holeItems.Count; k++)
+                var conflicts = accepted.Where(a => a.ReadingIndex != candidate.ReadingIndex && Overlaps(a.Item, candidate.Item)).ToList();
+                // (the same phrase, placed a bit elsewhere by another answer: a duplicate, left out)
+                var sameText = conflicts.Count == 0 ? accepted.FirstOrDefault(a => a.ReadingIndex != candidate.ReadingIndex
+                    && (a.Item.StartTime - candidate.Item.StartTime).Duration() <= SameTextMaxDistance
+                    && IsSameText(a.Item.Metadata.Get(this.MetadataProduced), candidate.Item.Metadata.Get(this.MetadataProduced))) : null;
+                if (sameText != null)
                 {
-                    var item = holeItems[k];
-                    if (item.StartTime >= rawHoleStart - OverlapRecoveryMargin
-                        && item.StartTime <= rawHoleEnd + OverlapRecoveryMargin
-                        && !IsCovered(item, built.Select(b => b.Item)))
-                    {
-                        built.Add((item, holeSpeakers[k]));
-                        recoveredFromHoles++;
-                    }
+                    nbDuplicates++;
+                    duplicates.Add((candidate, readings[candidate.ReadingIndex].Chunk, sameText, readings[sameText.ReadingIndex].Chunk));
+                }
+                else if (conflicts.Count == 0)
+                {
+                    accepted.Add(candidate);
+                }
+                else if (IsLongerLineToKeep(candidate, conflicts.Select(c => c.Item).ToList()))
+                {
+                    accepted.RemoveAll(conflicts.Contains);
+                    accepted.Add(candidate);
+                    nbLongerLines++;
                 }
             }
-            if (recoveredFromHoles > 0)
+            report.LastAccepted = accepted.Select(a => (a, readings[a.ReadingIndex].Chunk)).ToList();
+            report.NbLongerLines = nbLongerLines;
+            report.NbDuplicates = nbDuplicates;
+            report.Duplicates = duplicates;
+            if (isFinal && readings.Any(r => r.Kind != ReadingKind.Chunk))
             {
-                context.WriteInfo($"Hole retry recovery: kept {recoveredFromHoles} subtitle(s) from {holeRetries.Count} hole retry chunk(s).");
+                context.WriteInfo($"Phrases from: the chunks {accepted.Count(a => a.Kind == ReadingKind.Chunk)}, the boundary retries {accepted.Count(a => a.Kind == ReadingKind.Boundary)}, " +
+                    $"the gap retries {accepted.Count(a => a.Kind == ReadingKind.Gap)}" +
+                    (nbLongerLines > 0 ? $"; {nbLongerLines} longer phrase(s) kept instead of shorter ones of another request" : "") +
+                    (nbDuplicates > 0 ? $"; {nbDuplicates} phrase(s) left out, the same text near the same place in another request" : "") + ".");
             }
 
-            // In the order of the time (with several speakers, the model gives the words speaker by speaker, not in the order of the time)
-            built = built.OrderBy(b => b.Item.StartTime).ToList();
+            // The subtitles, from the words of the phrases kept (in the order of the time of the phrases; the words of a phrase stay together: with
+            // several speakers, the model gives the words speaker by speaker, not in the order of the time)
+            var built = BuildLines(context, accepted.OrderBy(a => a.Item.StartTime).ThenBy(a => a.ReadingIndex).Select(a => a.Phrase).ToList(), logIgnored: isFinal);
 
             // The same line twice (the same text, starts close): one subtitle; from 2 speakers: MultipleSpeakersMetadata
             var merged = new List<TimedItemWithMetadata>();
@@ -700,6 +1274,164 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
 
             transcription.Items.Clear();
             transcription.Items.AddRange(items);
+            report.LastItems = merged;
+            return merged;
+        }
+
+        /// <summary>Debug, for the tests of the retrier: what a run did (see WriteRunReport).</summary>
+        private sealed class RunReport
+        {
+            public DateTime StartedAt { get; } = DateTime.Now;
+            public TimeSpan AudioEnd { get; set; }
+            public TimeSpan SearchStart { get; set; }
+            public JobState JobState { get; set; }
+            /// <summary>All the requests of the run, in the order they were asked (from the job state or sent).</summary>
+            public List<RequestToDo> Requests { get; } = new List<RequestToDo>();
+            /// <summary>The lines of the last build of the subtitles, with the answer each one comes from.</summary>
+            public List<(Candidate Candidate, CachedChunk Chunk)> LastAccepted { get; set; } = new List<(Candidate, CachedChunk)>();
+            public int NbLongerLines { get; set; }
+            public int NbDuplicates { get; set; }
+            public List<(Candidate Dropped, CachedChunk DroppedChunk, Candidate Kept, CachedChunk KeptChunk)> Duplicates { get; set; } = new List<(Candidate, CachedChunk, Candidate, CachedChunk)>();
+            public List<TimedItemWithMetadata> LastItems { get; set; } = new List<TimedItemWithMetadata>();
+        }
+
+        /// <summary>
+        /// Debug, for the tests of the retrier: '<scene>.Worker.<id>.run.json' (with ExportMetadataSrt), at the end of a run (also when stopped /
+        /// failed): the settings, every request (from the job state or sent, its words, its lines kept...), the final lines with the request they
+        /// come from, the gaps left.
+        /// </summary>
+        private void WriteRunReport(SubtitleGeneratorContext context, Track transcription, RunReport report, string status)
+        {
+            if (!this.ExportMetadataSrt || report.JobState == null)
+                return;
+            try
+            {
+                static string T(TimeSpan t) => t.ToString(@"hh\:mm\:ss\.fff");
+                static double Cost(Cost cost) => cost == null ? 0 : cost.Input.EstimatedCost + cost.Output.EstimatedCost;
+                var keptByChunk = report.LastAccepted.GroupBy(a => a.Chunk).ToDictionary(g => g.Key, g => g.Count());
+                var indexByChunk = new Dictionary<CachedChunk, int>();
+                var requests = new List<object>();
+                for (var index = 0; index < report.Requests.Count; index++)
+                {
+                    var r = report.Requests[index];
+                    var chunk = r.Result;
+                    if (chunk != null && !indexByChunk.ContainsKey(chunk))
+                        indexByChunk[chunk] = index;
+                    var nbRepeated = 0;
+                    var words = chunk == null ? null : GetUsableWords(chunk, out _, out nbRepeated);
+                    requests.Add(new
+                    {
+                        Index = index,
+                        Kind = r.Kind.ToString(),
+                        r.Pass,
+                        r.Round,
+                        Start = T(r.Timing.StartTime),
+                        End = T(r.Timing.EndTime),
+                        Duration = T(r.Timing.Duration),
+                        Hole = r.HoleStart is TimeSpan hs && r.HoleEnd is TimeSpan he ? $"{T(hs)} - {T(he)}" : null,
+                        Source = chunk == null ? "not sent" : r.FromCache ? "cache" : "sent",
+                        r.NotSent,
+                        r.Seconds,
+                        Status = chunk == null ? null : IsLooping(chunk) ? "looping (ignored)" : chunk.IncompleteReason != null ? $"incomplete: {chunk.IncompleteReason}" : "completed",
+                        Words = chunk?.Words?.Length,
+                        FirstWord = words != null && words.Count > 0 ? T(chunk.StartTime + words.Min(w => w.StartTime)) : null,
+                        LastWord = words != null && words.Count > 0 ? T(chunk.StartTime + words.Max(w => w.EndTime)) : null,
+                        WordsCutAsRepetition = nbRepeated > 0 ? nbRepeated : (int?)null,
+                        Phrases = chunk == null ? (int?)null : BuildPhrases(context, chunk, logIgnored: false).Count,
+                        PhrasesKept = chunk != null && keptByChunk.TryGetValue(chunk, out var kept) ? kept : 0,
+                        r.Note,
+                        Cost = r.FromCache || r.Cost == null ? (double?)null : Math.Round(Cost(r.Cost), 5)
+                    });
+                }
+
+                var tried = report.JobState.GapRetries.Select(g => (g.HoleStart, g.HoleEnd)).ToList();
+                var gapsLeft = this.RetryGapMinDuration is TimeSpan minGap
+                    ? FindGaps(report.LastItems, report.SearchStart, report.AudioEnd, minGap)
+                        .Select(g => new
+                        {
+                            Start = T(g.Start),
+                            End = T(g.End),
+                            Duration = T(g.End - g.Start),
+                            AlreadyAsked = Subtract(g, tried).Sum(p => (p.End - p.Start).Ticks) < (g.End - g.Start).Ticks / 2
+                        })
+                        .ToList<object>()
+                    : null;
+
+                var sent = report.Requests.Where(r => r.Result != null && !r.FromCache).ToList();
+                var json = new
+                {
+                    Step = this.Id,
+                    Status = status,
+                    StartedAt = report.StartedAt,
+                    EndedAt = DateTime.Now,
+                    Settings = new
+                    {
+                        MaxChunkDuration = T(this.MaxChunkDuration),
+                        this.MainPassCount,
+                        BufferZone = T(this.BufferZone),
+                        EarlyStopMinDuration = this.EarlyStopMinDuration is TimeSpan e ? T(e) : null,
+                        BoundaryRetryMargin = this.BoundaryRetryMargin is TimeSpan b ? T(b) : null,
+                        RetryGapMinDuration = this.RetryGapMinDuration is TimeSpan g ? T(g) : null,
+                        RetryPreRoll = T(this.RetryPreRoll),
+                        RetryPostRoll = T(this.RetryPostRoll),
+                        RetryWindowMaxDuration = T(this.RetryWindowMaxDuration),
+                        RetryGridShiftMs = this.RetryGridShift.TotalMilliseconds,
+                        this.MaxParallelRequests,
+                        this.MaxTotalAudioFactor,
+                        this.MaxGap,
+                        this.EndOfSentenceMinGap,
+                        this.MaxDuration,
+                        NbIgnorePatterns = this.TranscriptionToIgnorePatterns?.Length ?? 0
+                    },
+                    Audio = new { Duration = T(report.AudioEnd), SearchStart = T(report.SearchStart) },
+                    Totals = new
+                    {
+                        Requests = report.Requests.Count,
+                        ByKind = report.Requests.GroupBy(r => r.Kind.ToString()).ToDictionary(k => k.Key, k => new
+                        {
+                            Total = k.Count(),
+                            Sent = k.Count(r => r.Result != null && !r.FromCache),
+                            Cache = k.Count(r => r.Result != null && r.FromCache),
+                            NotSent = k.Count(r => r.Result == null),
+                            PhrasesKept = k.Where(r => r.Result != null).Select(r => r.Result).Distinct().Sum(c => keptByChunk.TryGetValue(c, out var n) ? n : 0)
+                        }),
+                        AudioSent = T(TimeSpan.FromTicks(sent.Sum(r => r.Timing.Duration.Ticks))),
+                        EstimatedCost = Math.Round(sent.Sum(r => Cost(r.Cost)), 4),
+                        PhrasesKept = report.LastAccepted.Count,
+                        LongerPhrasesKept = report.NbLongerLines,
+                        DuplicatePhrasesLeftOut = report.NbDuplicates,
+                        Subtitles = report.LastItems.Count,
+                        JobStateChunks = report.JobState.Chunks.Count,
+                        JobStateGapRetries = report.JobState.GapRetries.Count
+                    },
+                    Requests = requests,
+                    GapsLeft = gapsLeft,
+                    // (the subtitles built from the phrases kept, before EndPadding)
+                    Subtitles = report.LastItems.Select(s => new { Start = T(s.StartTime), End = T(s.EndTime), Text = s.Metadata.Get(this.MetadataProduced) }).ToList(),
+                    // (the phrases kept, with the request they come from)
+                    PhrasesKept = report.LastAccepted
+                        .OrderBy(a => a.Candidate.Item.StartTime)
+                        .Select(a => new
+                        {
+                            Start = T(a.Candidate.Item.StartTime),
+                            End = T(a.Candidate.Item.EndTime),
+                            Text = a.Candidate.Item.Metadata.Get(this.MetadataProduced),
+                            Kind = a.Candidate.Kind.ToString(),
+                            Request = indexByChunk.TryGetValue(a.Chunk, out var i) ? i : (int?)null,
+                            Score = a.Candidate.Score == double.MaxValue ? (double?)null : Math.Round(a.Candidate.Score, 1)
+                        })
+                        .ToList()
+                };
+                var path = context.WIP.BaseFilePath + $".Worker.{transcription.Id}.run.json";
+                System.IO.File.WriteAllText(path, JsonConvert.SerializeObject(json, Formatting.Indented), new UTF8Encoding(false));
+
+                if (!string.IsNullOrWhiteSpace(this.GroundTruthExtension))
+                    WriteGroundTruthReport(context, transcription, report, status);
+            }
+            catch (Exception ex)
+            {
+                context.WriteLog($"The run report can't be written: {ex}");
+            }
         }
 
         /// <summary>
@@ -723,31 +1455,26 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
             return kept;
         }
 
-        /// <summary>The subtitles of a chunk, from its words (times: in the chunk => in the scene), without the end padding.</summary>
-        private List<TimedItemWithMetadata> BuildItems(SubtitleGeneratorContext context, CachedChunk chunk, bool logIgnored, out List<string> speakers)
+        /// <summary>
+        /// The phrases of an answer (see PhraseMaxGap): its words, in the order of the answer, cut where the pause between two words is longer
+        /// than PhraseMaxGap (or the speaker changes, with Diarization). The phrases that match TranscriptionToIgnorePatterns are left out.
+        /// </summary>
+        private List<Phrase> BuildPhrases(SubtitleGeneratorContext context, CachedChunk chunk, bool logIgnored)
         {
-            var textBytes = Encoding.UTF8.GetBytes(chunk.Text ?? string.Empty);
-            var groups = new List<List<AIEngineAPIGoogle.TranscribedWordInfo>>();
-            List<AIEngineAPIGoogle.TranscribedWordInfo> current = null;
-            var words = RemoveBrokenWords(chunk.Words ?? Array.Empty<AIEngineAPIGoogle.TranscribedWordInfo>(), out var nbBroken);
+            var words = GetUsableWords(chunk, out var nbBroken, out var nbRepeated);
             if (nbBroken > 0 && logIgnored)
                 context.WriteLog($"Chunk {chunk.StartTime:hh\\:mm\\:ss}: {nbBroken} word(s) with impossible times ignored.");
+            if (nbRepeated > 0 && logIgnored)
+                context.WriteLog($"Chunk {chunk.StartTime:hh\\:mm\\:ss}: the last {nbRepeated} word(s) ignored, the model repeated itself.");
+
+            var groups = new List<List<AIEngineAPIGoogle.TranscribedWordInfo>>();
+            List<AIEngineAPIGoogle.TranscribedWordInfo> current = null;
             foreach (var word in words)
             {
-                if (current != null)
+                if (current != null
+                    && (word.StartTime - current[^1].EndTime > this.PhraseMaxGap || (this.Diarization && word.Speaker != current[^1].Speaker)))
                 {
-                    var previous = current[^1];
-                    var gap = word.StartTime - previous.EndTime;
-                    var gapTooLong = this.MaxGap.HasValue && gap > this.MaxGap.Value;
-                    var tooLong = this.MaxDuration.HasValue && word.EndTime - current[0].StartTime > this.MaxDuration.Value;
-                    var previousText = (previous.Text ?? "").Trim();
-                    var endOfSentence = this.EndOfSentenceMinGap.HasValue
-                        && previousText.Length > 0
-                        && EndOfSentence.Contains(previousText[^1])
-                        && gap >= this.EndOfSentenceMinGap.Value;
-                    var otherSpeaker = this.Diarization && word.Speaker != previous.Speaker;
-                    if (gapTooLong || endOfSentence || tooLong || otherSpeaker)
-                        current = null;
+                    current = null;
                 }
                 if (current == null)
                 {
@@ -757,60 +1484,72 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                 current.Add(word);
             }
 
-            var items = new List<TimedItemWithMetadata>();
-            speakers = new List<string>();
-            var trimmedEdges = 0;
-            string ExtractRangeText(List<AIEngineAPIGoogle.TranscribedWordInfo> grp, int from, int to)
-            {
-                var f = grp[from];
-                var l = grp[to];
-                return f.StartIndex != null && l.EndIndex != null && l.EndIndex <= textBytes.Length && f.StartIndex < l.EndIndex
-                    ? Encoding.UTF8.GetString(textBytes, f.StartIndex.Value, l.EndIndex.Value - f.StartIndex.Value).Trim()
-                    : string.Concat(grp.Skip(from).Take(to - from + 1).Select(w => w.Text)).Trim();
-            }
-
-            // The words before the first pause >= TrimIgnoredWordsMinGap (leading) / after the last one (trailing), when they match
-            // TranscriptionToIgnorePatterns (or have no text): removed from the group.
-            bool TrimEdge(List<AIEngineAPIGoogle.TranscribedWordInfo> group, bool leading)
-            {
-                if (group.Count <= 1)
-                    return false;
-                var wordsAfterPause = Enumerable.Range(1, group.Count - 1)
-                    .Where(i => group[i].StartTime - group[i - 1].EndTime >= this.TrimIgnoredWordsMinGap.Value)
-                    .DefaultIfEmpty(-1);
-                var split = leading ? wordsAfterPause.First() : wordsAfterPause.Last();
-                if (split < 0)
-                    return false;
-                var (from, to) = leading ? (0, split - 1) : (split, group.Count - 1);
-                var edgeText = ExtractRangeText(group, from, to);
-                var edgePattern = edgeText.Length == 0 ? null : this.TranscriptionToIgnorePatterns.FirstOrDefault(p => p.Regex.IsMatch(edgeText));
-                if (edgeText.Length > 0 && edgePattern == null)
-                    return false;
-                if (logIgnored && edgePattern != null)
-                    context.WriteLog($"Trimming {(leading ? "leading" : "trailing")} '{edgePattern.Name}' at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(chunk.StartTime + group[from].StartTime)}]: {edgeText}");
-                group.RemoveRange(from, to - from + 1);
-                return true;
-            }
-
+            var phrases = new List<Phrase>();
             foreach (var group in groups)
             {
-                // Peel off leading / trailing words matching TranscriptionToIgnorePatterns when separated by >= TrimIgnoredWordsMinGap
-                if (this.TrimIgnoredWordsMinGap.HasValue && this.TranscriptionToIgnorePatterns != null && this.TranscriptionToIgnorePatterns.Length > 0)
-                {
-                    while (TrimEdge(group, leading: true))
-                        trimmedEdges++;
-                    while (TrimEdge(group, leading: false))
-                        trimmedEdges++;
-                }
-
-                // (the text between the first and the last word, as in the text of the answer: with its spaces / punctuation)
-                var first = group[0];
-                var last = group[^1];
-                var text = ExtractRangeText(group, 0, group.Count - 1);
+                var text = ExtractText(group.Select(w => (chunk, w)).ToList());
                 if (text.Length == 0)
                     continue;
+                var startTime = chunk.StartTime + group.Min(w => w.StartTime);
+                var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(p => p.Regex.IsMatch(text));
+                if (pattern != null)
+                {
+                    if (logIgnored)
+                        context.WriteLog($"Ignoring '{pattern.Name}' phrase at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(startTime)}]: {text}");
+                    continue;
+                }
+                var metadata = new MetadataCollection();
+                metadata[this.MetadataProduced] = text;
+                phrases.Add(new Phrase(chunk, group, new TimedItemWithMetadata(startTime, chunk.StartTime + group.Max(w => w.EndTime), metadata)));
+            }
+            return phrases;
+        }
 
-                var startTime = chunk.StartTime + first.StartTime;
+        /// <summary>
+        /// The subtitles (without the end padding), from the words of these phrases (in this order: the words of a phrase stay together): a new
+        /// subtitle after a pause (MaxGap), after the end of a sentence (EndOfSentenceMinGap), when it would be too long (MaxDuration), when the
+        /// speaker changes (Diarization). The subtitles that match TranscriptionToIgnorePatterns are left out. With the speaker of each one.
+        /// </summary>
+        private List<(TimedItemWithMetadata Item, string Speaker)> BuildLines(SubtitleGeneratorContext context, List<Phrase> phrases, bool logIgnored)
+        {
+            var lines = new List<List<(CachedChunk Chunk, AIEngineAPIGoogle.TranscribedWordInfo Word)>>();
+            List<(CachedChunk Chunk, AIEngineAPIGoogle.TranscribedWordInfo Word)> current = null;
+            TimeSpan Start((CachedChunk Chunk, AIEngineAPIGoogle.TranscribedWordInfo Word) w) => w.Chunk.StartTime + w.Word.StartTime;
+            TimeSpan End((CachedChunk Chunk, AIEngineAPIGoogle.TranscribedWordInfo Word) w) => w.Chunk.StartTime + w.Word.EndTime;
+            foreach (var word in phrases.SelectMany(p => p.Words.Select(w => (p.Chunk, w))))
+            {
+                if (current != null)
+                {
+                    var previous = current[^1];
+                    var gap = Start(word) - End(previous);
+                    var gapTooLong = this.MaxGap.HasValue && gap > this.MaxGap.Value;
+                    var tooLong = this.MaxDuration.HasValue && End(word) - current.Min(Start) > this.MaxDuration.Value;
+                    var previousText = (previous.Word.Text ?? "").Trim();
+                    var endOfSentence = this.EndOfSentenceMinGap.HasValue
+                        && previousText.Length > 0
+                        && EndOfSentence.Contains(previousText[^1])
+                        && gap >= this.EndOfSentenceMinGap.Value;
+                    var otherSpeaker = this.Diarization && word.w.Speaker != previous.Word.Speaker;
+                    // (a phrase said at the same time as the previous one: another speaker, or the same line twice, see SameLineMaxStartDifference)
+                    var overlapsPrevious = gap < -OverlapRecoveryMargin;
+                    if (gapTooLong || endOfSentence || tooLong || otherSpeaker || overlapsPrevious)
+                        current = null;
+                }
+                if (current == null)
+                {
+                    current = new List<(CachedChunk Chunk, AIEngineAPIGoogle.TranscribedWordInfo Word)>();
+                    lines.Add(current);
+                }
+                current.Add(word);
+            }
+
+            var result = new List<(TimedItemWithMetadata Item, string Speaker)>();
+            foreach (var line in lines)
+            {
+                var text = ExtractText(line);
+                if (text.Length == 0)
+                    continue;
+                var startTime = line.Min(Start);
                 var pattern = this.TranscriptionToIgnorePatterns?.FirstOrDefault(p => p.Regex.IsMatch(text));
                 if (pattern != null)
                 {
@@ -818,20 +1557,57 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors
                         context.WriteLog($"Ignoring '{pattern.Name}' transcription at [{context.WIP.TimelineMap.ConvertToPartSpecificFileIndexAndTime(startTime)}]: {text}");
                     continue;
                 }
-
+                var speaker = line[0].Word.Speaker;
                 var metadata = new MetadataCollection();
                 metadata[this.MetadataProduced] = text;
-                if (this.Diarization && first.Speaker != null && !string.IsNullOrWhiteSpace(this.SpeakerMetadata))
-                    metadata[this.SpeakerMetadata] = first.Speaker;
-                speakers.Add(first.Speaker);
-                items.Add(new TimedItemWithMetadata(
-                    startTime,
-                    chunk.StartTime + last.EndTime,
-                    metadata));
+                if (this.Diarization && speaker != null && !string.IsNullOrWhiteSpace(this.SpeakerMetadata))
+                    metadata[this.SpeakerMetadata] = speaker;
+                result.Add((new TimedItemWithMetadata(startTime, line.Max(End), metadata), speaker));
             }
-            if (trimmedEdges > 0 && logIgnored)
-                context.WriteLog($"Chunk {chunk.StartTime:hh\\:mm\\:ss}: trimmed {trimmedEdges} leading/trailing ignored word group(s).");
-            return items;
+            return result;
+        }
+
+        /// <summary>
+        /// The text of these words, as in the text of the answers (with their spaces / punctuation): the words that follow each other in the same
+        /// answer are taken together from its text, the parts of different answers are put one after the other (a space between two letters /
+        /// digits of the latin alphabet).
+        /// </summary>
+        private static string ExtractText(List<(CachedChunk Chunk, AIEngineAPIGoogle.TranscribedWordInfo Word)> words)
+        {
+            var result = new StringBuilder();
+            void Append(string part)
+            {
+                part = part.Trim();
+                if (part.Length == 0)
+                    return;
+                if (result.Length > 0 && result[^1] < 128 && char.IsLetterOrDigit(result[^1]) && part[0] < 128 && char.IsLetterOrDigit(part[0]))
+                    result.Append(' ');
+                result.Append(part);
+            }
+            for (var index = 0; index < words.Count;)
+            {
+                var (chunk, first) = words[index];
+                var bytes = rs_textBytes.GetValue(chunk, c => Encoding.UTF8.GetBytes(c.Text ?? string.Empty));
+                // (the words of the same answer, one after the other in its text: at most a few bytes between them, ex. a space)
+                var last = index;
+                while (last + 1 < words.Count
+                    && words[last + 1].Chunk == chunk
+                    && words[last].Word.EndIndex is int previousEnd
+                    && words[last + 1].Word.StartIndex is int nextStart
+                    && nextStart >= previousEnd
+                    && nextStart - previousEnd <= 3)
+                {
+                    last++;
+                }
+                var lastWord = words[last].Word;
+                if (first.StartIndex is int startIndex && lastWord.EndIndex is int endIndex && endIndex <= bytes.Length && startIndex < endIndex)
+                    Append(Encoding.UTF8.GetString(bytes, startIndex, endIndex - startIndex));
+                else
+                    for (var k = index; k <= last; k++)
+                        Append(words[k].Word.Text ?? string.Empty);
+                index = last + 1;
+            }
+            return result.ToString();
         }
     }
 }

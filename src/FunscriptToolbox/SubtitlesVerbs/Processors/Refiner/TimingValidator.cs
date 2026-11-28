@@ -6,9 +6,7 @@ using System.Text.RegularExpressions;
 namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
 {
     /// <summary>
-    /// Checks done on the final result (after the refining and the overlap handling).
-    /// <see cref="PlanSplits"/> first: the long subtitles whose LongWithSilence validation is set to Fix are split (the task refines the parts).
-    /// Then <see cref="Run"/> flags what is left.
+    /// Checks done on the snapped result (after terrain snapping and overlap handling).
     /// A check whose threshold is not set in <see cref="TimingChecksSettings"/> is not done.
     /// </summary>
     public class TimingValidator
@@ -30,36 +28,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
             r_maybePointless = r_checks.CreateMaybePointlessRegex();
         }
 
-        /// <summary>The long subtitles to split (nothing when LongWithSilence is not set to Fix). Nothing is flagged here.</summary>
-        public List<TimingEdit> PlanSplits()
-        {
-            var edits = new List<TimingEdit>();
-            if (r_refiner.ModeOf(ValidationCode.LongWithSilence) != ValidationMode.Fix)
-                return edits;
-
-            foreach (var cand in r_refiner.Candidates.Where(c => c.Origin == TimingOrigin.Original))
-            {
-                var silences = FindSplittableSilences(cand);
-                if (silences.Count == 0)
-                    continue;
-
-                var cuts = ChooseCuts(cand.Start.Current, cand.End.Current, silences);
-                if (cuts.Count == 0)
-                    continue;
-
-                var edit = new TimingEdit { Replaces = cand, Origin = TimingOrigin.SplitPart };
-                var partStart = cand.Start.Current;
-                foreach (var cut in cuts.OrderBy(c => c.Start))
-                {
-                    edit.Spans.Add((partStart, cut.Start));
-                    partStart = cut.End;
-                }
-                edit.Spans.Add((partStart, cand.End.Current));
-                edits.Add(edit);
-            }
-            return edits;
-        }
-
         /// <summary>Flags everything the checks find.</summary>
         public void Run()
         {
@@ -68,7 +36,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
 
             foreach (var cand in candidates)
             {
-                CheckOrigin(cand);
                 CheckSpeechInside(cand);
                 CheckDuration(cand);
                 CheckTextLoop(cand);
@@ -83,18 +50,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         // ---------------------------------------------------------------------
         // One candidate
         // ---------------------------------------------------------------------
-
-        /// <summary>What the split leaves behind: the text of the parts comes from the AI, so they are worth a look.</summary>
-        private void CheckOrigin(TimingCandidate cand)
-        {
-            if (cand.Origin != TimingOrigin.SplitPart)
-                return;
-
-            r_refiner.Flag(cand, ValidationCode.SplitPart, "Part of a subtitle that was split (the text comes from the AI)");
-
-            if (string.IsNullOrWhiteSpace(cand.FinalText))
-                r_refiner.Flag(cand, ValidationCode.EmptyText, "The AI did not give any text");
-        }
 
         private void CheckSpeechInside(TimingCandidate cand)
         {
@@ -170,7 +125,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         }
 
         // ---------------------------------------------------------------------
-        // Long subtitle with a silence inside: flag it, or split it
+        // Long subtitle with a silence inside
         // ---------------------------------------------------------------------
 
         /// <summary>The silences where the candidate could be split: none unless it is longer than MaxSubtitleDuration.</summary>
@@ -185,7 +140,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
             return r_refiner.TerrainMapping.SilencesBetweenSpeech(cand.Start.Current, cand.End.Current, r_checks.MinSilenceToSplit);
         }
 
-        /// <summary>What is still long with a silence inside after the split (a part is never split again, or the validation is not set to Fix).</summary>
         private void CheckLongWithSilence(TimingCandidate cand)
         {
             var silences = FindSplittableSilences(cand);
@@ -196,43 +150,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
             var longest = silences.Max(s => s.End - s.Start);
             r_refiner.Flag(cand, ValidationCode.LongWithSilence,
                 $"{duration.TotalSeconds:0.0}s long (max {r_checks.MaxSubtitleDuration.Value.TotalSeconds:0.0}s) with {silences.Count} silence(s) inside, up to {longest.TotalSeconds:0.0}s");
-        }
-
-        private List<(TimeSpan Start, TimeSpan End)> ChooseCuts(
-            TimeSpan start,
-            TimeSpan end,
-            List<(TimeSpan Start, TimeSpan End)> silences)
-        {
-            if (r_checks.SplitStrategy == SplitStrategy.EverySilence)
-                return silences;
-
-            var cuts = new List<(TimeSpan Start, TimeSpan End)>();
-            CutUnderMaxDuration(start, end, silences, cuts);
-            return cuts;
-        }
-
-        /// <summary>Cuts the range at the silence nearest its middle, then does the same on each side, until every part is short enough.</summary>
-        private void CutUnderMaxDuration(
-            TimeSpan from,
-            TimeSpan to,
-            List<(TimeSpan Start, TimeSpan End)> silences,
-            List<(TimeSpan Start, TimeSpan End)> cuts)
-        {
-            if (to - from <= r_checks.MaxSubtitleDuration.Value)
-                return;
-
-            var inside = silences.Where(s => s.Start > from && s.End < to).ToList();
-            if (inside.Count == 0)
-                return;
-
-            var middle = from + TimeSpan.FromTicks((to - from).Ticks / 2);
-            var best = inside
-                .OrderBy(s => (s.Start + TimeSpan.FromTicks((s.End - s.Start).Ticks / 2) - middle).Duration())
-                .First();
-
-            cuts.Add(best);
-            CutUnderMaxDuration(from, best.Start, inside, cuts);
-            CutUnderMaxDuration(best.End, to, inside, cuts);
         }
 
         // ---------------------------------------------------------------------

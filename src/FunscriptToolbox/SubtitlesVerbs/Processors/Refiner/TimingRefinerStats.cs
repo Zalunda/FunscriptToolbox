@@ -8,18 +8,7 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         /// <summary>(code of the ValidationNotes counted, label shown in the summary)</summary>
         public static readonly (ValidationCode Code, string Label)[] NoteCategories =
         {
-            (ValidationCode.MissingStart,       "Missing Start (Max limit)"),
-            (ValidationCode.MissingEnd,         "Missing End (Max limit)"),
-            (ValidationCode.Unfinished,         "Unfinished (safety limit)"),
-            (ValidationCode.TextMismatch,       "Text Mismatch (in Max)"),
-            (ValidationCode.Inaudible,          "Audio Inaudible"),
             (ValidationCode.Overlap,            "Overlap Warning"),
-            (ValidationCode.BoundariesCrossed,  "Boundaries Crossed"),
-            (ValidationCode.NoAnswer,           "No Answer from the AI"),
-            (ValidationCode.UnrecognisedAnswer, "Unrecognised Answer"),
-            (ValidationCode.UnsureStart,        "Unsure Start (runs disagree)"),
-            (ValidationCode.UnsureEnd,          "Unsure End (runs disagree / capped)"),
-            (ValidationCode.InsideNeighbour,    "Inside its Neighbour (kept as snapped)"),
             (ValidationCode.NoSpeechInside,     "No Speech Inside"),
             (ValidationCode.TooShort,           "Too Short"),
             (ValidationCode.TooFast,            "Too Fast (chars/s)"),
@@ -30,8 +19,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
             (ValidationCode.TextLoop,           "Text Repeating Itself"),
             (ValidationCode.MaybePointless,     "Maybe Pointless (only filler words)"),
             (ValidationCode.LongWithSilence,    "Long with Silence Inside"),
-            (ValidationCode.SplitPart,          "Part of a Split Subtitle"),
-            (ValidationCode.EmptyText,          "No Text (from the AI)"),
             (ValidationCode.TitleCard,          "Title Card Detected"),
         };
 
@@ -51,10 +38,6 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         public double MaxOutwardStartDrift { get; set; }
         public double AvgEndDrift { get; set; }
         public double MaxOutwardEndDrift { get; set; }
-
-        /// <summary>Final vs initial snap, in dips (positive = outward): number of subtitles for each value.</summary>
-        public SortedDictionary<int, int> StartDipDeltas { get; } = new SortedDictionary<int, int>();
-        public SortedDictionary<int, int> EndDipDeltas { get; } = new SortedDictionary<int, int>();
 
         public int Overlaps { get; set; }
         public int Squashed { get; set; }

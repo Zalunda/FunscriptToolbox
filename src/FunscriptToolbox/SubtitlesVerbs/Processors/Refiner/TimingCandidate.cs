@@ -16,16 +16,9 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         public TimeSpan OriginalEndTime { get; set; }
         public string OriginalText { get; set; }
 
-        /// <summary>What the AI heard during the Start pass (null when it agreed with OriginalText).</summary>
-        public string HeardText { get; set; }
-
         public TimingOrigin Origin { get; set; }
 
-        /// <summary>The text of the node: the original, except for a part of a split subtitle (no text of its own: what the AI heard).</summary>
-        [JsonIgnore] public string FinalText => Origin == TimingOrigin.SplitPart ? HeardText ?? "" : OriginalText;
-
-        /// <summary>Best known text: what the AI heard if it disagreed with the draft, otherwise the draft.</summary>
-        [JsonIgnore] public string TextForAI => string.IsNullOrWhiteSpace(HeardText) ? OriginalText : HeardText;
+        [JsonIgnore] public string FinalText => OriginalText;
 
         [JsonIgnore] public TimedItemWithMetadata OriginalItem { get; set; }
 
@@ -36,26 +29,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
 
         [JsonIgnore] public bool IsFullyLocked => Start.Locked && End.Locked;
 
-        public string PossibleBleedFromPrev { get; set; }
-        public string PossibleBleedFromNext { get; set; }
-
-        public TimingRound CurrentRound { get; set; }
-        public List<TimingRound> Rounds { get; set; } = new List<TimingRound>();
-
-        /// <summary>The tail checks of the End (what the chosen End appended, and what the AI heard in it), see TimingRound.IsTailCheck.</summary>
-        public List<TimingRound> TailChecks { get; set; } = new List<TimingRound>();
-
         public List<ValidationNote> ValidationNotes { get; set; } = new List<ValidationNote>();
         public List<string> Traces { get; set; } = new List<string>();
-
-        /// <summary>
-        /// The confidence of the engine in the final timing (0 = surely wrong .. 1 = surely right), null when the engine gives none.
-        /// Written as a '[TimingConfidence:0.42] reason' line in the manual-input file (the 'Conf.' column of the Timing editor).
-        /// </summary>
-        public double? TimingConfidence { get; set; }
-
-        /// <summary>Why <see cref="TimingConfidence"/> has its value (one line).</summary>
-        public string TimingConfidenceReason { get; set; }
 
         public void LockAll()
         {

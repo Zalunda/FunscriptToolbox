@@ -37,15 +37,17 @@ namespace FunscriptToolbox.SubtitlesVerbs.Infra
             var index = 1;
             foreach (var segment in this.Segments)
             {
-                if (position > segment.Offset && position < segment.Offset + segment.Duration)
+                // (the start of a part is in it: ex. 0 is in the first one)
+                if (position >= segment.Offset && position < segment.Offset + segment.Duration)
                 {
                     return (index, segment.Filename, position - segment.Offset);
                 }
                 index++;
             }
 
+            // (after the end: in the last part)
             var lastSegment = this.Segments.Last();
-            return (index, lastSegment.Filename, position - lastSegment.Offset);
+            return (this.Segments.Count(), lastSegment.Filename, position - lastSegment.Offset);
         }
 
         public string ConvertToPartSpecificFileIndexAndTime(TimeSpan globalTime)

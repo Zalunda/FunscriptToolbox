@@ -51,7 +51,7 @@ namespace FunscriptToolbox.SubtitlesVerbs
                 SupportAudio = true,
                 EstimatedCostPerInputMillionTokens = 2,
                 EstimatedCostPerOutputMillionTokens = 12,
-                TranscribeMinTimeBetweenRequests = TimeSpan.FromSeconds(30),
+                TranscribeMinTimeBetweenRequests = TimeSpan.FromSeconds(1),
                 TranscribeMaxRetriesOnTooManyRequests = 5
             });
 
@@ -71,88 +71,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
             var translatorSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TranslatorSystemPrompt), Resources.TranslatorSystemPrompt);
             // (a translation to any language, [TranslationLanguage]: ex. the French example in a workflow override)
             AddPromptToSharedObjects(nameof(Resources.TranslatorUniversalSystemPrompt), Resources.TranslatorUniversalSystemPrompt);
-
-            // The prompts of the timing refiner (annotated-timings-proposal)
-            var timingStartJudgeSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingStartJudgeSystemPrompt), Resources.TimingStartJudgeSystemPrompt);
-            var timingEndJudgeSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingEndJudgeSystemPrompt), Resources.TimingEndJudgeSystemPrompt);
-            var timingEndTailSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingEndTailSystemPrompt), Resources.TimingEndTailSystemPrompt);
-            var timingVerifySystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingVerifySystemPrompt), Resources.TimingVerifySystemPrompt);
-            var timingSpokenMarkersSystemPrompt = AddPromptToSharedObjects(nameof(Resources.TimingSpokenMarkersSystemPrompt), Resources.TimingSpokenMarkersSystemPrompt);
-
-            // A request of the timing refiner: one audio clip per node, the node known only by its StartTime
-            static AIOptions CreateTimingInnerOptions(AIPrompt systemPrompt, string metadataProduced) => new AIOptions()
-            {
-                SystemPrompt = systemPrompt,
-                MetadataNeeded = "",
-                MetadataAlwaysProduced = metadataProduced,
-                BinaryDataExtractors = new BinaryDataExtractor[]
-                {
-                    new BinaryDataExtractorAudio()
-                    {
-                        OutputFieldName = "AudioClip",
-                        Enabled = true,
-                        ExpandStart = TimeSpan.Zero,
-                        ExpandEnd = TimeSpan.Zero,
-                        KeepTemporaryFiles = false,
-                        SourceAudioId = "audio"
-                    }
-                },
-                MaximumRequestsInBatch = 30,
-                BatchSize = 25,
-                BatchSplitWindows = 0,
-                BatchKeepTogetherThreshold = TimeSpan.Zero,
-                NbContextItems = 0,
-                NbItemsMinimumReceivedToContinue = 15,
-                FieldsToInclude = NodeFields.StartTime
-            };
-
-            // The engines of the timing refiner (annotated-timings-proposal: RefineTiming.Engine), from the cheapest to the most expensive in AI tokens
-            var timingRefineEngineNone = AddSharedObject(nameof(TimingRefineEngineNone), new TimingRefineEngineNone());
-            AddSharedObject(nameof(TimingRefineEngineVerify), new TimingRefineEngineVerify
-            {
-                InnerOptions = CreateTimingInnerOptions(timingVerifySystemPrompt, "Verdict")
-            });
-            AddSharedObject(nameof(TimingRefineEngineStartEndJudge), new TimingRefineEngineStartEndJudge
-            {
-                InnerOptionsStart = CreateTimingInnerOptions(timingStartJudgeSystemPrompt, "BestStart"),
-                InnerOptionsEnd = CreateTimingInnerOptions(timingEndJudgeSystemPrompt, "BestEnd"),
-                MaxTestsInRequest = 5,
-                MaxDipsInward = 2,
-                MaxDipsOutward = 2,
-                MaxExpansion = TimeSpan.FromSeconds(2.0),
-                StartPassTailPadding = TimeSpan.FromSeconds(0.8),
-                StartClipPadding = TimeSpan.FromMilliseconds(300),
-                EndClipPadding = TimeSpan.FromMilliseconds(300),
-                EndTail = new TimingRefineEndTailSettings
-                {
-                    InnerOptions = CreateTimingInnerOptions(timingEndTailSystemPrompt, "TailKind"),
-                    MinExtra = TimeSpan.FromSeconds(0.4),
-                    MaxChecks = 1,
-                    KeepIfSpeechRatio = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        { "Silence", 0.3f },
-                        { "Moaning", 0.5f }
-                    }
-                }
-            });
-            // The spoken markers: ONE request per subtitle and per run, in batches of 50 nodes (the batch of the tests: the less the AI
-            // thinks per node, the cheaper; the AI engine needs a maxOutputTokens big enough for 50 answers, ex. 16384)
-            var spokenMarkersOptions = CreateTimingInnerOptions(timingSpokenMarkersSystemPrompt, TimingMeta.MarkedTranscription);
-            spokenMarkersOptions.BatchSize = 50;
-            spokenMarkersOptions.NbItemsMinimumReceivedToContinue = 40;
-            AddSharedObject(nameof(TimingRefineEngineSpokenMarkers), new TimingRefineEngineSpokenMarkers
-            {
-                InnerOptions = spokenMarkersOptions,
-                Runs = 2,
-                OnDisagreement = SpokenMarkersPick.Wider,
-                StartOptionsBefore = 2,
-                StartOptionsAfter = 2,
-                EndOptionsBefore = 4,
-                EndOptionsAfter = 2,
-                MaxExpansion = TimeSpan.FromSeconds(2.0),
-                MarkerMergeDistance = TimeSpan.FromMilliseconds(80),
-                ClipMargin = TimeSpan.FromSeconds(0.7)
-            });
 
             var config = new SubtitleGeneratorConfig()
             {
@@ -304,13 +222,12 @@ namespace FunscriptToolbox.SubtitlesVerbs
 
                     //---------------------------------------------------
                     // The annotated timings: what will be processed (proposed from the transcription, reviewed by the user, with his annotations)
-                    // Prepares the subtitles of 'transcription-from-ai' for the manual-input file: refines their timings (terrain of the audio, + AI depending
-                    // on RefineTiming.Engine), adds the title cards, and flags what needs a look ('[REVIEW:Code:Detail] reason' lines).
+                    // Prepares the subtitles of 'transcription-from-ai' for the manual-input file: snaps their timings on the terrain of the audio,
+                    // adds the title cards, and flags what needs a look ('[REVIEW:Code:Detail] reason' lines).
                     // Enabled by the workflows (with 'transcription' using it as its source).
                     new TransformManualInputPreparer()
                     {
                         Id = "annotated-timings-proposal",
-                        Engine = defaultEngine,
                         PrivateMetadataNames = "TimingTrace",
                         Metadatas = new MetadataAggregator()
                         {
@@ -330,30 +247,15 @@ namespace FunscriptToolbox.SubtitlesVerbs
                         RefineTiming = new TimingRefinerSettings()
                         {
                             Enabled = true,
-                            SourceAudioIdForTerrain = "audio-clean-waveform",
-                            BleedDetectionMargin = TimeSpan.FromSeconds(3.0),
-                            TrimSilenceOnStart = true,
-                            TrimSilenceOnEnd = true,
-                            // TimingRefineEngineNone (no AI request) / TimingRefineEngineVerify (one AI request per subtitle) /
-                            // TimingRefineEngineStartEndJudge (the AI picks the start and the end): see the shared objects
-                            Engine = timingRefineEngineNone
+                            SourceAudioIdForTerrain = "audio-clean-waveform"
                         },
                         Validation = new TimingValidatorSettings()
                         {
                             Enabled = true,
-                            // Warn / Ignore / Fix (LongWithSilence only)
+                            // Warn / Ignore
                             Validations = new Dictionary<ValidationCode, ValidationMode>()
                             {
-                                { ValidationCode.MissingStart, ValidationMode.Warn },
-                                { ValidationCode.MissingEnd, ValidationMode.Warn },
-                                { ValidationCode.Unfinished, ValidationMode.Warn },
-                                { ValidationCode.TextMismatch, ValidationMode.Warn },
-                                { ValidationCode.Inaudible, ValidationMode.Warn },
                                 { ValidationCode.Overlap, ValidationMode.Warn },
-                                { ValidationCode.BoundariesCrossed, ValidationMode.Warn },
-                                { ValidationCode.NoAnswer, ValidationMode.Warn },
-                                { ValidationCode.UnrecognisedAnswer, ValidationMode.Warn },
-                                { ValidationCode.InsideNeighbour, ValidationMode.Warn },
                                 { ValidationCode.NoSpeechInside, ValidationMode.Warn },
                                 { ValidationCode.TooShort, ValidationMode.Warn },
                                 { ValidationCode.TooFast, ValidationMode.Warn },
@@ -364,8 +266,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 { ValidationCode.TextLoop, ValidationMode.Warn },
                                 { ValidationCode.MaybePointless, ValidationMode.Warn },
                                 { ValidationCode.LongWithSilence, ValidationMode.Warn },
-                                { ValidationCode.SplitPart, ValidationMode.Warn },
-                                { ValidationCode.EmptyText, ValidationMode.Warn },
                                 { ValidationCode.TitleCard, ValidationMode.Warn }
                             },
                             // (made for Japanese)
@@ -378,8 +278,6 @@ namespace FunscriptToolbox.SubtitlesVerbs
                                 MinCharsPerSpeechSecond = 1.0,
                                 MaxSubtitleDuration = TimeSpan.FromSeconds(5),
                                 MinSilenceToSplit = TimeSpan.FromSeconds(1),
-                                SplitStrategy = SplitStrategy.UnderMaxDuration,
-                                TextMismatchMinSimilarity = 0.8,
                                 RepeatedTextMinSimilarity = 0.9,
                                 RepeatedTextMinChars = 8,
                                 MaybePointlessPatterns = new[]

@@ -5,17 +5,8 @@ using System.Text.RegularExpressions;
 
 namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
 {
-    public enum SplitStrategy
-    {
-        /// <summary>Split only as much as needed to get every part under MaxSubtitleDuration, each time at the silence nearest the middle.</summary>
-        UnderMaxDuration,
-
-        /// <summary>Split at every silence of at least MinSilenceToSplit.</summary>
-        EverySilence,
-    }
-
     /// <summary>
-    /// Thresholds of the checks done on the refined subtitles. The defaults are meant for Japanese
+    /// Thresholds of the checks done on the snapped subtitles. The defaults are meant for Japanese
     /// (one character = a kana or a kanji, spoken at about 5 to 10 characters per second of speech).
     /// Set a threshold to null to turn its check off.
     /// (What happens when a check finds something is set per code in the "Validations" setting.)
@@ -40,15 +31,8 @@ namespace FunscriptToolbox.SubtitlesVerbs.Processors.Refiner
         [ConfigDoc("LongWithSilence: a subtitle longer than this that has a silence (see MinSilenceToSplit) inside. null: not checked.")]
         public TimeSpan? MaxSubtitleDuration { get; set; } = TimeSpan.FromSeconds(8);
 
-        [ConfigDoc("LongWithSilence: a silence of at least this duration between two speeches is a place where the subtitle can be split.")]
+        [ConfigDoc("LongWithSilence: a silence of at least this duration between two speeches is a place where the subtitle could be split.")]
         public TimeSpan MinSilenceToSplit { get; set; } = TimeSpan.FromSeconds(1);
-
-        [ConfigDoc("How LongWithSilence is fixed (when it's set to \"Fix\" in Validations): UnderMaxDuration (only as much as needed to get every part under MaxSubtitleDuration, each time at the silence nearest the middle) " +
-            "or EverySilence (at every silence of at least MinSilenceToSplit).")]
-        public SplitStrategy SplitStrategy { get; set; } = SplitStrategy.UnderMaxDuration;
-
-        [ConfigDoc("TextMismatch: the text the AI heard is a mismatch only when its similarity (0 to 1) with the text it was given is below this. null: any difference is a mismatch.")]
-        public double? TextMismatchMinSimilarity { get; set; } = 0.8;
 
         [ConfigDoc("RepeatedText: two close subtitles whose texts have a similarity (0 to 1) of at least this are a repetition (often a transcription error). null: not checked.")]
         public double? RepeatedTextMinSimilarity { get; set; } = 0.9;

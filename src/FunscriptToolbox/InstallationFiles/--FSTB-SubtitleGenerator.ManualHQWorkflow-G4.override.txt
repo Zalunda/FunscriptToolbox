@@ -25,20 +25,7 @@
     },
     {
       "Id": "annotated-timings-proposal",
-      "Enabled": true,
-      "Engine": {
-        "$ref": "AIEngineGemini4",
-        "Engines": [
-          {
-            "$ref": "AIEngineGemini4OnGoogle",
-            "RequestBodyExtension": { "generationConfig": { "temperature": 0.0, "maxOutputTokens": 2048 } }
-          },
-          {
-            "$ref": "AIEngineGemini4OnPoe",
-            "RequestBodyExtension": { "generationConfig": { "temperature": 0.0, "maxOutputTokens": 2048 } }
-          }
-        ]
-      }
+      "Enabled": true
     },
     {
       "Id": "transcription",
